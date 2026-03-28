@@ -629,7 +629,15 @@ export default function FinanceiroPage() {
       // Update installments
       // Use upsert logic instead of delete/recreate to preserve IDs and payment history
       console.log('Installments to upsert:', installments);
-      const instData = installments.map(i => ({
+      
+      // Filter out installments that are already 'Quitado' or 'Cancelado' and have an ID
+      // This prevents the backend trigger from blocking the entire transaction when saving GPS data
+      const installmentsToUpsert = installments.filter(i => {
+        if (!i.id) return true; // Always upsert new installments
+        return i.status !== 'Quitado' && i.status !== 'Cancelado';
+      });
+
+      const instData = installmentsToUpsert.map(i => ({
         ...(i.id ? { id: i.id } : {}),
         contract_id: editingContract.id,
         installmentNumber: i.installmentNumber,
