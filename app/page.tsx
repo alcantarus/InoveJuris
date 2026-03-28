@@ -1678,6 +1678,12 @@ export default function Page() {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-slate-900">Recebimentos Futuros</h3>
+                  <button 
+                    onClick={() => toggleVisibility('dashboard_upcoming')} 
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {isVisible('dashboard_upcoming') ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
                 </div>
                 <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500">
                   <DollarSign size={20} />

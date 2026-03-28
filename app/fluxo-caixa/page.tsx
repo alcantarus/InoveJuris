@@ -383,15 +383,26 @@ export default function FluxoCaixaPage() {
                     </div>
                     
                     <div className="relative z-10">
-                      <p className={cn(
-                        "text-xs font-bold uppercase tracking-widest mb-1",
-                        selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
-                      )}>Saldo Disponível</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className={cn(
+                          "text-xs font-bold uppercase tracking-widest",
+                          selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
+                        )}>Saldo Disponível</p>
+                        <button 
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVisibility('cashflow_account_' + account.id); }} 
+                          className={cn(
+                            "p-1 rounded-md transition-all",
+                            selectedAccountId === account.id ? "text-white/60 hover:text-white hover:bg-white/10" : "text-slate-300 hover:text-indigo-600 hover:bg-indigo-50"
+                          )}
+                        >
+                          {isVisible('cashflow_account_' + account.id) ? <Eye size={12} /> : <EyeOff size={12} />}
+                        </button>
+                      </div>
                       <p className={cn(
                         "text-2xl font-black tracking-tight",
                         selectedAccountId === account.id ? "text-white" : "text-slate-900"
                       )}>
-                        {formatCurrency(account.current_balance, isVisible('cashflow_accounts'))}
+                        {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
                       </p>
                     </div>
 

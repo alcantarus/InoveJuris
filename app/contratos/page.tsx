@@ -1217,8 +1217,18 @@ export default function FinanceiroPage() {
                 <FileText size={24} />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-500">Contratos</p>
-                <h3 className="text-2xl font-bold text-slate-900">{totalContracts}</h3>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-slate-500">Contratos</p>
+                  <button 
+                    onClick={() => toggleVisibility('finance_contracts')} 
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {isVisible('finance_contracts') ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900">
+                  {isVisible('finance_contracts') ? totalContracts : '••••••'}
+                </h3>
               </div>
             </div>
           </div>

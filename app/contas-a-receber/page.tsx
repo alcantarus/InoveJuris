@@ -407,9 +407,17 @@ export default function ContasAReceberPage() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
             <div className="p-3 bg-slate-50 text-slate-600 rounded-xl"><CheckCircle2 /></div>
             <div>
-              <p className="text-sm text-slate-500">Total de Parcelas</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-slate-500">Total de Parcelas</p>
+                <button 
+                  onClick={() => toggleVisibility('receivable_summary_total_installments')} 
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {isVisible('receivable_summary_total_installments') ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+              </div>
               <p className="text-2xl font-bold">
-                {!selectedContract ? contracts.length : installments.length}
+                {isVisible('receivable_summary_total_installments') ? (!selectedContract ? contracts.length : installments.length) : '••••••'}
               </p>
             </div>
           </div>
