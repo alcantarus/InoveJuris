@@ -1,5 +1,4 @@
 'use client'
-import { Card } from '@/components/ui/Card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface CommissionChartProps {
@@ -14,7 +13,7 @@ export function CommissionChart({ data }: CommissionChartProps) {
   }))
 
   return (
-    <Card className="p-6 border-none shadow-sm bg-white rounded-2xl">
+    <div className="p-6 border-none shadow-sm bg-white rounded-2xl">
       <h3 className="text-lg font-semibold text-slate-900 mb-6">Evolução de Comissões</h3>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -27,6 +26,6 @@ export function CommissionChart({ data }: CommissionChartProps) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </Card>
+    </div>
   )
 }
