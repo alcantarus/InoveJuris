@@ -1051,108 +1051,49 @@ function RelatoriosPageContent() {
                             </span>
                           </td>
                         </>
-                      ) : activeReport === 'deadlines' ? (
+                      ) : activeReport === 'gps' ? (
                         <>
-                          <td className="p-4 font-medium text-slate-900">{item.processNumber}</td>
-                          <td className="p-4 text-slate-600">{item.clientName}</td>
-                          <td className="p-4 text-slate-600">{item.description || '-'}</td>
-                          <td className="p-4 text-slate-900 font-medium">
-                            {formatDate(item.deadlineDate)}
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                              item.daysRemaining < 0 
-                                ? 'bg-slate-100 text-slate-600' // Vencido
-                                : item.daysRemaining <= 5
-                                  ? 'bg-rose-100 text-rose-700' // Crítico (menos de 5 dias)
-                                  : item.daysRemaining <= 15
-                                    ? 'bg-amber-100 text-amber-700' // Atenção (5 a 15 dias)
-                                    : 'bg-emerald-100 text-emerald-700' // Seguro
-                            }`}>
-                              {item.daysRemaining < 0 
-                                ? `Venceu há ${Math.abs(item.daysRemaining)} dias` 
-                                : item.daysRemaining === 0
-                                  ? 'Vence hoje!'
-                                  : `Faltam ${item.daysRemaining} dias`}
-                            </span>
-                          </td>
-                        </>
-                      ) : activeReport === 'childbirth' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">{item.clientName}</td>
                           <td className="p-4">
-                            {item.isProBono ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700">
-                                Pro Bono
-                              </span>
-                            ) : item.isFinanced ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700">
+                            <div className="font-medium text-slate-900">{item.clientName}</div>
+                            {item.isFinanced ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700 mt-1">
                                 Financiado
                               </span>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600 mt-1">
                                 Normal
                               </span>
                             )}
                           </td>
-                          <td className="p-4 text-slate-600">{item.document}</td>
-                          <td className="p-4 text-slate-600">{item.phone}</td>
-                          <td className="p-4 text-slate-900 font-medium">
-                            {formatDate(item.childbirthDate)}
+                          <td className="p-4 text-slate-600 font-medium">{formatDate(item.childbirthDate)}</td>
+                          <td className="p-4">
+                            <StatusBadge protocolNumber={item.protocolNumber} />
                           </td>
-                          <td className="p-4 text-right">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                              item.daysRemaining < 0 
-                                ? 'bg-slate-100 text-slate-600' 
-                                : item.daysRemaining <= 30
-                                  ? 'bg-rose-100 text-rose-700' 
-                                  : item.daysRemaining <= 90
-                                    ? 'bg-amber-100 text-amber-700' 
-                                    : 'bg-emerald-100 text-emerald-700' 
-                            }`}>
-                              {item.daysRemaining < 0 
-                                ? `Ocorreu há ${Math.abs(item.daysRemaining)} dias` 
-                                : item.daysRemaining === 0
-                                  ? 'É hoje!'
-                                  : `Faltam ${item.daysRemaining} dias`}
+                          <td className="p-4">
+                            <span className={cn(
+                              "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              item.gpsPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                            )}>
+                              {item.gpsPaid ? 'Pago' : 'Pendente'}
                             </span>
                           </td>
-                        </>
-                      ) : activeReport === 'birthdays' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">
-                            <div className="flex items-center gap-2">
-                              {item.clientName}
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase",
-                                item.type === 'cliente' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                              )}>
-                                {item.type}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-slate-600">{item.document}</td>
-                          <td className="p-4 text-slate-600">{item.phone}</td>
                           <td className="p-4 text-slate-900 font-medium">
-                            {formatDate(item.birthDate)}
+                            {formatDate(item.gps_forecast_date)}
                           </td>
-                          <td className="p-4 text-right text-slate-600 font-medium">
-                            {item.age} anos
+                          <td className="p-4">
+                            {item.gpsPaid ? (
+                              <span className="text-slate-600 font-medium">{formatDate(item.gps_payment_date)}</span>
+                            ) : (
+                              <button
+                                onClick={() => handleRegisterPayment(item.id)}
+                                className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors"
+                              >
+                                Registrar
+                              </button>
+                            )}
                           </td>
-                          <td className="p-4 text-right">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                              item.daysRemaining === 0
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : item.daysRemaining <= 7
-                                  ? 'bg-rose-100 text-rose-700' 
-                                  : item.daysRemaining <= 30
-                                    ? 'bg-amber-100 text-amber-700' 
-                                    : 'bg-slate-100 text-slate-700' 
-                            }`}>
-                              {item.daysRemaining === 0
-                                ? 'É hoje! 🎉'
-                                : `Faltam ${item.daysRemaining} dias`}
-                            </span>
+                          <td className="p-4 text-right font-bold text-slate-900">
+                            {formatCurrency(item.gps_value, isVisible('reports_gps'))}
                           </td>
                         </>
                       ) : (
