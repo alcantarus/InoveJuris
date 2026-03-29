@@ -53,6 +53,10 @@ interface Client {
   proxySigned: boolean
   isMinor: boolean
   legalRepresentative?: string
+  product?: string
+  rnBirthDate?: string | null
+  rnName?: string | null
+  rnSex?: string | null
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -322,8 +326,12 @@ export default function ClientesPage() {
         pisNisNit: client.pisNisNit || '',
         contractSigned: !!client.contractSigned,
         proxySigned: !!client.proxySigned,
-        isMinor: !!client.isMinor,
-        legalRepresentative: client.legalRepresentative || ''
+        isMinor: false,
+        legalRepresentative: '',
+        product: '',
+        rnBirthDate: '',
+        rnName: '',
+        rnSex: '',
       })
     } else {
       setEditingClient(null)
@@ -350,6 +358,10 @@ export default function ClientesPage() {
         proxySigned: false,
         isMinor: false,
         legalRepresentative: '',
+        product: '',
+        rnBirthDate: '',
+        rnName: '',
+        rnSex: '',
       })
     }
     setIsModalOpen(true)
@@ -1059,6 +1071,65 @@ export default function ClientesPage() {
                       onChange={e => setFormData({ ...formData, birthDate: e.target.value })}
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Produto</label>
+                    <select 
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
+                      value={formData.product || ''}
+                      onChange={e => setFormData({ ...formData, product: e.target.value })}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Salário-maternidade">Salário-maternidade</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                  {formData.product === 'Salário-maternidade' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Previsão Nascimento</label>
+                        <input 
+                          type="date" 
+                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                          value={formData.birthDate || ''}
+                          onChange={e => setFormData({ ...formData, birthDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nascimento RN</label>
+                        <input 
+                          type="date" 
+                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                          value={formData.rnBirthDate || ''}
+                          onChange={e => setFormData({ ...formData, rnBirthDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Recém-Nascido</label>
+                        <input 
+                          type="text" 
+                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                          value={formData.rnName || ''}
+                          onChange={e => setFormData({ ...formData, rnName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sexo RN</label>
+                        <select 
+                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
+                          value={formData.rnSex || ''}
+                          onChange={e => setFormData({ ...formData, rnSex: e.target.value })}
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="Masculino">Masculino</option>
+                          <option value="Feminino">Feminino</option>
+                          <option value="Indeterminado">Indeterminado</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -56,6 +56,9 @@ interface Contract {
   gpsPaid: boolean
   inssDeferred: boolean
   childbirthDate: string
+  rnBirthDate?: string | null
+  rnName?: string | null
+  rnSex?: string | null
   indicator_id: number | null
   commissionPercent: number
   commissionValue: number
@@ -315,6 +318,9 @@ export default function FinanceiroPage() {
     gpsPaid: false,
     inssDeferred: false,
     childbirthDate: '',
+    rnBirthDate: '',
+    rnName: '',
+    rnSex: '',
     indicator_id: null,
     commissionPercent: 0,
     commissionValue: 0,
@@ -525,7 +531,7 @@ export default function FinanceiroPage() {
     const isMaternidade = formData.product?.toLowerCase().includes('maternidade')
 
     if (isMaternidade && !formData.childbirthDate) {
-      alert('Para o produto Salário-Maternidade, a Data do Parto é obrigatória.')
+      alert('Para o produto Salário-Maternidade, a Previsão Nascimento é obrigatória.')
       return
     }
 
@@ -1816,18 +1822,51 @@ export default function FinanceiroPage() {
                   />
                 </div>
                 {formData.product?.toLowerCase().includes('maternidade') && (
-                  <div>
-                    <label className="block text-sm font-medium text-rose-700 mb-1 flex items-center gap-1">
-                      <Calendar size={14} /> Data do Parto <span className="text-rose-500">*</span>
-                    </label>
-                    <input 
-                      type="date" 
-                      required
-                      className="w-full px-4 py-2 border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none bg-rose-50/30"
-                      value={formData.childbirthDate || ''}
-                      onChange={e => setFormData({ ...formData, childbirthDate: e.target.value })}
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-rose-700 mb-1 flex items-center gap-1">
+                        <Calendar size={14} /> Previsão Nascimento <span className="text-rose-500">*</span>
+                      </label>
+                      <input 
+                        type="date" 
+                        required
+                        className="w-full px-4 py-2 border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none bg-rose-50/30"
+                        value={formData.childbirthDate || ''}
+                        onChange={e => setFormData({ ...formData, childbirthDate: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nascimento RN</label>
+                      <input 
+                        type="date" 
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                        value={formData.rnBirthDate || ''}
+                        onChange={e => setFormData({ ...formData, rnBirthDate: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Recém-Nascido</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                        value={formData.rnName || ''}
+                        onChange={e => setFormData({ ...formData, rnName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Sexo RN</label>
+                      <select 
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
+                        value={formData.rnSex || ''}
+                        onChange={e => setFormData({ ...formData, rnSex: e.target.value })}
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Feminino">Feminino</option>
+                        <option value="Indeterminado">Indeterminado</option>
+                      </select>
+                    </div>
+                  </>
                 )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Advogado Responsável</label>
