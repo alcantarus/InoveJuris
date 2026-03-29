@@ -1,5 +1,5 @@
 'use client'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 interface CommissionChartProps {
   data: any[]
@@ -14,23 +14,23 @@ export function CommissionChart({ data }: CommissionChartProps) {
   return (
     <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
       <h3 className="text-xl font-bold text-slate-950 mb-8">Evolução de Comissões</h3>
-      <div className="h-[300px]">
+      <div className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="colorCommission" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
-                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
+          <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-            <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
             <Tooltip 
-              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              cursor={{ fill: '#f8fafc' }}
+              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+              formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Comissão']}
             />
-            <Area type="monotone" dataKey="commission" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorCommission)" />
-          </AreaChart>
+            <Bar dataKey="commission" radius={[8, 8, 0, 0]} barSize={40}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#4f46e5' : '#818cf8'} />
+              ))}
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

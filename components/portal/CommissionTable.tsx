@@ -12,33 +12,33 @@ interface CommissionTableProps {
 
 export function CommissionTable({ data }: CommissionTableProps) {
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="p-8 border-b border-slate-100">
-        <h3 className="text-xl font-bold text-slate-950">Minhas Comissões</h3>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="p-6">Contrato</th>
-              <th className="p-6">Cliente</th>
-              <th className="p-6 text-right">Comissão</th>
-              <th className="p-6 text-right">Pago</th>
-              <th className="p-6 text-right">Saldo</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.map((s) => (
-              <tr key={s.contract_id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-6 font-semibold text-slate-900">#{s.contract_id}</td>
-                <td className="p-6 text-slate-600">{s.client_name}</td>
-                <td className="p-6 text-right text-slate-700">R$ {Number(s.total_commission).toFixed(2)}</td>
-                <td className="p-6 text-right text-slate-700">R$ {Number(s.total_paid).toFixed(2)}</td>
-                <td className="p-6 text-right font-bold text-emerald-600">R$ {Number(s.remaining_balance).toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+      <h3 className="text-xl font-bold text-slate-950 mb-8">Minhas Comissões</h3>
+      <div className="space-y-4">
+        {data.map((s) => {
+          const isPaid = Number(s.remaining_balance) === 0;
+          return (
+            <div key={s.contract_id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 rounded-2xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all items-center">
+              <div>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contrato</span>
+                <p className="text-lg font-bold text-slate-950">#{s.contract_id}</p>
+              </div>
+              <div className="md:col-span-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Cliente</span>
+                <p className="text-lg font-semibold text-slate-900">{s.client_name}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Saldo</span>
+                <p className={`text-lg font-bold ${isPaid ? 'text-emerald-600' : 'text-indigo-600'}`}>
+                  R$ {Number(s.remaining_balance).toFixed(2)}
+                </p>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {isPaid ? 'Pago' : 'Pendente'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   )
