@@ -238,7 +238,12 @@ function RelatoriosPageContent() {
           isFinanced: item.isFinanced || false
         }))
 
-        processedData.sort((a: any, b: any) => new Date(a.gps_forecast_date || '9999-12-31').getTime() - new Date(b.gps_forecast_date || '9999-12-31').getTime())
+        processedData.sort((a: any, b: any) => {
+          if (a.gpsPaid !== b.gpsPaid) {
+            return a.gpsPaid ? 1 : -1;
+          }
+          return new Date(a.gps_forecast_date || '9999-12-31').getTime() - new Date(b.gps_forecast_date || '9999-12-31').getTime();
+        })
 
         setGpsData(processedData)
       }
@@ -794,6 +799,23 @@ function RelatoriosPageContent() {
           </div>
         </div>
 
+        {activeReport === 'gps' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <div className="text-sm font-medium text-slate-500 mb-1">Total Pendente</div>
+              <div className="text-2xl font-bold text-rose-600">{formatCurrency(gpsData.filter(item => !item.gpsPaid).reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <div className="text-sm font-medium text-slate-500 mb-1">Total Pago</div>
+              <div className="text-2xl font-bold text-emerald-600">{formatCurrency(gpsData.filter(item => item.gpsPaid).reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <div className="text-sm font-medium text-slate-500 mb-1">Total Geral</div>
+              <div className="text-2xl font-bold text-slate-900">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
+            </div>
+          </div>
+        )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -1011,26 +1033,38 @@ function RelatoriosPageContent() {
                           </td>
                         </>
                       ) : activeReport === 'gps' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">
-                            <div className="flex flex-col">
-                              <span>{item.clientName}</span>
-                              {item.isFinanced && (
-                                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Financiado</span>
-                              )}
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td colSpan={7} className="p-0">
+                            <div className="p-4 flex items-center justify-between border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "w-2 h-12 rounded-full",
+                                  item.gpsPaid ? "bg-emerald-500" : "bg-rose-500"
+                                )} />
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-slate-900">{item.clientName}</span>
+                                  <span className="text-xs text-slate-500">Vencimento: {item.gps_forecast_date ? formatDate(item.gps_forecast_date) : '-'}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-6">
+                                <div className="text-right">
+                                  <div className="text-sm font-bold text-slate-900">{formatCurrency(item.gps_value, isVisible('reports_gps'))}</div>
+                                  <span className={cn(
+                                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                                    item.gpsPaid ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                                  )}>
+                                    {item.gpsPaid ? 'Pago' : 'Pendente'}
+                                  </span>
+                                </div>
+                                {!item.gpsPaid && (
+                                  <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
+                                    Registrar Pagto
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </td>
-                          <td className="p-4 text-slate-600">{item.childbirthDate ? formatDate(item.childbirthDate) : '-'}</td>
-                          <td className="p-4">
-                            <StatusBadge protocolNumber={item.inss_protocol_number} />
-                          </td>
-                          <td className="p-4">
-                            <ProcessProgressBar generated={item.gpsGenerated} paid={item.gpsPaid} />
-                          </td>
-                          <td className="p-4 text-slate-900 font-medium">{item.gps_forecast_date ? formatDate(item.gps_forecast_date) : '-'}</td>
-                          <td className="p-4 text-slate-600">{item.gps_payment_date ? formatDate(item.gps_payment_date) : '-'}</td>
-                          <td className="p-4 text-right font-bold text-slate-900">{formatCurrency(item.gps_value, isVisible('reports_gps'))}</td>
-                        </>
+                        </tr>
                       ) : (
                         <>
                           <td className="p-4 font-bold text-slate-900">{item.indicatorName}</td>
