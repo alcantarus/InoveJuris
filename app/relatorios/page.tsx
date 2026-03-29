@@ -518,6 +518,25 @@ function RelatoriosPageContent() {
     }
   }
 
+  const handleRegisterPayment = async (id: number) => {
+    if (!isSupabaseConfigured) return
+    
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .update({ gpsPaid: true, gps_payment_date: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) throw error
+      
+      // Refresh data
+      fetchGpsData()
+    } catch (error) {
+      console.error('Error registering payment:', error)
+      alert('Erro ao registrar pagamento.')
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -820,7 +839,17 @@ function RelatoriosPageContent() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
-                  {activeReport === 'deadlines' ? (
+                  {activeReport === 'gps' ? (
+                    <>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/4">Cliente</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/6">Data Parto</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/6">Req. INSS</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Status</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Previsão</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Pagto</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Valor GPS</th>
+                    </>
+                  ) : activeReport === 'deadlines' ? (
                     <>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Processo</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
@@ -845,16 +874,6 @@ function RelatoriosPageContent() {
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data de Nasc.</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Idade</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Dias Faltantes</th>
-                    </>
-                  ) : activeReport === 'gps' ? (
-                    <>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data Parto</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Requerimento INSS</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Previsão Venc.</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data Pagto</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Valor GPS</th>
                     </>
                   ) : (
                     <>
@@ -1032,39 +1051,110 @@ function RelatoriosPageContent() {
                             </span>
                           </td>
                         </>
-                      ) : activeReport === 'gps' ? (
-                        <tr className="hover:bg-slate-50/50 transition-colors">
-                          <td colSpan={7} className="p-0">
-                            <div className="p-4 flex items-center justify-between border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-                              <div className="flex items-center gap-4">
-                                <div className={cn(
-                                  "w-2 h-12 rounded-full",
-                                  item.gpsPaid ? "bg-emerald-500" : "bg-rose-500"
-                                )} />
-                                <div className="flex flex-col">
-                                  <span className="font-bold text-slate-900">{item.clientName}</span>
-                                  <span className="text-xs text-slate-500">Vencimento: {item.gps_forecast_date ? formatDate(item.gps_forecast_date) : '-'}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-6">
-                                <div className="text-right">
-                                  <div className="text-sm font-bold text-slate-900">{formatCurrency(item.gps_value, isVisible('reports_gps'))}</div>
-                                  <span className={cn(
-                                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                                    item.gpsPaid ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                                  )}>
-                                    {item.gpsPaid ? 'Pago' : 'Pendente'}
-                                  </span>
-                                </div>
-                                {!item.gpsPaid && (
-                                  <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
-                                    Registrar Pagto
-                                  </button>
-                                )}
-                              </div>
+                      ) : activeReport === 'deadlines' ? (
+                        <>
+                          <td className="p-4 font-medium text-slate-900">{item.processNumber}</td>
+                          <td className="p-4 text-slate-600">{item.clientName}</td>
+                          <td className="p-4 text-slate-600">{item.description || '-'}</td>
+                          <td className="p-4 text-slate-900 font-medium">
+                            {formatDate(item.deadlineDate)}
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                              item.daysRemaining < 0 
+                                ? 'bg-slate-100 text-slate-600' // Vencido
+                                : item.daysRemaining <= 5
+                                  ? 'bg-rose-100 text-rose-700' // Crítico (menos de 5 dias)
+                                  : item.daysRemaining <= 15
+                                    ? 'bg-amber-100 text-amber-700' // Atenção (5 a 15 dias)
+                                    : 'bg-emerald-100 text-emerald-700' // Seguro
+                            }`}>
+                              {item.daysRemaining < 0 
+                                ? `Venceu há ${Math.abs(item.daysRemaining)} dias` 
+                                : item.daysRemaining === 0
+                                  ? 'Vence hoje!'
+                                  : `Faltam ${item.daysRemaining} dias`}
+                            </span>
+                          </td>
+                        </>
+                      ) : activeReport === 'childbirth' ? (
+                        <>
+                          <td className="p-4 font-medium text-slate-900">{item.clientName}</td>
+                          <td className="p-4">
+                            {item.isProBono ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700">
+                                Pro Bono
+                              </span>
+                            ) : item.isFinanced ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700">
+                                Financiado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
+                                Normal
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 text-slate-600">{item.document}</td>
+                          <td className="p-4 text-slate-600">{item.phone}</td>
+                          <td className="p-4 text-slate-900 font-medium">
+                            {formatDate(item.childbirthDate)}
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                              item.daysRemaining < 0 
+                                ? 'bg-slate-100 text-slate-600' 
+                                : item.daysRemaining <= 30
+                                  ? 'bg-rose-100 text-rose-700' 
+                                  : item.daysRemaining <= 90
+                                    ? 'bg-amber-100 text-amber-700' 
+                                    : 'bg-emerald-100 text-emerald-700' 
+                            }`}>
+                              {item.daysRemaining < 0 
+                                ? `Ocorreu há ${Math.abs(item.daysRemaining)} dias` 
+                                : item.daysRemaining === 0
+                                  ? 'É hoje!'
+                                  : `Faltam ${item.daysRemaining} dias`}
+                            </span>
+                          </td>
+                        </>
+                      ) : activeReport === 'birthdays' ? (
+                        <>
+                          <td className="p-4 font-medium text-slate-900">
+                            <div className="flex items-center gap-2">
+                              {item.clientName}
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase",
+                                item.type === 'cliente' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                              )}>
+                                {item.type}
+                              </span>
                             </div>
                           </td>
-                        </tr>
+                          <td className="p-4 text-slate-600">{item.document}</td>
+                          <td className="p-4 text-slate-600">{item.phone}</td>
+                          <td className="p-4 text-slate-900 font-medium">
+                            {formatDate(item.birthDate)}
+                          </td>
+                          <td className="p-4 text-right text-slate-600 font-medium">
+                            {item.age} anos
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                              item.daysRemaining === 0
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : item.daysRemaining <= 7
+                                  ? 'bg-rose-100 text-rose-700' 
+                                  : item.daysRemaining <= 30
+                                    ? 'bg-amber-100 text-amber-700' 
+                                    : 'bg-slate-100 text-slate-700' 
+                            }`}>
+                              {item.daysRemaining === 0
+                                ? 'É hoje! 🎉'
+                                : `Faltam ${item.daysRemaining} dias`}
+                            </span>
+                          </td>
+                        </>
                       ) : (
                         <>
                           <td className="p-4 font-bold text-slate-900">{item.indicatorName}</td>
