@@ -13,7 +13,12 @@ import {
   DollarSign,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Link as LinkIcon,
+  Copy,
+  RefreshCw,
+  Power,
+  PowerOff
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion } from 'motion/react'
@@ -61,6 +66,12 @@ export default function IndicadoresPage() {
   const [selectedIndicator, setSelectedIndicator] = useState<Indicator | null>(null)
   const [indicatorContracts, setIndicatorContracts] = useState<Contract[]>([])
 
+  // Access Modal State
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false)
+  const [selectedIndicatorForAccess, setSelectedIndicatorForAccess] = useState<Indicator | null>(null)
+  const [indicatorTokens, setIndicatorTokens] = useState<any[]>([])
+  const [tempLinkDuration, setTempLinkDuration] = useState('24') // hours
+
   const [formData, setFormData] = useState<Partial<Indicator>>({
     name: '',
     phone: '',
@@ -95,41 +106,104 @@ export default function IndicadoresPage() {
     fetchIndicators()
   }, [])
 
-  const handleGenerateToken = async (indicatorId: number) => {
+  const fetchIndicatorTokens = async (indicatorId: number) => {
     const { data, error } = await supabase
       .from('indicator_tokens')
-      .insert({ indicator_id: indicatorId })
-      .select('token')
+      .select('*')
+      .eq('indicator_id', indicatorId)
+      .order('created_at', { ascending: false })
+    
+    if (error) {
+      console.error('Error fetching tokens:', error)
+      toast.error('Erro ao buscar acessos.')
+    } else {
+      setIndicatorTokens(data || [])
+    }
+  }
+
+  const handleOpenAccessModal = (indicator: Indicator) => {
+    setSelectedIndicatorForAccess(indicator)
+    setIsAccessModalOpen(true)
+    fetchIndicatorTokens(indicator.id)
+  }
+
+  const generateFixedLink = async () => {
+    if (!selectedIndicatorForAccess) return
+
+    // Deactivate existing fixed links first
+    await supabase
+      .from('indicator_tokens')
+      .update({ is_active: false })
+      .eq('indicator_id', selectedIndicatorForAccess.id)
+      .eq('type', 'fixed')
+
+    const { data, error } = await supabase
+      .from('indicator_tokens')
+      .insert({ 
+        indicator_id: selectedIndicatorForAccess.id,
+        type: 'fixed',
+        is_active: true
+      })
+      .select('*')
       .single()
     
     if (error) {
-      // Check for unique constraint violation (Postgres code 23505, HTTP 409, or message check)
-      const isUniqueViolation = error.code === '23505' || 
-                               (error as any).status === 409 || 
-                               (error.message && error.message.includes('unique constraint'));
-
-      if (isUniqueViolation) {
-        // Token já existe, buscar o existente
-        const { data: existingData, error: fetchError } = await supabase
-          .from('indicator_tokens')
-          .select('token')
-          .eq('indicator_id', indicatorId);
-        
-        if (fetchError) {
-          console.error('Error fetching existing token:', fetchError)
-          alert('Erro ao buscar token existente.')
-        } else if (existingData && existingData.length > 0) {
-          setIndicators(prev => prev.map(i => i.id === indicatorId ? { ...i, indicator_tokens: [{ token: existingData[0].token }] } : i))
-        } else {
-          console.error('Token não encontrado apesar da violação de unique constraint.')
-          alert('O Token não pode ser gerado, porque o Indicador não tem comissões a receber.')
-        }
-      } else {
-        console.error('Error generating token:', error)
-        alert('Erro ao gerar token.')
-      }
+      console.error('Error generating fixed token:', error)
+      toast.error('Erro ao gerar link fixo.')
     } else {
-      setIndicators(prev => prev.map(i => i.id === indicatorId ? { ...i, indicator_tokens: [{ token: data.token }] } : i))
+      toast.success('Novo link fixo gerado com sucesso.')
+      fetchIndicatorTokens(selectedIndicatorForAccess.id)
+      
+      // Update local state to reflect the new token for the copy button in the table
+      setIndicators(prev => prev.map(i => i.id === selectedIndicatorForAccess.id ? { ...i, indicator_tokens: [{ token: data.token }] } : i))
+    }
+  }
+
+  const generateTempLink = async () => {
+    if (!selectedIndicatorForAccess) return
+
+    const hours = parseInt(tempLinkDuration)
+    const expiresAt = new Date()
+    expiresAt.setHours(expiresAt.getHours() + hours)
+
+    const { data, error } = await supabase
+      .from('indicator_tokens')
+      .insert({ 
+        indicator_id: selectedIndicatorForAccess.id,
+        type: 'temporary',
+        expires_at: expiresAt.toISOString(),
+        is_active: true
+      })
+      .select('*')
+      .single()
+    
+    if (error) {
+      console.error('Error generating temp token:', error)
+      toast.error('Erro ao gerar link temporário.')
+    } else {
+      toast.success('Link temporário gerado com sucesso.')
+      fetchIndicatorTokens(selectedIndicatorForAccess.id)
+      
+      // Copy to clipboard immediately
+      navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${data.token}`)
+      toast.success('Link copiado para a área de transferência!')
+    }
+  }
+
+  const toggleTokenStatus = async (tokenId: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('indicator_tokens')
+      .update({ is_active: !currentStatus })
+      .eq('id', tokenId)
+    
+    if (error) {
+      console.error('Error toggling token status:', error)
+      toast.error('Erro ao alterar status do acesso.')
+    } else {
+      toast.success(currentStatus ? 'Acesso revogado.' : 'Acesso reativado.')
+      if (selectedIndicatorForAccess) {
+        fetchIndicatorTokens(selectedIndicatorForAccess.id)
+      }
     }
   }
 
@@ -426,22 +500,13 @@ export default function IndicadoresPage() {
                       <span className="text-slate-600">{indicator.pixKey}</span>
                     </td>
                     <td className="p-4">
-                      {indicator.indicator_tokens && indicator.indicator_tokens.length > 0 ? (
-                        <button 
-                          onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${indicator.indicator_tokens![0].token}`)}
-                          className="text-xs text-indigo-600 hover:underline"
-                          title="Copiar Link"
-                        >
-                          Copiar Link
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleGenerateToken(indicator.id)}
-                          className="text-xs bg-slate-100 px-2 py-1 rounded hover:bg-slate-200"
-                        >
-                          Gerar Token
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => handleOpenAccessModal(indicator)}
+                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+                      >
+                        <LinkIcon size={14} />
+                        Acessos
+                      </button>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -699,6 +764,136 @@ export default function IndicadoresPage() {
                               ) : (
                                 <span className="text-emerald-700 font-semibold text-sm">Quitado</span>
                               )}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Access Management Modal */}
+        <Modal
+          isOpen={isAccessModalOpen}
+          onClose={() => setIsAccessModalOpen(false)}
+          title={`Gerenciar Acessos - ${selectedIndicatorForAccess?.name}`}
+        >
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                  <LinkIcon size={18} className="text-indigo-600" />
+                  Link Fixo
+                </h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Um link permanente que o indicador pode usar para consultar suas comissões a qualquer momento.
+                </p>
+                <button
+                  onClick={generateFixedLink}
+                  className="w-full flex items-center justify-center gap-2 bg-white border border-indigo-200 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors font-medium"
+                >
+                  <RefreshCw size={16} />
+                  Gerar Novo Link Fixo
+                </button>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                  <Clock size={18} className="text-amber-600" />
+                  Link Temporário
+                </h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Um link com validade definida. Ideal para acessos pontuais e maior segurança.
+                </p>
+                <div className="flex gap-2">
+                  <select
+                    value={tempLinkDuration}
+                    onChange={(e) => setTempLinkDuration(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  >
+                    <option value="24">24 Horas</option>
+                    <option value="48">48 Horas</option>
+                    <option value="168">7 Dias</option>
+                  </select>
+                  <button
+                    onClick={generateTempLink}
+                    className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium whitespace-nowrap"
+                  >
+                    <Plus size={16} />
+                    Gerar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-slate-800 mb-3">Links Gerados</h3>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                      <th className="p-3 font-medium">Tipo</th>
+                      <th className="p-3 font-medium">Gerado em</th>
+                      <th className="p-3 font-medium">Expira em</th>
+                      <th className="p-3 font-medium">Status</th>
+                      <th className="p-3 font-medium text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {indicatorTokens.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-slate-500">
+                          Nenhum link gerado para este indicador.
+                        </td>
+                      </tr>
+                    ) : (
+                      indicatorTokens.map((token) => {
+                        const isExpired = token.type === 'temporary' && token.expires_at && new Date() > new Date(token.expires_at);
+                        const statusColor = !token.is_active ? 'bg-red-100 text-red-700' : isExpired ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+                        const statusText = !token.is_active ? 'Revogado' : isExpired ? 'Expirado' : 'Ativo';
+
+                        return (
+                          <tr key={token.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3">
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${token.type === 'fixed' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'}`}>
+                                {token.type === 'fixed' ? 'Fixo' : 'Temporário'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-sm text-slate-600">
+                              {formatDate(token.created_at)}
+                            </td>
+                            <td className="p-3 text-sm text-slate-600">
+                              {token.expires_at ? formatDate(token.expires_at) : '-'}
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusColor}`}>
+                                {statusText}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${token.token}`)
+                                    toast.success('Link copiado!')
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                  title="Copiar Link"
+                                >
+                                  <Copy size={16} />
+                                </button>
+                                <button
+                                  onClick={() => toggleTokenStatus(token.id, token.is_active)}
+                                  className={`p-1.5 rounded transition-colors ${token.is_active ? 'text-slate-500 hover:text-red-600 hover:bg-red-50' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                                  title={token.is_active ? 'Revogar Acesso' : 'Reativar Acesso'}
+                                >
+                                  {token.is_active ? <PowerOff size={16} /> : <Power size={16} />}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )

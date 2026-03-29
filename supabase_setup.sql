@@ -53,17 +53,44 @@ $$;
 -- 3. Create indicator_tokens table
 CREATE TABLE IF NOT EXISTS indicator_tokens (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    indicator_id BIGINT REFERENCES indicators(id) UNIQUE,
+    indicator_id BIGINT REFERENCES indicators(id),
     token TEXT UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
     environment TEXT DEFAULT 'production',
+    type TEXT DEFAULT 'fixed',
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Remove the unique constraint on indicator_id if it exists (from previous versions)
+DO $$
+DECLARE
+    constraint_name text;
+BEGIN
+    SELECT tc.constraint_name INTO constraint_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name
+    WHERE tc.table_name = 'indicator_tokens' AND ccu.column_name = 'indicator_id' AND tc.constraint_type = 'UNIQUE';
+
+    IF constraint_name IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE indicator_tokens DROP CONSTRAINT ' || constraint_name;
+    END IF;
+END $$;
 
 -- Add environment column to indicator_tokens if it doesn't exist
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'indicator_tokens' AND column_name = 'environment') THEN
       ALTER TABLE indicator_tokens ADD COLUMN environment TEXT DEFAULT 'production';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'indicator_tokens' AND column_name = 'type') THEN
+      ALTER TABLE indicator_tokens ADD COLUMN type TEXT DEFAULT 'fixed';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'indicator_tokens' AND column_name = 'expires_at') THEN
+      ALTER TABLE indicator_tokens ADD COLUMN expires_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'indicator_tokens' AND column_name = 'is_active') THEN
+      ALTER TABLE indicator_tokens ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
   END IF;
 END;
 $$;

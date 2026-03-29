@@ -9,6 +9,7 @@ export default function PortalIndicadorPage() {
   const { token } = useParams()
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPortalData() {
@@ -17,15 +18,32 @@ export default function PortalIndicadorPage() {
       // 1. Get indicator_id from token
       const { data: tokenData, error: tokenError } = await supabase
         .from('indicator_tokens')
-        .select('indicator_id')
+        .select('indicator_id, type, expires_at, is_active')
         .eq('token', token)
         .single()
 
       console.log('Token data:', tokenData, 'Error:', tokenError);
 
       if (tokenError || !tokenData) {
+        setErrorMsg('Token inválido ou não encontrado.')
         setLoading(false)
         return
+      }
+
+      if (!tokenData.is_active) {
+        setErrorMsg('Este link de acesso foi revogado pelo administrador.')
+        setLoading(false)
+        return
+      }
+
+      if (tokenData.type === 'temporary' && tokenData.expires_at) {
+        const now = new Date()
+        const expiresAt = new Date(tokenData.expires_at)
+        if (now > expiresAt) {
+          setErrorMsg('Este link de acesso expirou. Por favor, solicite um novo link ao administrador.')
+          setLoading(false)
+          return
+        }
       }
 
       // 2. Get commission status
@@ -44,7 +62,8 @@ export default function PortalIndicadorPage() {
   }, [token])
 
   if (loading) return <div className="p-6">Carregando...</div>
-  if (data.length === 0) return <div className="p-6">Nenhum dado encontrado ou token inválido.</div>
+  if (errorMsg) return <div className="p-6 text-red-600 font-medium">{errorMsg}</div>
+  if (data.length === 0) return <div className="p-6">Nenhum dado encontrado.</div>
 
   const totalCommissions = data.reduce((acc, curr) => acc + Number(curr.total_commission), 0);
   const totalRemaining = data.reduce((acc, curr) => acc + Number(curr.remaining_balance), 0);
