@@ -53,10 +53,6 @@ interface Client {
   proxySigned: boolean
   isMinor: boolean
   legalRepresentative?: string
-  product?: string
-  rn_birth_date?: string | null
-  rn_name?: string | null
-  rn_sex?: string | null
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -328,10 +324,6 @@ export default function ClientesPage() {
         proxySigned: !!client.proxySigned,
         isMinor: false,
         legalRepresentative: '',
-        product: client.product || '',
-        rn_birth_date: client.rn_birth_date || '',
-        rn_name: client.rn_name || '',
-        rn_sex: client.rn_sex || '',
       })
     } else {
       setEditingClient(null)
@@ -358,10 +350,6 @@ export default function ClientesPage() {
         proxySigned: false,
         isMinor: false,
         legalRepresentative: '',
-        product: '',
-        rn_birth_date: '',
-        rn_name: '',
-        rn_sex: '',
       })
     }
     setIsModalOpen(true)
@@ -494,9 +482,6 @@ export default function ClientesPage() {
       document: formData.document || null,
       pisNisNit: formData.pisNisNit || null,
       birthDate: formData.birthDate || null,
-      rn_birth_date: formData.product === 'Salário-maternidade' ? (formData.rn_birth_date || null) : null,
-      rn_name: formData.product === 'Salário-maternidade' ? (formData.rn_name || null) : null,
-      rn_sex: formData.product === 'Salário-maternidade' ? (formData.rn_sex || null) : null,
       updated_by: user?.id || null
     }
 
@@ -1074,65 +1059,6 @@ export default function ClientesPage() {
                       onChange={e => setFormData({ ...formData, birthDate: e.target.value })}
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Produto</label>
-                    <select 
-                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
-                      value={formData.product || ''}
-                      onChange={e => setFormData({ ...formData, product: e.target.value })}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Salário-maternidade">Salário-maternidade</option>
-                      <option value="Outros">Outros</option>
-                    </select>
-                  </div>
-                  {formData.product === 'Salário-maternidade' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Previsão Nascimento</label>
-                        <input 
-                          type="date" 
-                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                          value={formData.birthDate || ''}
-                          onChange={e => setFormData({ ...formData, birthDate: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nascimento RN</label>
-                        <input 
-                          type="date" 
-                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                          value={formData.rn_birth_date || ''}
-                          onChange={e => setFormData({ ...formData, rn_birth_date: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Recém-Nascido</label>
-                        <input 
-                          type="text" 
-                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                          value={formData.rn_name || ''}
-                          onChange={e => setFormData({ ...formData, rn_name: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Sexo RN</label>
-                        <select 
-                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
-                          value={formData.rn_sex || ''}
-                          onChange={e => setFormData({ ...formData, rn_sex: e.target.value })}
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="Masculino">Masculino</option>
-                          <option value="Feminino">Feminino</option>
-                          <option value="Indeterminado">Indeterminado</option>
-                        </select>
-                      </div>
-                    </>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
