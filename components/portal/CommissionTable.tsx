@@ -1,5 +1,3 @@
-import { Card } from '@/components/ui/Card'
-
 interface Commission {
   contract_id: number
   client_name: string
@@ -14,7 +12,7 @@ interface CommissionTableProps {
 
 export function CommissionTable({ data }: CommissionTableProps) {
   return (
-    <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden">
+    <div className="border-none shadow-sm bg-white rounded-2xl overflow-hidden ring-1 ring-slate-200">
       <div className="p-6 border-b border-slate-100">
         <h3 className="text-lg font-semibold text-slate-900">Minhas Comissões</h3>
       </div>
@@ -42,6 +40,6 @@ export function CommissionTable({ data }: CommissionTableProps) {
           </tbody>
         </table>
       </div>
-    </Card>
+    </div>
   )
 }
