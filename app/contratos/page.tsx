@@ -56,9 +56,9 @@ interface Contract {
   gpsPaid: boolean
   inssDeferred: boolean
   childbirthDate: string
-  rnBirthDate?: string | null
-  rnName?: string | null
-  rnSex?: string | null
+  rn_birth_date?: string | null
+  rn_name?: string | null
+  rn_sex?: string | null
   indicator_id: number | null
   commissionPercent: number
   commissionValue: number
@@ -318,9 +318,9 @@ export default function FinanceiroPage() {
     gpsPaid: false,
     inssDeferred: false,
     childbirthDate: '',
-    rnBirthDate: '',
-    rnName: '',
-    rnSex: '',
+    rn_birth_date: '',
+    rn_name: '',
+    rn_sex: '',
     indicator_id: null,
     commissionPercent: 0,
     commissionValue: 0,
@@ -596,6 +596,9 @@ export default function FinanceiroPage() {
       gps_value: formData.hasGpsControl ? (formData.gps_value || null) : null,
       inssDeferred: formData.inssDeferred || false,
       childbirthDate: isMaternidade ? (formData.childbirthDate || null) : null,
+      rn_birth_date: isMaternidade ? (formData.rn_birth_date || null) : null,
+      rn_name: isMaternidade ? (formData.rn_name || null) : null,
+      rn_sex: isMaternidade ? (formData.rn_sex || null) : null,
       indicator_id: formData.indicator_id || null,
       lawyer_id: formData.lawyer_id || null,
       commissionPercent: formData.isProBono ? 0 : (formData.commissionPercent || 0),
@@ -1840,8 +1843,8 @@ export default function FinanceiroPage() {
                       <input 
                         type="date" 
                         className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                        value={formData.rnBirthDate || ''}
-                        onChange={e => setFormData({ ...formData, rnBirthDate: e.target.value })}
+                        value={formData.rn_birth_date || ''}
+                        onChange={e => setFormData({ ...formData, rn_birth_date: e.target.value })}
                       />
                     </div>
                     <div>
@@ -1849,16 +1852,16 @@ export default function FinanceiroPage() {
                       <input 
                         type="text" 
                         className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                        value={formData.rnName || ''}
-                        onChange={e => setFormData({ ...formData, rnName: e.target.value })}
+                        value={formData.rn_name || ''}
+                        onChange={e => setFormData({ ...formData, rn_name: e.target.value })}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Sexo RN</label>
                       <select 
                         className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
-                        value={formData.rnSex || ''}
-                        onChange={e => setFormData({ ...formData, rnSex: e.target.value })}
+                        value={formData.rn_sex || ''}
+                        onChange={e => setFormData({ ...formData, rn_sex: e.target.value })}
                       >
                         <option value="">Selecione...</option>
                         <option value="Masculino">Masculino</option>
