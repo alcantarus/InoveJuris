@@ -31,13 +31,15 @@ export function BirthdayChecker() {
     if (!user) return
 
     try {
-      const [clientsRes, indicatorsRes] = await Promise.all([
+      const [clientsRes, indicatorsRes, maternityRes] = await Promise.all([
         supabase.from('clients').select('id, name, "birthDate"').not('"birthDate"', 'is', null),
-        supabase.from('indicators').select('id, name, data_nascimento').not('data_nascimento', 'is', null)
+        supabase.from('indicators').select('id, name, data_nascimento').not('data_nascimento', 'is', null),
+        supabase.from('contracts').select('id, maternity_child_name, maternity_birth_date').eq('product', 'Salário-Maternidade').not('maternity_birth_date', 'is', null)
       ])
       
       if (clientsRes.error) throw clientsRes.error
       if (indicatorsRes.error) throw indicatorsRes.error
+      if (maternityRes.error) throw maternityRes.error
 
       const todayDate = new Date()
       const currentMonth = todayDate.getMonth() + 1
@@ -76,13 +78,42 @@ export function BirthdayChecker() {
         return null
       }
 
+      const processMaternity = (contract: any) => {
+        const birthDate = contract.maternity_birth_date
+        if (!birthDate) return null
+        
+        let dateObj: Date
+        
+        if (birthDate.includes('-')) {
+          const [year, month, day] = birthDate.split('-').map(Number)
+          dateObj = new Date(year, month - 1, day)
+        } else if (birthDate.includes('/')) {
+          const [day, month, year] = birthDate.split('/').map(Number)
+          dateObj = new Date(year, month - 1, day)
+        } else {
+          dateObj = new Date(birthDate)
+        }
+        
+        if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
+          return {
+            id: `maternity_${contract.id}`,
+            name: contract.maternity_child_name,
+            birthDate: birthDate,
+            age: 0, // Recém-nascido
+            type: 'maternity'
+          }
+        }
+        return null
+      }
+
       const birthdayClients = (clientsRes.data || []).map((c: any) => processBirthday(c, 'birthDate', 'client')).filter(Boolean) as BirthdayPerson[]
       const birthdayIndicators = (indicatorsRes.data || []).map((i: any) => processBirthday(i, 'data_nascimento', 'indicator')).filter(Boolean) as BirthdayPerson[]
+      const maternityBirths = (maternityRes.data || []).map((c: any) => processMaternity(c)).filter(Boolean) as BirthdayPerson[]
       
-      const allBirthdays = [...birthdayClients, ...birthdayIndicators] as BirthdayPerson[]
+      const allBirthdays = [...birthdayClients, ...birthdayIndicators, ...maternityBirths] as BirthdayPerson[]
       
       setBirthdays(allBirthdays)
-      console.log('Aniversariantes encontrados:', allBirthdays)
+      console.log('Eventos encontrados:', allBirthdays)
       
       // Carrega os cartões já enviados hoje
       const todayStart = new Date()
@@ -91,7 +122,7 @@ export function BirthdayChecker() {
       const { data: logs, error: logError } = await supabase
         .from('marketing_logs')
         .select('client_id, type')
-        .in('type', ['birthday_card', 'birthday_card_client', 'birthday_card_indicator'])
+        .in('type', ['birthday_card', 'birthday_card_client', 'birthday_card_indicator', 'maternity_card'])
         .gte('created_at', todayStart.toISOString())
 
       if (logError) {
@@ -107,6 +138,7 @@ export function BirthdayChecker() {
         const dbSent = logs.map((l: any) => {
           if (l.type === 'birthday_card_indicator') return `indicator_${l.client_id}`
           if (l.type === 'birthday_card_client') return `client_${l.client_id}`
+          if (l.type === 'maternity_card') return `maternity_${l.client_id}`
           // Fallback for old records if any
           return `client_${l.client_id}`
         })
@@ -154,7 +186,7 @@ export function BirthdayChecker() {
     }
   }, [isOpen, pendingBirthdays.length])
 
-  const handleCardGenerated = (clientId: string) => {
+  const handleCardGenerated = async (clientId: string) => {
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     
@@ -167,6 +199,20 @@ export function BirthdayChecker() {
     const newSent = [...sentCards, clientId]
     setSentCards(newSent)
     localStorage.setItem(`sent_birthdays_${todayStr}`, JSON.stringify(newSent))
+    
+    // Salva o log no Supabase
+    try {
+      const type = clientId.startsWith('indicator_') ? 'birthday_card_indicator' : 
+                   clientId.startsWith('maternity_') ? 'maternity_card' : 'birthday_card_client'
+      const numericId = parseInt(clientId.replace(/\D/g, ''), 10)
+      
+      await supabase.from('marketing_logs').insert([{
+        client_id: numericId,
+        type: type
+      }])
+    } catch (e) {
+      console.error('Erro ao salvar log no Supabase:', e)
+    }
     
     setSelectedClient(null)
   }

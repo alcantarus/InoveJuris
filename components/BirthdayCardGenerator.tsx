@@ -116,10 +116,11 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
   
   const [selectedTemplate, setSelectedTemplate] = useState<BirthdayTemplate>(FALLBACK_TEMPLATES[0])
   const [selectedMessage, setSelectedMessage] = useState<string>(FALLBACK_MESSAGES[0])
+  const [isGhostMode, setIsGhostMode] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
 
-  // Extrai apenas o primeiro nome
-  const firstName = clientName ? clientName.split(' ')[0] : 'cliente';
+  // Usa o nome completo
+  const displayName = clientName || 'cliente';
 
   useEffect(() => {
     async function loadConfig() {
@@ -197,37 +198,39 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
       ctx.textAlign = selectedTemplate.text_align || 'center'
       
       // Desenhar Nome
-      const nameSize = parseInt(selectedTemplate.name_size || '36') * 3
-      ctx.font = `bold ${nameSize}px ${selectedTemplate.name_font || 'serif'}`
-      const nameX = (parseInt(selectedTemplate.name_x || '50') / 100) * canvas.width
-      const nameY = (parseInt(selectedTemplate.name_y || '40') / 100) * canvas.height
-      ctx.fillText(firstName.toUpperCase(), nameX, nameY)
+      if (!isGhostMode) {
+        const nameSize = parseInt(selectedTemplate.name_size || '36') * 3
+        ctx.font = `bold ${nameSize}px ${selectedTemplate.name_font || 'serif'}`
+        const nameX = (parseInt(selectedTemplate.name_x || '50') / 100) * canvas.width
+        const nameY = (parseInt(selectedTemplate.name_y || '40') / 100) * canvas.height
+        ctx.fillText(displayName.toUpperCase(), nameX, nameY)
 
-      // Desenhar Mensagem
-      const msgSize = parseInt(selectedTemplate.msg_size || '14') * 3
-      ctx.font = `${msgSize}px ${selectedTemplate.msg_font || 'sans-serif'}`
-      const msgX = (parseInt(selectedTemplate.msg_x || '50') / 100) * canvas.width
-      const msgY = (parseInt(selectedTemplate.msg_y || '60') / 100) * canvas.height
-      
-      // Quebra de linha simples para a mensagem
-      const maxWidth = (parseInt(selectedTemplate.msg_max_width || '80') / 100) * canvas.width
-      const words = selectedMessage.split(' ')
-      let line = ''
-      let y = msgY
-      const lineHeight = msgSize * 1.4
+        // Desenhar Mensagem
+        const msgSize = parseInt(selectedTemplate.msg_size || '14') * 3
+        ctx.font = `${msgSize}px ${selectedTemplate.msg_font || 'sans-serif'}`
+        const msgX = (parseInt(selectedTemplate.msg_x || '50') / 100) * canvas.width
+        const msgY = (parseInt(selectedTemplate.msg_y || '60') / 100) * canvas.height
+        
+        // Quebra de linha simples para a mensagem
+        const maxWidth = (parseInt(selectedTemplate.msg_max_width || '80') / 100) * canvas.width
+        const words = selectedMessage.split(' ')
+        let line = ''
+        let y = msgY
+        const lineHeight = msgSize * 1.4
 
-      for (let i = 0; i < words.length; i++) {
-        const testLine = line + words[i] + ' '
-        const metrics = ctx.measureText(testLine)
-        if (metrics.width > maxWidth && i > 0) {
-          ctx.fillText(line, msgX, y)
-          line = words[i] + ' '
-          y += lineHeight
-        } else {
-          line = testLine
+        for (let i = 0; i < words.length; i++) {
+          const testLine = line + words[i] + ' '
+          const metrics = ctx.measureText(testLine)
+          if (metrics.width > maxWidth && i > 0) {
+            ctx.fillText(line, msgX, y)
+            line = words[i] + ' '
+            y += lineHeight
+          } else {
+            line = testLine
+          }
         }
+        ctx.fillText(line, msgX, y)
       }
-      ctx.fillText(line, msgX, y)
 
       // Download
       const dataUrl = canvas.toDataURL('image/png', 1.0)
@@ -365,11 +368,25 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
                   <span>Mensagem Personalizada</span>
                 </div>
                 
+                <div className="flex items-center gap-2 mb-4">
+                  <input
+                    type="checkbox"
+                    id="ghostMode"
+                    checked={isGhostMode}
+                    onChange={(e) => setIsGhostMode(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="ghostMode" className="text-sm text-slate-700 font-medium">
+                    Gerar card sem texto (Template Mídia Social)
+                  </label>
+                </div>
+                
                 <div className="relative">
                   <textarea
                     value={selectedMessage}
                     onChange={(e) => setSelectedMessage(e.target.value)}
-                    className="w-full p-5 border border-slate-200 rounded-2xl text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none h-32 shadow-sm transition-all bg-slate-50"
+                    disabled={isGhostMode}
+                    className="w-full p-5 border border-slate-200 rounded-2xl text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none h-32 shadow-sm transition-all bg-slate-50 disabled:opacity-50"
                     placeholder="Escreva uma mensagem personalizada..."
                   />
                   <div className="absolute bottom-4 right-4 text-xs text-slate-400 font-medium pointer-events-none">
@@ -456,46 +473,50 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
                 {/* <div className="absolute inset-0 bg-black/10 z-10 pointer-events-none"></div> */}
 
                 {/* Nome Dinâmico */}
-                <div 
-                  className="absolute z-20"
-                  style={{
-                    top: selectedTemplate.name_y || '40%',
-                    left: selectedTemplate.name_x || '50%',
-                    transform: selectedTemplate.text_align === 'center' ? 'translate(-50%, -50%)' : selectedTemplate.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
-                    color: selectedTemplate.text_color || '#ffffff',
-                    fontSize: selectedTemplate.name_size || '36px',
-                    textAlign: selectedTemplate.text_align || 'center',
-                    width: 'fit-content',
-                    maxWidth: selectedTemplate.name_max_width || '80%',
-                    textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                    lineHeight: '1.1'
-                  }}
-                >
-                  <h1 className="font-serif font-bold uppercase tracking-widest drop-shadow-md m-0 leading-none">
-                    {firstName}
-                  </h1>
-                </div>
+                {!isGhostMode && (
+                  <div 
+                    className="absolute z-20"
+                    style={{
+                      top: selectedTemplate.name_y || '40%',
+                      left: selectedTemplate.name_x || '50%',
+                      transform: selectedTemplate.text_align === 'center' ? 'translate(-50%, -50%)' : selectedTemplate.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
+                      color: selectedTemplate.text_color || '#ffffff',
+                      fontSize: selectedTemplate.name_size || '36px',
+                      textAlign: selectedTemplate.text_align || 'center',
+                      width: 'fit-content',
+                      maxWidth: selectedTemplate.name_max_width || '80%',
+                      textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                      lineHeight: '1.1'
+                    }}
+                  >
+                    <h1 className="font-serif font-bold uppercase tracking-widest drop-shadow-md m-0 leading-none">
+                      {displayName}
+                    </h1>
+                  </div>
+                )}
 
                 {/* Mensagem Dinâmica */}
-                <div 
-                  className="absolute z-20"
-                  style={{
-                    top: selectedTemplate.msg_y || '60%',
-                    left: selectedTemplate.msg_x || '50%',
-                    transform: selectedTemplate.text_align === 'center' ? 'translate(-50%, -50%)' : selectedTemplate.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
-                    color: selectedTemplate.text_color || '#ffffff',
-                    fontSize: selectedTemplate.msg_size || '14px',
-                    textAlign: selectedTemplate.text_align || 'center',
-                    width: 'fit-content',
-                    maxWidth: selectedTemplate.msg_max_width || '80%',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                    lineHeight: selectedTemplate.line_height || '1.4'
-                  }}
-                >
-                  <p className="font-sans leading-relaxed tracking-wide drop-shadow-md m-0">
-                    {selectedMessage}
-                  </p>
-                </div>
+                {!isGhostMode && (
+                  <div 
+                    className="absolute z-20"
+                    style={{
+                      top: selectedTemplate.msg_y || '60%',
+                      left: selectedTemplate.msg_x || '50%',
+                      transform: selectedTemplate.text_align === 'center' ? 'translate(-50%, -50%)' : selectedTemplate.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
+                      color: selectedTemplate.text_color || '#ffffff',
+                      fontSize: selectedTemplate.msg_size || '14px',
+                      textAlign: selectedTemplate.text_align || 'center',
+                      width: 'fit-content',
+                      maxWidth: selectedTemplate.msg_max_width || '80%',
+                      textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                      lineHeight: selectedTemplate.line_height || '1.4'
+                    }}
+                  >
+                    <p className="font-sans leading-relaxed tracking-wide drop-shadow-md m-0">
+                      {selectedMessage}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

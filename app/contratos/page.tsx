@@ -31,6 +31,7 @@ import {
 import toast from 'react-hot-toast'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
+import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { KPICard } from '@/components/ui/KPICard'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor } from '@/lib/utils'
@@ -243,6 +244,25 @@ function ClientCombobox({ clients, value, onChange }: { clients: {id: number, na
           )}
         </div>
       )}
+      {/* Maternity Card Modal */}
+      {isModalOpen && selectedMaternityClient && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm p-4 sm:p-0 sm:items-center sm:justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col w-full max-w-4xl">
+            <button className="flex h-6 w-full items-center justify-center pt-2 sm:hidden" onClick={() => setIsModalOpen(false)}>
+              <div className="h-1.5 w-12 rounded-full bg-slate-200"></div>
+            </button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-slate-900 mb-4">Gerar Cartão de Nascimento</h2>
+              <BirthdayCardGenerator 
+                clientName={selectedMaternityClient.name}
+                clientId={selectedMaternityClient.id}
+                onClose={() => setIsModalOpen(false)}
+                onSuccess={() => setIsModalOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -259,6 +279,7 @@ export default function FinanceiroPage() {
   const [filter, setFilter] = useState('Todos')
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedMaternityClient, setSelectedMaternityClient] = useState<{name: string, id: string} | null>(null)
   const [estornoModalOpen, setEstornoModalOpen] = useState(false)
   const [estornoIndex, setEstornoIndex] = useState<number | null>(null)
   const [estornoReason, setEstornoReason] = useState('')
@@ -689,7 +710,14 @@ export default function FinanceiroPage() {
       if (cData && cData[0]) {
         setContracts(prev => prev.map(c => c.id === editingContract.id ? { ...cData[0], installments: installments } : c))
       }
-      setIsModalOpen(false)
+      
+      const today = new Date().toISOString().split('T')[0];
+      if (formData.rn_birth_date === today && formData.rn_name) {
+         setSelectedMaternityClient({name: formData.rn_name, id: editingContract.id.toString()})
+         setIsModalOpen(true)
+      } else {
+        setIsModalOpen(false)
+      }
     } else {
       const { data: cData, error: cError } = await supabase
         .from('contracts')
@@ -725,7 +753,14 @@ export default function FinanceiroPage() {
         }
         setContracts(prev => [{ ...cData[0], installments: currentInstallments }, ...prev])
       }
-      setIsModalOpen(false)
+      
+      const today = new Date().toISOString().split('T')[0];
+      if (formData.rn_birth_date === today && formData.rn_name) {
+         setSelectedMaternityClient({name: formData.rn_name, id: cData[0].id.toString()})
+         setIsModalOpen(true)
+      } else {
+        setIsModalOpen(false)
+      }
     }
   }
 
