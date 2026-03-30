@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'motion/react'
 import { ModuleHeader } from '@/components/ModuleHeader'
+import { Modal } from '@/components/Modal'
 import { 
   BarChart3, 
   Calendar, 
@@ -16,7 +17,8 @@ import {
   Gift,
   Coins,
   CheckCircle2,
-  XCircle
+  XCircle,
+  AlertTriangle
 } from 'lucide-react'
 import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -144,6 +146,8 @@ function RelatoriosPageContent() {
   const [commissionData, setCommissionData] = useState<CommissionReportItem[]>([])
   const [gpsData, setGpsData] = useState<any[]>([]) // Adicionado estado para GPS
   const [gpsFilter, setGpsFilter] = useState<'all' | 'paid' | 'unpaid' | 'financed' | 'normal'>('all')
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [selectedGps, setSelectedGps] = useState<any>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [loading, setLoading] = useState(true)
 
@@ -518,17 +522,19 @@ function RelatoriosPageContent() {
     }
   }
 
-  const handleRegisterPayment = async (id: number) => {
-    if (!isSupabaseConfigured) return
+  const handleRegisterPayment = async () => {
+    if (!isSupabaseConfigured || !selectedGps) return
     
     try {
       const { error } = await supabase
         .from('contracts')
         .update({ gpsPaid: true, gps_payment_date: new Date().toISOString() })
-        .eq('id', id)
+        .eq('id', selectedGps.id)
 
       if (error) throw error
       
+      setIsPaymentModalOpen(false)
+      setSelectedGps(null)
       // Refresh data
       fetchGpsData()
     } catch (error) {
@@ -819,18 +825,38 @@ function RelatoriosPageContent() {
         </div>
 
         {activeReport === 'gps' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="text-sm font-medium text-slate-500 mb-1">Total Pendente</div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-rose-100 text-rose-600 rounded-lg"><AlertCircle size={20} /></div>
+                <div className="text-sm font-medium text-slate-500">Total Pendente</div>
+              </div>
               <div className="text-2xl font-bold text-rose-600">{formatCurrency(gpsData.filter(item => !item.gpsPaid).reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="text-sm font-medium text-slate-500 mb-1">Total Pago</div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 size={20} /></div>
+                <div className="text-sm font-medium text-slate-500">Total Pago</div>
+              </div>
               <div className="text-2xl font-bold text-emerald-600">{formatCurrency(gpsData.filter(item => item.gpsPaid).reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="text-sm font-medium text-slate-500 mb-1">Total Geral</div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><Coins size={20} /></div>
+                <div className="text-sm font-medium text-slate-500">Total Geral</div>
+              </div>
               <div className="text-2xl font-bold text-slate-900">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><Scale size={20} /></div>
+                <div className="text-sm font-medium text-slate-500">Taxa Adimplência</div>
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {gpsData.length > 0 
+                  ? `${((gpsData.filter(item => item.gpsPaid).length / gpsData.length) * 100).toFixed(1)}%` 
+                  : '0%'}
+              </div>
             </div>
           </div>
         )}
@@ -1077,15 +1103,28 @@ function RelatoriosPageContent() {
                               {item.gpsPaid ? 'Pago' : 'Pendente'}
                             </span>
                           </td>
-                          <td className="p-4 text-slate-900 font-medium">
-                            {formatDate(item.gps_forecast_date)}
+                          <td className="p-4">
+                            <div className={cn(
+                              "flex items-center gap-2 font-medium",
+                              new Date(item.gps_forecast_date) < new Date() && !item.gpsPaid 
+                                ? "text-rose-600 font-bold" 
+                                : "text-slate-900"
+                            )}>
+                              {formatDate(item.gps_forecast_date)}
+                              {new Date(item.gps_forecast_date) < new Date() && !item.gpsPaid && (
+                                <AlertTriangle size={16} className="text-rose-500" />
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             {item.gpsPaid ? (
                               <span className="text-slate-600 font-medium">{formatDate(item.gps_payment_date)}</span>
                             ) : (
                               <button
-                                onClick={() => handleRegisterPayment(item.id)}
+                                onClick={() => {
+                                  setSelectedGps(item)
+                                  setIsPaymentModalOpen(true)
+                                }}
                                 className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors"
                               >
                                 Registrar
@@ -1132,6 +1171,40 @@ function RelatoriosPageContent() {
             </table>
           </div>
         </div>
+        {/* Modal para Registro de Pagamento */}
+        <Modal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          title="Confirmar Registro de Pagamento"
+        >
+          {selectedGps && (
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-50 rounded-xl space-y-2">
+                <p className="text-sm text-slate-600"><strong>Cliente:</strong> {selectedGps.clientName}</p>
+                <p className="text-sm text-slate-600"><strong>Valor:</strong> {formatCurrency(selectedGps.gps_value, isVisible('reports_gps'))}</p>
+                <p className="text-sm text-slate-600"><strong>Previsão:</strong> {formatDate(selectedGps.gps_forecast_date)}</p>
+              </div>
+              <p className="text-sm text-slate-700">
+                Tem certeza que deseja registrar o pagamento desta GPS? Esta ação é irreversível.
+              </p>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setIsPaymentModalOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRegisterPayment}
+                  className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Confirmar Pagamento
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
       </div>
     </DashboardLayout>
   )
