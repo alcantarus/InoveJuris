@@ -53,6 +53,7 @@ interface Contract {
   proxySigned: boolean
   inssProtocol: string
   gpsGenerated: boolean
+  gps_generated_status: boolean
   gpsPaid: boolean
   inssDeferred: boolean
   childbirthDate: string
@@ -492,6 +493,7 @@ export default function FinanceiroPage() {
         inssProtocol: '',
         hasGpsControl: false,
         gpsGenerated: false,
+        gps_generated_status: false,
         gpsPaid: false,
         gps_forecast_date: null,
         gps_payment_date: null,
@@ -591,6 +593,7 @@ export default function FinanceiroPage() {
       proxySigned: formData.proxySigned || false,
       inssProtocol: formData.inssProtocol || null,
       gpsGenerated: formData.hasGpsControl ? (formData.gpsGenerated || false) : false,
+      gps_generated_status: formData.hasGpsControl ? (formData.gps_generated_status || false) : false,
       gpsPaid: formData.hasGpsControl ? (formData.gpsPaid || false) : false,
       gps_forecast_date: formData.hasGpsControl ? (formData.gps_forecast_date || null) : null,
       gps_payment_date: formData.hasGpsControl ? (formData.gps_payment_date || null) : null,
@@ -1372,7 +1375,7 @@ export default function FinanceiroPage() {
                       contract.status === 'Cancelado' && "opacity-60 line-through"
                     )}
                   >
-                    <td className="p-4">
+                    <td className="p-4 min-w-[250px]">
                       <div className="font-medium text-slate-900 flex items-center gap-2">
                         {contract.clients?.name || 'Cliente não vinculado'}
                         {contract.isProBono && (
@@ -1961,6 +1964,15 @@ export default function FinanceiroPage() {
                             checked={formData.gpsGenerated || false}
                             onChange={e => setFormData({...formData, gpsGenerated: e.target.checked})}
                           />
+                          <span className="text-sm font-medium text-slate-700">Previsão de GPS</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                            checked={formData.gps_generated_status || false}
+                            onChange={e => setFormData({...formData, gps_generated_status: e.target.checked})}
+                          />
                           <span className="text-sm font-medium text-slate-700">GPS Gerada?</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -1982,28 +1994,18 @@ export default function FinanceiroPage() {
                         </label>
                       </div>
 
-                      {(formData.gpsGenerated || formData.gpsPaid) && (
+                      {(formData.gpsGenerated || formData.gps_generated_status || formData.gpsPaid) && (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
                           {formData.gpsGenerated && (
-                            <>
-                              <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Previsão GPS</label>
-                                <input 
-                                  type="date" 
-                                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                                  value={formData.gps_forecast_date || ''}
-                                  onChange={e => setFormData({...formData, gps_forecast_date: e.target.value})}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Valor a Pagar</label>
-                                <CurrencyInput 
-                                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                                  value={formData.gps_value || 0}
-                                  onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
-                                />
-                              </div>
-                            </>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento GPS</label>
+                              <input 
+                                type="date" 
+                                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                value={formData.gps_forecast_date || ''}
+                                onChange={e => setFormData({...formData, gps_forecast_date: e.target.value})}
+                              />
+                            </div>
                           )}
                           {formData.gpsPaid && (
                             <>
