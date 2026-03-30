@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { motion } from 'motion/react'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { Modal } from '@/components/Modal'
+import { CurrencyInput } from '@/components/CurrencyInput'
 import { 
   BarChart3, 
   Calendar, 
