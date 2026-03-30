@@ -522,13 +522,20 @@ function RelatoriosPageContent() {
     }
   }
 
+  const [paymentDate, setPaymentDate] = useState('')
+  const [paymentValue, setPaymentValue] = useState(0)
+
   const handleRegisterPayment = async () => {
     if (!isSupabaseConfigured || !selectedGps) return
     
     try {
       const { error } = await supabase
         .from('contracts')
-        .update({ gpsPaid: true, gps_payment_date: new Date().toISOString() })
+        .update({ 
+          gpsPaid: true, 
+          gps_payment_date: paymentDate,
+          gps_value: paymentValue 
+        })
         .eq('id', selectedGps.id)
 
       if (error) throw error
@@ -1181,12 +1188,29 @@ function RelatoriosPageContent() {
             <div className="space-y-4">
               <div className="p-4 bg-slate-50 rounded-xl space-y-2">
                 <p className="text-sm text-slate-600"><strong>Cliente:</strong> {selectedGps.clientName}</p>
-                <p className="text-sm text-slate-600"><strong>Valor:</strong> {formatCurrency(selectedGps.gps_value, isVisible('reports_gps'))}</p>
                 <p className="text-sm text-slate-600"><strong>Previsão:</strong> {formatDate(selectedGps.gps_forecast_date)}</p>
               </div>
-              <p className="text-sm text-slate-700">
-                Tem certeza que deseja registrar o pagamento desta GPS? Esta ação é irreversível.
-              </p>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Valor da GPS (R$)</label>
+                <input
+                  type="number"
+                  value={paymentValue}
+                  onChange={(e) => setPaymentValue(parseFloat(e.target.value))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Data do Pagamento</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() => setIsPaymentModalOpen(false)}
