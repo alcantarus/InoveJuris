@@ -244,25 +244,6 @@ function ClientCombobox({ clients, value, onChange }: { clients: {id: number, na
           )}
         </div>
       )}
-      {/* Maternity Card Modal */}
-      {isModalOpen && selectedMaternityClient && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm p-4 sm:p-0 sm:items-center sm:justify-center">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col w-full max-w-4xl">
-            <button className="flex h-6 w-full items-center justify-center pt-2 sm:hidden" onClick={() => setIsModalOpen(false)}>
-              <div className="h-1.5 w-12 rounded-full bg-slate-200"></div>
-            </button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">Gerar Cartão de Nascimento</h2>
-              <BirthdayCardGenerator 
-                clientName={selectedMaternityClient.name}
-                clientId={selectedMaternityClient.id}
-                onClose={() => setIsModalOpen(false)}
-                onSuccess={() => setIsModalOpen(false)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -2534,6 +2515,25 @@ export default function FinanceiroPage() {
                   Cancelar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Maternity Card Modal */}
+      {isModalOpen && selectedMaternityClient && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm p-4 sm:p-0 sm:items-center sm:justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col w-full max-w-4xl">
+            <button className="flex h-6 w-full items-center justify-center pt-2 sm:hidden" onClick={() => setIsModalOpen(false)}>
+              <div className="h-1.5 w-12 rounded-full bg-slate-200"></div>
+            </button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-slate-900 mb-4">Gerar Cartão de Nascimento</h2>
+              <BirthdayCardGenerator 
+                clientName={selectedMaternityClient.name}
+                clientId={selectedMaternityClient.id}
+                onClose={() => setIsModalOpen(false)}
+                onSuccess={() => setIsModalOpen(false)}
+              />
             </div>
           </div>
         </div>
