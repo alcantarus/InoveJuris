@@ -198,14 +198,14 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
       ctx.textAlign = selectedTemplate.text_align || 'center'
       
       // Desenhar Nome
-      if (!isGhostMode) {
-        const nameSize = parseInt(selectedTemplate.name_size || '36') * 3
-        ctx.font = `bold ${nameSize}px ${selectedTemplate.name_font || 'serif'}`
-        const nameX = (parseInt(selectedTemplate.name_x || '50') / 100) * canvas.width
-        const nameY = (parseInt(selectedTemplate.name_y || '40') / 100) * canvas.height
-        ctx.fillText(displayName.toUpperCase(), nameX, nameY)
+      const nameSize = parseInt(selectedTemplate.name_size || '36') * 3
+      ctx.font = `bold ${nameSize}px ${selectedTemplate.name_font || 'serif'}`
+      const nameX = (parseInt(selectedTemplate.name_x || '50') / 100) * canvas.width
+      const nameY = (parseInt(selectedTemplate.name_y || '40') / 100) * canvas.height
+      ctx.fillText(displayName.toUpperCase(), nameX, nameY)
 
-        // Desenhar Mensagem
+      // Desenhar Mensagem
+      if (!isGhostMode) {
         const msgSize = parseInt(selectedTemplate.msg_size || '14') * 3
         ctx.font = `${msgSize}px ${selectedTemplate.msg_font || 'sans-serif'}`
         const msgX = (parseInt(selectedTemplate.msg_x || '50') / 100) * canvas.width
@@ -388,7 +388,7 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
                     className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                   />
                   <label htmlFor="ghostMode" className="text-sm text-slate-700 font-medium">
-                    Gerar card sem texto (Template Mídia Social)
+                    Gerar card sem mensagem (Template Mídia Social)
                   </label>
                 </div>
                 
@@ -484,27 +484,25 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
                 {/* <div className="absolute inset-0 bg-black/10 z-10 pointer-events-none"></div> */}
 
                 {/* Nome Dinâmico */}
-                {!isGhostMode && (
-                  <div 
-                    className="absolute z-20"
-                    style={{
-                      top: selectedTemplate.name_y || '40%',
-                      left: selectedTemplate.name_x || '50%',
-                      transform: selectedTemplate.text_align === 'center' ? 'translate(-50%, -50%)' : selectedTemplate.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
-                      color: selectedTemplate.text_color || '#ffffff',
-                      fontSize: selectedTemplate.name_size || '36px',
-                      textAlign: selectedTemplate.text_align || 'center',
-                      width: 'fit-content',
-                      maxWidth: selectedTemplate.name_max_width || '80%',
-                      textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                      lineHeight: '1.1'
-                    }}
-                  >
-                    <h1 className="font-serif font-bold uppercase tracking-widest drop-shadow-md m-0 leading-none">
-                      {displayName}
-                    </h1>
-                  </div>
-                )}
+                <div 
+                  className="absolute z-20"
+                  style={{
+                    top: selectedTemplate.name_y || '40%',
+                    left: selectedTemplate.name_x || '50%',
+                    transform: selectedTemplate.text_align === 'center' ? 'translate(-50%, -50%)' : selectedTemplate.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
+                    color: selectedTemplate.text_color || '#ffffff',
+                    fontSize: selectedTemplate.name_size || '36px',
+                    textAlign: selectedTemplate.text_align || 'center',
+                    width: 'fit-content',
+                    maxWidth: selectedTemplate.name_max_width || '80%',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    lineHeight: '1.1'
+                  }}
+                >
+                  <h1 className="font-serif font-bold uppercase tracking-widest drop-shadow-md m-0 leading-none">
+                    {displayName}
+                  </h1>
+                </div>
 
                 {/* Mensagem Dinâmica */}
                 {!isGhostMode && (
