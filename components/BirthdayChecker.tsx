@@ -122,7 +122,7 @@ export function BirthdayChecker() {
       const { data: logs, error: logError } = await supabase
         .from('marketing_logs')
         .select('client_id, type')
-        .in('type', ['birthday_card', 'birthday_card_client', 'birthday_card_indicator', 'maternity_card'])
+        .in('type', ['birthday_card', 'birthday_card_client', 'birthday_card_indicator', 'birthday_card_maternity', 'maternity_card'])
         .gte('created_at', todayStart.toISOString())
 
       if (logError) {
@@ -138,7 +138,7 @@ export function BirthdayChecker() {
         const dbSent = logs.map((l: any) => {
           if (l.type === 'birthday_card_indicator') return `indicator_${l.client_id}`
           if (l.type === 'birthday_card_client') return `client_${l.client_id}`
-          if (l.type === 'maternity_card') return `maternity_${l.client_id}`
+          if (l.type === 'birthday_card_maternity' || l.type === 'maternity_card') return `maternity_${l.client_id}`
           // Fallback for old records if any
           return `client_${l.client_id}`
         })

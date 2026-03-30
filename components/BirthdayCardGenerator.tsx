@@ -243,19 +243,30 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
       // Registrar no log de marketing
       try {
         const isIndicator = clientId.startsWith('indicator_')
-        const numericId = parseInt(clientId.replace(/\D/g, ''), 10)
+        const isMaternity = clientId.startsWith('maternity_') || clientId === 'new'
+        
+        const numericIdStr = clientId.replace(/\D/g, '')
+        const numericId = numericIdStr ? parseInt(numericIdStr, 10) : null
         
         // Ensure template_id is a valid UUID, otherwise pass null
         const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedTemplate.id)
         
-        const { error: logError } = await supabase.from('marketing_logs').insert([{
-          client_id: numericId,
-          template_id: isValidUUID ? selectedTemplate.id : null,
-          type: isIndicator ? 'birthday_card_indicator' : 'birthday_card_client'
-        }])
-        
-        if (logError) {
-          console.error('Erro do Supabase ao salvar log:', logError)
+        let logType = 'birthday_card_client'
+        if (isIndicator) logType = 'birthday_card_indicator'
+        if (isMaternity) logType = 'birthday_card_maternity'
+
+        if (numericId !== null && !isNaN(numericId)) {
+          const { error: logError } = await supabase.from('marketing_logs').insert([{
+            client_id: numericId,
+            template_id: isValidUUID ? selectedTemplate.id : null,
+            type: logType
+          }])
+          
+          if (logError) {
+            console.error('Erro do Supabase ao salvar log:', logError)
+          }
+        } else {
+          console.warn('Não foi possível registrar log: ID numérico inválido', clientId)
         }
       } catch (logError) {
         console.error('Erro ao salvar log de marketing:', logError)

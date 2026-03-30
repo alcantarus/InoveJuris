@@ -26,7 +26,8 @@ import {
   Ban,
   Eye,
   EyeOff,
-  Scale
+  Scale,
+  Gift
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion } from 'motion/react'
@@ -1765,8 +1766,11 @@ export default function FinanceiroPage() {
             {/* Seção 1: Dados Básicos */}
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4 border-b pb-2">Dados do Contrato</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
+              <div className={cn(
+                "grid grid-cols-1 gap-4",
+                formData.product?.toLowerCase().includes('maternidade') ? "md:grid-cols-4" : "md:grid-cols-3"
+              )}>
+                <div className={formData.product?.toLowerCase().includes('maternidade') ? "md:col-span-1" : "md:col-span-2"}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
                   <ClientCombobox 
                     clients={clients}
@@ -1869,6 +1873,26 @@ export default function FinanceiroPage() {
                         value={formData.rn_birth_date || ''}
                         onChange={e => setFormData({ ...formData, rn_birth_date: e.target.value })}
                       />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (formData.rn_name) {
+                            setSelectedMaternityClient({
+                              name: formData.rn_name, 
+                              id: editingContract ? editingContract.id.toString() : 'new'
+                            })
+                            setIsModalOpen(true)
+                          } else {
+                            toast.error('Informe o nome do recém-nascido para gerar o cartão.')
+                          }
+                        }}
+                        className="w-full h-[42px] flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-900 border-2 border-slate-200 rounded-xl font-bold hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95"
+                      >
+                        <Gift size={18} className="text-indigo-600" />
+                        <span className="leading-tight text-xs uppercase tracking-wider">Gerar<br/>Card</span>
+                      </button>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Recém-Nascido</label>
