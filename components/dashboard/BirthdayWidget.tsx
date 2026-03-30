@@ -15,6 +15,7 @@ interface BirthdayPerson {
   birthDate: string
   age: number
   type: 'client' | 'indicator'
+  phone?: string
 }
 
 export default function BirthdayWidget() {
@@ -29,8 +30,8 @@ export default function BirthdayWidget() {
 
     try {
       const [clientsRes, indicatorsRes] = await Promise.all([
-        supabase.from('clients').select('id, name, "birthDate"').not('"birthDate"', 'is', null),
-        supabase.from('indicators').select('id, name, data_nascimento').not('data_nascimento', 'is', null)
+        supabase.from('clients').select('id, name, "birthDate", phone').not('"birthDate"', 'is', null),
+        supabase.from('indicators').select('id, name, data_nascimento, phone').not('data_nascimento', 'is', null)
       ])
       
       if (clientsRes.error) throw clientsRes.error
@@ -67,7 +68,8 @@ export default function BirthdayWidget() {
             name: person.name,
             birthDate: birthDate,
             age: currentYear - birthYear,
-            type
+            type,
+            phone: person.phone
           }
         }
         return null
@@ -137,16 +139,16 @@ export default function BirthdayWidget() {
             key={client.id}
             className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
                 {client.name.charAt(0)}
               </div>
-              <div>
-                <h4 className="font-semibold text-slate-900">{client.name}</h4>
-                <p className="text-sm text-slate-500">🎉 {client.age} anos</p>
+              <div className="min-w-0">
+                <h4 className="font-semibold text-slate-900 truncate">{client.name}</h4>
+                <p className="text-sm text-slate-500 truncate">🎉 {client.age} anos</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => setSelectedClient(client)}
                 title={generatedCards.includes(client.id) ? 'Reemitir Cartão' : 'Gerar Cartão'}
@@ -160,11 +162,17 @@ export default function BirthdayWidget() {
                 {generatedCards.includes(client.id) ? <Printer className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
               </button>
               <a
-                href={`https://wa.me/55${client.id.replace(/\D/g, '')}?text=Parabéns, ${client.name}! A InoveJuris deseja um feliz aniversário!`}
+                href={client.phone ? `https://wa.me/55${client.phone.replace(/\D/g, '')}?text=Parabéns, ${client.name}! A InoveJuris deseja um feliz aniversário!` : '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Enviar WhatsApp"
-                className="p-2 text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                title={client.phone ? "Enviar WhatsApp" : "Telefone não disponível"}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  client.phone 
+                    ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+                    : "text-slate-400 bg-slate-100 cursor-not-allowed"
+                )}
+                onClick={(e) => !client.phone && e.preventDefault()}
               >
                 <MessageCircle className="w-5 h-5" />
               </a>
