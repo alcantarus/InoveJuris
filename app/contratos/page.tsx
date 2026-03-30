@@ -1993,15 +1993,15 @@ export default function FinanceiroPage() {
                         </div>
                       </div>
 
-                      {formData.gpsPaid && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
+                      {formData.gpsGenerated && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Data Pagamento GPS</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Previsão GPS</label>
                             <input 
                               type="date" 
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                              value={formData.gps_payment_date || ''}
-                              onChange={e => setFormData({...formData, gps_payment_date: e.target.value})}
+                              value={formData.gps_forecast_date || ''}
+                              onChange={e => setFormData({...formData, gps_forecast_date: e.target.value})}
                             />
                           </div>
                           <div>
@@ -2010,6 +2010,20 @@ export default function FinanceiroPage() {
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                               value={formData.gps_value || 0}
                               onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.gpsPaid && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Data Pagamento GPS</label>
+                            <input 
+                              type="date" 
+                              className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                              value={formData.gps_payment_date || ''}
+                              onChange={e => setFormData({...formData, gps_payment_date: e.target.value})}
                             />
                           </div>
                           <div>
