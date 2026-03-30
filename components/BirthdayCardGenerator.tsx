@@ -4,7 +4,7 @@ import React, { useRef, useState, useEffect } from 'react'
 import html2canvas from 'html2canvas'
 import { Download, X, Loader2, Image as ImageIcon, Type, User, Sparkles, Check, ChevronRight, PartyPopper } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import confetti from 'canvas-confetti'
 import { toast } from 'sonner'
 
@@ -125,14 +125,17 @@ export function BirthdayCardGenerator({
   
   const [selectedTemplate, setSelectedTemplate] = useState<BirthdayTemplate>(FALLBACK_TEMPLATES[0])
   const [selectedMessage, setSelectedMessage] = useState<string>(FALLBACK_MESSAGES[0])
+  const [customName, setCustomName] = useState(clientName || '')
   const [isGhostMode, setIsGhostMode] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
 
-  // Se não estiver aberto, não renderiza nada
-  if (isOpen === false) return null
+  // Atualiza o nome customizado quando o clientName mudar
+  useEffect(() => {
+    if (clientName) setCustomName(clientName)
+  }, [clientName])
 
-  // Usa o nome completo
-  const displayName = clientName || 'cliente';
+  // Usa o nome customizado ou fallback
+  const displayName = customName || clientName || 'cliente';
 
   useEffect(() => {
     async function loadConfig() {
@@ -225,7 +228,7 @@ export function BirthdayCardGenerator({
         
         // Quebra de linha simples para a mensagem
         const maxWidth = (parseInt(selectedTemplate.msg_max_width || '80') / 100) * canvas.width
-        const words = selectedMessage.split(' ')
+        const words = (selectedMessage || '').split(' ')
         let line = ''
         let y = msgY
         const lineHeight = msgSize * 1.4
@@ -311,46 +314,65 @@ export function BirthdayCardGenerator({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/70 backdrop-blur-md"
-        onClick={onClose}
-      />
-      
-      <motion.div 
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl flex flex-col md:flex-row my-auto relative z-[200] overflow-hidden h-[90vh] md:h-[80vh]"
-      >
-        
-        {/* Painel de Configuração (Esquerda) */}
-        <div className="w-full md:w-[45%] bg-white flex flex-col h-full border-r border-slate-100">
-          <div className="flex items-center justify-between p-8 shrink-0">
-            <div>
-              <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Personalizar Cartão</h3>
-              <p className="text-sm text-slate-500 mt-1">Crie uma experiência única para {displayName}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            onClick={onClose}
+          />
+          
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl flex flex-col md:flex-row my-auto relative z-[200] overflow-hidden h-[90vh] md:h-[80vh]"
+          >
+            
+            {/* Painel de Configuração (Esquerda) */}
+            <div className="w-full md:w-[45%] bg-white flex flex-col h-full border-r border-slate-100">
+              <div className="flex items-center justify-between p-8 shrink-0">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Personalizar Cartão</h3>
+                  <p className="text-sm text-slate-500 mt-1">Crie uma experiência única para {displayName}</p>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-          {isLoadingData ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
-              <p className="font-medium">Preparando recursos...</p>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
-              
-              {/* Seleção de Arte */}
+              {isLoadingData ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400">
+                  <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
+                  <p className="font-medium">Preparando recursos...</p>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
+                  
+                  {/* Nome do Cliente */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm uppercase tracking-wider">
+                      <User className="w-4 h-4 text-indigo-600" />
+                      <span>Nome no Cartão</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        className="w-full p-4 border border-slate-200 rounded-2xl text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none shadow-sm transition-all bg-slate-50"
+                        placeholder="Nome que aparecerá no cartão..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seleção de Arte */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm uppercase tracking-wider">
                   <ImageIcon className="w-4 h-4 text-indigo-600" />
@@ -550,5 +572,7 @@ export function BirthdayCardGenerator({
         </div>
       </motion.div>
     </div>
+  )}
+</AnimatePresence>
   )
 }

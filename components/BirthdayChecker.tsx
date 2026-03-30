@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Gift, X, ChevronRight, Image as ImageIcon, CheckCircle2, Calendar, Sparkles, PartyPopper, Printer } from 'lucide-react'
 import { BirthdayCardGenerator } from './BirthdayCardGenerator'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import confetti from 'canvas-confetti'
 
 interface BirthdayPerson {
@@ -13,7 +13,7 @@ interface BirthdayPerson {
   name: string
   birthDate: string
   age: number
-  type: 'client' | 'indicator'
+  type: 'client' | 'indicator' | 'maternity'
 }
 
 export function BirthdayChecker() {
@@ -69,7 +69,7 @@ export function BirthdayChecker() {
         if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
           return {
             id: `${type}_${person.id}`,
-            name: person.name,
+            name: person.name || 'Cliente',
             birthDate: birthDate,
             age: currentYear - birthYear,
             type
@@ -97,7 +97,7 @@ export function BirthdayChecker() {
         if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
           return {
             id: `maternity_${contract.id}`,
-            name: contract.rn_name,
+            name: contract.rn_name || 'Recém-nascido',
             birthDate: birthDate,
             age: 0, // Recém-nascido
             type: 'maternity'
@@ -344,7 +344,7 @@ export function BirthdayChecker() {
                           >
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg">
-                                {client.name.charAt(0)}
+                                {(client.name || 'C').charAt(0)}
                               </div>
                               <div>
                                 <h4 className="font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">{client.name}</h4>
@@ -418,7 +418,7 @@ export function BirthdayChecker() {
                                 >
                                   <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-lg">
-                                      {client.name.charAt(0)}
+                                      {(client.name || 'C').charAt(0)}
                                     </div>
                                     <div>
                                       <h4 className="font-medium text-slate-700">{client.name}</h4>

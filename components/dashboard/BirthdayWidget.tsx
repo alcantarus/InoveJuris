@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Gift, ImageIcon, Printer, PartyPopper, MessageCircle } from 'lucide-react'
 import { BirthdayCardGenerator } from '../BirthdayCardGenerator'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import confetti from 'canvas-confetti'
 import { cn } from '@/lib/utils'
 
