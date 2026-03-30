@@ -18,10 +18,12 @@ import {
   CheckCircle2,
   XCircle,
   Users,
-  User
+  User,
+  Gift
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
+import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPIS, cn, formatCEP, formatPhone, removeAccents } from '@/lib/utils'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -191,6 +193,7 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedBirthdayClient, setSelectedBirthdayClient] = useState<Client | null>(null)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -699,6 +702,13 @@ export default function ClientesPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => setSelectedBirthdayClient(client)}
+                            className="p-2 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
+                            title="Gerar Card de Aniversário"
+                          >
+                            <Gift size={18} />
+                          </button>
                           <Link 
                             href={`/clientes/${client.id}`}
                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -769,6 +779,12 @@ export default function ClientesPage() {
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
+                      <button 
+                        onClick={() => setSelectedBirthdayClient(client)}
+                        className="px-3 py-1.5 bg-pink-50 text-pink-600 rounded-lg text-xs font-medium hover:bg-pink-100"
+                      >
+                        Gerar Card
+                      </button>
                       <Link 
                         href={`/clientes/${client.id}`}
                         className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100"
@@ -1174,6 +1190,28 @@ export default function ClientesPage() {
           </form>
           )}
         </Modal>
+
+        <BirthdayCardGenerator 
+          isOpen={!!selectedBirthdayClient}
+          onClose={() => setSelectedBirthdayClient(null)}
+          clientName={selectedBirthdayClient?.name || ''}
+          clientId={selectedBirthdayClient ? `client_${selectedBirthdayClient.id}` : ''}
+          onGenerated={async (id) => {
+            // Log generation if needed, similar to BirthdayChecker
+            try {
+              const numericId = parseInt(id.replace(/\D/g, ''), 10)
+              if (numericId && !isNaN(numericId)) {
+                await supabase.from('marketing_logs').insert([{
+                  client_id: numericId,
+                  type: 'birthday_card_client'
+                }])
+              }
+            } catch (e) {
+              console.error('Erro ao salvar log no Supabase:', e)
+            }
+            setSelectedBirthdayClient(null)
+          }}
+        />
       </div>
     </DashboardLayout>
   )

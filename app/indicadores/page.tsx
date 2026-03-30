@@ -18,11 +18,13 @@ import {
   Copy,
   RefreshCw,
   Power,
-  PowerOff
+  PowerOff,
+  Gift
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
+import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { formatCPF, formatCNPJ, formatPhone, cn, formatDate, formatCurrency, removeAccents } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -58,6 +60,7 @@ export default function IndicadoresPage() {
   const [indicators, setIndicators] = useState<Indicator[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedBirthdayIndicator, setSelectedBirthdayIndicator] = useState<Indicator | null>(null)
   const [editingIndicator, setEditingIndicator] = useState<Indicator | null>(null)
   const [mounted, setMounted] = useState(false)
 
@@ -511,6 +514,13 @@ export default function IndicadoresPage() {
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button 
+                          onClick={() => setSelectedBirthdayIndicator(indicator)}
+                          className="p-2 text-slate-600 md:text-slate-400 hover:text-pink-600 hover:bg-pink-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"
+                          title="Gerar Card de Aniversário"
+                        >
+                          <Gift size={18} />
+                        </button>
+                        <button 
                           onClick={() => handleOpenCommissions(indicator)}
                           className="p-2 text-slate-600 md:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"
                           title="Ver Comissões"
@@ -905,6 +915,27 @@ export default function IndicadoresPage() {
             </div>
           </div>
         </Modal>
+
+        <BirthdayCardGenerator 
+          isOpen={!!selectedBirthdayIndicator}
+          onClose={() => setSelectedBirthdayIndicator(null)}
+          clientName={selectedBirthdayIndicator?.name || ''}
+          clientId={selectedBirthdayIndicator ? `indicator_${selectedBirthdayIndicator.id}` : ''}
+          onGenerated={async (id) => {
+            try {
+              const numericId = parseInt(id.replace(/\D/g, ''), 10)
+              if (numericId && !isNaN(numericId)) {
+                await supabase.from('marketing_logs').insert([{
+                  client_id: numericId,
+                  type: 'birthday_card_indicator'
+                }])
+              }
+            } catch (e) {
+              console.error('Erro ao salvar log no Supabase:', e)
+            }
+            setSelectedBirthdayIndicator(null)
+          }}
+        />
       </div>
     </DashboardLayout>
   )
