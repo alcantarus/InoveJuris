@@ -236,7 +236,7 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
       const dataUrl = canvas.toDataURL('image/png', 1.0)
       const link = document.createElement('a')
       link.href = dataUrl
-      const safeName = (firstName || 'cliente').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const safeName = (displayName || 'cliente').toLowerCase().replace(/[^a-z0-9]/g, '')
       link.download = `aniversario-${safeName}.png`
       link.click()
       
