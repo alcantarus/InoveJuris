@@ -1152,7 +1152,7 @@ export default function Page() {
                     <Tooltip 
                       cursor={{ stroke: '#10b981', strokeWidth: 1 }}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: number | undefined) => formatCurrency(value, isVisible('dashboard_revenue_evolution'))}
+                      formatter={(value: any) => formatCurrency(Number(value), isVisible('dashboard_revenue_evolution'))}
                     />
                     <Area type="monotone" dataKey="receita" name="Receita" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorReceita)" />
                   </AreaChart>
