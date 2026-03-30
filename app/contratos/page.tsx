@@ -462,6 +462,7 @@ export default function FinanceiroPage() {
         return;
       }
       setEditingContract(contract)
+      setSelectedMaternityClient(null)
       
       // Resolve product and law area from the products list
       const product = products.find(p => p.id === contract.product_id)
@@ -479,6 +480,7 @@ export default function FinanceiroPage() {
       }
     } else {
       setEditingContract(null)
+      setSelectedMaternityClient(null)
       setFormData({
         client_id: null,
         product_id: null,
@@ -692,7 +694,7 @@ export default function FinanceiroPage() {
         setContracts(prev => prev.map(c => c.id === editingContract.id ? { ...cData[0], installments: installments } : c))
       }
       
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       if (formData.rn_birth_date === today && formData.rn_name) {
          setSelectedMaternityClient({name: formData.rn_name, id: editingContract.id.toString()})
          setIsModalOpen(true)
@@ -735,7 +737,7 @@ export default function FinanceiroPage() {
         setContracts(prev => [{ ...cData[0], installments: currentInstallments }, ...prev])
       }
       
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       if (formData.rn_birth_date === today && formData.rn_name) {
          setSelectedMaternityClient({name: formData.rn_name, id: cData[0].id.toString()})
          setIsModalOpen(true)
@@ -2523,7 +2525,10 @@ export default function FinanceiroPage() {
       {isModalOpen && selectedMaternityClient && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm p-4 sm:p-0 sm:items-center sm:justify-center">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col w-full max-w-4xl">
-            <button className="flex h-6 w-full items-center justify-center pt-2 sm:hidden" onClick={() => setIsModalOpen(false)}>
+            <button className="flex h-6 w-full items-center justify-center pt-2 sm:hidden" onClick={() => {
+              setIsModalOpen(false)
+              setSelectedMaternityClient(null)
+            }}>
               <div className="h-1.5 w-12 rounded-full bg-slate-200"></div>
             </button>
             <div className="p-6">
@@ -2531,8 +2536,14 @@ export default function FinanceiroPage() {
               <BirthdayCardGenerator 
                 clientName={selectedMaternityClient.name}
                 clientId={selectedMaternityClient.id}
-                onClose={() => setIsModalOpen(false)}
-                onSuccess={() => setIsModalOpen(false)}
+                onClose={() => {
+                  setIsModalOpen(false)
+                  setSelectedMaternityClient(null)
+                }}
+                onSuccess={() => {
+                  setIsModalOpen(false)
+                  setSelectedMaternityClient(null)
+                }}
               />
             </div>
           </div>

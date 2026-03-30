@@ -34,7 +34,7 @@ export function BirthdayChecker() {
       const [clientsRes, indicatorsRes, maternityRes] = await Promise.all([
         supabase.from('clients').select('id, name, "birthDate"').not('"birthDate"', 'is', null),
         supabase.from('indicators').select('id, name, data_nascimento').not('data_nascimento', 'is', null),
-        supabase.from('contracts').select('id, maternity_child_name, maternity_birth_date').eq('product', 'Salário-Maternidade').not('maternity_birth_date', 'is', null)
+        supabase.from('contracts').select('id, rn_name, rn_birth_date').ilike('product', '%maternidade%').not('rn_birth_date', 'is', null)
       ])
       
       if (clientsRes.error) throw clientsRes.error
@@ -79,7 +79,7 @@ export function BirthdayChecker() {
       }
 
       const processMaternity = (contract: any) => {
-        const birthDate = contract.maternity_birth_date
+        const birthDate = contract.rn_birth_date
         if (!birthDate) return null
         
         let dateObj: Date
@@ -97,7 +97,7 @@ export function BirthdayChecker() {
         if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
           return {
             id: `maternity_${contract.id}`,
-            name: contract.maternity_child_name,
+            name: contract.rn_name,
             birthDate: birthDate,
             age: 0, // Recém-nascido
             type: 'maternity'
