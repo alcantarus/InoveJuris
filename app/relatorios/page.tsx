@@ -239,6 +239,7 @@ function RelatoriosPageContent() {
           gpsPaid: item.gpsPaid || false,
           gps_payment_date: item.gps_payment_date,
           gps_value: item.gps_value || 0,
+          gps_paid_value: item.gps_paid_value || 0,
           inss_protocol_number: item.inssProtocol,
           isFinanced: item.isFinanced || false
         }))
@@ -839,14 +840,14 @@ function RelatoriosPageContent() {
                 <div className="p-2 bg-rose-100 text-rose-600 rounded-lg"><AlertCircle size={20} /></div>
                 <div className="text-sm font-medium text-slate-500">Total Pendente</div>
               </div>
-              <div className="text-2xl font-bold text-rose-600">{formatCurrency(gpsData.filter(item => !item.gpsPaid).reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
+              <div className="text-2xl font-bold text-rose-600">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), isVisible('reports_gps'))}</div>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 size={20} /></div>
                 <div className="text-sm font-medium text-slate-500">Total Pago</div>
               </div>
-              <div className="text-2xl font-bold text-emerald-600">{formatCurrency(gpsData.filter(item => item.gpsPaid).reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
+              <div className="text-2xl font-bold text-emerald-600">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), isVisible('reports_gps'))}</div>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-2">
@@ -881,7 +882,9 @@ function RelatoriosPageContent() {
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Status</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Previsão</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Pagto</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Valor GPS</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Valor Previsto</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Valor Pago</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Diferença</th>
                     </>
                   ) : activeReport === 'deadlines' ? (
                     <>
@@ -1139,8 +1142,14 @@ function RelatoriosPageContent() {
                               </button>
                             )}
                           </td>
-                          <td className="p-4 text-right font-bold text-slate-900">
+                          <td className="p-4 text-right font-medium text-slate-900">
                             {formatCurrency(item.gps_value, isVisible('reports_gps'))}
+                          </td>
+                          <td className="p-4 text-right font-medium text-emerald-600">
+                            {formatCurrency(item.gps_paid_value, isVisible('reports_gps'))}
+                          </td>
+                          <td className="p-4 text-right font-bold text-slate-900">
+                            {formatCurrency(item.gps_value - (item.gps_paid_value || 0), isVisible('reports_gps'))}
                           </td>
                         </>
                       ) : (

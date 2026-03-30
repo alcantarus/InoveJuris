@@ -594,6 +594,7 @@ export default function FinanceiroPage() {
       gps_forecast_date: formData.hasGpsControl ? (formData.gps_forecast_date || null) : null,
       gps_payment_date: formData.hasGpsControl ? (formData.gps_payment_date || null) : null,
       gps_value: formData.hasGpsControl ? (formData.gps_value || null) : null,
+      gps_paid_value: formData.hasGpsControl ? (formData.gps_paid_value || null) : null,
       inssDeferred: formData.inssDeferred || false,
       childbirthDate: isMaternidade ? (formData.childbirthDate || null) : null,
       rn_birth_date: isMaternidade ? (formData.rn_birth_date || null) : null,
@@ -1992,7 +1993,7 @@ export default function FinanceiroPage() {
                       </div>
 
                       {formData.gpsPaid && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
                           <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Data Pagamento GPS</label>
                             <input 
@@ -2003,11 +2004,19 @@ export default function FinanceiroPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Valor GPS</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Valor a Pagar</label>
                             <CurrencyInput 
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                               value={formData.gps_value || 0}
                               onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Valor Pago</label>
+                            <CurrencyInput 
+                              className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                              value={formData.gps_paid_value || 0}
+                              onChange={(val: number) => setFormData({ ...formData, gps_paid_value: val })}
                             />
                           </div>
                         </div>
