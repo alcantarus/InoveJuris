@@ -2009,7 +2009,7 @@ export default function FinanceiroPage() {
                             <CurrencyInput 
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                               value={formData.gps_value || 0}
-                              onChange={(val) => setFormData({ ...formData, gps_value: val })}
+                              onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
                             />
                           </div>
                           <div>
@@ -2017,7 +2017,7 @@ export default function FinanceiroPage() {
                             <CurrencyInput 
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                               value={formData.gps_paid_value || 0}
-                              onChange={(val) => setFormData({ ...formData, gps_paid_value: val })}
+                              onChange={(val: number) => setFormData({ ...formData, gps_paid_value: val })}
                             />
                           </div>
                         </div>
