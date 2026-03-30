@@ -60,6 +60,7 @@ import { DefaultRiskCard } from '@/components/dashboard/dynamic/DefaultRiskCard'
 import { GPSDashboardCard } from '@/components/dashboard/GPSDashboardCard'
 import GlobalActionCenter from '@/components/tasks/GlobalActionCenter'
 import TodayFocusWidget from '@/components/tasks/TodayFocusWidget'
+import BirthdayWidget from '@/components/dashboard/BirthdayWidget'
 import TaskKanban from '@/components/tasks/TaskKanban'
 
 const COLORS = ['#4f46e5', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -764,6 +765,7 @@ export default function Page() {
         {/* Actionable Insights */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <TodayFocusWidget />
+          <BirthdayWidget />
           <LiquidityGapCard gap={totalReceivable - overdueTotal} isVisible={isVisible('dashboard_liquidity')} toggleVisibility={() => toggleVisibility('dashboard_liquidity')} />
           <StuckProcessesCard count={stuckInProtocol + stuckInJudicial} onAction={() => window.location.href = '/processos'} />
           <DefaultRiskCard riskAmount={overdueTotal} count={overdueInstallmentsRaw.length} onAction={() => window.location.href = '/contas-a-receber'} />

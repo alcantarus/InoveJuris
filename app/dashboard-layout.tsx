@@ -6,7 +6,6 @@ import { Sidebar } from '@/components/Sidebar'
 import { useAuth, User } from '@/lib/auth'
 import { ShieldAlert } from 'lucide-react'
 
-import { BirthdayChecker } from '@/components/BirthdayChecker'
 import { GPSNotificationChecker } from '@/components/GPSNotificationChecker'
 
 const PERMISSION_MAP: Record<string, keyof User> = {
@@ -86,7 +85,6 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      <BirthdayChecker />
       <GPSNotificationChecker />
       <Sidebar />
       <main className="flex-1 lg:ml-64 p-4 md:p-6 lg:p-8 transition-all duration-300 mt-24 lg:mt-6">
