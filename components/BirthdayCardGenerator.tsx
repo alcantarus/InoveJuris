@@ -270,7 +270,7 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
       })
       
       toast.success('Cartão gerado com sucesso!', {
-        description: `O cartão de ${firstName || 'cliente'} foi baixado.`,
+        description: `O cartão de ${displayName || 'cliente'} foi baixado.`,
         icon: <PartyPopper className="w-5 h-5 text-indigo-600" />
       })
 
@@ -307,7 +307,7 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
           <div className="flex items-center justify-between p-8 shrink-0">
             <div>
               <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Personalizar Cartão</h3>
-              <p className="text-sm text-slate-500 mt-1">Crie uma experiência única para {firstName}</p>
+              <p className="text-sm text-slate-500 mt-1">Crie uma experiência única para {displayName}</p>
             </div>
             <button
               onClick={onClose}
