@@ -105,10 +105,19 @@ interface BirthdayCardGeneratorProps {
   clientName: string
   clientId: string
   onClose: () => void
-  onSuccess: (clientId: string) => void
+  onSuccess?: (clientId: string) => void
+  onGenerated?: (clientId: string) => void
+  isOpen?: boolean
 }
 
-export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess }: BirthdayCardGeneratorProps) {
+export function BirthdayCardGenerator({ 
+  clientName, 
+  clientId, 
+  onClose, 
+  onSuccess,
+  onGenerated,
+  isOpen = true
+}: BirthdayCardGeneratorProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [templates, setTemplates] = useState<BirthdayTemplate[]>(FALLBACK_TEMPLATES)
@@ -118,6 +127,9 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
   const [selectedMessage, setSelectedMessage] = useState<string>(FALLBACK_MESSAGES[0])
   const [isGhostMode, setIsGhostMode] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
+
+  // Se não estiver aberto, não renderiza nada
+  if (isOpen === false) return null
 
   // Usa o nome completo
   const displayName = clientName || 'cliente';
@@ -285,7 +297,9 @@ export function BirthdayCardGenerator({ clientName, clientId, onClose, onSuccess
         icon: <PartyPopper className="w-5 h-5 text-indigo-600" />
       })
 
-      onSuccess(clientId)
+      // Chama o callback de sucesso
+      if (onSuccess) onSuccess(clientId)
+      if (onGenerated) onGenerated(clientId)
     } catch (error) {
       console.error('Erro detalhado ao gerar cartão:', error)
       toast.error('Erro ao gerar cartão', {
