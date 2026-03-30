@@ -1193,10 +1193,9 @@ function RelatoriosPageContent() {
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Valor da GPS (R$)</label>
-                <input
-                  type="number"
+                <CurrencyInput
                   value={paymentValue}
-                  onChange={(e) => setPaymentValue(parseFloat(e.target.value))}
+                  onChange={(value) => setPaymentValue(value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
