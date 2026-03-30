@@ -845,38 +845,43 @@ function RelatoriosPageContent() {
         </div>
 
         {activeReport === 'gps' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {[
-              { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e' },
-              { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981' },
-              { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1' }
-            ].map((item, index) => (
-              <div key={index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-slate-500 mb-1">{item.title}</div>
-                  <div className="text-2xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
-                </div>
-                <div className="h-20 w-20">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[{ value: item.value }, { value: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value }]}
-                        innerRadius={25}
-                        outerRadius={35}
-                        paddingAngle={0}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        <Cell fill={item.color} />
-                        <Cell fill="#e2e8f0" />
-                      </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value, isVisible('reports_gps'))} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+          (() => {
+            const hasOverdue = gpsData.some(item => !item.gpsPaid && item.gps_forecast_date && new Date(item.gps_forecast_date) < new Date());
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {[
+                  { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e' },
+                  { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981' },
+                  { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1' }
+                ].map((item, index) => (
+                  <div key={index} className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between ${item.title === 'Total Pendente' && hasOverdue ? 'animate-pulse ring-2 ring-rose-500' : ''}`}>
+                    <div>
+                      <div className="text-sm font-medium text-slate-500 mb-1">{item.title}</div>
+                      <div className="text-2xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
+                    </div>
+                    <div className="h-20 w-20">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[{ value: item.value }, { value: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value }]}
+                            innerRadius={25}
+                            outerRadius={35}
+                            paddingAngle={0}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            <Cell fill={item.color} />
+                            <Cell fill="#e2e8f0" />
+                          </Pie>
+                          <Tooltip formatter={(value: any) => formatCurrency(Number(value), isVisible('reports_gps'))} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()
         )}
 
           <div className="overflow-x-auto">
