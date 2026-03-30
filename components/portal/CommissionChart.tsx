@@ -23,7 +23,7 @@ export function CommissionChart({ data }: CommissionChartProps) {
             <Tooltip 
               cursor={{ fill: '#f8fafc' }}
               contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-              formatter={(value: number | string | undefined) => 
+              formatter={(value: any) => 
                 typeof value === 'number' ? [`R$ ${value.toFixed(2)}`, 'Comissão'] : [value, 'Comissão']
               }
             />
