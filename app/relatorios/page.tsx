@@ -21,6 +21,7 @@ import {
   XCircle,
   AlertTriangle
 } from 'lucide-react'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
@@ -146,7 +147,7 @@ function RelatoriosPageContent() {
   const [birthdayData, setBirthdayData] = useState<BirthdayReportItem[]>([])
   const [commissionData, setCommissionData] = useState<CommissionReportItem[]>([])
   const [gpsData, setGpsData] = useState<any[]>([]) // Adicionado estado para GPS
-  const [gpsFilter, setGpsFilter] = useState<'all' | 'paid' | 'unpaid' | 'financed' | 'normal'>('all')
+  const [gpsFilter, setGpsFilter] = useState<'all' | 'paid' | 'unpaid' | 'financed' | 'normal' | 'divergence'>('all')
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [selectedGps, setSelectedGps] = useState<any>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -803,6 +804,16 @@ function RelatoriosPageContent() {
                       >
                         Normal
                       </button>
+                      <button
+                        onClick={() => setGpsFilter('divergence')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          gpsFilter === 'divergence' 
+                            ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        Divergências
+                      </button>
                     </div>
                   )}
 
@@ -834,39 +845,37 @@ function RelatoriosPageContent() {
         </div>
 
         {activeReport === 'gps' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-rose-100 text-rose-600 rounded-lg"><AlertCircle size={20} /></div>
-                <div className="text-sm font-medium text-slate-500">Total Pendente</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {[
+              { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e' },
+              { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981' },
+              { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1' }
+            ].map((item, index) => (
+              <div key={index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-slate-500 mb-1">{item.title}</div>
+                  <div className="text-2xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
+                </div>
+                <div className="h-20 w-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[{ value: item.value }, { value: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value }]}
+                        innerRadius={25}
+                        outerRadius={35}
+                        paddingAngle={0}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        <Cell fill={item.color} />
+                        <Cell fill="#e2e8f0" />
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatCurrency(value, isVisible('reports_gps'))} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-              <div className="text-2xl font-bold text-rose-600">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), isVisible('reports_gps'))}</div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 size={20} /></div>
-                <div className="text-sm font-medium text-slate-500">Total Pago</div>
-              </div>
-              <div className="text-2xl font-bold text-emerald-600">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), isVisible('reports_gps'))}</div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><Coins size={20} /></div>
-                <div className="text-sm font-medium text-slate-500">Total Geral</div>
-              </div>
-              <div className="text-2xl font-bold text-slate-900">{formatCurrency(gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), isVisible('reports_gps'))}</div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><Scale size={20} /></div>
-                <div className="text-sm font-medium text-slate-500">Taxa Adimplência</div>
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                {gpsData.length > 0 
-                  ? `${((gpsData.filter(item => item.gpsPaid).length / gpsData.length) * 100).toFixed(1)}%` 
-                  : '0%'}
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
@@ -948,6 +957,7 @@ function RelatoriosPageContent() {
                     if (gpsFilter === 'unpaid') return !item.gpsPaid;
                     if (gpsFilter === 'financed') return item.isFinanced;
                     if (gpsFilter === 'normal') return !item.isFinanced;
+                    if (gpsFilter === 'divergence') return item.gps_value !== (item.gps_paid_value || 0);
                     return true;
                   }) : 
                   commissionData
