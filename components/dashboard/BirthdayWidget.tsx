@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { Gift, ImageIcon, Printer, PartyPopper } from 'lucide-react'
+import { Gift, ImageIcon, Printer, PartyPopper, MessageCircle } from 'lucide-react'
 import { BirthdayCardGenerator } from '../BirthdayCardGenerator'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
@@ -149,23 +149,24 @@ export default function BirthdayWidget() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setSelectedClient(client)}
+                title={generatedCards.includes(client.id) ? 'Reemitir Cartão' : 'Gerar Cartão'}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  "p-2 rounded-lg transition-colors",
                   generatedCards.includes(client.id) 
                     ? "text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
                     : "text-white bg-indigo-600 hover:bg-indigo-700"
                 )}
               >
-                {generatedCards.includes(client.id) ? <Printer className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
-                {generatedCards.includes(client.id) ? 'Reemitir' : 'Gerar Card'}
+                {generatedCards.includes(client.id) ? <Printer className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
               </button>
               <a
                 href={`https://wa.me/55${client.id.replace(/\D/g, '')}?text=Parabéns, ${client.name}! A InoveJuris deseja um feliz aniversário!`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                title="Enviar WhatsApp"
+                className="p-2 text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
               >
-                WhatsApp
+                <MessageCircle className="w-5 h-5" />
               </a>
             </div>
           </div>
