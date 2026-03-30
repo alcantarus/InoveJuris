@@ -1839,7 +1839,7 @@ export default function FinanceiroPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Nascimento RN</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nascimento do Recém-Nascido</label>
                       <input 
                         type="date" 
                         className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -1857,7 +1857,7 @@ export default function FinanceiroPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Sexo RN</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Sexo do Recém-Nascido</label>
                       <select 
                         className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
                         value={formData.rn_sex || ''}

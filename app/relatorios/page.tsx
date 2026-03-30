@@ -1196,7 +1196,7 @@ function RelatoriosPageContent() {
                 <label className="text-sm font-medium text-slate-700">Valor da GPS (R$)</label>
                 <CurrencyInput
                   value={paymentValue}
-                  onChange={(value) => setPaymentValue(value)}
+                  onChange={setPaymentValue}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>

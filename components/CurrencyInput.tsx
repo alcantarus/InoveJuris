@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { formatCurrency } from '@/lib/utils'
 
-export function CurrencyInput({ value, onChange, disabled, className, placeholder }: any) {
+export function CurrencyInput({ value, onChange, disabled, className, placeholder }: { 
+  value: number, 
+  onChange: (value: number) => void, 
+  disabled?: boolean, 
+  className?: string, 
+  placeholder?: string 
+}) {
   const displayValue = React.useMemo(() => {
     if (value !== undefined && value !== null) {
       return formatCurrency(value, true)
