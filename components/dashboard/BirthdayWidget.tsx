@@ -139,27 +139,27 @@ export default function BirthdayWidget() {
             key={client.id}
             className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl"
           >
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0 flex-grow">
+              <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
                 {client.name.charAt(0)}
               </div>
-              <div className="min-w-0">
-                <h4 className="font-semibold text-slate-900 truncate">{client.name}</h4>
-                <p className="text-sm text-slate-500 truncate">🎉 {client.age} anos</p>
+              <div className="min-w-0 flex-grow">
+                <h4 className="font-semibold text-slate-900 text-sm leading-tight truncate">{client.name}</h4>
+                <p className="text-xs text-slate-500 truncate">🎉 {client.age} anos</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => setSelectedClient(client)}
                 title={generatedCards.includes(client.id) ? 'Reemitir Cartão' : 'Gerar Cartão'}
                 className={cn(
-                  "p-2 rounded-lg transition-colors",
+                  "p-1.5 rounded-lg transition-colors",
                   generatedCards.includes(client.id) 
                     ? "text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
                     : "text-white bg-indigo-600 hover:bg-indigo-700"
                 )}
               >
-                {generatedCards.includes(client.id) ? <Printer className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                {generatedCards.includes(client.id) ? <Printer className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
               </button>
               <a
                 href={client.phone ? `https://wa.me/55${client.phone.replace(/\D/g, '')}?text=Parabéns, ${client.name}! A InoveJuris deseja um feliz aniversário!` : '#'}
@@ -167,14 +167,14 @@ export default function BirthdayWidget() {
                 rel="noopener noreferrer"
                 title={client.phone ? "Enviar WhatsApp" : "Telefone não disponível"}
                 className={cn(
-                  "p-2 rounded-lg transition-colors",
+                  "p-1.5 rounded-lg transition-colors",
                   client.phone 
                     ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
                     : "text-slate-400 bg-slate-100 cursor-not-allowed"
                 )}
                 onClick={(e) => !client.phone && e.preventDefault()}
               >
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="w-4 h-4" />
               </a>
             </div>
           </div>
