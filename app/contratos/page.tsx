@@ -2007,6 +2007,16 @@ export default function FinanceiroPage() {
                               />
                             </div>
                           )}
+                          {(formData.gpsGenerated || formData.gps_generated_status) && (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Valor da GPS</label>
+                              <CurrencyInput 
+                                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                value={formData.gps_value || 0}
+                                onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
+                              />
+                            </div>
+                          )}
                           {formData.gpsPaid && (
                             <>
                               <div>
