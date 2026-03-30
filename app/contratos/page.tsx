@@ -70,6 +70,7 @@ interface Contract {
   gps_forecast_date?: string | null
   gps_payment_date?: string | null
   gps_value?: number | null
+  gps_paid_value?: number | null
   lawyer_id?: number | null
   created_at: string
   clients?: { name: string }
@@ -2008,7 +2009,7 @@ export default function FinanceiroPage() {
                             <CurrencyInput 
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                               value={formData.gps_value || 0}
-                              onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
+                              onChange={(val) => setFormData({ ...formData, gps_value: val })}
                             />
                           </div>
                           <div>
@@ -2016,7 +2017,7 @@ export default function FinanceiroPage() {
                             <CurrencyInput 
                               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                               value={formData.gps_paid_value || 0}
-                              onChange={(val: number) => setFormData({ ...formData, gps_paid_value: val })}
+                              onChange={(val) => setFormData({ ...formData, gps_paid_value: val })}
                             />
                           </div>
                         </div>
