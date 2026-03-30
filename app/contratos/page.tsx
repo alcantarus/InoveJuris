@@ -695,9 +695,9 @@ export default function FinanceiroPage() {
         setContracts(prev => prev.map(c => c.id === editingContract.id ? { ...cData[0], installments: installments } : c))
       }
       
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = new Date().toISOString().split('T')[0];
       if (formData.rn_birth_date === today && formData.rn_name) {
-         setSelectedMaternityClient({name: formData.rn_name, id: editingContract.id.toString()})
+         setSelectedMaternityClient({name: formData.rn_name, id: `maternity_${editingContract.id}`})
          setIsModalOpen(true)
       } else {
         setIsModalOpen(false)
@@ -738,9 +738,9 @@ export default function FinanceiroPage() {
         setContracts(prev => [{ ...cData[0], installments: currentInstallments }, ...prev])
       }
       
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = new Date().toISOString().split('T')[0];
       if (formData.rn_birth_date === today && formData.rn_name) {
-         setSelectedMaternityClient({name: formData.rn_name, id: cData[0].id.toString()})
+         setSelectedMaternityClient({name: formData.rn_name, id: `maternity_${cData[0].id}`})
          setIsModalOpen(true)
       } else {
         setIsModalOpen(false)
@@ -1488,6 +1488,24 @@ export default function FinanceiroPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        {contract.products?.name?.toLowerCase().includes('maternidade') && (
+                          <button 
+                            onClick={() => {
+                              if (contract.rn_name) {
+                                setSelectedMaternityClient({
+                                  name: contract.rn_name, 
+                                  id: `maternity_${contract.id}`
+                                })
+                              } else {
+                                toast.error('Nome do recém-nascido não informado neste contrato.')
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
+                            title="Gerar Cartão de Nascimento"
+                          >
+                            <Gift size={18} />
+                          </button>
+                        )}
                         <button 
                           onClick={() => handleOpenModal(contract)}
                           disabled={contract.status === 'Cancelado' || contract.status === 'Quitado'}
@@ -1881,9 +1899,8 @@ export default function FinanceiroPage() {
                           if (formData.rn_name) {
                             setSelectedMaternityClient({
                               name: formData.rn_name, 
-                              id: editingContract ? editingContract.id.toString() : 'new'
+                              id: editingContract ? `maternity_${editingContract.id}` : 'new'
                             })
-                            setIsModalOpen(true)
                           } else {
                             toast.error('Informe o nome do recém-nascido para gerar o cartão.')
                           }
@@ -2347,6 +2364,24 @@ export default function FinanceiroPage() {
                         <span className="font-medium text-slate-500">Próx. Vencimento:</span> {nextInstallment ? formatDate(nextInstallment.dueDate) : 'N/A'}
                       </div>
                       <div className="flex justify-end gap-2 pt-2">
+                        {contract.products?.name?.toLowerCase().includes('maternidade') && (
+                          <button 
+                            onClick={() => {
+                              if (contract.rn_name) {
+                                setSelectedMaternityClient({
+                                  name: contract.rn_name, 
+                                  id: `maternity_${contract.id}`
+                                })
+                              } else {
+                                toast.error('Nome do recém-nascido não informado.')
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-pink-50 text-pink-600 rounded-lg text-xs font-medium hover:bg-pink-100"
+                          >
+                            <Gift size={14} className="inline mr-1" />
+                            Cartão RN
+                          </button>
+                        )}
                         <button 
                           onClick={() => handleOpenModal(contract)}
                           className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-100"

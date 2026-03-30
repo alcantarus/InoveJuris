@@ -14,7 +14,7 @@ interface BirthdayPerson {
   name: string
   birthDate: string
   age: number
-  type: 'client' | 'indicator'
+  type: 'client' | 'indicator' | 'maternity'
   phone?: string
 }
 
@@ -29,13 +29,15 @@ export default function BirthdayWidget() {
     if (!user) return
 
     try {
-      const [clientsRes, indicatorsRes] = await Promise.all([
+      const [clientsRes, indicatorsRes, maternityRes] = await Promise.all([
         supabase.from('clients').select('id, name, "birthDate", phone').not('"birthDate"', 'is', null),
-        supabase.from('indicators').select('id, name, data_nascimento, phone').not('data_nascimento', 'is', null)
+        supabase.from('indicators').select('id, name, data_nascimento, phone').not('data_nascimento', 'is', null),
+        supabase.from('contracts').select('id, rn_name, rn_birth_date').ilike('product', '%maternidade%').not('rn_birth_date', 'is', null)
       ])
       
       if (clientsRes.error) throw clientsRes.error
       if (indicatorsRes.error) throw indicatorsRes.error
+      if (maternityRes.error) throw maternityRes.error
 
       const todayDate = new Date()
       const currentMonth = todayDate.getMonth() + 1
@@ -75,10 +77,39 @@ export default function BirthdayWidget() {
         return null
       }
 
+      const processMaternity = (contract: any) => {
+        const birthDate = contract.rn_birth_date
+        if (!birthDate) return null
+        
+        let dateObj: Date
+        
+        if (birthDate.includes('-')) {
+          const [year, month, day] = birthDate.split('-').map(Number)
+          dateObj = new Date(year, month - 1, day)
+        } else if (birthDate.includes('/')) {
+          const [day, month, year] = birthDate.split('/').map(Number)
+          dateObj = new Date(year, month - 1, day)
+        } else {
+          dateObj = new Date(birthDate)
+        }
+        
+        if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
+          return {
+            id: `maternity_${contract.id}`,
+            name: contract.rn_name,
+            birthDate: birthDate,
+            age: 0, // Recém-nascido
+            type: 'maternity'
+          }
+        }
+        return null
+      }
+
       const birthdayClients = (clientsRes.data || []).map((c: any) => processBirthday(c, 'birthDate', 'client')).filter(Boolean) as BirthdayPerson[]
       const birthdayIndicators = (indicatorsRes.data || []).map((i: any) => processBirthday(i, 'data_nascimento', 'indicator')).filter(Boolean) as BirthdayPerson[]
+      const maternityBirths = (maternityRes.data || []).map((c: any) => processMaternity(c)).filter(Boolean) as BirthdayPerson[]
       
-      const allBirthdays = [...birthdayClients, ...birthdayIndicators] as BirthdayPerson[]
+      const allBirthdays = [...birthdayClients, ...birthdayIndicators, ...maternityBirths] as BirthdayPerson[]
       
       setBirthdays(allBirthdays)
       
@@ -114,6 +145,22 @@ export default function BirthdayWidget() {
     const newSent = [...new Set([...sentCards, clientId])]
     setSentCards(newSent)
     localStorage.setItem(`sent_birthdays_${todayStr}`, JSON.stringify(newSent))
+    
+    // Registrar log no Supabase
+    try {
+      const type = clientId.startsWith('indicator_') ? 'birthday_card_indicator' : 
+                   clientId.startsWith('maternity_') ? 'maternity_card' : 'birthday_card_client'
+      const numericId = parseInt(clientId.replace(/\D/g, ''), 10)
+      
+      if (numericId && !isNaN(numericId)) {
+        await supabase.from('marketing_logs').insert([{
+          client_id: numericId,
+          type: type
+        }])
+      }
+    } catch (e) {
+      console.error('Erro ao salvar log no Supabase:', e)
+    }
     
     setSelectedClient(null)
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } })
