@@ -228,8 +228,18 @@ export default function ClientesPage() {
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
   const [totalCount, setTotalCount] = useState(0)
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null)
   
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  const filteredClients = clients.filter(client => {
+    if (!selectedFilter) return true;
+    if (selectedFilter === 'total') return true;
+    if (selectedFilter === 'minors') return client.isMinor;
+    if (selectedFilter === 'assisted') return !!client.legalRepresentative;
+    if (selectedFilter === 'health') return !!(client.name && client.email && client.document);
+    return true;
+  });
 
   useEffect(() => {
     setPage(1) // Reset page on search
@@ -584,8 +594,6 @@ export default function ClientesPage() {
     }
   }
 
-  const filteredClients = clients
-
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -595,7 +603,11 @@ export default function ClientesPage() {
           description="Gerencie sua base de clientes e contatos."
         />
         
-        <ClientStatsWidget clients={clients} />
+        <ClientStatsWidget 
+          clients={clients} 
+          onFilterChange={setSelectedFilter} 
+          selectedFilter={selectedFilter}
+        />
 
         <button 
           onClick={() => handleOpenModal()}
