@@ -266,7 +266,7 @@ export default function ContasAReceberPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('contract_receivables_summary')
-      .select(`*, contracts:contract_id(isProBono, isFinanced)`)
+      .select(`*`)
       .order('processNumber', { ascending: true })
 
     if (error) {
@@ -527,16 +527,7 @@ export default function ContasAReceberPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr><td colSpan={7} className="p-4 text-center">Carregando...</td></tr>
-                ) : sortedContracts.filter(c => {
-                  const matchesSearch = c.processNumber?.toLowerCase().includes(searchTerm.toLowerCase()) || c.client_name?.toLowerCase().includes(searchTerm.toLowerCase());
-                  if (!matchesSearch) return false;
-                  const today = new Date().toISOString().split('T')[0];
-                  if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
-                  if (filterType === 'Quitados') return c.contract_status === 'Quitado';
-                  if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
-                  if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
-                  return true;
-                }).map((c, index) => {
+                ) : contracts.map((c, index) => {
                   let rowStatus = c.contract_status || 'Normal';
                   if (rowStatus === 'Aberto') rowStatus = 'Normal';
                   
