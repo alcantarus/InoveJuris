@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
-import { ClientSlideOver } from '@/components/clients/ClientSlideOver'
+import { ClientActions } from '@/components/clients/ClientActions'
 import { 
   Search, 
   Plus, 
@@ -685,16 +685,14 @@ export default function ClientesPage() {
                   </th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Saúde</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Contato</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Status</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="animate-spin text-indigo-600" size={24} />
                         <p>Buscando clientes...</p>
@@ -725,9 +723,8 @@ export default function ClientesPage() {
                           <div className="min-w-0">
                             <span className="font-semibold text-slate-900 block truncate">{client.name}</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {client.isMinor && <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Menor</span>}
-                              {client.legalRepresentative && <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Assistido</span>}
-                              {!client.document && <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Doc Pendente</span>}
+                              <span className="text-xs text-slate-500 flex items-center gap-1"><Mail size={12} /> {client.email}</span>
+                              <span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={12} /> {client.phone}</span>
                             </div>
                           </div>
                         </div>
@@ -737,64 +734,25 @@ export default function ClientesPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <div className={cn("w-2 h-2 rounded-full", Math.round((Number(!!client.email) + Number(!!client.document) + Number(!!client.phone) + Number(!!client.address)) * 25) > 50 ? "bg-emerald-500" : "bg-amber-500")} />
                           <span className="text-sm font-medium text-slate-700">
                             {Math.round((Number(!!client.email) + Number(!!client.document) + Number(!!client.phone) + Number(!!client.address)) * 25)}%
                           </span>
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[10px] font-medium",
+                            client.status === 'Ativo' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"
+                          )}>
+                            {client.status}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <Mail size={14} />
-                            {client.email}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <Phone size={14} />
-                            {client.phone}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "px-2.5 py-1 rounded-full text-xs font-medium",
-                          client.status === 'Ativo' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"
-                        )}>
-                          {client.status}
-                        </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setSelectedBirthdayClient(client); }}
-                            className="p-2 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
-                            title="Gerar Card de Aniversário"
-                          >
-                            <Gift size={18} />
-                          </button>
-                          <Link 
-                            href={`/clientes/${client.id}`}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Ver Perfil"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <User size={18} />
-                          </Link>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleOpenModal(client); }}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Editar Cliente"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDelete(e, client.id); }}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Excluir Cliente"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
+                        <ClientActions 
+                          client={client} 
+                          onEdit={() => handleOpenModal(client)}
+                          onDelete={() => handleDelete(new Event('click') as any, client.id)}
+                          onBirthday={() => setSelectedBirthdayClient(client)}
+                        />
                       </td>
                     </motion.tr>
                   ))
@@ -904,12 +862,6 @@ export default function ClientesPage() {
             </div>
           )}
         </div>
-
-        <ClientSlideOver 
-          isOpen={!!selectedClient} 
-          onClose={() => setSelectedClient(null)} 
-          client={selectedClient} 
-        />
         
         <Modal 
           isOpen={isModalOpen} 
