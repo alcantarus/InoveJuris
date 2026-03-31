@@ -264,16 +264,32 @@ export default function ContasAReceberPage() {
 
   const fetchContracts = React.useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
+    const { data: summaryData, error: summaryError } = await supabase
       .from('contract_receivables_summary')
       .select(`*`)
       .order('processNumber', { ascending: true })
 
-    if (error) {
+    if (summaryError) {
       toast.error('Erro ao buscar contratos')
-      console.error(error)
+      console.error(summaryError)
+      setLoading(false)
+      return
+    }
+
+    const { data: contractsData, error: contractsError } = await supabase
+      .from('contracts')
+      .select('id, isProBono, isFinanced')
+
+    if (contractsError) {
+      console.error('Erro ao buscar detalhes dos contratos:', contractsError)
+      setContracts(summaryData || [])
     } else {
-      setContracts(data || [])
+      const mergedData = summaryData?.map(s => ({
+        ...s,
+        contracts: contractsData.find(c => c.id === s.contract_id)
+      }))
+      console.log('Merged Data:', mergedData);
+      setContracts(mergedData || [])
     }
     setLoading(false)
   }, [])
