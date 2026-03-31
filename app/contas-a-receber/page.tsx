@@ -691,14 +691,7 @@ export default function ContasAReceberPage() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr><td colSpan={8} className="p-4 text-center">Carregando...</td></tr>
-                  ) : installments.filter(i => {
-                    const today = new Date().toISOString().split('T')[0];
-                    if (filterType === 'Abertos') return i.status !== 'Quitado' && i.status !== 'Cancelada';
-                    if (filterType === 'Quitados') return i.status === 'Quitado';
-                    if (filterType === 'Atrasados') return i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada';
-                    if (filterType === 'Vence Hoje') return i.dueDate === today && i.status !== 'Quitado' && i.status !== 'Cancelada';
-                    return true;
-                  }).map((i, index) => {
+                  ) : installments.map((i, index) => {
                     const today = new Date().toISOString().split('T')[0];
                     const isLate = i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada';
                     const daysLate = isLate ? Math.floor((new Date(today).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
