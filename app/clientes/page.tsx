@@ -766,7 +766,7 @@ export default function ClientesPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button 
-                            onClick={() => setSelectedBirthdayClient(client)}
+                            onClick={(e) => { e.stopPropagation(); setSelectedBirthdayClient(client); }}
                             className="p-2 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
                             title="Gerar Card de Aniversário"
                           >
@@ -776,18 +776,19 @@ export default function ClientesPage() {
                             href={`/clientes/${client.id}`}
                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Ver Perfil"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <User size={18} />
                           </Link>
                           <button 
-                            onClick={() => handleOpenModal(client)}
+                            onClick={(e) => { e.stopPropagation(); handleOpenModal(client); }}
                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Editar Cliente"
                           >
                             <Edit2 size={18} />
                           </button>
                           <button 
-                            onClick={(e) => handleDelete(e, client.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(e, client.id); }}
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                             title="Excluir Cliente"
                           >
