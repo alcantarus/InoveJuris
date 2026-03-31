@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
+import { ClientSlideOver } from '@/components/clients/ClientSlideOver'
 import { 
   Search, 
   Plus, 
@@ -193,6 +194,7 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedBirthdayClient, setSelectedBirthdayClient] = useState<Client | null>(null)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [formData, setFormData] = useState({
@@ -671,7 +673,8 @@ export default function ClientesPage() {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="hover:bg-slate-50 transition-colors group"
+                      className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                      onClick={() => setSelectedClient(client)}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -853,6 +856,12 @@ export default function ClientesPage() {
           )}
         </div>
 
+        <ClientSlideOver 
+          isOpen={!!selectedClient} 
+          onClose={() => setSelectedClient(null)} 
+          client={selectedClient} 
+        />
+        
         <Modal 
           isOpen={isModalOpen} 
           onClose={() => {
