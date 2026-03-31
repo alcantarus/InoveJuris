@@ -1326,8 +1326,7 @@ export default function FinanceiroPage() {
                       </button>
                     </div>
                   </th>
-                  <th className="p-4 font-medium">Status</th>
-                  <th className="p-4 font-medium">Situação</th>
+                  <th className="p-4 font-medium">Controle GPS</th>
                   <th className="p-4 font-medium text-right">Ações</th>
                 </tr>
               </thead>
@@ -1452,39 +1451,55 @@ export default function FinanceiroPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="flex flex-col gap-1">
-                        {contract.gpsGenerated && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full w-fit">
-                            <CheckCircle2 size={12}/> GPS Gerada {contract.gps_forecast_date && `(${formatDate(contract.gps_forecast_date)})`}
-                          </span>
-                        )}
-                        {contract.gpsPaid && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full w-fit">
-                            <CheckCircle2 size={12}/> GPS Paga {contract.gps_payment_date && `(${formatDate(contract.gps_payment_date)})`}
-                          </span>
-                        )}
-                        {contract.gpsPaid && (contract.gps_value ?? 0) > 0 && (
-                          <span className="text-[10px] text-slate-500 ml-1">Valor: {formatCurrency(contract.gps_value ?? 0)}</span>
-                        )}
-                        {contract.inssDeferred && <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full w-fit"><CheckCircle2 size={12}/> Deferido/INSS</span>}
-                        {contract.inssProtocol && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full w-fit">
-                            <AlertCircle size={12}/> Protocolo {contract.inssProtocol}
-                          </span>
-                        )}
-                        {contract.processNumber && <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full w-fit"><FileText size={12}/> Processo {contract.processNumber}</span>}
-                        {isEstornado && <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full w-fit"><AlertTriangle size={12}/> Estornado</span>}
-                        {isProrrogado && <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full w-fit"><Clock size={12}/> Prorrogado</span>}
-                        {!contract.gpsGenerated && !contract.gpsPaid && !contract.inssProtocol && !contract.processNumber && !isEstornado && !isProrrogado && <span className="text-xs text-slate-400">-</span>}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                          {/* Previsão (Forecast) */}
+                          <div className={cn(
+                            "flex flex-col items-center gap-0.5 transition-colors",
+                            contract.gpsGenerated ? "text-blue-600" : "text-slate-200"
+                          )} title={contract.gpsGenerated ? `Previsão: ${formatDate(contract.gps_forecast_date || '')}` : "Sem previsão"}>
+                            <Calendar size={16} />
+                            {contract.gpsGenerated && contract.gps_forecast_date && (
+                              <span className="text-[9px] font-bold leading-none">
+                                {new Date(contract.gps_forecast_date).getDate().toString().padStart(2, '0')}/{(new Date(contract.gps_forecast_date).getMonth() + 1).toString().padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Gerada (Generated) */}
+                          <div className={cn(
+                            "flex flex-col items-center gap-0.5 transition-colors",
+                            contract.gps_generated_status ? "text-amber-500" : "text-slate-200"
+                          )} title={contract.gps_generated_status ? "GPS Gerada" : "Guia não gerada"}>
+                            <FileText size={16} />
+                          </div>
+
+                          {/* Paga (Paid) */}
+                          <div className={cn(
+                            "flex flex-col items-center gap-0.5 transition-colors",
+                            contract.gpsPaid ? "text-emerald-500" : "text-slate-200"
+                          )} title={contract.gpsPaid ? `Paga em: ${formatDate(contract.gps_payment_date || '')}` : "Não paga"}>
+                            <CheckCircle2 size={16} />
+                            {contract.gpsPaid && contract.gps_payment_date && (
+                              <span className="text-[9px] font-bold leading-none">
+                                {new Date(contract.gps_payment_date).getDate().toString().padStart(2, '0')}/{(new Date(contract.gps_payment_date).getMonth() + 1).toString().padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {contract.inssDeferred && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-tight">Deferido</span>}
+                          {contract.inssProtocol && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-tight">
+                              Prot. {contract.inssProtocol}
+                            </span>
+                          )}
+                          {contract.processNumber && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 uppercase tracking-tight">Proc. {contract.processNumber}</span>}
+                          {isEstornado && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-tight">Estornado</span>}
+                          {isProrrogado && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-tight">Prorrogado</span>}
+                        </div>
                       </div>
-                    </td>
-                    <td className="p-4">
-                      <span className={cn(
-                        "inline-flex items-center px-3 py-1 rounded text-xs font-medium border border-black/10 shadow-sm",
-                        badgeColors
-                      )}>
-                        {rowStatus}
-                      </span>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -2016,28 +2031,34 @@ export default function FinanceiroPage() {
                   {formData.hasGpsControl && (
                     <div className="animate-in fade-in slide-in-from-top-2 space-y-4 pt-2 border-t border-blue-100/50">
                       <div className="flex items-center gap-6 py-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className="flex items-center gap-2 cursor-pointer group">
                           <input 
                             type="checkbox" 
                             className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
                             checked={formData.gpsGenerated || false}
                             onChange={e => setFormData({...formData, gpsGenerated: e.target.checked})}
                           />
-                          <span className="text-sm font-medium text-slate-700">Previsão de GPS</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">Previsão de GPS</span>
+                            <span className="text-[10px] text-slate-400">Define data e valor previsto</span>
+                          </div>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className="flex items-center gap-2 cursor-pointer group">
                           <input 
                             type="checkbox" 
                             className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
                             checked={formData.gps_generated_status || false}
                             onChange={e => setFormData({...formData, gps_generated_status: e.target.checked})}
                           />
-                          <span className="text-sm font-medium text-slate-700">GPS Gerada?</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">GPS Gerada?</span>
+                            <span className="text-[10px] text-slate-400">Guia emitida para o cliente</span>
+                          </div>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className="flex items-center gap-2 cursor-pointer group">
                           <input 
                             type="checkbox" 
-                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                            className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
                             checked={formData.gpsPaid || false}
                             onChange={e => {
                               const isPaid = e.target.checked;
@@ -2049,18 +2070,21 @@ export default function FinanceiroPage() {
                               });
                             }}
                           />
-                          <span className="text-sm font-medium text-slate-700">GPS Paga?</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-700 group-hover:text-emerald-600 transition-colors">GPS Paga?</span>
+                            <span className="text-[10px] text-slate-400">Confirmação do pagamento</span>
+                          </div>
                         </label>
                       </div>
 
                       {(formData.gpsGenerated || formData.gps_generated_status || formData.gpsPaid) && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
-                          {formData.gpsGenerated && (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-blue-100 animate-in fade-in slide-in-from-top-2">
+                          {(formData.gpsGenerated || formData.gps_generated_status) && (
                             <div>
-                              <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento GPS</label>
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Vencimento GPS</label>
                               <input 
                                 type="date" 
-                                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
                                 value={formData.gps_forecast_date || ''}
                                 onChange={e => setFormData({...formData, gps_forecast_date: e.target.value})}
                               />
@@ -2068,9 +2092,9 @@ export default function FinanceiroPage() {
                           )}
                           {(formData.gpsGenerated || formData.gps_generated_status) && (
                             <div>
-                              <label className="block text-sm font-medium text-slate-700 mb-1">Valor da GPS</label>
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Valor da GPS</label>
                               <CurrencyInput 
-                                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
                                 value={formData.gps_value || 0}
                                 onChange={(val: number) => setFormData({ ...formData, gps_value: val })}
                               />
@@ -2079,21 +2103,27 @@ export default function FinanceiroPage() {
                           {formData.gpsPaid && (
                             <>
                               <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Data Pagamento GPS</label>
+                                <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Data Pagamento</label>
                                 <input 
                                   type="date" 
-                                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                  className="w-full px-3 py-2 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm bg-emerald-50/30"
                                   value={formData.gps_payment_date || ''}
                                   onChange={e => setFormData({...formData, gps_payment_date: e.target.value})}
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Valor Pago</label>
+                                <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Valor Pago</label>
                                 <CurrencyInput 
-                                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                  className={cn(
+                                    "w-full px-3 py-2 border rounded-lg focus:ring-2 outline-none text-sm bg-emerald-50/30",
+                                    (formData.gps_paid_value !== formData.gps_value) ? "border-amber-300 focus:ring-amber-500/20 focus:border-amber-500" : "border-emerald-200 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                  )}
                                   value={formData.gps_paid_value || 0}
                                   onChange={(val: number) => setFormData({ ...formData, gps_paid_value: val })}
                                 />
+                                {formData.gps_paid_value !== formData.gps_value && (
+                                  <span className="text-[9px] text-amber-600 font-bold mt-1 block">Divergência de valor</span>
+                                )}
                               </div>
                             </>
                           )}
