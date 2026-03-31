@@ -284,9 +284,9 @@ export default function ContasAReceberPage() {
       console.error('Erro ao buscar detalhes dos contratos:', contractsError)
       setContracts(summaryData || [])
     } else {
-      const mergedData = summaryData?.map(s => ({
+      const mergedData = summaryData?.map((s: any) => ({
         ...s,
-        contracts: contractsData.find(c => c.id === s.contract_id)
+        contracts: contractsData.find((c: any) => c.id === s.contract_id)
       }))
       console.log('Merged Data:', mergedData);
       setContracts(mergedData || [])
