@@ -6,6 +6,7 @@ import { ModuleHeader } from '@/components/ModuleHeader'
 import { Modal } from '@/components/Modal'
 import { KPICard } from '@/components/ui/KPICard'
 import { DollarSign, Search, Calendar, CheckCircle2, Clock, AlertCircle, Plus, Receipt, Download, FileText, History, Eye, EyeOff } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, getStatusColor, getRowColor, cn } from '@/lib/utils'
@@ -265,7 +266,7 @@ export default function ContasAReceberPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('contract_receivables_summary')
-      .select(`*`)
+      .select(`*, contracts:contract_id(isProBono, isFinanced)`)
       .order('processNumber', { ascending: true })
 
     if (error) {
@@ -535,10 +536,39 @@ export default function ContasAReceberPage() {
                   if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
                   if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
                   return true;
-                }).map((c) => (
-                  <tr key={c.contract_id} className={cn("transition-colors", getRowColor(c.contract_status))}>
+                }).map((c, index) => {
+                  let rowStatus = c.contract_status || 'Normal';
+                  if (rowStatus === 'Aberto') rowStatus = 'Normal';
+                  
+                  if (rowStatus !== 'Cancelado' && rowStatus !== 'Estornado' && rowStatus !== 'Prorrogado') {
+                    if (c.contracts?.isProBono) rowStatus = 'Pro Bono';
+                    else if (rowStatus === 'Quitado') rowStatus = 'Quitado';
+                    else if (c.contracts?.isFinanced) rowStatus = 'Financiado';
+                    else rowStatus = 'Normal';
+                  }
+                  
+                  return (
+                  <motion.tr 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    key={c.contract_id} 
+                    className={cn("transition-colors", getRowColor(rowStatus))}
+                  >
                     <td className="p-4">
-                      <div className="font-bold text-slate-900">{c.client_name}</div>
+                      <div className="font-medium text-slate-900 flex items-center gap-2">
+                        {c.client_name}
+                        {c.contracts?.isProBono && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                            Pro Bono
+                          </span>
+                        )}
+                        {c.contracts?.isFinanced && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-100 text-cyan-800 border border-cyan-200">
+                            Financiado
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">{c.processNumber}</div>
                     </td>
                     <td className="p-4 text-right text-slate-900">{formatCurrency(c.contract_value, isVisible('receivable_table_value'))}</td>
@@ -553,15 +583,15 @@ export default function ContasAReceberPage() {
                     <td className="p-4 text-right text-slate-600">{formatCurrency(c.amount_to_receive, isVisible('receivable_table_to_receive'))}</td>
                     <td className="p-4 text-slate-600">{c.next_due_date ? formatDate(c.next_due_date) : '-'}</td>
                     <td className="p-4">
-                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(c.contract_status), c.contract_status?.toLowerCase() === 'cancelado' && "line-through")}>
+                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(rowStatus), c.contract_status?.toLowerCase() === 'cancelado' && "line-through")}>
                         {c.contract_status}
                       </span>
                     </td>
                     <td className="p-4">
                       <button className="text-indigo-600 hover:text-indigo-800 font-medium text-xs uppercase tracking-wider" onClick={() => setSelectedContract({ id: c.contract_id, processNumber: c.processNumber, clients: { name: c.client_name }, status: c.contract_status })}>Ver Parcelas</button>
                     </td>
-                  </tr>
-                ))}
+                  </motion.tr>
+                )})}
               </tbody>
             </table>
           </div>
@@ -661,13 +691,19 @@ export default function ContasAReceberPage() {
                     if (filterType === 'Atrasados') return i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada';
                     if (filterType === 'Vence Hoje') return i.dueDate === today && i.status !== 'Quitado' && i.status !== 'Cancelada';
                     return true;
-                  }).map((i) => {
+                  }).map((i, index) => {
                     const today = new Date().toISOString().split('T')[0];
                     const isLate = i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada';
                     const daysLate = isLate ? Math.floor((new Date(today).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
                     
                     return (
-                    <tr key={i.id} className={cn("hover:bg-slate-50 transition-colors", (selectedContract.status?.toLowerCase() === 'cancelado' || i.status?.toLowerCase() === 'cancelada') && "bg-rose-50 line-through text-slate-400")}>
+                    <motion.tr 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      key={i.id} 
+                      className={cn("hover:bg-slate-50 transition-colors", (selectedContract.status?.toLowerCase() === 'cancelado' || i.status?.toLowerCase() === 'cancelada') && "bg-rose-50 line-through text-slate-400")}
+                    >
                       <td className="p-4">
                         <input 
                           type="checkbox" 
@@ -719,7 +755,7 @@ export default function ContasAReceberPage() {
                           Estornar
                         </button>
                       </td>
-                    </tr>
+                    </motion.tr>
                     );
                   })}
                 </tbody>
