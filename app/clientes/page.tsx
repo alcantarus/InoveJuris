@@ -231,6 +231,7 @@ export default function ClientesPage() {
   const [pageSize] = useState(50)
   const [totalCount, setTotalCount] = useState(0)
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null)
+  const [selectedClients, setSelectedClients] = useState<number[]>([])
   
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
@@ -243,9 +244,19 @@ export default function ClientesPage() {
     return true;
   });
 
-  useEffect(() => {
-    setPage(1) // Reset page on search
-  }, [debouncedSearchTerm])
+  const toggleSelectAll = () => {
+    if (selectedClients.length === filteredClients.length) {
+      setSelectedClients([]);
+    } else {
+      setSelectedClients(filteredClients.map(c => c.id));
+    }
+  };
+
+  const toggleSelectClient = (id: number) => {
+    setSelectedClients(prev => 
+      prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -642,15 +653,39 @@ export default function ClientesPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+            {['Processos Ativos', 'Pendências', 'Aniversariantes'].map(filter => (
+              <button 
+                key={filter}
+                className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap"
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {selectedClients.length > 0 && (
+          <div className="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-900">
+            <span className="font-medium">{selectedClients.length} clientes selecionados</span>
+            <div className="flex gap-2">
+              <button className="px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-sm font-medium hover:bg-indigo-50">Exportar</button>
+              <button className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700">Excluir Selecionados</button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse hidden md:table">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 w-10">
+                    <input type="checkbox" className="rounded border-slate-300" checked={selectedClients.length === filteredClients.length && filteredClients.length > 0} onChange={toggleSelectAll} />
+                  </th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Saúde</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Contato</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Status</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right">Ações</th>
@@ -659,7 +694,7 @@ export default function ClientesPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="animate-spin text-indigo-600" size={24} />
                         <p>Buscando clientes...</p>
@@ -676,24 +711,37 @@ export default function ClientesPage() {
                       className="hover:bg-slate-50 transition-colors group cursor-pointer"
                       onClick={() => setSelectedClient(client)}
                     >
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-slate-300" checked={selectedClients.includes(client.id)} onChange={() => toggleSelectClient(client.id)} />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                            client.contractSigned ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                          )}>
                             {client.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <span className="font-semibold text-slate-900 block truncate">{client.name}</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {client.isMinor && <span className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Menor</span>}
-                              {client.legalRepresentative && <span className="bg-blue-100 text-blue-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Assistido</span>}
-                              {!client.document && <span className="bg-rose-100 text-rose-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Doc Pendente</span>}
+                              {client.isMinor && <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Menor</span>}
+                              {client.legalRepresentative && <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Assistido</span>}
+                              {!client.document && <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Doc Pendente</span>}
                             </div>
-                            <span className="text-xs text-slate-400">{client.type}</span>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {client.document}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span className="text-sm font-medium text-slate-700">
+                            {Math.round((Number(!!client.email) + Number(!!client.document) + Number(!!client.phone) + Number(!!client.address)) * 25)}%
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
