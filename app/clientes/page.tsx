@@ -5,6 +5,7 @@ import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
 import { ClientActions } from '@/components/clients/ClientActions'
+import { ClientSlideOver } from '@/components/clients/ClientSlideOver'
 import { 
   Search, 
   Plus, 
@@ -862,6 +863,12 @@ export default function ClientesPage() {
             </div>
           )}
         </div>
+        
+        <ClientSlideOver 
+          client={selectedClient} 
+          isOpen={!!selectedClient} 
+          onClose={() => setSelectedClient(null)} 
+        />
         
         <Modal 
           isOpen={isModalOpen} 
