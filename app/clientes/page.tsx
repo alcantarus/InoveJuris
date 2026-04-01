@@ -82,19 +82,54 @@ const DEFAULT_CLIENTS: Client[] = [
   },
 ]
 
-function ClientCombobox({ clients, value, onChange, placeholder }: { clients: {id: number, name: string, document?: string | null}[], value: string | null, onChange: (name: string) => void, placeholder?: string }) {
+function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: string | null, onChange: (name: string) => void, placeholder?: string, excludeId?: number }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [localClients, setLocalClients] = useState<{id: number, name: string, document?: string | null}[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const wrapperRef = React.useRef<HTMLDivElement>(null)
+  const debouncedSearch = useDebounce(searchTerm, 300)
 
   useEffect(() => {
     if (value) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchTerm(value)
     } else {
       setSearchTerm('')
     }
   }, [value])
+
+  useEffect(() => {
+    const fetchLocalClients = async () => {
+      if (!isSupabaseConfigured || !isOpen) return
+      
+      setIsLoading(true)
+      try {
+        let query = supabase
+          .from('clients')
+          .select('id, name, document')
+          .order('name')
+          .limit(20)
+        
+        if (debouncedSearch) {
+          query = query.ilike('name', `%${debouncedSearch}%`)
+        }
+        
+        if (excludeId) {
+          query = query.neq('id', excludeId)
+        }
+        
+        const { data, error } = await query
+        if (error) throw error
+        setLocalClients(data || [])
+      } catch (error) {
+        console.error('Error fetching local clients:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchLocalClients()
+  }, [debouncedSearch, isOpen, excludeId])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -107,12 +142,7 @@ function ClientCombobox({ clients, value, onChange, placeholder }: { clients: {i
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [value])
 
-  const filteredClients = clients.filter(client => {
-    const term = removeAccents(searchTerm).toLowerCase()
-    if (!term) return true
-    return removeAccents(client.name?.toLowerCase() || '').includes(term) || 
-           removeAccents(client.document?.toLowerCase() || '').includes(term)
-  })
+  const filteredClients = localClients;
 
   return (
     <div className="relative" ref={wrapperRef}>
@@ -129,6 +159,9 @@ function ClientCombobox({ clients, value, onChange, placeholder }: { clients: {i
           onFocus={() => setIsOpen(true)}
         />
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        {isLoading ? (
+          <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" size={16} />
+        ) : null}
         {searchTerm && (
           <button 
             type="button"
@@ -166,7 +199,7 @@ function ClientCombobox({ clients, value, onChange, placeholder }: { clients: {i
             ))
           ) : (
             <div className="px-4 py-3 text-sm text-slate-500 text-center">
-              Nenhum cliente encontrado.
+              {isLoading ? 'Buscando...' : 'Nenhum cliente encontrado.'}
             </div>
           )}
         </div>
@@ -275,10 +308,21 @@ export default function ClientesPage() {
         if (debouncedSearchTerm) {
           // Tenta usar a RPC primeiro (busca avançada com unaccent)
           const currentEnv = getAppEnv()
-          const { data, error, count } = await supabase.rpc('search_clients', { 
+          
+          // Tenta com os dois parâmetros primeiro
+          let rpcResult = await supabase.rpc('search_clients', { 
             search_term: debouncedSearchTerm,
             p_environment: currentEnv
           }, { count: 'exact' })
+          
+          // Se falhar por falta de parâmetro ou função não encontrada, tenta apenas com search_term
+          if (rpcResult.error && (rpcResult.error.code === 'PGRST202' || rpcResult.error.message.includes('p_environment'))) {
+            rpcResult = await supabase.rpc('search_clients', { 
+              search_term: debouncedSearchTerm
+            }, { count: 'exact' })
+          }
+          
+          const { data, error, count } = rpcResult
           
           if (error) {
              console.warn('RPC search_clients falhou ou não existe, tentando filtro padrão...', error.message)
@@ -1137,7 +1181,7 @@ export default function ClientesPage() {
                   >
                     <label className="block text-sm font-medium text-slate-700 mb-1">Representante Legal (Selecione na base)</label>
                     <ClientCombobox 
-                      clients={clients.filter(c => !editingClient || c.id !== editingClient.id)}
+                      excludeId={editingClient?.id}
                       value={formData.legalRepresentative || ''}
                       onChange={(name) => setFormData({ ...formData, legalRepresentative: name })}
                       placeholder="Pesquisar representante..."
