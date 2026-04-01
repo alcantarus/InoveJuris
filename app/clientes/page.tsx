@@ -666,24 +666,13 @@ export default function ClientesPage() {
           </div>
         </div>
 
-        {selectedClients.length > 0 && (
-          <div className="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-900">
-            <span className="font-medium">{selectedClients.length} clientes selecionados</span>
-            <div className="flex gap-2">
-              <button className="px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-sm font-medium hover:bg-indigo-50">Exportar</button>
-              <button className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700">Excluir Selecionados</button>
-            </div>
-          </div>
-        )}
+        {/* Removed bulk actions bar */}
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse hidden md:table">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 w-10">
-                    <input type="checkbox" className="rounded border-slate-300" checked={selectedClients.length === filteredClients.length && filteredClients.length > 0} onChange={toggleSelectAll} />
-                  </th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
@@ -693,7 +682,7 @@ export default function ClientesPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="animate-spin text-indigo-600" size={24} />
                         <p>Buscando clientes...</p>
@@ -710,9 +699,6 @@ export default function ClientesPage() {
                       className="hover:bg-slate-50 transition-colors group cursor-pointer"
                       onClick={() => setSelectedClient(client)}
                     >
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" className="rounded border-slate-300" checked={selectedClients.includes(client.id)} onChange={() => toggleSelectClient(client.id)} />
-                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className={cn(
