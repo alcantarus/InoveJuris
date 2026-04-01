@@ -140,8 +140,16 @@ export function formatDate(dateString: string | null | undefined) {
     const pureDate = dateString.split('T')[0]
     const [year, month, day] = pureDate.split('-').map(Number)
     if (isNaN(year) || isNaN(month) || isNaN(day)) return dateString
-    const date = new Date(year, month - 1, day)
-    return date.toLocaleDateString('pt-BR')
+    
+    // Criamos a data especificando meio-dia para evitar problemas de fuso horário ao converter para local
+    const date = new Date(year, month - 1, day, 12, 0, 0)
+    
+    return date.toLocaleDateString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
   } catch (e) {
     return dateString || '-'
   }

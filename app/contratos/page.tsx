@@ -1461,7 +1461,7 @@ export default function FinanceiroPage() {
                             <Calendar size={16} />
                             {contract.gpsGenerated && contract.gps_forecast_date && (
                               <span className="text-[9px] font-bold leading-none">
-                                {new Date(contract.gps_forecast_date).getDate().toString().padStart(2, '0')}/{(new Date(contract.gps_forecast_date).getMonth() + 1).toString().padStart(2, '0')}
+                                {contract.gps_forecast_date.split('-')[2]}/{contract.gps_forecast_date.split('-')[1]}
                               </span>
                             )}
                           </div>
@@ -1482,7 +1482,7 @@ export default function FinanceiroPage() {
                             <CheckCircle2 size={16} />
                             {contract.gpsPaid && contract.gps_payment_date && (
                               <span className="text-[9px] font-bold leading-none">
-                                {new Date(contract.gps_payment_date).getDate().toString().padStart(2, '0')}/{(new Date(contract.gps_payment_date).getMonth() + 1).toString().padStart(2, '0')}
+                                {contract.gps_payment_date.split('-')[2]}/{contract.gps_payment_date.split('-')[1]}
                               </span>
                             )}
                           </div>
