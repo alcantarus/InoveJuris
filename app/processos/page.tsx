@@ -255,10 +255,10 @@ export default function ProcessosPage() {
     }
   }
 
-  const handleSyncProcess = async (process: Process) => {
-    if (!process.number) return
+  const handleSyncProcess = async (proc: Process) => {
+    if (!proc.number) return
     
-    setSyncingProcessId(process.id)
+    setSyncingProcessId(proc.id)
     try {
       // Chamada à nova Edge Function
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -271,8 +271,8 @@ export default function ProcessosPage() {
           'Authorization': `Bearer ${supabaseAnonKey}`
         },
         body: JSON.stringify({ 
-          process_id: process.id,
-          process_number: process.number 
+          process_id: proc.id,
+          process_number: proc.number 
         })
       })
 
