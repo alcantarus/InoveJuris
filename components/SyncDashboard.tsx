@@ -2,18 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { defaultUrlProd, defaultKeyProd } from '../lib/supabase';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  defaultUrlProd,
+  defaultKeyProd
 );
 
 async function syncProcess(process_id: number, process_number: string) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/datajud-sync`, {
+  const response = await fetch(`${defaultUrlProd}/functions/v1/datajud-sync`, {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+      'Authorization': `Bearer ${defaultKeyProd}`
     },
     body: JSON.stringify({ process_id, process_number })
   });
