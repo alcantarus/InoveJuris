@@ -261,11 +261,14 @@ export default function ProcessosPage() {
     setSyncingProcessId(process.id)
     try {
       // Chamada à nova Edge Function
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/datajud-sync`, {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/datajud-sync`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${supabaseAnonKey}`
         },
         body: JSON.stringify({ 
           process_id: process.id,
