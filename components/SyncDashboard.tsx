@@ -4,38 +4,59 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
 
+// Inicializa o cliente Supabase
 const supabase = createClient(
   defaultUrlProd,
   defaultKeyProd
 );
 
-async function syncProcess(process_id: number, process_number: string) {
-  const response = await fetch('/api/datajud-proxy', {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ process_number })
-  });
-  if (response.ok) {
-    alert('Sincronização iniciada com sucesso!');
-    window.location.reload();
-  } else {
-    alert('Erro ao iniciar sincronização.');
-  }
-}
-
 export default function SyncDashboard() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Função de sincronização com logs de depuração
+  async function syncProcess(process_id: number, process_number: string) {
+    console.log(">>> [DEBUG] syncProcess iniciada para:", process_number);
+    
+    try {
+      console.log(">>> [DEBUG] Iniciando fetch para /api/datajud-proxy");
+      
+      const response = await fetch('/api/datajud-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ process_number })
+      });
+      
+      console.log(">>> [DEBUG] Resposta do proxy recebida, status:", response.status);
+      
+      if (response.ok) {
+        console.log(">>> [DEBUG] Sincronização iniciada com sucesso!");
+        alert('Sincronização iniciada com sucesso!');
+        window.location.reload();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(">>> [DEBUG] Erro na resposta do proxy:", errorData);
+        alert('Erro ao iniciar sincronização.');
+      }
+    } catch (error) {
+      console.error(">>> [DEBUG] Erro fatal no fetch:", error);
+      alert('Erro na comunicação com a API.');
+    }
+  }
+
   useEffect(() => {
     async function fetchData() {
+      console.log(">>> [DEBUG] Buscando dados do Supabase...");
       const { data, error } = await supabase
         .from('process_sync_status')
         .select('*');
       
-      if (data) setData(data);
+      if (error) {
+        console.error(">>> [DEBUG] Erro ao buscar dados:", error);
+      } else {
+        console.log(">>> [DEBUG] Dados recebidos:", data);
+        if (data) setData(data);
+      }
       setLoading(false);
     }
     fetchData();
@@ -71,7 +92,10 @@ export default function SyncDashboard() {
               <td className="p-2">{item.last_sync ? new Date(item.last_sync).toLocaleString() : 'Nunca'}</td>
               <td className="p-2">
                 <button 
-                  onClick={() => syncProcess(item.process_id, item.process_number)}
+                  onClick={() => {
+                    console.log(">>> [DEBUG] Botão clicado para processo:", item.process_number);
+                    syncProcess(item.process_id, item.process_number);
+                  }}
                   className="px-3 py-1 bg-indigo-600 text-white rounded-md text-xs hover:bg-indigo-700"
                 >
                   Sincronizar Agora
