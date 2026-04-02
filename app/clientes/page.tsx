@@ -315,8 +315,8 @@ export default function ClientesPage() {
             p_environment: currentEnv
           }, { count: 'exact' })
           
-          // Se falhar por falta de parâmetro ou função não encontrada, tenta apenas com search_term
-          if (rpcResult.error && (rpcResult.error.code === 'PGRST202' || rpcResult.error.message.includes('p_environment'))) {
+          // Se falhar por falta de parâmetro ou função não encontrada (404), tenta apenas com search_term
+          if (rpcResult.error && (rpcResult.error.code === 'PGRST202' || rpcResult.error.message.includes('p_environment') || rpcResult.error.status === 404)) {
             rpcResult = await supabase.rpc('search_clients', { 
               search_term: debouncedSearchTerm
             }, { count: 'exact' })
@@ -393,8 +393,8 @@ export default function ClientesPage() {
         pisNisNit: client.pisNisNit || '',
         contractSigned: !!client.contractSigned,
         proxySigned: !!client.proxySigned,
-        isMinor: false,
-        legalRepresentative: '',
+        isMinor: !!client.isMinor,
+        legalRepresentative: client.legalRepresentative || '',
       })
     } else {
       setEditingClient(null)
