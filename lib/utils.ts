@@ -103,6 +103,11 @@ export function formatCEP(v: string) {
   return v;
 }
 
+export function isContractQuitado(status: string | undefined, contractValue: number | undefined | null, amountReceived: number | undefined | null): boolean {
+  return status === 'Quitado' || 
+         (Number(contractValue || 0) > 0 && Number(amountReceived || 0) >= Number(contractValue || 0));
+}
+
 export function formatPhone(v: string) {
   v = v.replace(/\D/g, "");
   if (v.length <= 11) {

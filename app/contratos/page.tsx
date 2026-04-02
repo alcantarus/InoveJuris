@@ -35,7 +35,7 @@ import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { KPICard } from '@/components/ui/KPICard'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor, getTodayBR } from '@/lib/utils'
+import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor, getTodayBR, isContractQuitado } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 
@@ -769,7 +769,7 @@ export default function FinanceiroPage() {
     const allowedStatuses = ['Aberto', 'Atrasada']
     const hasNonCancellableInstallments = insts?.some((i: Installment) => !allowedStatuses.includes(i.status) || i.amountPaid > 0)
     
-    if (hasNonCancellableInstallments || contract.status === 'Quitado' || contract.status === 'Parcial') {
+    if (hasNonCancellableInstallments || isContractQuitado(contract.status, contract.contractValue, contract.amountReceived) || contract.status === 'Parcial') {
       alert('Não é possível cancelar títulos com pagamentos atrelados, estornados ou prorrogados. Estorne os pagamentos primeiro.')
       return
     }
