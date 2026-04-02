@@ -260,52 +260,30 @@ export default function ProcessosPage() {
     
     setSyncingProcessId(process.id)
     try {
-      const response = await fetch('/api/process-consultation', {
+      // Chamada à nova Edge Function
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/datajud-sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ processNumber: process.number })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({ 
+          process_id: process.id,
+          process_number: process.number 
+        })
       })
 
       const data = await response.json()
       if (data.success) {
-        const updatedData = {
-          court: data.court || process.court,
-          status: data.status || process.status,
-          history: data.history || process.history,
-          last_update: 'Agora',
-          updated_by: user?.id || null
-        }
-
-        const { error } = await supabase
-          .from('processes')
-          .update(updatedData)
-          .eq('id', process.id)
-
-        if (error) throw error
-
-        setProcesses(processes.map(p => p.id === process.id ? { ...p, ...updatedData } : p))
-        
-        const newMovementsCount = (data.history?.length || 0) - (process.history?.length || 0)
-        let message = `Processo ${process.number} sincronizado com sucesso!`
-        
-        if (data.meta) {
-          if (!data.meta.usingCustomKey) {
-            message += '\n\n⚠️ Atenção: Você está usando a chave de API pública padrão, que pode ter dados desatualizados. Configure sua chave DATAJUD_API_KEY no painel para dados em tempo real.'
-          }
-          if (newMovementsCount > 0) {
-            message += `\n\n${newMovementsCount} novas movimentações encontradas.`
-          } else {
-            message += '\n\nNenhuma nova movimentação encontrada.'
-          }
-        }
-        
-        alert(message)
+        // Atualiza a UI e notifica o usuário
+        alert(`Processo ${process.number} sincronizado com sucesso!`)
+        fetchProcesses() // Refresh para atualizar os dados na tela
       } else {
         alert(data.error || 'Erro ao sincronizar processo.')
       }
     } catch (error) {
       console.error('Error syncing process:', error)
-      alert('Erro na comunicação com a API de consulta.')
+      alert('Erro na comunicação com a API de sincronização.')
     } finally {
       setSyncingProcessId(null)
     }

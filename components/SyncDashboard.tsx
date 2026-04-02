@@ -8,6 +8,23 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+async function syncProcess(process_id: number, process_number: string) {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/datajud-sync`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+    },
+    body: JSON.stringify({ process_id, process_number })
+  });
+  if (response.ok) {
+    alert('Sincronização iniciada com sucesso!');
+    window.location.reload();
+  } else {
+    alert('Erro ao iniciar sincronização.');
+  }
+}
+
 export default function SyncDashboard() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +52,7 @@ export default function SyncDashboard() {
             <th className="p-2">Processo</th>
             <th className="p-2">Status</th>
             <th className="p-2">Última Sincronização</th>
+            <th className="p-2">Ação</th>
           </tr>
         </thead>
         <tbody>
@@ -51,6 +69,14 @@ export default function SyncDashboard() {
                 </span>
               </td>
               <td className="p-2">{item.last_sync ? new Date(item.last_sync).toLocaleString() : 'Nunca'}</td>
+              <td className="p-2">
+                <button 
+                  onClick={() => syncProcess(item.process_id, item.process_number)}
+                  className="px-3 py-1 bg-indigo-600 text-white rounded-md text-xs hover:bg-indigo-700"
+                >
+                  Sincronizar Agora
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
