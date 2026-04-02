@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '../lib/supabase';
+import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
 
 const supabase = createClient(
   defaultUrlProd,

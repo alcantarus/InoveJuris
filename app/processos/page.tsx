@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { defaultUrlProd, defaultKeyProd } from '../lib/supabase'
+import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase'
 import DashboardLayout from '../dashboard-layout'
 import { 
   Search, 
