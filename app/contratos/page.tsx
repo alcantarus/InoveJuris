@@ -1534,7 +1534,7 @@ export default function FinanceiroPage() {
                         >
                           <Edit2 size={18} />
                         </button>
-                        {contract.status !== 'Cancelado' && contract.status !== 'Quitado' && (
+                {contract.status !== 'Cancelado' && !isContractQuitado(contract.status, contract.contractValue, contract.amountReceived) && (
                           <button 
                             onClick={(e) => handleCancelClick(e, contract)}
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"

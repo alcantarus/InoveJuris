@@ -9,7 +9,7 @@ import { DollarSign, Search, Calendar, CheckCircle2, Clock, AlertCircle, Plus, R
 import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR } from '@/lib/utils'
+import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
@@ -628,10 +628,10 @@ export default function ContasAReceberPage() {
                 <button 
                   className={cn(
                     "flex-1 md:flex-none px-4 py-2 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed",
-                    (selectedContract.status === 'Cancelado' || installments.some(i => Number(i.amountPaid || 0) > 0)) ? "bg-slate-400" : "bg-rose-600 hover:bg-rose-700"
+                    (selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived)) ? "bg-slate-400" : "bg-rose-600 hover:bg-rose-700"
                   )}
                   onClick={cancelContract}
-                  disabled={selectedContract.status === 'Cancelado' || installments.some(i => Number(i.amountPaid || 0) > 0)}
+                  disabled={selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived)}
                 >
                   Cancelar Contrato
                 </button>
