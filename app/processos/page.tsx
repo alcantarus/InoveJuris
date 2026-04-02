@@ -279,7 +279,7 @@ export default function ProcessosPage() {
       const data = await response.json()
       if (data.success) {
         // Atualiza a UI e notifica o usuário
-        alert(`Processo ${process.number} sincronizado com sucesso!`)
+        alert(`Processo ${proc.number} sincronizado com sucesso!`)
         fetchProcesses() // Refresh para atualizar os dados na tela
       } else {
         alert(data.error || 'Erro ao sincronizar processo.')
