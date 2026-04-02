@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       }
 
       console.log('Session API: Inserindo nova sessão')
-      const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
+      const loginISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       const { data, error } = await supabase
         .from('user_sessions')
         .insert([
@@ -165,8 +165,8 @@ export async function POST(request: Request) {
             environment: environment,
             ip_address: ip,
             user_agent: readableUA,
-            login_at: nowISO,
-            last_seen_at: nowISO,
+            login_at: loginISO,
+            last_seen_at: loginISO,
           }
         ])
         .select('id')
