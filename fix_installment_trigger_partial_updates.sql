@@ -9,8 +9,9 @@ BEGIN
     END IF;
     
     IF (TG_OP = 'UPDATE') THEN
-      -- Bloqueia apenas se campos financeiros ou críticos forem alterados
-      IF (OLD."contractValue" <> NEW."contractValue" OR 
+      -- Bloqueia apenas se campos financeiros ou críticos forem alterados e não for um estorno
+      IF (NEW.status <> 'Estornado') AND (
+          OLD."contractValue" <> NEW."contractValue" OR 
           OLD.status <> NEW.status OR
           OLD."installmentsCount" <> NEW."installmentsCount" OR
           COALESCE(OLD."paymentMethod", '') <> COALESCE(NEW."paymentMethod", '')) THEN
@@ -37,8 +38,9 @@ BEGIN
     END IF;
     
     IF (TG_OP = 'UPDATE') THEN
-      -- Bloqueia apenas se campos financeiros forem alterados
-      IF (OLD.amount <> NEW.amount OR 
+      -- Bloqueia apenas se campos financeiros forem alterados e não for um estorno
+      IF (NEW.status <> 'Estornado') AND (
+          OLD.amount <> NEW.amount OR 
           OLD."dueDate" <> NEW."dueDate" OR 
           OLD."amountPaid" <> NEW."amountPaid" OR 
           OLD.status <> NEW.status OR
