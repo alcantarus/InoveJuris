@@ -14,33 +14,38 @@ export default function SyncDashboard() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Função de sincronização com logs de depuração
+  // Função de sincronização atualizada para chamar a Edge Function do Supabase
   async function syncProcess(process_id: number, process_number: string) {
     console.log(">>> [DEBUG] syncProcess iniciada para:", process_number);
     
     try {
-      console.log(">>> [DEBUG] Iniciando fetch para /api/datajud-proxy");
+      console.log(">>> [DEBUG] Chamando Edge Function do Supabase...");
       
-      const response = await fetch('/api/datajud-proxy', {
+      // Chamada direta para a Edge Function do Supabase
+      const response = await fetch(`${defaultUrlProd}/functions/v1/datajud-sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ process_number })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${defaultKeyProd}`
+        },
+        body: JSON.stringify({ process_id, process_number })
       });
       
-      console.log(">>> [DEBUG] Resposta do proxy recebida, status:", response.status);
+      console.log(">>> [DEBUG] Resposta da Edge Function recebida, status:", response.status);
       
-      if (response.ok) {
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && result.success) {
         console.log(">>> [DEBUG] Sincronização iniciada com sucesso!");
         alert('Sincronização iniciada com sucesso!');
         window.location.reload();
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(">>> [DEBUG] Erro na resposta do proxy:", errorData);
-        alert('Erro ao iniciar sincronização.');
+        console.error(">>> [DEBUG] Erro na resposta da Edge Function:", result);
+        alert(`Erro ao iniciar sincronização: ${result.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
-      console.error(">>> [DEBUG] Erro fatal no fetch:", error);
-      alert('Erro na comunicação com a API.');
+      console.error(">>> [DEBUG] Erro fatal na comunicação:", error);
+      alert('Erro na comunicação com a API de sincronização.');
     }
   }
 
