@@ -757,8 +757,8 @@ export default function ContasAReceberPage() {
                           Prorrogar
                         </button>
                         <button 
-                          className={cn("text-rose-600 hover:text-rose-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (i.status !== 'Quitado' && i.status !== 'Parcial') && "pointer-events-none")}
-                          disabled={i.status !== 'Quitado' && i.status !== 'Parcial'}
+                          className={cn("text-rose-600 hover:text-rose-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", ((i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0) && "pointer-events-none")}
+                          disabled={i.status !== 'Quitado' && i.status !== 'Parcial' || Number(i.amountPaid || 0) <= 0}
                           onClick={() => openReverseModal(i)}
                         >
                           Estornar

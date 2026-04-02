@@ -69,5 +69,29 @@ $$ LANGUAGE plpgsql;
 CREATE INDEX IF NOT EXISTS idx_financial_transactions_date ON financial_transactions(date);
 CREATE INDEX IF NOT EXISTS idx_clients_birthdate ON clients("birthDate");
 
--- 5. Recarregar cache do PostgREST
+-- 6. Adicionar trigger para evitar notificações de aniversário duplicadas
+CREATE OR REPLACE FUNCTION prevent_duplicate_birthday_notification()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.type = 'birthday' THEN
+    IF EXISTS (
+      SELECT 1 FROM notifications
+      WHERE user_id = NEW.user_id
+      AND type = 'birthday'
+      AND message = NEW.message
+      AND created_at::date = CURRENT_DATE
+    ) THEN
+      RAISE EXCEPTION 'Duplicate birthday notification';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_duplicate_birthday ON notifications;
+CREATE TRIGGER trg_prevent_duplicate_birthday
+BEFORE INSERT ON notifications
+FOR EACH ROW EXECUTE FUNCTION prevent_duplicate_birthday_notification();
+
+-- 7. Recarregar cache do PostgREST
 NOTIFY pgrst, 'reload schema';
