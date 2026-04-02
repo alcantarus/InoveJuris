@@ -163,7 +163,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           key,
           value,
           environment: env, // Explicitly include for clarity
-          updated_at: new Date().toISOString(),
+          updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
           ...(user?.id ? { updated_by: user.id } : {}),
         }, {
           onConflict: 'key,environment'

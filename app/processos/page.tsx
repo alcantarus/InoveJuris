@@ -322,12 +322,14 @@ export default function ProcessosPage() {
     
     // If no history from consultation, use the mock one for demo purposes if it's a new process
     if (historyToSave.length === 0 && !editingProcess) {
+      const now = new Date();
+      const getISO = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       historyToSave = [
-        { date: new Date().toISOString(), description: 'Processo cadastrado no sistema' },
-        { date: new Date(Date.now() - 86400000).toISOString(), description: 'Petição Inicial Juntada' },
-        { date: new Date(Date.now() - 172800000).toISOString(), description: 'Distribuído por Sorteio' },
-        { date: new Date(Date.now() - 259200000).toISOString(), description: 'Conclusos para Despacho' },
-        { date: new Date(Date.now() - 345600000).toISOString(), description: 'Recebimento da Inicial' }
+        { date: getISO(now), description: 'Processo cadastrado no sistema' },
+        { date: getISO(new Date(now.getTime() - 86400000)), description: 'Petição Inicial Juntada' },
+        { date: getISO(new Date(now.getTime() - 172800000)), description: 'Distribuído por Sorteio' },
+        { date: getISO(new Date(now.getTime() - 259200000)), description: 'Conclusos para Despacho' },
+        { date: getISO(new Date(now.getTime() - 345600000)), description: 'Recebimento da Inicial' }
       ]
     }
 

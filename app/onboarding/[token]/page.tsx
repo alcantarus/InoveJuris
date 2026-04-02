@@ -74,7 +74,8 @@ export default function OnboardingPage() {
           return
         }
 
-        if (new Date(tokenData.expires_at) < new Date()) {
+        const now = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
+        if (tokenData.expires_at < now) {
           setError('Este link expirou. Solicite um novo link ao seu advogado.')
           setIsLoading(false)
           return
@@ -184,7 +185,7 @@ export default function OnboardingPage() {
         .from('clients')
         .update({
           ...formData,
-          lgpd_consent_date: new Date().toISOString(),
+          lgpd_consent_date: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
           lgpd_source: 'Digital Onboarding'
         })
         .eq('id', clientData.id)
@@ -194,7 +195,10 @@ export default function OnboardingPage() {
       // Mark token as used
       const { error: tokenError } = await supabase
         .from('client_onboarding_tokens')
-        .update({ used: true })
+        .update({ 
+          used: true,
+          used_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
+        })
         .eq('id', tokenId)
 
       if (tokenError) throw tokenError

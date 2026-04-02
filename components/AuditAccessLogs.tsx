@@ -34,6 +34,7 @@ import {
 } from 'recharts'
 
 import { getAppEnv } from '@/lib/env'
+import { getTodayBR } from '@/lib/utils'
 
 interface AccessLog {
   id: string
@@ -262,11 +263,12 @@ export function AuditAccessLogs() {
     }
   }, [logs])
 
-  const analyticsData = useMemo(() => {
+      const analyticsData = useMemo(() => {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      return d.toISOString().split('T')[0];
+      // Use toLocaleDateString with America/Sao_Paulo to get correct date for each of the last 7 days
+      return d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
     }).reverse();
     
     return {
@@ -334,7 +336,7 @@ export function AuditAccessLogs() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `auditoria_acessos_${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `auditoria_acessos_${getTodayBR()}.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -359,7 +361,7 @@ export function AuditAccessLogs() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `tentativas_falhas_${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `tentativas_falhas_${getTodayBR()}.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

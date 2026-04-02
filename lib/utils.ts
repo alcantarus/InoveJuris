@@ -133,6 +133,11 @@ export function formatProcessNumber(v: string) {
   return v
 }
 
+export function getTodayBR() {
+  // Retorna a data atual no formato YYYY-MM-DD para o fuso de Brasília
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}
+
 export function formatDate(dateString: string | null | undefined) {
   if (!dateString) return '-'
   try {

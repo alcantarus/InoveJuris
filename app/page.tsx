@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import DashboardLayout from './dashboard-layout'
-import { cn, formatDate, formatCurrency } from '@/lib/utils'
+import { cn, formatDate, formatCurrency, getTodayBR } from '@/lib/utils'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 import { 
   Users, 
@@ -160,15 +160,16 @@ export default function Page() {
     const monthlyGoal = settings.dashboard_goals?.monthly_revenue || 150000
     const currentMonthRevenue = data.transactions
       .filter((t: any) => {
-        const today = new Date()
-        const tDate = new Date(t.date)
+        const today = new Date(getTodayBR() + 'T00:00:00')
+        const tDate = new Date(t.date + 'T00:00:00')
         return tDate.getMonth() === today.getMonth() && tDate.getFullYear() === today.getFullYear()
       })
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)
     
     const stuckInProtocol = data.contracts.filter(c => c.inssProtocol && !c.inssDeferred && !c.processNumber).length
     const stuckInJudicial = data.contracts.filter(c => !c.inssProtocol && c.processNumber && c.status === 'Aberto').length
-    const overdueInstallments = data.installments.filter(i => new Date(i.dueDate) < new Date() && (Number(i.amount) || 0) > (Number(i.amountPaid) || 0)).length
+    const todayStr = getTodayBR()
+    const overdueInstallments = data.installments.filter(i => i.dueDate < todayStr && (Number(i.amount) || 0) > (Number(i.amountPaid) || 0)).length
     
     const successfulProcesses = data.processes.filter((p: any) => p.status === 'Êxito').length
     const totalProcesses = data.processes.length
@@ -259,7 +260,7 @@ export default function Page() {
                 ...d,
                 process_number: process ? process.number : 'N/A',
                 client_name: client ? client.name : (process ? process.client : 'Sem cliente'),
-                days_remaining: Math.ceil((new Date(d.deadline_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                days_remaining: Math.ceil((new Date(d.deadline_date + 'T00:00:00').getTime() - new Date(getTodayBR() + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
               };
               return [d.id, mappedDeadline];
             })).values())

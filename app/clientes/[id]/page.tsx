@@ -27,7 +27,7 @@ import {
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
-import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import { formatCurrency, formatDate, cn, getTodayBR } from '@/lib/utils'
 import { motion } from 'motion/react'
 
 export default function ClientProfilePage() {
@@ -60,7 +60,7 @@ export default function ClientProfilePage() {
   useEffect(() => {
     setNewInteraction(prev => ({
       ...prev,
-      date: new Date().toISOString().split('T')[0]
+      date: getTodayBR()
     }))
   }, [])
   const [isSubmittingInteraction, setIsSubmittingInteraction] = useState(false)
@@ -243,7 +243,7 @@ export default function ClientProfilePage() {
 
       setInteractions([data, ...interactions])
       setShowInteractionModal(false)
-      setNewInteraction({ type: 'Call', notes: '', date: new Date().toISOString().split('T')[0] })
+      setNewInteraction({ type: 'Call', notes: '', date: getTodayBR() })
     } catch (error) {
       console.error('Error adding interaction:', error)
       alert('Erro ao registrar interação.')

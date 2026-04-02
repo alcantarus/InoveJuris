@@ -35,7 +35,7 @@ import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { KPICard } from '@/components/ui/KPICard'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor } from '@/lib/utils'
+import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor, getTodayBR } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 
@@ -285,7 +285,7 @@ export default function FinanceiroPage() {
     index: null as number | null,
     amount: 0,
     totalDue: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayBR(),
     account_id: '',
     category_id: '',
     description: '',
@@ -302,8 +302,8 @@ export default function FinanceiroPage() {
     product_id: null,
     status: 'Aberto',
     product: '',
-    launchDate: new Date().toISOString().split('T')[0],
-    contractDate: new Date().toISOString().split('T')[0],
+    launchDate: getTodayBR(),
+    contractDate: getTodayBR(),
     lawArea: '',
     processNumber: '',
     contractValue: 0,
@@ -417,8 +417,8 @@ export default function FinanceiroPage() {
     } else if (formData.paymentMethod === 'À Vista') {
       setInstallments([{
         installmentNumber: 1,
-        dueDate: formData.contractDate || new Date().toISOString().split('T')[0],
-        original_due_date: formData.contractDate || new Date().toISOString().split('T')[0],
+        dueDate: formData.contractDate || getTodayBR(),
+        original_due_date: formData.contractDate || getTodayBR(),
         amount: totalValue,
         amountPaid: isProBono ? totalValue : 0,
         status: isProBono ? 'Quitado' : 'Aberto',
@@ -486,8 +486,8 @@ export default function FinanceiroPage() {
         client_id: null,
         product_id: null,
         product: '',
-        launchDate: new Date().toISOString().split('T')[0],
-        contractDate: new Date().toISOString().split('T')[0],
+        launchDate: getTodayBR(),
+        contractDate: getTodayBR(),
         lawArea: '',
         processNumber: '',
         contractValue: 0,
@@ -695,7 +695,7 @@ export default function FinanceiroPage() {
         setContracts(prev => prev.map(c => c.id === editingContract.id ? { ...cData[0], installments: installments } : c))
       }
       
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayBR();
       if (formData.rn_birth_date === today && formData.rn_name) {
          setSelectedMaternityClient({name: formData.rn_name, id: `maternity_${editingContract.id}`})
          setIsModalOpen(true)
@@ -738,7 +738,7 @@ export default function FinanceiroPage() {
         setContracts(prev => [{ ...cData[0], installments: currentInstallments }, ...prev])
       }
       
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayBR();
       if (formData.rn_birth_date === today && formData.rn_name) {
          setSelectedMaternityClient({name: formData.rn_name, id: `maternity_${cData[0].id}`})
          setIsModalOpen(true)
@@ -987,7 +987,7 @@ export default function FinanceiroPage() {
       index: idx,
       amount: remainingBalance, // Default to remaining balance
       totalDue: totalDue,
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayBR(),
       account_id: bankAccounts[0]?.id || '',
       category_id: financialCategories[0]?.id || '',
       description: `Recebimento Parcela ${inst.installmentNumber} - ${client?.name || ''}`,
@@ -2065,7 +2065,7 @@ export default function FinanceiroPage() {
                               setFormData({
                                 ...formData, 
                                 gpsPaid: isPaid,
-                                gps_payment_date: (isPaid && !formData.gps_payment_date) ? new Date().toISOString().split('T')[0] : formData.gps_payment_date,
+                                gps_payment_date: (isPaid && !formData.gps_payment_date) ? getTodayBR() : formData.gps_payment_date,
                                 gps_paid_value: (isPaid && (!formData.gps_paid_value || formData.gps_paid_value === 0)) ? (formData.gps_value || 0) : formData.gps_paid_value
                               });
                             }}

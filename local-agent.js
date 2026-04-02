@@ -57,7 +57,8 @@ async function agendarBackups() {
 
             if (cron.validate(cronExpression)) {
                 const tarefa = cron.schedule(cronExpression, () => {
-                    console.log(`[${new Date().toLocaleString()}] Disparando backup agendado...`);
+                    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+                    console.log(`[${now}] Disparando backup agendado...`);
                     executarBackup();
                 });
                 tarefasAtivas.push(tarefa);
@@ -89,7 +90,7 @@ function executarBackup() {
         return;
     }
     
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(/[: ]/g, '-');
     const arquivoBackup = path.join(pastaBackup, `backup-${timestamp}.sql`);
 
     // NOVA LÓGICA: Utilizando a Connection String do Pooler
@@ -144,7 +145,7 @@ function executarBackup() {
 async function registrarStatus(status, errorMessage) {
     try {
         const payload = {
-            last_backup_date: new Date().toISOString(),
+            last_backup_date: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
             status: status,
             error_message: errorMessage
         };

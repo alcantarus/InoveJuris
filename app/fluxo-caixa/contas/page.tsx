@@ -18,7 +18,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, getTodayBR } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
 
@@ -71,7 +71,7 @@ export default function ContasBancariasPage() {
 
         // 2. If date filter is applied, calculate balance based on transactions
         if (startDate || endDate) {
-          const effectiveEndDate = endDate || new Date().toISOString().split('T')[0]
+          const effectiveEndDate = endDate || getTodayBR()
           
           const { data: allHistory, error: histError } = await supabase
             .from('financial_transactions')

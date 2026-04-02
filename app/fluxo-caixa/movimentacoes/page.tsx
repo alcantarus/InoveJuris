@@ -24,7 +24,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { formatDate, formatCurrency, removeAccents } from '@/lib/utils'
+import { formatDate, formatCurrency, removeAccents, getTodayBR } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
 
@@ -61,7 +61,7 @@ export default function MovimentacoesPage() {
   const [displayAmount, setDisplayAmount] = useState('R$ 0,00')
   
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayBR(),
     amount: 0,
     type: 'expense' as 'income' | 'expense' | 'transfer',
     account_id: '',
@@ -220,7 +220,7 @@ export default function MovimentacoesPage() {
       if (data) setTransactions(prev => [data[0], ...prev])
       setIsModalOpen(false)
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayBR(),
         amount: 0,
         type: 'expense',
         account_id: '',

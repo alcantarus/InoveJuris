@@ -118,12 +118,12 @@ export async function GET(request: Request) {
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expiry_date: Date.now() + (tokenData.expires_in * 1000),
-        connected_at: new Date().toISOString(),
+        connected_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
       },
       category: 'integration',
       description: `OAuth2 tokens for ${state} email integration`,
       environment: 'production', // Always store in production env for system-wide access? Or respect current env? Let's use 'production' as default for system settings.
-      updated_at: new Date().toISOString(),
+      updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
     }, { onConflict: 'key, environment' });
 
     // Also update the main smtp_config to use this provider if desired?

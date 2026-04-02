@@ -153,7 +153,7 @@ export async function POST(req: Request) {
       meta: {
         usingCustomKey: !!process.env.DATAJUD_API_KEY,
         foundHits: hits.length,
-        mostRecentUpdate: new Date(mostRecentDate).toISOString()
+        mostRecentUpdate: new Date(mostRecentDate).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
       }
     })
 
@@ -164,12 +164,14 @@ export async function POST(req: Request) {
 }
 
 function getMockResponse(processNumber: string) {
+  const now = new Date();
+  const getISO = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
   const mockHistory = [
-    { date: new Date().toISOString(), description: 'Movimentação: Conclusos para Sentença' },
-    { date: new Date(Date.now() - 86400000 * 2).toISOString(), description: 'Movimentação: Petição de Juntada de Documentos' },
-    { date: new Date(Date.now() - 86400000 * 5).toISOString(), description: 'Movimentação: Despacho Proferido' },
-    { date: new Date(Date.now() - 86400000 * 10).toISOString(), description: 'Movimentação: Publicação no Diário Oficial' },
-    { date: new Date(Date.now() - 86400000 * 15).toISOString(), description: 'Movimentação: Distribuído por Sorteio' }
+    { date: getISO(now), description: 'Movimentação: Conclusos para Sentença' },
+    { date: getISO(new Date(now.getTime() - 86400000 * 2)), description: 'Movimentação: Petição de Juntada de Documentos' },
+    { date: getISO(new Date(now.getTime() - 86400000 * 5)), description: 'Movimentação: Despacho Proferido' },
+    { date: getISO(new Date(now.getTime() - 86400000 * 10)), description: 'Movimentação: Publicação no Diário Oficial' },
+    { date: getISO(new Date(now.getTime() - 86400000 * 15)), description: 'Movimentação: Distribuído por Sorteio' }
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return NextResponse.json({

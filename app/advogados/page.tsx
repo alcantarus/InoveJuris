@@ -153,7 +153,7 @@ export default function LawyersPage() {
         specialty: formData.specialty,
         color_code: formData.color_code,
         is_partner: formData.is_partner,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
       }
 
       if (editingLawyer) {

@@ -38,7 +38,7 @@ import {
 import { motion } from 'motion/react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { formatDate, cn, formatCurrency } from '@/lib/utils'
+import { formatDate, cn, formatCurrency, getTodayBR } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
@@ -155,8 +155,8 @@ export default function FluxoCaixaPage() {
 
   const totalBalance = data.accounts.reduce((acc, curr) => acc + Number(curr.current_balance || 0), 0)
   
-  const today = new Date()
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+  const todayDate = getTodayBR()
+  const startOfMonth = todayDate.substring(0, 8) + '01'
   
   const monthlyIncome = data.transactions
     .filter(t => t.type === 'income' && t.date >= startOfMonth)
@@ -182,7 +182,8 @@ export default function FluxoCaixaPage() {
   const last30Days = [...Array(30)].map((_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    return d.toISOString().split('T')[0]
+    // Use toLocaleDateString with America/Sao_Paulo to get correct date for each of the last 30 days
+    return d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
   }).reverse()
 
   const dailyChartData = last30Days.map(date => {

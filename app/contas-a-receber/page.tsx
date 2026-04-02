@@ -9,7 +9,7 @@ import { DollarSign, Search, Calendar, CheckCircle2, Clock, AlertCircle, Plus, R
 import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatDate, getStatusColor, getRowColor, cn } from '@/lib/utils'
+import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
@@ -341,7 +341,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Total em Atraso" 
-            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado' && c.next_due_date && c.next_due_date < new Date().toISOString().split('T')[0]).reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0), isVisible('receivable_overdue'))} 
+            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado' && c.next_due_date && c.next_due_date < getTodayBR()).reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0), isVisible('receivable_overdue'))} 
             icon={AlertCircle} 
             color="rose" 
             isVisible={isVisible('receivable_overdue')}
@@ -546,7 +546,7 @@ export default function ContasAReceberPage() {
                 ) : sortedContracts.filter(c => {
                   const matchesSearch = c.processNumber?.toLowerCase().includes(searchTerm.toLowerCase()) || c.client_name?.toLowerCase().includes(searchTerm.toLowerCase());
                   if (!matchesSearch) return false;
-                  const today = new Date().toISOString().split('T')[0];
+                  const today = getTodayBR();
                   if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
                   if (filterType === 'Quitados') return c.contract_status === 'Quitado';
                   if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
@@ -701,7 +701,7 @@ export default function ContasAReceberPage() {
                   {loading ? (
                     <tr><td colSpan={8} className="p-4 text-center">Carregando...</td></tr>
                   ) : installments.map((i, index) => {
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = getTodayBR();
                     const isLate = i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada';
                     const daysLate = isLate ? Math.floor((new Date(today).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
                     
@@ -826,7 +826,7 @@ export default function ContasAReceberPage() {
                   const { error } = await supabase.rpc('process_installment_payment', {
                     p_installment_id: activeInstallment.id,
                     p_amount_paid: receiveAmount,
-                    p_date: new Date().toISOString(),
+                    p_date: getTodayBR(),
                     p_interest: 0,
                     p_fine: 0,
                     p_description: paymentDescription,

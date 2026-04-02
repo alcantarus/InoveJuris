@@ -13,7 +13,8 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
 
     if (action === 'check_rate_limit') {
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const now = new Date();
+      const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       const { data, error } = await supabase
         .from('login_attempts')
         .select('id')
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
             ip_address: ip,
             user_agent: userAgent || request.headers.get('user-agent') || 'Unknown',
             reason: reason || 'Credenciais inválidas',
-            attempted_at: new Date().toISOString()
+            attempted_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
           }
         ])
       
@@ -76,9 +77,10 @@ export async function POST(request: Request) {
     if (action === 'login') {
       console.log('Session API: Iniciando login para', userId)
       // 1. Prevent simultaneous logins (Logout other active sessions for this user)
+      const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       await supabase
         .from('user_sessions')
-        .update({ logout_at: new Date().toISOString() })
+        .update({ logout_at: nowISO })
         .eq('user_id', Number(userId))
         .is('logout_at', null)
       console.log('Session API: Sessões anteriores finalizadas')
@@ -141,9 +143,10 @@ export async function POST(request: Request) {
           }
         } else {
           // Update last_used_at for trusted device
+          const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
           await supabase
             .from('trusted_devices')
-            .update({ last_used_at: new Date().toISOString() })
+            .update({ last_used_at: nowISO })
             .eq('user_id', Number(userId))
             .eq('user_agent', readableUA);
           console.log('Session API: Dispositivo confiável atualizado')
@@ -153,6 +156,7 @@ export async function POST(request: Request) {
       }
 
       console.log('Session API: Inserindo nova sessão')
+      const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       const { data, error } = await supabase
         .from('user_sessions')
         .insert([
@@ -161,8 +165,8 @@ export async function POST(request: Request) {
             environment: environment,
             ip_address: ip,
             user_agent: readableUA,
-            login_at: new Date().toISOString(),
-            last_seen_at: new Date().toISOString(),
+            login_at: nowISO,
+            last_seen_at: nowISO,
           }
         ])
         .select('id')
@@ -186,7 +190,7 @@ export async function POST(request: Request) {
           new_data: {
             ip_address: ip,
             user_agent: readableUA,
-            login_at: new Date().toISOString()
+            login_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
           }
         }])
         console.log('Session API: Login registrado em audit_logs')
@@ -199,11 +203,12 @@ export async function POST(request: Request) {
     } 
     
     if (action === 'logout' && sessionId) {
+      const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       const { error } = await supabase
         .from('user_sessions')
         .update({
-          logout_at: new Date().toISOString(),
-          last_seen_at: new Date().toISOString()
+          logout_at: nowISO,
+          last_seen_at: nowISO
         })
         .eq('id', sessionId)
 
@@ -240,7 +245,7 @@ export async function POST(request: Request) {
       const { error } = await supabase
         .from('user_sessions')
         .update({
-          last_seen_at: new Date().toISOString()
+          last_seen_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
         })
         .eq('id', sessionId)
 

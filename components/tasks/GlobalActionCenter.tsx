@@ -9,13 +9,14 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { getAppEnv } from '@/lib/env';
+import { getTodayBR } from '@/lib/utils';
 
 export default function GlobalActionCenter() {
   const { user, loading: authLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(getTodayBR());
   const [dueTime, setDueTime] = useState('');
   const [priority, setPriority] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -87,7 +88,7 @@ export default function GlobalActionCenter() {
         setIsOpen(false);
         setTitle('');
         setContent('');
-        setDueDate(new Date().toISOString().split('T')[0]);
+        setDueDate(getTodayBR());
         setDueTime('');
         setPriority(1);
         // Refresh page to update widgets

@@ -125,11 +125,11 @@ export async function POST(request: Request) {
         await transporter.sendMail({
           from: smtpConfig.from_email || smtpConfig.user,
           to: smtpConfig.user, // Send to self
-          subject: `Backup do Sistema - ${new Date().toLocaleDateString()}`,
-          text: `Segue em anexo o backup do sistema gerado em ${new Date().toLocaleString()}. Ambiente: ${appEnv}`,
+          subject: `Backup do Sistema - ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+          text: `Segue em anexo o backup do sistema gerado em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Ambiente: ${appEnv}`,
           attachments: [
             {
-              filename: `backup_${appEnv}_${new Date().toISOString().split('T')[0]}.zip`,
+              filename: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
               content: zipBuffer
             }
           ]
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
         performed_by: Number(userId),
         environment: appEnv,
         new_data: {
-          filename: `backup_${appEnv}_${new Date().toISOString().split('T')[0]}.zip`,
+          filename: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
           generated_at: new Date().toISOString()
         }
       }]);
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
       await supabase.from('backup_logs').insert([{
         user_id: userId || null,
         status: 'success',
-        file_name: `backup_${appEnv}_${new Date().toISOString().split('T')[0]}.zip`,
+        file_name: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
         message: 'Backup realizado com sucesso.'
       }]);
       console.log('Backup registered in backup_logs');
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="backup_${appEnv}_${new Date().toISOString().split('T')[0]}.zip"`,
+        'Content-Disposition': `attachment; filename="backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip"`,
       },
     });
 

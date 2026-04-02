@@ -4,6 +4,7 @@ import React, { useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
+import { getTodayBR } from '@/lib/utils'
 
 export function GPSNotificationChecker() {
   const { user } = useAuth()
@@ -13,7 +14,7 @@ export function GPSNotificationChecker() {
 
     try {
       // 1. Busca contratos com GPS vencendo hoje e não pagas
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayBR()
       
       const { data: contracts, error: contractsError } = await supabase
         .from('contracts')
@@ -38,7 +39,7 @@ export function GPSNotificationChecker() {
           .eq('title', title)
           .eq('message', message)
           .eq('environment', getAppEnv())
-          .gte('created_at', new Date().toISOString().split('T')[0])
+          .gte('created_at', getTodayBR())
 
         if (checkError) throw checkError
         
