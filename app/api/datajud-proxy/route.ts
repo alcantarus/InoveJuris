@@ -8,23 +8,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    console.log(`[Proxy] Consultando DataJUD para: ${process_number}`);
+    // URL do DataJUD
+    const targetUrl = `https://api.datajud.cnj.jus.br/api/v1/processos/${process_number}`;
     
-    const token = process.env.DATAJUD_API_TOKEN;
-    if (!token) {
-      console.error("[Proxy] Erro: DATAJUD_API_TOKEN não configurado.");
-      return NextResponse.json({ error: "Token não configurado" }, { status: 500 });
-    }
+    // URL do Proxy (ScraperAPI)
+    const proxyUrl = `http://api.scraperapi.com?api_key=${process.env.SCRAPER_API_KEY}&url=${encodeURIComponent(targetUrl)}`;
 
-    const response = await fetch(`https://api.datajud.cnj.jus.br/api/v1/processos/${process_number}`, {
+    console.log(`[Proxy] Consultando DataJUD via ScraperAPI para: ${process_number}`);
+
+    const response = await fetch(proxyUrl, {
       method: 'GET',
       headers: { 
-        "Authorization": `APIKey ${token}`,
+        "Authorization": `APIKey ${process.env.DATAJUD_API_TOKEN}`,
         "Content-Type": "application/json"
       }
     });
-    
-    console.log(`[Proxy] Resposta DataJUD: ${response.status}`);
     
     const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status });
