@@ -628,10 +628,10 @@ export default function ContasAReceberPage() {
                 <button 
                   className={cn(
                     "flex-1 md:flex-none px-4 py-2 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed",
-                    (selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || Number(selectedContract.amountReceived || 0) > 0) ? "bg-slate-400" : "bg-rose-600 hover:bg-rose-700"
+                    (selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || installments.some(i => Number(i.amountPaid || 0) > 0)) ? "bg-slate-400" : "bg-rose-600 hover:bg-rose-700"
                   )}
                   onClick={cancelContract}
-                  disabled={selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || Number(selectedContract.amountReceived || 0) > 0}
+                  disabled={selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || installments.some(i => Number(i.amountPaid || 0) > 0)}
                 >
                   Cancelar Contrato
                 </button>
