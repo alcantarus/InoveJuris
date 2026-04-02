@@ -1358,8 +1358,8 @@ export default function FinanceiroPage() {
                   else if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
                   else if (isProrrogado) rowStatus = 'Prorrogado';
                   else if (contract.isProBono) rowStatus = 'Pro Bono';
-                  else if (isQuitado) rowStatus = 'Quitado';
                   else if (contract.isFinanced) rowStatus = 'Financiado';
+                  else if (isQuitado) rowStatus = 'Quitado';
 
                   const rowColors = {
                     'Cancelado': 'bg-[#ea9999]/10 hover:bg-[#ea9999]/20',
@@ -1577,8 +1577,8 @@ export default function FinanceiroPage() {
                 else if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
                 else if (isProrrogado) rowStatus = 'Prorrogado';
                 else if (contract.isProBono) rowStatus = 'Pro Bono';
-                else if (isQuitado) rowStatus = 'Quitado';
                 else if (contract.isFinanced) rowStatus = 'Financiado';
+                else if (isQuitado) rowStatus = 'Quitado';
 
                 const rowColors = {
                   'Cancelado': 'bg-[#ea9999]/10 hover:bg-[#ea9999]/20',
@@ -2363,8 +2363,8 @@ export default function FinanceiroPage() {
                   else if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
                   else if (isProrrogado) rowStatus = 'Prorrogado';
                   else if (contract.isProBono) rowStatus = 'Pro Bono';
-                  else if (isQuitado) rowStatus = 'Quitado';
                   else if (contract.isFinanced) rowStatus = 'Financiado';
+                  else if (isQuitado) rowStatus = 'Quitado';
 
                   const badgeColors = {
                     'Cancelado': 'bg-[#ea9999] text-black line-through',
