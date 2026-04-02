@@ -69,29 +69,38 @@ $$ LANGUAGE plpgsql;
 CREATE INDEX IF NOT EXISTS idx_financial_transactions_date ON financial_transactions(date);
 CREATE INDEX IF NOT EXISTS idx_clients_birthdate ON clients("birthDate");
 
--- 6. Adicionar trigger para evitar notificações de aniversário duplicadas
-CREATE OR REPLACE FUNCTION prevent_duplicate_birthday_notification()
-RETURNS TRIGGER AS $$
+-- 6. Adicionar função imutável e índice único para evitar notificações de aniversário duplicadas
+CREATE OR REPLACE FUNCTION get_date_from_ts(ts timestamptz) 
+RETURNS date AS $$
 BEGIN
-  IF NEW.type = 'birthday' THEN
-    IF EXISTS (
-      SELECT 1 FROM notifications
-      WHERE user_id = NEW.user_id
-      AND type = 'birthday'
-      AND message = NEW.message
-      AND created_at::date = CURRENT_DATE
-    ) THEN
-      RAISE EXCEPTION 'Duplicate birthday notification';
-    END IF;
-  END IF;
-  RETURN NEW;
+  RETURN (ts AT TIME ZONE 'UTC')::date;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql IMMUTABLE;
 
+-- Remover a trigger antiga (que não está funcionando como esperado)
 DROP TRIGGER IF EXISTS trg_prevent_duplicate_birthday ON notifications;
-CREATE TRIGGER trg_prevent_duplicate_birthday
-BEFORE INSERT ON notifications
-FOR EACH ROW EXECUTE FUNCTION prevent_duplicate_birthday_notification();
+DROP FUNCTION IF EXISTS prevent_duplicate_birthday_notification();
+
+-- Remover duplicatas antes de criar o índice
+DELETE FROM notifications
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT id,
+               ROW_NUMBER() OVER (
+                   PARTITION BY user_id, type, message, get_date_from_ts(created_at)
+                   ORDER BY id
+               ) as row_num
+        FROM notifications
+        WHERE type = 'birthday'
+    ) t
+    WHERE t.row_num > 1
+);
+
+-- Criar o índice único usando a função imutável
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_birthday_notification 
+ON notifications (user_id, type, message, get_date_from_ts(created_at))
+WHERE type = 'birthday';
 
 -- 7. Recarregar cache do PostgREST
 NOTIFY pgrst, 'reload schema';
