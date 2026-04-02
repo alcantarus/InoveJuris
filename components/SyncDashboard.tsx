@@ -9,7 +9,6 @@ const supabase = createClient(
   defaultKeyProd
 );
 
-
 async function syncProcess(process_id: number, process_number: string) {
   const response = await fetch('/api/datajud-proxy', {
     method: 'POST',
