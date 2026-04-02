@@ -283,11 +283,11 @@ export default function ProcessosPage() {
         alert(`Processo ${proc.number} sincronizado com sucesso!`)
         fetchProcesses() // Refresh para atualizar os dados na tela
       } else {
-        alert(data.error || 'Erro ao sincronizar processo.')
+        alert(`Erro ao sincronizar processo: ${data.error || 'Erro desconhecido'}`)
       }
     } catch (error) {
       console.error('Error syncing process:', error)
-      alert('Erro na comunicação com a API de sincronização.')
+      alert('Erro na comunicação com a API de sincronização. Verifique sua conexão ou tente novamente mais tarde.')
     } finally {
       setSyncingProcessId(null)
     }

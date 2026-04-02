@@ -10,13 +10,12 @@ const supabase = createClient(
 );
 
 async function syncProcess(process_id: number, process_number: string) {
-  const response = await fetch(`${defaultUrlProd}/functions/v1/datajud-sync`, {
+  const response = await fetch('/api/datajud-proxy', {
     method: 'POST',
     headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${defaultKeyProd}`
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ process_id, process_number })
+    body: JSON.stringify({ process_number })
   });
   if (response.ok) {
     alert('Sincronização iniciada com sucesso!');
