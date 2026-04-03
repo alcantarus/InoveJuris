@@ -5,6 +5,7 @@ import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
 import { ClientSlideOver } from '@/components/clients/ClientSlideOver'
+import { ProcessPopover } from '@/components/clients/ProcessPopover'
 import { 
   Search, 
   Plus, 
@@ -63,6 +64,10 @@ interface Client {
     active_processes_count: number
     delayed_processes_count: number
   }[]
+  health_score?: number
+  total_receivable?: number
+  total_received?: number
+  total_overdue?: number
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -333,7 +338,11 @@ export default function ClientesPage() {
             vw_client_process_summary: [{
               active_processes_count: item.active_processes_count,
               delayed_processes_count: item.delayed_processes_count
-            }]
+            }],
+            health_score: item.health_score,
+            total_receivable: item.total_receivable,
+            total_received: item.total_received,
+            total_overdue: item.total_overdue
           }))
 
           setClients(formattedClients)
@@ -353,7 +362,11 @@ export default function ClientesPage() {
             vw_client_process_summary: [{
               active_processes_count: item.active_processes_count,
               delayed_processes_count: item.delayed_processes_count
-            }]
+            }],
+            health_score: item.health_score,
+            total_receivable: item.total_receivable,
+            total_received: item.total_received,
+            total_overdue: item.total_overdue
           }))
 
           setClients(formattedClients)
@@ -735,6 +748,8 @@ export default function ClientesPage() {
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Tags</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Próximo Follow-up</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Processos</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Status Financeiro</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Score</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center w-48">Ações</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
                 </tr>
@@ -787,6 +802,25 @@ export default function ClientesPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {client.vw_client_process_summary?.[0]?.active_processes_count || 0}
+                        <ProcessPopover clientId={client.id} clientName={client.name} />
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="text-xs">
+                          {client.total_overdue! > 0 ? (
+                            <span className="text-rose-600 font-bold">Atrasado: R$ {client.total_overdue?.toFixed(2)}</span>
+                          ) : client.total_receivable! > 0 ? (
+                            <span className="text-amber-600">A receber: R$ {client.total_receivable?.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-emerald-600">Em dia</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-bold">
+                        <span className={cn(
+                          client.health_score! >= 70 ? 'text-emerald-600' : client.health_score! >= 40 ? 'text-amber-600' : 'text-rose-600'
+                        )}>
+                          {client.health_score}%
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1">
