@@ -740,18 +740,30 @@ export default function ClientesPage() {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse hidden md:table">
+            <table className="w-full text-left border-collapse hidden md:table table-fixed">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Tags</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Próximo Follow-up</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Processos</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Status Financeiro</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Score</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center w-48">Ações</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
+                  <th className="px-4 py-4 text-sm font-semibold text-slate-600 w-[35%]">Cliente</th>
+                  <th className="px-4 py-4 text-sm font-semibold text-slate-600 w-[12%] text-center" title="Próximo Follow-up">
+                    <div className="flex flex-col items-center gap-1">
+                      <Search size={16} className="text-slate-400" />
+                      <span className="text-[10px] uppercase tracking-wider">Follow-up</span>
+                    </div>
+                  </th>
+                  <th className="px-4 py-4 text-sm font-semibold text-slate-600 w-[10%] text-center" title="Processos">
+                    <div className="flex flex-col items-center gap-1">
+                      <MoreVertical size={16} className="text-slate-400" />
+                      <span className="text-[10px] uppercase tracking-wider">Proc.</span>
+                    </div>
+                  </th>
+                  <th className="px-4 py-4 text-sm font-semibold text-slate-600 w-[18%]">Status Financeiro</th>
+                  <th className="px-4 py-4 text-sm font-semibold text-slate-600 w-[10%] text-center" title="Score de Saúde">
+                    <div className="flex flex-col items-center gap-1">
+                      <CheckCircle2 size={16} className="text-slate-400" />
+                      <span className="text-[10px] uppercase tracking-wider">Score</span>
+                    </div>
+                  </th>
+                  <th className="px-4 py-4 text-sm font-semibold text-slate-600 w-[15%] text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -774,7 +786,7 @@ export default function ClientesPage() {
                       className="hover:bg-slate-50 transition-colors group cursor-pointer"
                       onClick={() => setSelectedClient(client)}
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
@@ -782,76 +794,96 @@ export default function ClientesPage() {
                           )}>
                             {client.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
-                          <div className="min-w-0">
-                            <span className="font-semibold text-slate-900 block truncate">{client.name}</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              <span className="text-xs text-slate-500 flex items-center gap-1"><Mail size={12} /> {client.email}</span>
-                              <span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={12} /> {client.phone}</span>
+                          <div className="min-w-0 overflow-hidden">
+                            <span className="font-semibold text-slate-900 block truncate" title={client.name}>{client.name}</span>
+                            <div className="flex flex-col gap-0.5 mt-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-500 flex items-center gap-1 truncate"><Mail size={10} /> {client.email}</span>
+                                <span className="text-[10px] text-slate-500 flex items-center gap-1"><Phone size={10} /> {client.phone}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 rounded">{client.document}</span>
+                                {client.tags && client.tags.length > 0 && (
+                                  <span className="text-[10px] text-slate-400 truncate italic">
+                                    {client.tags.join(', ')}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {client.document}
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-xs font-medium text-slate-600">
+                          {client.next_follow_up_at ? new Date(client.next_follow_up_at).toLocaleDateString() : '-'}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {client.tags?.join(', ') || '-'}
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="text-sm font-bold text-slate-700">
+                            {client.vw_client_process_summary?.[0]?.active_processes_count || 0}
+                          </span>
+                          <ProcessPopover clientId={client.id} clientName={client.name} />
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {client.next_follow_up_at ? new Date(client.next_follow_up_at).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {client.vw_client_process_summary?.[0]?.active_processes_count || 0}
-                        <ProcessPopover clientId={client.id} clientName={client.name} />
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <div className="text-xs">
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col items-start leading-tight">
                           {client.total_overdue! > 0 ? (
-                            <span className="text-rose-600 font-bold">Atrasado: R$ {client.total_overdue?.toFixed(2)}</span>
+                            <>
+                              <span className="text-sm text-rose-600 font-bold">R$ {client.total_overdue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="text-[10px] text-rose-500 uppercase font-medium">Atrasado</span>
+                            </>
                           ) : client.total_receivable! > 0 ? (
-                            <span className="text-amber-600">A receber: R$ {client.total_receivable?.toFixed(2)}</span>
+                            <>
+                              <span className="text-sm text-amber-600 font-bold">R$ {client.total_receivable?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="text-[10px] text-amber-500 uppercase font-medium">A receber</span>
+                            </>
                           ) : (
-                            <span className="text-emerald-600">Em dia</span>
+                            <>
+                              <span className="text-sm text-emerald-600 font-bold">R$ 0,00</span>
+                              <span className="text-[10px] text-emerald-500 uppercase font-medium">Em dia</span>
+                            </>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-bold">
-                        <span className={cn(
-                          client.health_score! >= 70 ? 'text-emerald-600' : client.health_score! >= 40 ? 'text-amber-600' : 'text-rose-600'
-                        )}>
-                          {client.health_score}%
-                        </span>
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className={cn(
+                            "text-sm font-bold",
+                            client.health_score! >= 70 ? 'text-emerald-600' : client.health_score! >= 40 ? 'text-amber-600' : 'text-rose-600'
+                          )}>
+                            {client.health_score}%
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <div className={cn("w-1.5 h-1.5 rounded-full", client.status === 'Ativo' ? "bg-emerald-500" : "bg-slate-400")} />
+                            <span className="text-[9px] uppercase text-slate-400 font-medium">{client.status}</span>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <a href={`https://wa.me/${client.phone.replace(/\D/g, '')}`} target="_blank" className="text-emerald-600 hover:text-emerald-700 p-1.5 hover:bg-emerald-50 rounded-lg transition-colors" title="WhatsApp">
-                            <Phone size={18} />
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <a href={`https://wa.me/${client.phone.replace(/\D/g, '')}`} target="_blank" className="text-emerald-600 hover:text-emerald-700 p-1 hover:bg-emerald-50 rounded transition-colors" title="WhatsApp">
+                            <Phone size={14} />
                           </a>
-                          <button onClick={() => setSelectedBirthdayClient(client)} className="text-amber-500 hover:text-amber-600 p-1.5 hover:bg-amber-50 rounded-lg transition-colors" title="Card Aniversário">
-                            <Gift size={18} />
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedBirthdayClient(client); }} className="text-amber-500 hover:text-amber-600 p-1 hover:bg-amber-50 rounded transition-colors" title="Card Aniversário">
+                            <Gift size={14} />
                           </button>
-                          <Link href={`/clientes/${client.id}`} className="text-indigo-500 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors" title="Ver Perfil">
-                            <User size={18} />
+                          <Link href={`/clientes/${client.id}`} className="text-indigo-500 hover:text-indigo-600 p-1 hover:bg-indigo-50 rounded transition-colors" title="Ver Perfil" onClick={(e) => e.stopPropagation()}>
+                            <User size={14} />
                           </Link>
-                          <button onClick={() => handleOpenModal(client)} className="text-slate-500 hover:text-indigo-600 p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Editar">
-                            <Edit2 size={18} />
+                          <button onClick={(e) => { e.stopPropagation(); handleOpenModal(client); }} className="text-slate-500 hover:text-indigo-600 p-1 hover:bg-slate-100 rounded transition-colors" title="Editar">
+                            <Edit2 size={14} />
                           </button>
-                          <button onClick={() => handleDelete(new Event('click') as any, client.id)} className="text-slate-500 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors" title="Excluir">
-                            <Trash2 size={18} />
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(e as any, client.id); }} className="text-slate-500 hover:text-rose-600 p-1 hover:bg-rose-50 rounded transition-colors" title="Excluir">
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
                           <div className={cn("w-2 h-2 rounded-full", Math.round((Number(!!client.email) + Number(!!client.document) + Number(!!client.phone) + Number(!!client.address)) * 25) > 50 ? "bg-emerald-500" : "bg-amber-500")} />
                           <span className="text-sm font-medium text-slate-700">
                             {Math.round((Number(!!client.email) + Number(!!client.document) + Number(!!client.phone) + Number(!!client.address)) * 25)}%
-                          </span>
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-[10px] font-medium",
-                            client.status === 'Ativo' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"
-                          )}>
-                            {client.status}
                           </span>
                         </div>
                       </td>
