@@ -322,7 +322,8 @@ export default function ClientesPage() {
           const { data, error, count } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: debouncedSearchTerm
+            p_search_term: debouncedSearchTerm,
+            p_environment: getAppEnv()
           }, { count: 'exact' })
           
           if (error) throw error
@@ -341,7 +342,8 @@ export default function ClientesPage() {
           // Busca todos se não houver termo usando a nova RPC
           const { data, error, count } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
-            p_to: to
+            p_to: to,
+            p_environment: getAppEnv()
           }, { count: 'exact' })
           
           if (error) throw error

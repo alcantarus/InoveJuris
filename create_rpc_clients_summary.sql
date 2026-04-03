@@ -2,7 +2,8 @@
 CREATE OR REPLACE FUNCTION get_clients_with_process_summary(
     p_from INT,
     p_to INT,
-    p_search_term TEXT DEFAULT NULL
+    p_search_term TEXT DEFAULT NULL,
+    p_environment TEXT DEFAULT 'production'
 )
 RETURNS TABLE (
     client_data JSONB,
@@ -17,7 +18,8 @@ BEGIN
         COALESCE(s.delayed_processes_count, 0) AS delayed_processes_count
     FROM clients c
     LEFT JOIN vw_client_process_summary s ON c.id = s.client_id
-    WHERE (p_search_term IS NULL OR c.name ILIKE '%' || p_search_term || '%')
+    WHERE c.environment = p_environment
+      AND (p_search_term IS NULL OR c.name ILIKE '%' || p_search_term || '%')
     ORDER BY c.name
     LIMIT (p_to - p_from + 1) OFFSET p_from;
 END;
