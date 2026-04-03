@@ -333,7 +333,7 @@ export default function ContasAReceberPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KPICard 
             title="Total a Receber" 
-            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado').reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0), isVisible('receivable_total'))} 
+            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado').reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0))} 
             icon={DollarSign} 
             color="indigo" 
             isVisible={isVisible('receivable_total')}
@@ -341,7 +341,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Total em Atraso" 
-            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado' && c.next_due_date && c.next_due_date < getTodayBR()).reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0), isVisible('receivable_overdue'))} 
+            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado' && c.next_due_date && c.next_due_date < getTodayBR()).reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0))} 
             icon={AlertCircle} 
             color="rose" 
             isVisible={isVisible('receivable_overdue')}
