@@ -359,7 +359,7 @@ export default function ClientesPage() {
           // Busca todos se não houver termo
           const { data, error, count } = await supabase
             .from('clients')
-            .select('*, vw_client_process_summary!client_id(*)', { count: 'exact' })
+            .select('*, vw_client_process_summary(active_processes_count, delayed_processes_count)', { count: 'exact' })
             .order('name')
             .range(from, to)
           
