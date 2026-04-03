@@ -719,14 +719,14 @@ export default function ClientesPage() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center w-24">Ações</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="animate-spin text-indigo-600" size={24} />
                         <p>Buscando clientes...</p>
@@ -763,6 +763,19 @@ export default function ClientesPage() {
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {client.document}
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <a href={`https://wa.me/${client.phone.replace(/\D/g, '')}`} target="_blank" className="text-emerald-600 hover:text-emerald-700 p-1">
+                            <Phone size={18} />
+                          </a>
+                          <ClientActions 
+                            client={client} 
+                            onEdit={() => handleOpenModal(client)}
+                            onDelete={() => handleDelete(new Event('click') as any, client.id)}
+                            onBirthday={() => setSelectedBirthdayClient(client)}
+                          />
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <div className={cn("w-2 h-2 rounded-full", Math.round((Number(!!client.email) + Number(!!client.document) + Number(!!client.phone) + Number(!!client.address)) * 25) > 50 ? "bg-emerald-500" : "bg-amber-500")} />
@@ -776,14 +789,6 @@ export default function ClientesPage() {
                             {client.status}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <ClientActions 
-                          client={client} 
-                          onEdit={() => handleOpenModal(client)}
-                          onDelete={() => handleDelete(new Event('click') as any, client.id)}
-                          onBirthday={() => setSelectedBirthdayClient(client)}
-                        />
                       </td>
                     </motion.tr>
                   ))

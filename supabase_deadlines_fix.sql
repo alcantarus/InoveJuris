@@ -101,24 +101,36 @@ BEGIN
     FROM public.processes
     WHERE id = NEW.process_id;
 
-    -- CORREÇÃO: Cálculo forçando o fuso horário de Brasília
+    -- Cálculo forçando o fuso horário de Brasília
     v_days_remaining := NEW.deadline_date - timezone('America/Sao_Paulo', CURRENT_TIMESTAMP)::date;
 
+    v_title := 'Alerta de Prazo: ' || COALESCE(NEW.description, 'Processo ' || v_process_number);
+    v_message := 'O processo ' || v_process_number || ' (' || v_client_name || ') tem um prazo para ' || 
+                to_char(NEW.deadline_date, 'DD/MM/YYYY') || '. Dias restantes: ' || v_days_remaining;
+
     IF v_days_remaining <= 15 THEN
-        INSERT INTO public.notifications (title, message, type, user_id, environment, is_read)
-        VALUES (
-            'Alerta de Prazo: ' || COALESCE(NEW.description, 'Processo ' || v_process_number),
-            'O processo ' || v_process_number || ' (' || v_client_name || ') tem um prazo para ' || 
-            to_char(NEW.deadline_date, 'DD/MM/YYYY') || '. Dias restantes: ' || v_days_remaining,
-            CASE 
-                WHEN v_days_remaining <= 0 THEN 'error'
-                WHEN v_days_remaining <= 7 THEN 'warning'
-                ELSE 'info'
-            END,
-            v_user_id,
-            COALESCE(NEW.environment, v_env, 'production'),
-            FALSE
-        );
+        -- VERIFICAÇÃO DE SEGURANÇA: Só insere se não existir notificação igual não lida
+        IF NOT EXISTS (
+            SELECT 1 FROM public.notifications 
+            WHERE title = v_title 
+            AND message = v_message 
+            AND user_id = v_user_id 
+            AND is_read = FALSE
+        ) THEN
+            INSERT INTO public.notifications (title, message, type, user_id, environment, is_read)
+            VALUES (
+                v_title,
+                v_message,
+                CASE 
+                    WHEN v_days_remaining <= 0 THEN 'error'
+                    WHEN v_days_remaining <= 7 THEN 'warning'
+                    ELSE 'info'
+                END,
+                v_user_id,
+                COALESCE(NEW.environment, v_env, 'production'),
+                FALSE
+            );
+        END IF;
     END IF;
 
     RETURN NEW;
