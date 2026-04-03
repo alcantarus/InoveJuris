@@ -349,7 +349,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Recebido este Mês" 
-            value={formatCurrency(0, isVisible('receivable_monthly'))} 
+            value={formatCurrency(0)} 
             icon={CheckCircle2} 
             color="emerald" 
             isVisible={isVisible('receivable_monthly')}
@@ -357,7 +357,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Previsão (30d)" 
-            value={formatCurrency(0, isVisible('receivable_forecast'))} 
+            value={formatCurrency(0)} 
             icon={Calendar} 
             color="amber" 
             isVisible={isVisible('receivable_forecast')}
