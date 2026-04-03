@@ -262,7 +262,10 @@ export default function ClientesPage() {
     contractSigned: false,
     proxySigned: false,
     isMinor: false,
-    legalRepresentative: ''
+    legalRepresentative: '',
+    tags: [] as string[],
+    last_contact_at: '',
+    next_follow_up_at: ''
   })
   const [errors, setErrors] = useState<{ document?: string; pis?: string; cep?: string }>({})
   const [isSearchingCEP, setIsSearchingCEP] = useState(false)
