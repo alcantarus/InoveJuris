@@ -19,3 +19,7 @@ export function formatCurrency(value: number): string {
 export function formatDate(date: string | Date): string {
   return new Date(date).toLocaleDateString('pt-BR')
 }
+
+export function removeAccents(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
