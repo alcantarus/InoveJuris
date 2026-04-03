@@ -56,6 +56,13 @@ interface Client {
   proxySigned: boolean
   isMinor: boolean
   legalRepresentative?: string
+  tags: string[]
+  last_contact_at?: string | null
+  next_follow_up_at?: string | null
+  vw_client_process_summary?: {
+    active_processes_count: number
+    delayed_processes_count: number
+  }[]
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -346,7 +353,7 @@ export default function ClientesPage() {
           // Busca todos se não houver termo
           const { data, error, count } = await supabase
             .from('clients')
-            .select('*', { count: 'exact' })
+            .select('*, vw_client_process_summary!client_id(*)', { count: 'exact' })
             .order('name')
             .range(from, to)
           
@@ -394,6 +401,9 @@ export default function ClientesPage() {
         proxySigned: !!client.proxySigned,
         isMinor: !!client.isMinor,
         legalRepresentative: client.legalRepresentative || '',
+        tags: client.tags || [],
+        last_contact_at: client.last_contact_at ? client.last_contact_at.split('T')[0] : '',
+        next_follow_up_at: client.next_follow_up_at ? client.next_follow_up_at.split('T')[0] : '',
       })
     } else {
       setEditingClient(null)
@@ -420,6 +430,9 @@ export default function ClientesPage() {
         proxySigned: false,
         isMinor: false,
         legalRepresentative: '',
+        tags: [],
+        last_contact_at: '',
+        next_follow_up_at: ''
       })
     }
     setIsModalOpen(true)
@@ -552,6 +565,9 @@ export default function ClientesPage() {
       document: formData.document || null,
       pisNisNit: formData.pisNisNit || null,
       birthDate: formData.birthDate || null,
+      tags: formData.tags || [],
+      last_contact_at: formData.last_contact_at || null,
+      next_follow_up_at: formData.next_follow_up_at || null,
       updated_by: user?.id || null
     }
 
@@ -718,6 +734,9 @@ export default function ClientesPage() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Tags</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Próximo Follow-up</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Processos</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center w-48">Ações</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
                 </tr>
@@ -761,6 +780,15 @@ export default function ClientesPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {client.document}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {client.tags?.join(', ') || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {client.next_follow_up_at ? new Date(client.next_follow_up_at).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {client.vw_client_process_summary?.[0]?.active_processes_count || 0}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -978,7 +1006,7 @@ export default function ClientesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     {formData.type === 'Pessoa Física' ? 'CPF' : 'CNPJ'}
@@ -1014,6 +1042,37 @@ export default function ClientesPage() {
                     value={formData.phone || ''}
                     onChange={e => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                     placeholder="(00) 00000-0000"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tags (separadas por vírgula)</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                    value={formData.tags?.join(', ') || ''}
+                    onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
+                    placeholder="ex: vip, urgente, inss"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Último Contato</label>
+                  <input 
+                    type="date" 
+                    className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                    value={formData.last_contact_at || ''}
+                    onChange={e => setFormData({ ...formData, last_contact_at: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Próximo Follow-up</label>
+                  <input 
+                    type="date" 
+                    className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                    value={formData.next_follow_up_at || ''}
+                    onChange={e => setFormData({ ...formData, next_follow_up_at: e.target.value })}
                   />
                 </div>
               </div>
