@@ -318,54 +318,44 @@ export default function ClientesPage() {
         const to = from + pageSize - 1
 
         if (debouncedSearchTerm) {
-          // Tenta usar a RPC primeiro (busca avançada com unaccent)
-          const currentEnv = getAppEnv()
-          
-          // Tenta com os dois parâmetros primeiro
-          let rpcResult = await supabase.rpc('search_clients', { 
-            search_term: debouncedSearchTerm,
-            p_environment: currentEnv
+          // Busca com termo de pesquisa usando a nova RPC
+          const { data, error, count } = await supabase.rpc('get_clients_with_process_summary', { 
+            p_from: from,
+            p_to: to,
+            p_search_term: debouncedSearchTerm
           }, { count: 'exact' })
           
-          // Se falhar por falta de parâmetro ou função não encontrada (404), tenta apenas com search_term
-          if (rpcResult.error && (rpcResult.error.code === 'PGRST202' || rpcResult.error.message.includes('p_environment') || rpcResult.error.status === 404)) {
-            rpcResult = await supabase.rpc('search_clients', { 
-              search_term: debouncedSearchTerm
-            }, { count: 'exact' })
-          }
+          if (error) throw error
           
-          const { data, error, count } = rpcResult
-          
-          if (error) {
-             console.warn('RPC search_clients falhou ou não existe, tentando filtro padrão...', error.message)
-             // Fallback para filtro padrão com OR (case insensitive, mas sensível a acentos dependendo do collation)
-             const { data: fallbackData, error: fallbackError, count: fallbackCount } = await supabase
-               .from('clients')
-               .select('*', { count: 'exact' })
-               .or(`name.ilike.%${debouncedSearchTerm}%,email.ilike.%${debouncedSearchTerm}%,document.ilike.%${debouncedSearchTerm}%`)
-               .order('name')
-               .range(from, to)
-               
-             if (fallbackError) throw fallbackError
-             setClients(fallbackData || [])
-             setTotalCount(fallbackCount || 0)
-          } else {
-             // RPC doesn't support pagination directly via range easily without modifying the RPC, 
-             // so we slice the result for now.
-             setClients((data || []).slice(from, to + 1))
-             setTotalCount(count || (data ? data.length : 0))
-          }
+          const formattedClients = (data || []).map((item: any) => ({
+            ...item.client_data,
+            vw_client_process_summary: [{
+              active_processes_count: item.active_processes_count,
+              delayed_processes_count: item.delayed_processes_count
+            }]
+          }))
+
+          setClients(formattedClients)
+          setTotalCount(count || formattedClients.length)
         } else {
-          // Busca todos se não houver termo
-          const { data, error, count } = await supabase
-            .from('clients')
-            .select('*, vw_client_process_summary(active_processes_count, delayed_processes_count)', { count: 'exact' })
-            .order('name')
-            .range(from, to)
+          // Busca todos se não houver termo usando a nova RPC
+          const { data, error, count } = await supabase.rpc('get_clients_with_process_summary', { 
+            p_from: from,
+            p_to: to
+          }, { count: 'exact' })
           
           if (error) throw error
-          setClients(data || [])
-          setTotalCount(count || 0)
+          
+          const formattedClients = (data || []).map((item: any) => ({
+            ...item.client_data,
+            vw_client_process_summary: [{
+              active_processes_count: item.active_processes_count,
+              delayed_processes_count: item.delayed_processes_count
+            }]
+          }))
+
+          setClients(formattedClients)
+          setTotalCount(count || formattedClients.length)
         }
       } catch (error: any) {
         console.error('Error fetching clients:', error.message || error)
