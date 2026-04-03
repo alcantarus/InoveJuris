@@ -233,21 +233,17 @@ export function getRowColor(status: string | null | undefined): string {
   }
 }
 
+import { differenceInCalendarDays, parseISO } from "date-fns"
+
 export function getDeadlineStatus(deadlineDate: string | null | undefined) {
   if (!deadlineDate) return 'none'
+  
+  const deadline = parseISO(deadlineDate)
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
   
-  const parts = deadlineDate.split('-')
-  if (parts.length !== 3) return 'none'
+  const diffDays = differenceInCalendarDays(deadline, today)
   
-  const [year, month, day] = parts.map(Number)
-  const deadline = new Date(year, month - 1, day)
-  
-  const diffTime = deadline.getTime() - today.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  
-  if (diffDays <= 0) return 'expired'
+  if (diffDays < 0) return 'expired'
   if (diffDays <= 7) return 'critical'
   if (diffDays <= 15) return 'warning'
   return 'safe'

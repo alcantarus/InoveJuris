@@ -8,34 +8,35 @@ export async function POST(req: Request) {
   }
 
   try {
-    const targetUrl = `https://api.datajud.cnj.jus.br/api/v1/processos/${process_number}`;
+    console.log(`[Proxy] Consultando DataJUD para: ${process_number}`);
+    
+    const token = process.env.DATAJUD_API_TOKEN;
     const scraperApiKey = process.env.SCRAPER_API_KEY;
     
-    // URL do Proxy (ScraperAPI)
+    if (!token || !scraperApiKey) {
+      console.error("[Proxy] Erro: DATAJUD_API_TOKEN ou SCRAPER_API_KEY não configurado.");
+      return NextResponse.json({ error: "Configuração incompleta" }, { status: 500 });
+    }
+
+    const targetUrl = `https://api.datajud.cnj.jus.br/api/v1/processos/${process_number}`;
     const proxyUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(targetUrl)}`;
     
-    console.log(`[Proxy] Consultando via ScraperAPI: ${process_number}`);
-
-    // Timeout de 25 segundos (mais tempo para o DataJUD responder)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    console.log(`[Proxy] URL de consulta via ScraperAPI: ${proxyUrl}`);
 
     const response = await fetch(proxyUrl, {
       method: 'GET',
       headers: { 
-        // O ScraperAPI já lida com a autenticação, removemos o Authorization daqui
+        "Authorization": `APIKey ${token}`,
         "Content-Type": "application/json"
-      },
-      signal: controller.signal
+      }
     });
     
-    clearTimeout(timeout);
+    console.log(`[Proxy] Resposta DataJUD: ${response.status}`);
     
     const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status });
-
   } catch (error: any) {
-    console.error("[Proxy] Erro:", error);
+    console.error("[Proxy] Erro na requisição:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
