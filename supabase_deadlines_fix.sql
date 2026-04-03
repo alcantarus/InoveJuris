@@ -101,7 +101,8 @@ BEGIN
     FROM public.processes
     WHERE id = NEW.process_id;
 
-    v_days_remaining := NEW.deadline_date - CURRENT_DATE;
+    -- CORREÇÃO: Cálculo forçando o fuso horário de Brasília
+    v_days_remaining := NEW.deadline_date - timezone('America/Sao_Paulo', CURRENT_TIMESTAMP)::date;
 
     IF v_days_remaining <= 15 THEN
         INSERT INTO public.notifications (title, message, type, user_id, environment, is_read)
