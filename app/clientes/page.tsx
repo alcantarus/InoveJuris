@@ -84,7 +84,10 @@ const DEFAULT_CLIENTS: Client[] = [
     pisNisNit: '170.33259.50-4',
     contractSigned: true,
     proxySigned: true,
-    isMinor: false
+    isMinor: false,
+    tags: [],
+    last_contact_at: null,
+    next_follow_up_at: null
   },
 ]
 
