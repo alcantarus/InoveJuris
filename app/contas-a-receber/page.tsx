@@ -389,8 +389,7 @@ export default function ContasAReceberPage() {
                 {formatCurrency(
                   !selectedContract 
                     ? contracts.reduce((acc, c) => acc + Number(c.amount_received || 0), 0)
-                    : installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0),
-                  isVisible('receivable_summary_received')
+                    : installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0)
                 )}
               </p>
             </div>
@@ -415,8 +414,7 @@ export default function ContasAReceberPage() {
                         .reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
                     : installments
                         .filter(i => i.status !== 'Quitado' && i.status !== 'Cancelada')
-                        .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0),
-                  isVisible('receivable_summary_to_receive')
+                        .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0)
                 )}
               </p>
             </div>
@@ -587,16 +585,16 @@ export default function ContasAReceberPage() {
                       </div>
                       <div className="text-xs text-slate-500">{c.processNumber}</div>
                     </td>
-                    <td className="p-4 text-right text-slate-900">{formatCurrency(c.contract_value, isVisible('receivable_table_value'))}</td>
+                    <td className="p-4 text-right text-slate-900">{formatCurrency(c.contract_value)}</td>
                     <td className="p-4 text-right">
                       <div className="flex flex-col items-end">
-                        <span className="font-bold text-emerald-600">{formatCurrency(c.amount_received, isVisible('receivable_table_received'))}</span>
+                        <span className="font-bold text-emerald-600">{formatCurrency(c.amount_received)}</span>
                         <div className="w-24 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
                           <div className="h-full bg-emerald-500" style={{ width: `${Math.min((c.amount_received / (c.contract_value || 1)) * 100, 100)}%` }}></div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-right text-slate-600">{formatCurrency(c.amount_to_receive, isVisible('receivable_table_to_receive'))}</td>
+                    <td className="p-4 text-right text-slate-600">{formatCurrency(c.amount_to_receive)}</td>
                     <td className="p-4 text-slate-600">{c.next_due_date ? formatDate(c.next_due_date) : '-'}</td>
                     <td className="p-4">
                       <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(rowStatus), c.contract_status?.toLowerCase() === 'cancelado' && "line-through")}>
@@ -733,9 +731,9 @@ export default function ContasAReceberPage() {
                         </div>
                       </td>
                       <td className="p-4 text-slate-600">{formatDate(i.dueDate)}</td>
-                      <td className="p-4 text-slate-900 font-medium">{formatCurrency(i.amount, isVisible('receivable_installment_value'))}</td>
-                      <td className="p-4 text-slate-600">{formatCurrency(i.amountPaid || 0, isVisible('receivable_installment_paid'))}</td>
-                      <td className="p-4 text-emerald-600 font-bold">{formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))}</td>
+                      <td className="p-4 text-slate-900 font-medium">{formatCurrency(i.amount)}</td>
+                      <td className="p-4 text-slate-600">{formatCurrency(i.amountPaid || 0)}</td>
+                      <td className="p-4 text-emerald-600 font-bold">{formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)))}</td>
                       <td className="p-4">
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
                           {i.status}
@@ -780,8 +778,8 @@ export default function ContasAReceberPage() {
                 <p className="text-sm text-slate-500">Parcela: {activeInstallment.installmentNumber}</p>
                 <p className="font-bold text-lg">{selectedContract.clients?.name}</p>
                 <div className="flex justify-between mt-2 text-sm">
-                  <span>Valor Original: {formatCurrency(activeInstallment.amount, isVisible('receivable_installment_value'))}</span>
-                  <span className="font-bold text-emerald-600">Saldo: {formatCurrency(activeInstallment.amount - (activeInstallment.amountPaid || 0), isVisible('receivable_installment_balance'))}</span>
+                  <span>Valor Original: {formatCurrency(activeInstallment.amount)}</span>
+                  <span className="font-bold text-emerald-600">Saldo: {formatCurrency(activeInstallment.amount - (activeInstallment.amountPaid || 0))}</span>
                 </div>
               </div>
 
@@ -792,7 +790,7 @@ export default function ContasAReceberPage() {
                     {paymentHistory.map((p) => (
                       <div key={p.id} className="p-3 text-sm flex justify-between">
                         <span>{formatDate(p.payment_date)} - {p.description || 'Pagamento'}</span>
-                        <span className="font-medium">{formatCurrency(p.amount, isVisible('receivable_installment_paid'))}</span>
+                        <span className="font-medium">{formatCurrency(p.amount)}</span>
                       </div>
                     ))}
                   </div>
