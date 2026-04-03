@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
-import { ClientActions } from '@/components/clients/ClientActions'
 import { ClientSlideOver } from '@/components/clients/ClientSlideOver'
 import { 
   Search, 
@@ -719,7 +718,7 @@ export default function ClientesPage() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Cliente</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Documento</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center w-24">Ações</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center w-48">Ações</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600">Indicadores</th>
                 </tr>
               </thead>
@@ -764,16 +763,22 @@ export default function ClientesPage() {
                         {client.document}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <a href={`https://wa.me/${client.phone.replace(/\D/g, '')}`} target="_blank" className="text-emerald-600 hover:text-emerald-700 p-1">
+                        <div className="flex items-center justify-center gap-1">
+                          <a href={`https://wa.me/${client.phone.replace(/\D/g, '')}`} target="_blank" className="text-emerald-600 hover:text-emerald-700 p-1.5 hover:bg-emerald-50 rounded-lg transition-colors" title="WhatsApp">
                             <Phone size={18} />
                           </a>
-                          <ClientActions 
-                            client={client} 
-                            onEdit={() => handleOpenModal(client)}
-                            onDelete={() => handleDelete(new Event('click') as any, client.id)}
-                            onBirthday={() => setSelectedBirthdayClient(client)}
-                          />
+                          <button onClick={() => setSelectedBirthdayClient(client)} className="text-amber-500 hover:text-amber-600 p-1.5 hover:bg-amber-50 rounded-lg transition-colors" title="Card Aniversário">
+                            <Gift size={18} />
+                          </button>
+                          <Link href={`/clientes/${client.id}`} className="text-indigo-500 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors" title="Ver Perfil">
+                            <User size={18} />
+                          </Link>
+                          <button onClick={() => handleOpenModal(client)} className="text-slate-500 hover:text-indigo-600 p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Editar">
+                            <Edit2 size={18} />
+                          </button>
+                          <button onClick={() => handleDelete(new Event('click') as any, client.id)} className="text-slate-500 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors" title="Excluir">
+                            <Trash2 size={18} />
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4">
