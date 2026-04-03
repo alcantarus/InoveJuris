@@ -1,4 +1,4 @@
-import { Inter, JetBrains_Mono, Playfair_Display } from 'next/font/google'
+import { Inter, JetBrains_Mono, Playfair_Display, Geist } from 'next/font/google'
 import './globals.css'
 import { EnvBanner } from '@/components/EnvBanner'
 import { SessionMonitor } from '@/components/SessionMonitor'
@@ -8,11 +8,9 @@ import { GlobalSearch } from '@/components/GlobalSearch'
 import { Toaster } from 'sonner'
 import { ResizeObserverFix } from '@/components/ResizeObserverFix'
 import { cookies } from 'next/headers'
+import { cn } from "@/lib/utils";
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-})
+const geist = Geist({subsets:['latin'],variable:'--font-sans'})
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -44,7 +42,7 @@ export default async function RootLayout({
   const appEnv = (envCookie as any) || 'production';
 
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable}`} data-env={appEnv}>
+    <html lang="pt-BR" className={cn(jetbrainsMono.variable, playfairDisplay.variable, "font-sans", geist.variable)} data-env={appEnv}>
       <head>
         <script dangerouslySetInnerHTML={{
           __html: `window.GEMINI_API_KEY = ${JSON.stringify(geminiKey)};`
