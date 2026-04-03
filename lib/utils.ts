@@ -9,7 +9,8 @@ export function getTodayBR(): string {
   return new Date().toLocaleDateString('pt-BR')
 }
 
-export function formatCurrency(value: number): string {
+export function formatCurrency(value: number, isVisible: boolean = true): string {
+  if (!isVisible) return 'R$ •••••'
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -115,8 +116,18 @@ export function getStatusColor(status: string): string {
   }
 }
 
-export function isContractQuitado(contract: any): boolean {
-  return contract.status === 'Quitado'
+export function isContractQuitado(statusOrContract: any, total?: number, received?: number): boolean {
+  if (typeof statusOrContract === 'string') {
+    const status = statusOrContract;
+    if (status === 'Quitado') return true;
+    if (total !== undefined && received !== undefined) {
+      return received >= total;
+    }
+    return false;
+  }
+  
+  const contract = statusOrContract;
+  return contract.status === 'Quitado' || (contract.amount_received >= contract.contract_value);
 }
 
 export function formatProcessNumber(number: string): string {
