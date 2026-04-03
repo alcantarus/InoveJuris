@@ -1,7 +1,8 @@
 import React from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { FileText, AlertCircle, CheckCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Process {
   id: number;
@@ -34,10 +35,8 @@ export function ProcessPopover({ clientId, clientName }: ProcessPopoverProps) {
       setIsOpen(open);
       if (open) fetchProcesses();
     }}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <FileText className="h-4 w-4" />
-        </Button>
+      <PopoverTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "h-8 w-8 p-0")}>
+        <FileText className="h-4 w-4" />
       </PopoverTrigger>
       <PopoverContent className="w-80">
         <div className="grid gap-4">
