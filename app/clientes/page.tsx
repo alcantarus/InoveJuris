@@ -322,14 +322,23 @@ export default function ClientesPage() {
         const from = (page - 1) * pageSize
         const to = from + pageSize - 1
 
+        // Obtém o total real de clientes para o ambiente atual
+        const { count: totalCount, error: countError } = await supabase
+          .from('clients')
+          .select('*', { count: 'exact', head: true })
+          .eq('environment', getAppEnv());
+
+        if (countError) throw countError;
+        setTotalCount(totalCount || 0);
+
         if (debouncedSearchTerm) {
           // Busca com termo de pesquisa usando a nova RPC
-          const { data, error, count } = await supabase.rpc('get_clients_with_process_summary', { 
+          const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
             p_search_term: debouncedSearchTerm,
             p_environment: getAppEnv()
-          }, { count: 'exact' })
+          })
           
           if (error) throw error
           
@@ -346,14 +355,13 @@ export default function ClientesPage() {
           }))
 
           setClients(formattedClients)
-          setTotalCount(count || formattedClients.length)
         } else {
           // Busca todos se não houver termo usando a nova RPC
-          const { data, error, count } = await supabase.rpc('get_clients_with_process_summary', { 
+          const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
             p_environment: getAppEnv()
-          }, { count: 'exact' })
+          })
           
           if (error) throw error
           
@@ -370,7 +378,6 @@ export default function ClientesPage() {
           }))
 
           setClients(formattedClients)
-          setTotalCount(count || formattedClients.length)
         }
       } catch (error: any) {
         console.error('Error fetching clients:', error.message || error)
