@@ -1121,6 +1121,35 @@ export default function FinanceiroPage() {
   const totalReceived = contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceived), 0)
   const totalContracts = contracts.filter(c => c.status !== 'Cancelado').length
 
+  const mrrValue = useMemo(() => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const activeContracts = contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial');
+    return activeContracts.reduce((acc, contract) => {
+      const monthlyInstallments = (contract.installments || []).filter(inst => {
+        const dueDate = new Date(inst.dueDate);
+        return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear && inst.status !== 'Quitado' && inst.status !== 'Cancelado';
+      });
+      return acc + monthlyInstallments.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+    }, 0);
+  }, [contracts]);
+
+  const renewalsCount = useMemo(() => {
+    const activeContracts = contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial');
+    const today = new Date();
+    const next30Days = new Date();
+    next30Days.setDate(today.getDate() + 30);
+
+    return activeContracts.filter(contract => {
+      const installments = (contract.installments || []).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+      const lastInstallment = installments[0];
+      if (!lastInstallment) return false;
+      const dueDate = new Date(lastInstallment.dueDate);
+      return dueDate >= today && dueDate <= next30Days;
+    }).length;
+  }, [contracts]);
+
   // Calculate totals from installments for the modal header
   const financialSummary = useMemo(() => {
     const total = installments.reduce((acc, inst) => acc + Number(inst.amount || 0), 0)
@@ -1157,19 +1186,7 @@ export default function FinanceiroPage() {
           />
           <KPICard 
             title="Valor Mensal (MRR)" 
-            value={formatCurrency(useMemo(() => {
-              const today = new Date();
-              const currentMonth = today.getMonth();
-              const currentYear = today.getFullYear();
-              const activeContracts = contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial');
-              return activeContracts.reduce((acc, contract) => {
-                const monthlyInstallments = (contract.installments || []).filter(inst => {
-                  const dueDate = new Date(inst.dueDate);
-                  return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear && inst.status !== 'Quitado' && inst.status !== 'Cancelado';
-                });
-                return acc + monthlyInstallments.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
-              }, 0);
-            }, [contracts]), isVisible('contracts_mrr'))} 
+            value={formatCurrency(mrrValue, isVisible('contracts_mrr'))} 
             icon={DollarSign} 
             color="emerald" 
             isVisible={isVisible('contracts_mrr')}
@@ -1177,20 +1194,7 @@ export default function FinanceiroPage() {
           />
           <KPICard 
             title="Renovações (30d)" 
-            value={useMemo(() => {
-              const activeContracts = contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial');
-              const today = new Date();
-              const next30Days = new Date();
-              next30Days.setDate(today.getDate() + 30);
-
-              return activeContracts.filter(contract => {
-                const installments = (contract.installments || []).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
-                const lastInstallment = installments[0];
-                if (!lastInstallment) return false;
-                const dueDate = new Date(lastInstallment.dueDate);
-                return dueDate >= today && dueDate <= next30Days;
-              }).length;
-            }, [contracts])} 
+            value={renewalsCount} 
             icon={Calendar} 
             color="amber" 
             isVisible={isVisible('contracts_renewals')}
