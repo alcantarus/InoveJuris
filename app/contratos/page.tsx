@@ -1157,7 +1157,19 @@ export default function FinanceiroPage() {
           />
           <KPICard 
             title="Valor Mensal (MRR)" 
-            value={formatCurrency(contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial').reduce((acc, c) => acc + Number(c.contractValue || 0), 0), isVisible('contracts_mrr'))} 
+            value={formatCurrency(useMemo(() => {
+              const today = new Date();
+              const currentMonth = today.getMonth();
+              const currentYear = today.getFullYear();
+              const activeContracts = contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial');
+              return activeContracts.reduce((acc, contract) => {
+                const monthlyInstallments = (contract.installments || []).filter(inst => {
+                  const dueDate = new Date(inst.dueDate);
+                  return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear && inst.status !== 'Quitado' && inst.status !== 'Cancelado';
+                });
+                return acc + monthlyInstallments.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+              }, 0);
+            }, [contracts]), isVisible('contracts_mrr'))} 
             icon={DollarSign} 
             color="emerald" 
             isVisible={isVisible('contracts_mrr')}
@@ -1165,7 +1177,20 @@ export default function FinanceiroPage() {
           />
           <KPICard 
             title="Renovações (30d)" 
-            value={0} 
+            value={useMemo(() => {
+              const activeContracts = contracts.filter(c => c.status === 'Aberto' || c.status === 'Parcial');
+              const today = new Date();
+              const next30Days = new Date();
+              next30Days.setDate(today.getDate() + 30);
+
+              return activeContracts.filter(contract => {
+                const installments = (contract.installments || []).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+                const lastInstallment = installments[0];
+                if (!lastInstallment) return false;
+                const dueDate = new Date(lastInstallment.dueDate);
+                return dueDate >= today && dueDate <= next30Days;
+              }).length;
+            }, [contracts])} 
             icon={Calendar} 
             color="amber" 
             isVisible={isVisible('contracts_renewals')}
