@@ -21,6 +21,8 @@ export default function ContasAReceberPage() {
   const [installments, setInstallments] = useState<any[]>([])
   const [bankAccounts, setBankAccounts] = useState<any[]>([])
   const [financialCategories, setFinancialCategories] = useState<any[]>([])
+  const [receivedThisMonth, setReceivedThisMonth] = useState(0)
+  const [forecast30d, setForecast30d] = useState(0)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedInstallments, setSelectedInstallments] = useState<number[]>([])
@@ -262,6 +264,37 @@ export default function ContasAReceberPage() {
     if (categoriesRes.data) setFinancialCategories(categoriesRes.data)
   }, [])
 
+  const fetchDashboardMetrics = React.useCallback(async () => {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T')[0];
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    const thirtyDaysStr = thirtyDaysFromNow.toISOString().split('T')[0];
+
+    // Recebido este mês
+    const { data: paymentsData } = await supabase
+      .from('payments')
+      .select('amount')
+      .gte('payment_date', firstDayOfMonth)
+      .lte('payment_date', todayStr);
+    
+    const totalReceived = paymentsData?.reduce((acc, p) => acc + Number(p.amount || 0), 0) || 0;
+    setReceivedThisMonth(totalReceived);
+
+    // Previsão 30 dias
+    const { data: installmentsData } = await supabase
+      .from('installments')
+      .select('amount, amountPaid')
+      .gte('dueDate', todayStr)
+      .lte('dueDate', thirtyDaysStr)
+      .neq('status', 'Quitado')
+      .neq('status', 'Cancelada');
+
+    const totalForecast = installmentsData?.reduce((acc, i) => acc + (Number(i.amount || 0) - Number(i.amountPaid || 0)), 0) || 0;
+    setForecast30d(totalForecast);
+  }, []);
+
   const fetchContracts = React.useCallback(async () => {
     setLoading(true)
     const { data: summaryData, error: summaryError } = await supabase
@@ -314,7 +347,8 @@ export default function ContasAReceberPage() {
   useEffect(() => {
     fetchContracts()
     fetchLookups()
-  }, [fetchContracts, fetchLookups])
+    fetchDashboardMetrics()
+  }, [fetchContracts, fetchLookups, fetchDashboardMetrics])
 
   useEffect(() => {
     if (selectedContract) {
@@ -349,7 +383,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Recebido este Mês" 
-            value={formatCurrency(0, isVisible('receivable_monthly'))} 
+            value={formatCurrency(receivedThisMonth, isVisible('receivable_monthly'))} 
             icon={CheckCircle2} 
             color="emerald" 
             isVisible={isVisible('receivable_monthly')}
@@ -357,7 +391,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Previsão (30d)" 
-            value={formatCurrency(0, isVisible('receivable_forecast'))} 
+            value={formatCurrency(forecast30d, isVisible('receivable_forecast'))} 
             icon={Calendar} 
             color="amber" 
             isVisible={isVisible('receivable_forecast')}
