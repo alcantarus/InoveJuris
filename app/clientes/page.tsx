@@ -342,8 +342,6 @@ export default function ClientesPage() {
           
           if (error) throw error
           
-          console.log('DEBUG: fetchClients (search) data:', data);
-          
           const formattedClients = (data || []).map((item: any) => ({
             ...item.client_data,
             vw_client_process_summary: [{
@@ -362,12 +360,11 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
+            p_search_term: '',
             p_environment: getAppEnv()
           })
           
           if (error) throw error
-          
-          console.log('DEBUG: fetchClients (all) data:', data);
           
           const formattedClients = (data || []).map((item: any) => ({
             ...item.client_data,
