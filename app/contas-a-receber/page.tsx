@@ -279,7 +279,7 @@ export default function ContasAReceberPage() {
       .gte('payment_date', firstDayOfMonth)
       .lte('payment_date', todayStr);
     
-    const totalReceived = paymentsData?.reduce((acc, p) => acc + Number(p.amount || 0), 0) || 0;
+    const totalReceived = paymentsData?.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0) || 0;
     setReceivedThisMonth(totalReceived);
 
     // Previsão 30 dias
@@ -291,7 +291,7 @@ export default function ContasAReceberPage() {
       .neq('status', 'Quitado')
       .neq('status', 'Cancelada');
 
-    const totalForecast = installmentsData?.reduce((acc, i) => acc + (Number(i.amount || 0) - Number(i.amountPaid || 0)), 0) || 0;
+    const totalForecast = installmentsData?.reduce((acc: number, i: any) => acc + (Number(i.amount || 0) - Number(i.amountPaid || 0)), 0) || 0;
     setForecast30d(totalForecast);
   }, []);
 
