@@ -342,6 +342,8 @@ export default function ClientesPage() {
           
           if (error) throw error
           
+          console.log('DEBUG: fetchClients (search) data:', data);
+          
           const formattedClients = (data || []).map((item: any) => ({
             ...item.client_data,
             vw_client_process_summary: [{
@@ -364,6 +366,8 @@ export default function ClientesPage() {
           })
           
           if (error) throw error
+          
+          console.log('DEBUG: fetchClients (all) data:', data);
           
           const formattedClients = (data || []).map((item: any) => ({
             ...item.client_data,
