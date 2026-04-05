@@ -18,11 +18,18 @@ export function formatCurrency(value: number, isVisible: boolean = true): string
 }
 
 export function formatDate(date: string | Date): string {
+  if (!date) return 'Data inválida';
+  
+  let d: Date;
   if (typeof date === 'string') {
     const [year, month, day] = date.split('-').map(Number);
-    return new Date(year, month - 1, day).toLocaleDateString('pt-BR');
+    d = new Date(year, month - 1, day);
+  } else {
+    d = date;
   }
-  return date.toLocaleDateString('pt-BR');
+  
+  if (isNaN(d.getTime())) return 'Data inválida';
+  return d.toLocaleDateString('pt-BR');
 }
 
 export function formatDateTime(dateStr: string): string {

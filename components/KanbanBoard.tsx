@@ -459,20 +459,19 @@ export default function KanbanBoard({ processes, onProcessUpdate, onEditProcess 
                               className={cn(
                                 "bg-white p-4 rounded-xl border shadow-sm transition-all group cursor-pointer",
                                 snapshot.isDragging ? "shadow-lg border-indigo-300 rotate-2 scale-105" : "border-slate-200 hover:border-indigo-200 hover:shadow-md",
-                                process.priority === 'Alta' ? "border-l-4 border-l-rose-500" : 
-                                process.priority === 'Média' ? "border-l-4 border-l-amber-500" : "border-l-4 border-l-blue-500"
+                                process.priority?.toLowerCase() === 'alta' ? "border-l-4 border-l-rose-500" : 
+                                process.priority?.toLowerCase() === 'média' ? "border-l-4 border-l-amber-500" : "border-l-4 border-l-blue-500"
                               )}
                             >
                               {/* Card Content */}
                               <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <div className="flex flex-col gap-0.5 text-xs text-slate-500">
                                   <span className={cn(
                                     "font-bold uppercase tracking-wider",
-                                    process.priority === 'Alta' ? "text-rose-600" : 
-                                    process.priority === 'Média' ? "text-amber-600" : "text-blue-600"
+                                    process.priority?.toLowerCase() === 'alta' ? "text-rose-600" : 
+                                    process.priority?.toLowerCase() === 'média' ? "text-amber-600" : "text-blue-600"
                                   )}>{process.priority}</span>
-                                  <span>•</span>
-                                  <span>{process.court || 'TRF1'}</span>
+                                  <span className="text-slate-400">{process.court || 'TRF1'}</span>
                                 </div>
                                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button 

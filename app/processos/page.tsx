@@ -660,7 +660,7 @@ export default function ProcessosPage() {
                         <div className="flex items-center gap-2">
                           {getDeadlineStatus(d.deadline_date) === 'expired' ? <AlertTriangle size={16} /> : 
                            getDeadlineStatus(d.deadline_date) === 'critical' ? <Clock size={16} /> : <Calendar size={16} />}
-                          <span>{d.description || 'Prazo'}: {formatDate(d.deadline_date)}</span>
+                          <span>{d.description || 'Prazo'}: {d.deadline_date ? formatDate(d.deadline_date) : 'Data não definida'}</span>
                         </div>
                         <span className="text-[10px] uppercase opacity-70">{d.status}</span>
                       </div>
