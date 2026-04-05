@@ -350,7 +350,7 @@ export default function ProcessosPage() {
 
         const deadlinesToInsert = formData.deadlines.map(d => ({
           process_id: editingProcess.id,
-          deadline_date: d.deadline_time ? `${d.deadline_date}T${d.deadline_time}` : d.deadline_date,
+          deadline_date: d.deadline_time ? `${d.deadline_date} ${d.deadline_time}:00` : d.deadline_date,
           description: d.description,
           status: d.status || 'Pendente',
           environment: getAppEnv()
@@ -390,7 +390,7 @@ export default function ProcessosPage() {
           if (formData.deadlines.length > 0) {
             const deadlinesToInsert = formData.deadlines.map(d => ({
               process_id: newProcessId,
-              deadline_date: d.deadline_time ? `${d.deadline_date}T${d.deadline_time}` : d.deadline_date,
+              deadline_date: d.deadline_time ? `${d.deadline_date} ${d.deadline_time}:00` : d.deadline_date,
               description: d.description,
               status: d.status || 'Pendente',
               environment: getAppEnv()
