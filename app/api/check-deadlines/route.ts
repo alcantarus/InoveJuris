@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils';
 
 export async function GET() {
   try {
@@ -19,7 +19,7 @@ export async function GET() {
     // 2. Criar notificações e marcar como alertado
     for (const d of deadlines || []) {
       const clientName = d.processes.client || 'Cliente não informado';
-      const deadlineDate = formatDate(d.deadline_date);
+      const deadlineDate = formatDateTime(d.deadline_date);
       await supabase.from('notifications').insert([{
         title: 'Prazo Próximo',
         message: `O prazo "${d.description}" do processo ${d.processes.number} do cliente ${clientName} vence em ${deadlineDate}.`,

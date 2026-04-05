@@ -25,6 +25,16 @@ export function formatDate(date: string | Date): string {
   return date.toLocaleDateString('pt-BR');
 }
 
+export function formatDateTime(dateStr: string): string {
+  if (!dateStr.includes('T')) return formatDate(dateStr);
+  const [datePart, timePart] = dateStr.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute] = timePart.split(':').map(Number);
+  
+  const date = new Date(year, month - 1, day, hour, minute);
+  return date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 export function removeAccents(str: string): string {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }

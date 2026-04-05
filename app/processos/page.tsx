@@ -398,10 +398,12 @@ export default function ProcessosPage() {
             const { error: insertError } = await supabase.from('process_deadlines').insert(deadlinesToInsert)
             
             if (!insertError) {
-              for (const d of deadlinesToInsert) {
+              for (let i = 0; i < deadlinesToInsert.length; i++) {
+                const d = deadlinesToInsert[i];
+                const originalD = formData.deadlines[i];
                 await createNotification(
                   'Novo Prazo Cadastrado',
-                  `Um novo prazo "${d.description}" foi cadastrado para o processo ${formData.number} para o dia ${formatDate(d.deadline_date)}${d.deadline_time ? ` às ${d.deadline_time}` : ''}.`,
+                  `Um novo prazo "${d.description}" foi cadastrado para o processo ${formData.number} para o dia ${formatDate(d.deadline_date)}${originalD.deadline_time ? ` às ${originalD.deadline_time}` : ''}.`,
                   'warning'
                 );
               }
