@@ -611,6 +611,8 @@ export default function ProcessosPage() {
                       <p className="text-sm text-slate-500">{process.court}</p>
                     </div>
                   </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -715,7 +717,7 @@ export default function ProcessosPage() {
                 </button>
               </div>
             </motion.div>
-            })}
+            ))}
           </div>
         ) : (
           <KanbanBoard processes={filteredProcesses} onProcessUpdate={fetchProcesses} onEditProcess={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)} />
