@@ -600,17 +600,17 @@ export default function ProcessosPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{process.number}</h3>
-                    <p className="text-sm text-slate-500">{process.court}</p>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                        process.priority?.toLowerCase() === 'alta' ? "bg-rose-100 text-rose-700" : 
+                        process.priority?.toLowerCase() === 'média' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                      )}>
+                        {process.priority}
+                      </span>
+                      <p className="text-sm text-slate-500">{process.court}</p>
+                    </div>
                   </div>
-                </div>
-                <span className={cn(
-                  "px-2.5 py-0.5 rounded-full text-xs font-medium",
-                  process.priority === 'Alta' ? "bg-rose-100 text-rose-700" : 
-                  process.priority === 'Média' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-                )}>
-                  {process.priority}
-                </span>
-              </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
