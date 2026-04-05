@@ -715,7 +715,7 @@ export default function ProcessosPage() {
                 </button>
               </div>
             </motion.div>
-            ))}
+            })}
           </div>
         ) : (
           <KanbanBoard processes={filteredProcesses} onProcessUpdate={fetchProcesses} onEditProcess={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)} />
