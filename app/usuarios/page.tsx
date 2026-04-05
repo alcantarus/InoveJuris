@@ -340,6 +340,25 @@ export default function UsuariosPage() {
   const handleDelete = async (e: React.MouseEvent, id: number) => {
     e.preventDefault()
     e.stopPropagation()
+    
+    // Find the user being deleted
+    const userToDelete = users.find(u => u.id === id)
+    if (!userToDelete) return
+
+    // Safeguard: Prevent self-deletion or deletion of protected users
+    if (userToDelete.id === currentUser?.id) {
+      toast.error('Você não pode excluir a si mesmo.')
+      return
+    }
+    if (userToDelete.name === 'Administrador' || userToDelete.name === 'Anderson Alcântara Silva') {
+      toast.error('Este usuário não pode ser excluído.')
+      return
+    }
+    if (userToDelete.is_superadmin && !currentUser?.is_superadmin) {
+      toast.error('Você não tem permissão para excluir um super administrador.')
+      return
+    }
+
     if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
       const { error } = await supabase
         .from('users')

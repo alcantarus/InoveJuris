@@ -28,6 +28,19 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
     return true;
   };
 
+  const canDeleteUser = (targetUser: User) => {
+    if (!currentUser) return false;
+    // Cannot delete self
+    if (targetUser.id === currentUser.id) return false;
+    // Cannot delete superadmins if not superadmin
+    if (targetUser.is_superadmin && !currentUser.is_superadmin) return false;
+    // Specific protection for "Administrador" and "Anderson Alcântara Silva"
+    if (targetUser.name === 'Administrador' || targetUser.name === 'Anderson Alcântara Silva') return false;
+    
+    // Check if user has permission to delete users
+    return currentUser.is_superadmin || currentUser.canAccessUsers;
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       {/* Desktop Table View */}
@@ -44,6 +57,7 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
           <tbody className="divide-y divide-slate-100">
             {users.map((user, index) => {
               const isEditable = canEditUser(user);
+              const isDeletable = canDeleteUser(user);
               return (
               <motion.tr 
                 initial={{ opacity: 0, y: 10 }}
@@ -112,15 +126,15 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
                       onClick={() => isEditable && onEdit(user)}
                       disabled={!isEditable}
                       className={`p-2 rounded-lg transition-colors ${isEditable ? 'text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent' : 'text-slate-300 cursor-not-allowed'}`}
-                      title={isEditable ? "Editar Usuário" : "Você não tem permissão para alterar um Super Administrador"}
+                      title={isEditable ? "Editar Usuário" : "Você não tem permissão para alterar este usuário"}
                     >
                       <Edit2 size={18} />
                     </button>
                     <button 
-                      onClick={(e) => isEditable && onDelete(e, user.id)}
-                      disabled={!isEditable}
-                      className={`p-2 rounded-lg transition-colors ${isEditable ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-300 cursor-not-allowed'}`}
-                      title={isEditable ? "Excluir Usuário" : "Você não tem permissão para excluir um Super Administrador"}
+                      onClick={(e) => isDeletable && onDelete(e, user.id)}
+                      disabled={!isDeletable}
+                      className={`p-2 rounded-lg transition-colors ${isDeletable ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-300 cursor-not-allowed'}`}
+                      title={isDeletable ? "Excluir Usuário" : "Você não tem permissão para excluir este usuário"}
                     >
                       <Trash2 size={18} />
                     </button>
@@ -137,6 +151,7 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
       <div className="md:hidden divide-y divide-slate-100">
         {users.map((user) => {
           const isEditable = canEditUser(user);
+          const isDeletable = canDeleteUser(user);
           return (
           <div key={user.id} className="p-4 space-y-3">
             <div className="flex justify-between items-start">
@@ -171,10 +186,10 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
                   <Edit2 size={18} />
                 </button>
                 <button 
-                  onClick={(e) => isEditable && onDelete(e, user.id)} 
-                  disabled={!isEditable}
-                  className={`p-2 ${isEditable ? 'text-slate-600 hover:text-rose-600' : 'text-slate-300 cursor-not-allowed'}`} 
-                  title={isEditable ? "Excluir" : "Sem permissão"}
+                  onClick={(e) => isDeletable && onDelete(e, user.id)} 
+                  disabled={!isDeletable}
+                  className={`p-2 ${isDeletable ? 'text-slate-600 hover:text-rose-600' : 'text-slate-300 cursor-not-allowed'}`} 
+                  title={isDeletable ? "Excluir" : "Sem permissão"}
                 >
                   <Trash2 size={18} />
                 </button>
