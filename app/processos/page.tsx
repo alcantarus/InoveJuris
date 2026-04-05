@@ -74,7 +74,7 @@ export default function ProcessosPage() {
     priority: 'Média',
     lawyer_id: null as number | null,
     history: [] as any[],
-    deadlines: [] as {id?: string, deadline_date: string, description: string, status: string}[]
+    deadlines: [] as {id?: string, deadline_date: string, deadline_time?: string, description: string, status: string}[]
   })
 
   const fetchProcesses = async () => {
@@ -201,7 +201,11 @@ export default function ProcessosPage() {
         priority: process.priority || 'Média',
         lawyer_id: process.lawyer_id || null,
         history: process.history || [],
-        deadlines: process.process_deadlines || []
+        deadlines: process.process_deadlines?.map(d => ({
+          ...d,
+          deadline_time: d.deadline_date?.includes('T') ? d.deadline_date.split('T')[1].substring(0, 5) : undefined,
+          deadline_date: d.deadline_date?.includes('T') ? d.deadline_date.split('T')[0] : d.deadline_date
+        })) || []
       })
     } else {
       setEditingProcess(null)
@@ -346,7 +350,7 @@ export default function ProcessosPage() {
 
         const deadlinesToInsert = formData.deadlines.map(d => ({
           process_id: editingProcess.id,
-          deadline_date: d.deadline_date,
+          deadline_date: d.deadline_time ? `${d.deadline_date}T${d.deadline_time}` : d.deadline_date,
           description: d.description,
           status: d.status || 'Pendente',
           environment: getAppEnv()
@@ -386,7 +390,7 @@ export default function ProcessosPage() {
           if (formData.deadlines.length > 0) {
             const deadlinesToInsert = formData.deadlines.map(d => ({
               process_id: newProcessId,
-              deadline_date: d.deadline_date,
+              deadline_date: d.deadline_time ? `${d.deadline_date}T${d.deadline_time}` : d.deadline_date,
               description: d.description,
               status: d.status || 'Pendente',
               environment: getAppEnv()
@@ -928,7 +932,7 @@ export default function ProcessosPage() {
               <div className="space-y-3">
                 {formData.deadlines.map((d, index) => (
                   <div key={index} className="grid grid-cols-12 gap-2 items-end bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <div className="col-span-4">
+                    <div className="col-span-3">
                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data</label>
                       <input 
                         type="date"
@@ -941,7 +945,20 @@ export default function ProcessosPage() {
                         }}
                       />
                     </div>
-                    <div className="col-span-6">
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Hora</label>
+                      <input 
+                        type="time"
+                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        value={d.deadline_time || ''}
+                        onChange={e => {
+                          const newDeadlines = [...formData.deadlines]
+                          newDeadlines[index].deadline_time = e.target.value
+                          setFormData({ ...formData, deadlines: newDeadlines })
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-5">
                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Descrição</label>
                       <input 
                         type="text"
