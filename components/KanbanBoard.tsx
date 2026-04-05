@@ -465,10 +465,14 @@ export default function KanbanBoard({ processes, onProcessUpdate, onEditProcess 
                             >
                               {/* Card Content */}
                               <div className="flex justify-between items-start mb-2">
-                                <div className="flex flex-wrap gap-1">
-                                  {process.priority === 'Alta' && <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded uppercase tracking-wider"><AlertTriangle size={10} /> Alta</span>}
-                                  {process.priority === 'Média' && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded uppercase tracking-wider"><Clock size={10} /> Média</span>}
-                                  {process.priority === 'Baixa' && <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider"><CheckCircle size={10} /> Baixa</span>}
+                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                  <span className={cn(
+                                    "font-bold uppercase tracking-wider",
+                                    process.priority === 'Alta' ? "text-rose-600" : 
+                                    process.priority === 'Média' ? "text-amber-600" : "text-blue-600"
+                                  )}>{process.priority}</span>
+                                  <span>•</span>
+                                  <span>{process.court || 'TRF1'}</span>
                                 </div>
                                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button 
@@ -507,11 +511,17 @@ export default function KanbanBoard({ processes, onProcessUpdate, onEditProcess 
                               {(process.process_deadlines && process.process_deadlines.length > 0) && (() => {
                                 const nearestDeadline = process.process_deadlines.reduce((prev: any, curr: any) => {
                                   if (!prev) return curr;
+                                  if (!curr.deadline_date) return prev;
                                   const prevDate = new Date(prev.deadline_date);
                                   const currDate = new Date(curr.deadline_date);
                                   return currDate < prevDate ? curr : prev;
                                 }, null);
+                                
+                                if (!nearestDeadline || !nearestDeadline.deadline_date) return null;
+
                                 const status = getDeadlineStatus(nearestDeadline.deadline_date);
+                                const isValidDate = !isNaN(new Date(nearestDeadline.deadline_date).getTime());
+
                                 return (
                                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
                                     <div className={cn(
@@ -523,7 +533,7 @@ export default function KanbanBoard({ processes, onProcessUpdate, onEditProcess 
                                     )}>
                                       {status === 'expired' ? <AlertTriangle size={12} /> : 
                                        status === 'critical' ? <Clock size={12} /> : <Calendar size={12} />}
-                                      <span>{formatDate(nearestDeadline.deadline_date)}</span>
+                                      <span>{isValidDate ? formatDate(nearestDeadline.deadline_date) : 'Data inválida'}</span>
                                       <div className={cn("w-2 h-2 rounded-full", 
                                         status === 'expired' ? "bg-rose-500" :
                                         status === 'critical' ? "bg-orange-500" :
