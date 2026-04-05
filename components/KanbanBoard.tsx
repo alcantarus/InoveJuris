@@ -464,42 +464,41 @@ export default function KanbanBoard({ processes, onProcessUpdate, onEditProcess 
                               )}
                             >
                               {/* Card Content */}
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex flex-col gap-0.5 text-xs text-slate-500">
-                                  <span className={cn(
-                                    "font-bold uppercase tracking-wider",
-                                    process.priority?.toLowerCase() === 'alta' ? "text-rose-600" : 
-                                    process.priority?.toLowerCase() === 'média' ? "text-amber-600" : "text-blue-600"
-                                  )}>{process.priority}</span>
-                                  <span className="text-slate-400">{process.court || 'TRF1'}</span>
-                                </div>
-                                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEditProcess(process);
-                                      }}
-                                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
-                                    >
-                                      <Edit2 size={14} />
-                                    </button>
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (confirm('Tem certeza que deseja excluir este processo?')) {
-                                          deleteProcess(process.id);
-                                        }
-                                      }}
-                                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                </div>
+                              <div className="flex justify-end items-start mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditProcess(process);
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm('Tem certeza que deseja excluir este processo?')) {
+                                        deleteProcess(process.id);
+                                      }
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
                               </div>
 
                               <h4 className="font-bold text-slate-900 text-sm mb-1 group-hover:text-indigo-600 transition-colors line-clamp-1">
                                 {process.number}
                               </h4>
+                              
+                              <div className="flex flex-col gap-0.5 text-xs text-slate-500 mb-2">
+                                <span className={cn(
+                                  "font-bold uppercase tracking-wider",
+                                  process.priority?.toLowerCase() === 'alta' ? "text-rose-600" : 
+                                  process.priority?.toLowerCase() === 'média' ? "text-amber-600" : "text-blue-600"
+                                )}>{process.priority}</span>
+                                <span className="text-slate-400">{process.court || 'TRF1'}</span>
+                              </div>
                               
                               <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-3">
                                 <User size={12} className="text-slate-400" />

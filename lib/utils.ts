@@ -22,8 +22,14 @@ export function formatDate(date: string | Date): string {
   
   let d: Date;
   if (typeof date === 'string') {
-    const [year, month, day] = date.split('-').map(Number);
-    d = new Date(year, month - 1, day);
+    // Tenta tratar formatos YYYY-MM-DD ou YYYY-MM-DD HH:MM:SS
+    const parts = date.split(/[- :T]/);
+    if (parts.length >= 3) {
+      const [year, month, day, hour, minute, second] = parts.map(Number);
+      d = new Date(year, month - 1, day, hour || 0, minute || 0, second || 0);
+    } else {
+      d = new Date(date);
+    }
   } else {
     d = date;
   }
@@ -33,12 +39,25 @@ export function formatDate(date: string | Date): string {
 }
 
 export function formatDateTime(dateStr: string): string {
-  if (!dateStr.includes('T')) return formatDate(dateStr);
-  const [datePart, timePart] = dateStr.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour, minute] = timePart.split(':').map(Number);
+  if (!dateStr) return 'Data inválida';
   
-  const date = new Date(year, month - 1, day, hour, minute);
+  let date: Date;
+  
+  if (dateStr.includes('T')) {
+    const [datePart, timePart] = dateStr.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+    date = new Date(year, month - 1, day, hour, minute);
+  } else if (dateStr.includes(' ')) {
+    const [datePart, timePart] = dateStr.split(' ');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+    date = new Date(year, month - 1, day, hour, minute);
+  } else {
+    return formatDate(dateStr);
+  }
+  
+  if (isNaN(date.getTime())) return 'Data inválida';
   return date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
