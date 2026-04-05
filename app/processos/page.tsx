@@ -401,7 +401,7 @@ export default function ProcessosPage() {
               for (const d of deadlinesToInsert) {
                 await createNotification(
                   'Novo Prazo Cadastrado',
-                  `Um novo prazo "${d.description}" foi cadastrado para o processo ${formData.number} para o dia ${formatDate(d.deadline_date)}.`,
+                  `Um novo prazo "${d.description}" foi cadastrado para o processo ${formData.number} para o dia ${formatDate(d.deadline_date)}${d.deadline_time ? ` às ${d.deadline_time}` : ''}.`,
                   'warning'
                 );
               }
@@ -936,7 +936,7 @@ export default function ProcessosPage() {
                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data</label>
                       <input 
                         type="date"
-                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
                         value={d.deadline_date}
                         onChange={e => {
                           const newDeadlines = [...formData.deadlines]
@@ -945,11 +945,11 @@ export default function ProcessosPage() {
                         }}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-3">
                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Hora</label>
                       <input 
                         type="time"
-                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
                         value={d.deadline_time || ''}
                         onChange={e => {
                           const newDeadlines = [...formData.deadlines]
@@ -958,12 +958,12 @@ export default function ProcessosPage() {
                         }}
                       />
                     </div>
-                    <div className="col-span-5">
+                    <div className="col-span-4">
                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Descrição</label>
                       <input 
                         type="text"
                         placeholder="Ex: Contestação"
-                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
                         value={d.description}
                         onChange={e => {
                           const newDeadlines = [...formData.deadlines]
