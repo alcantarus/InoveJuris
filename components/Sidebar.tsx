@@ -275,39 +275,12 @@ export function Sidebar() {
               <div className="px-3 mb-3">
                 <div className="p-2 bg-slate-100 rounded-xl border border-slate-200">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">
-                    Trocar Ambiente
+                    Organização Atual
                   </p>
                   <div className="flex gap-1">
-                    <button
-                      onClick={() => handleSwitchEnv('production')}
-                      disabled={isSwitchingEnv || !user.canAccessProdEnv}
-                      className={cn(
-                        "flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg transition-all",
-                        isProduction 
-                          ? "bg-emerald-600 text-white shadow-sm" 
-                          : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-200",
-                        !user.canAccessProdEnv && "opacity-50 cursor-not-allowed grayscale"
-                      )}
-                      title="Ambiente de Produção"
-                    >
-                      <Globe size={14} />
-                      <span className="text-[8px] font-bold mt-0.5">PRODUÇÃO</span>
-                    </button>
-                    <button
-                      onClick={() => handleSwitchEnv('test')}
-                      disabled={isSwitchingEnv || !user.canAccessTestEnv}
-                      className={cn(
-                        "flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg transition-all",
-                        !isProduction 
-                          ? "bg-amber-500 text-white shadow-sm" 
-                          : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-200",
-                        !user.canAccessTestEnv && "opacity-50 cursor-not-allowed grayscale"
-                      )}
-                      title="Ambiente de Testes"
-                    >
-                      <Beaker size={14} />
-                      <span className="text-[8px] font-bold mt-0.5">TESTE</span>
-                    </button>
+                    <div className="flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700">
+                      <span className="text-[10px] font-bold truncate w-full text-center">{user.name}</span>
+                    </div>
                   </div>
                 </div>
               </div>

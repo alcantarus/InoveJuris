@@ -23,13 +23,14 @@ function LoginPageContent() {
   const [error, setError] = useState('')
   const [infoMessage, setInfoMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [loginStep, setLoginStep] = useState<'credentials' | 'environment'>('credentials')
+  const [loginStep, setLoginStep] = useState<'credentials' | 'organization'>('credentials')
   const [validatedUser, setValidatedUser] = useState<any>(null)
-  const [selectedEnv, setSelectedEnv] = useState<AppEnv>('production')
+  const [organizations, setOrganizations] = useState<any[]>([])
+  const [selectedOrg, setSelectedOrg] = useState<any>(null)
   
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { validateCredentials, login } = useAuth()
+  const { validateCredentials, login, fetchUserOrganizations } = useAuth()
 
   useEffect(() => {
     if (searchParams.get('reason') === 'timeout') {
@@ -48,38 +49,19 @@ function LoginPageContent() {
     
     if (result.success) {
       const user = result.user
-      // Robust check for permissions
-      const canProd = user.canAccessProdEnv === true || user.canAccessProdEnv === null || user.canAccessProdEnv === undefined;
-      const canTest = user.canAccessTestEnv === true;
-
-      console.log('[Login] Permissões detectadas:', { canProd, canTest, raw: { prod: user.canAccessProdEnv, test: user.canAccessTestEnv } });
-
       setValidatedUser(user)
 
-      if (canProd && canTest) {
-        // Both - Explicitly set step to environment
-        console.log('[Login] Ambos os ambientes disponíveis. Mostrando seleção.');
-        setLoginStep('environment')
+      const orgs = await fetchUserOrganizations(user.id)
+      setOrganizations(orgs)
+
+      if (orgs.length === 0) {
+        setError('Você não tem permissão para acessar nenhuma organização.')
         setIsLoading(false)
-      } else if (canProd) {
-        // Only Prod
-        console.log('[Login] Apenas Produção disponível. Entrando automaticamente.');
-        const loginResult = await login(user, 'production')
-        if (!loginResult.success) {
-          setError(loginResult.error || 'Erro ao acessar ambiente de produção.')
-          setIsLoading(false)
-        }
-      } else if (canTest) {
-        // Only Test
-        console.log('[Login] Apenas Testes disponível. Entrando automaticamente.');
-        const loginResult = await login(user, 'test')
-        if (!loginResult.success) {
-          setError(loginResult.error || 'Erro ao acessar ambiente de testes.')
-          setIsLoading(false)
-        }
+      } else if (orgs.length === 1) {
+        setSelectedOrg(orgs[0])
+        await handleFinalLogin(orgs[0])
       } else {
-        // None
-        setError('Você não tem permissão para acessar nenhum ambiente.')
+        setLoginStep('organization')
         setIsLoading(false)
       }
     } else {
@@ -88,16 +70,16 @@ function LoginPageContent() {
     }
   }
 
-  const handleFinalLogin = async () => {
+  const handleFinalLogin = async (org: any) => {
     setError('')
     setIsLoading(true)
 
-    const result = await login(validatedUser, selectedEnv)
+    const result = await login(validatedUser, org.id)
     
     if (result.success) {
       // router.push('/') is handled by window.location.href in auth.ts
     } else {
-      setError(result.error || 'Erro ao selecionar ambiente.')
+      setError(result.error || 'Erro ao selecionar organização.')
       setIsLoading(false)
     }
   }
@@ -225,57 +207,32 @@ function LoginPageContent() {
                   className="space-y-4"
                 >
                   <div className="grid grid-cols-1 gap-3">
-                    {validatedUser?.canAccessProdEnv !== false && (
+                    {organizations.map((org) => (
                       <button
-                        onClick={() => setSelectedEnv('production')}
+                        key={org.id}
+                        onClick={() => setSelectedOrg(org)}
                         className={cn(
-                          "p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4",
-                          selectedEnv === 'production' 
-                            ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20" 
+                          "p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 w-full",
+                          selectedOrg?.id === org.id
+                            ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20" 
                             : "border-slate-100 bg-slate-50 hover:border-slate-200"
                         )}
                       >
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center",
-                          selectedEnv === 'production' ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
+                          selectedOrg?.id === org.id ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
                         )}>
                           <Globe size={20} />
                         </div>
                         <div className="flex-1">
-                          <p className={cn("font-bold text-sm", selectedEnv === 'production' ? "text-emerald-700" : "text-slate-700")}>
-                            Ambiente de Produção
+                          <p className={cn("font-bold text-sm", selectedOrg?.id === org.id ? "text-indigo-700" : "text-slate-700")}>
+                            {org.name}
                           </p>
-                          <p className="text-xs text-slate-500">Dados reais e oficiais</p>
+                          <p className="text-xs text-slate-500">{org.is_demo ? 'Ambiente de Demonstração' : 'Ambiente de Produção'}</p>
                         </div>
-                        {selectedEnv === 'production' && <CheckCircle2 className="text-emerald-600" size={20} />}
+                        {selectedOrg?.id === org.id && <CheckCircle2 className="text-indigo-600" size={20} />}
                       </button>
-                    )}
-
-                    {validatedUser?.canAccessTestEnv === true && (
-                      <button
-                        onClick={() => setSelectedEnv('test')}
-                        className={cn(
-                          "p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4",
-                          selectedEnv === 'test' 
-                            ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500/20" 
-                            : "border-slate-100 bg-slate-50 hover:border-slate-200"
-                        )}
-                      >
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center",
-                          selectedEnv === 'test' ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
-                        )}>
-                          <Beaker size={20} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={cn("font-bold text-sm", selectedEnv === 'test' ? "text-amber-700" : "text-slate-700")}>
-                            Ambiente de Testes
-                          </p>
-                          <p className="text-xs text-slate-500">Homologação e treinamento</p>
-                        </div>
-                        {selectedEnv === 'test' && <CheckCircle2 className="text-amber-500" size={20} />}
-                      </button>
-                    )}
+                    ))}
                   </div>
 
                   <div className="pt-2 flex gap-3">
@@ -286,16 +243,12 @@ function LoginPageContent() {
                       Voltar
                     </button>
                     <button
-                      onClick={handleFinalLogin}
-                      disabled={isLoading}
-                      className={cn(
-                        "flex-[2] py-3 px-4 text-white rounded-xl font-semibold transition-all disabled:opacity-70 flex items-center justify-center gap-2",
-                        selectedEnv === 'production' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-500 hover:bg-amber-600"
-                      )}
+                      onClick={() => handleFinalLogin(selectedOrg)}
+                      disabled={isLoading || !selectedOrg}
+                      className="flex-[2] py-3 px-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
                     >
                       {isLoading ? 'Entrando...' : 'Confirmar e Entrar'}
                     </button>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

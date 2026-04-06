@@ -245,22 +245,12 @@ export function useAuth() {
     }
   }
 
-  const login = async (userDataFromDb: any, selectedEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
+  const login = async (userDataFromDb: any, organizationId: string): Promise<{ success: boolean; error?: string }> => {
     console.log('[Auth] Iniciando login...');
     try {
-      // Check permission for production environment
-      if (selectedEnv === 'production' && userDataFromDb.canAccessProdEnv === false) {
-        console.log('[Auth] Erro: Sem permissão para produção');
-        return { success: false, error: 'Você não tem permissão para acessar o Ambiente de Produção.' }
-      }
-
-      // Check permission for test environment
-      if (selectedEnv === 'test' && !userDataFromDb.canAccessTestEnv) {
-        console.log('[Auth] Erro: Sem permissão para teste');
-        return { success: false, error: 'Você não tem permissão para acessar o Ambiente de Teste.' }
-      }
-
-      const userData = calculatePermissions(userDataFromDb, selectedEnv);
+      // TODO: Check permission for organization
+      
+      const userData = calculatePermissions(userDataFromDb, organizationId);
       console.log('[Auth] Permissões calculadas:', userData);
 
       // Create session record
@@ -273,7 +263,7 @@ export function useAuth() {
           body: JSON.stringify({
             action: 'login',
             userId: userData.id,
-            environment: selectedEnv,
+            organizationId: organizationId,
             userAgent: navigator.userAgent
           })
         });
@@ -293,8 +283,8 @@ export function useAuth() {
         return { success: false, error: 'Erro ao conectar ao servidor de sessão.' }
       }
 
-      // Set environment cookie with security settings for iframe compatibility
-      setCookie('app_env', selectedEnv, { 
+      // Set organization cookie
+      setCookie('app_org', organizationId, { 
         maxAge: 60 * 60 * 24 * 7, 
         path: '/',
         sameSite: 'none',
@@ -305,7 +295,7 @@ export function useAuth() {
       localStorage.setItem('session_last_activity', Date.now().toString())
       setUser(userData)
       
-      // Force a reload to ensure all components and the supabase client use the new environment
+      // Force a reload to ensure all components and the supabase client use the new organization
       console.log('[Auth] Login finalizado, recarregando página...');
       window.location.href = '/'
       return { success: true }
@@ -428,5 +418,27 @@ export function useAuth() {
     }
   };
 
-  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment }
+  const fetchUserOrganizations = async (userId: number) => {
+    const authClient = getSupabase()
+    const { data, error } = await authClient
+      .from('user_organizations')
+      .select(`
+        organization_id,
+        organizations (
+          id,
+          name,
+          slug,
+          is_demo
+        )
+      `)
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[Auth] Erro ao buscar organizações:', error)
+      return []
+    }
+    return data.map((item: any) => item.organizations)
+  }
+
+  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment, fetchUserOrganizations }
 }
