@@ -23,6 +23,13 @@ export default function OrganizationTable() {
         .select('*')
         .order('created_at', { ascending: false })
       
+      // NOVO: Log de diagnóstico
+      if (error) {
+        console.error('[OrganizationTable] Erro Supabase:', error);
+      } else {
+        console.log('[OrganizationTable] Dados recebidos:', data);
+      }
+      
       if (data) setOrgs(data)
       setLoading(false)
     }
