@@ -439,7 +439,9 @@ export function useAuth() {
       return []
     }
     console.log('[Auth] Organizações encontradas:', data)
-    return data.map((item: any) => item.organizations)
+    return data
+      .map((item: any) => item.organizations)
+      .filter((org: any) => org !== null)
   }
 
   return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment, fetchUserOrganizations }
