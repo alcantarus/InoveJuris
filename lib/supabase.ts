@@ -25,9 +25,10 @@ const setEnvironment = async (client: any) => {
   const env = getAppEnv(); // 'production' or 'test'
   await client.rpc('set_app_environment', { env_name: env });
   
-  // NOVO: Define o usuário no contexto do banco de dados
+  // NOVO: Define o usuário e a organização no contexto do banco de dados
   if (typeof window !== 'undefined') {
     const storedUser = localStorage.getItem('inovejuris_user');
+    const storedOrg = localStorage.getItem('app_org'); // Assumindo que o ID da org está aqui
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
@@ -36,6 +37,14 @@ const setEnvironment = async (client: any) => {
         }
       } catch (e) {
         console.error('[Supabase] Erro ao definir usuário no banco:', e);
+      }
+    }
+    if (storedOrg) {
+      try {
+        // Você precisará criar esta função no banco: set_app_organization(org_id uuid)
+        await client.rpc('set_app_organization', { org_id: storedOrg });
+      } catch (e) {
+        console.error('[Supabase] Erro ao definir organização no banco:', e);
       }
     }
   }
@@ -71,6 +80,7 @@ export const supabase = new Proxy({} as any, {
   get: (target, prop) => {
     const client = getSupabase()
     const currentEnv = getAppEnv() // 'production' or 'test'
+    const currentOrg = typeof window !== 'undefined' ? localStorage.getItem('app_org') : null;
 
     if (prop === 'from') {
       return (table: string) => {
@@ -106,8 +116,16 @@ export const supabase = new Proxy({} as any, {
                   if (prop === 'insert' || prop === 'upsert') {
                     const data = args[0];
                     const newData = Array.isArray(data)
-                      ? data.map((item: any) => ({ ...item, environment: currentEnv }))
-                      : { ...data, environment: currentEnv };
+                      ? data.map((item: any) => ({ 
+                          ...item, 
+                          environment: currentEnv,
+                          organization_id: currentOrg 
+                        }))
+                      : { 
+                          ...data, 
+                          environment: currentEnv,
+                          organization_id: currentOrg 
+                        };
                     console.log(`[Supabase Proxy] DEBUG: ${prop} on ${table}:`, JSON.stringify(newData, null, 2));
                     result = target[prop](newData, ...args.slice(1));
                   } else if (prop === 'select' || prop === 'update' || prop === 'delete') {
@@ -116,6 +134,9 @@ export const supabase = new Proxy({} as any, {
                     }
                     // Inject environment filter immediately after the action method
                     result = target[prop](...args).eq('environment', currentEnv);
+                    if (currentOrg) {
+                      result = result.eq('organization_id', currentOrg);
+                    }
                   } else {
                     // For other methods (eq, order, limit, etc.), just execute them
                     result = value.apply(target, args);

@@ -126,3 +126,28 @@ END $$;
 
 -- Recarregar cache
 NOTIFY pgrst, 'reload config';
+
+-- 3. FUNÇÕES E POLÍTICAS DE ISOLAMENTO MULTI-TENANT
+-- Função para definir a organização no contexto da sessão
+CREATE OR REPLACE FUNCTION public.set_app_organization(org_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  PERFORM set_config('custom.organization_id', org_id::text, false);
+END;
+$function$;
+
+-- Garantir que a política de RLS esteja correta e robusta
+DROP POLICY IF EXISTS "Isolamento por Tenant em kanban_boards" ON kanban_boards;
+
+CREATE POLICY "Isolamento por Tenant em kanban_boards" ON kanban_boards
+FOR ALL
+USING (organization_id::TEXT = current_setting('custom.organization_id', true))
+WITH CHECK (
+    -- Permite inserção se o ID da organização enviado for igual ao da sessão
+    organization_id::TEXT = current_setting('custom.organization_id', true)
+);
+
+-- Recarregar cache do PostgREST
+NOTIFY pgrst, 'reload config';
