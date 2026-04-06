@@ -170,7 +170,7 @@ export async function POST(request: Request) {
         .insert([
           {
             user_id: Number(userId),
-            environment: environment,
+            environment: environment || 'production', // Valor padrão caso environment seja nulo
             ip_address: ip,
             user_agent: readableUA,
             login_at: loginISO,
