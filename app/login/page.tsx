@@ -249,6 +249,7 @@ function LoginPageContent() {
                     >
                       {isLoading ? 'Entrando...' : 'Confirmar e Entrar'}
                     </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
