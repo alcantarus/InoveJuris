@@ -279,7 +279,7 @@ export function Sidebar() {
                   </p>
                   <div className="flex gap-1">
                     <div className="flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700">
-                      <span className="text-[10px] font-bold truncate w-full text-center">{user.name}</span>
+                      <span className="text-[10px] font-bold truncate w-full text-center">{settings.office_name || 'Organização'}</span>
                     </div>
                   </div>
                 </div>

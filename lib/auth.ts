@@ -292,6 +292,7 @@ export function useAuth() {
       }) // 7 days
 
       localStorage.setItem('inovejuris_user', JSON.stringify(userData))
+      localStorage.setItem('app_org', organizationId)
       localStorage.setItem('session_last_activity', Date.now().toString())
       setUser(userData)
       
@@ -325,9 +326,19 @@ export function useAuth() {
       }
     }
 
+    // Limpar contexto do banco de dados
+    try {
+      const authClient = getSupabase();
+      await authClient.rpc('clear_app_context');
+    } catch (err) {
+      console.error('Failed to clear app context:', err);
+    }
+
     localStorage.removeItem('inovejuris_user')
     localStorage.removeItem('session_last_activity')
+    localStorage.removeItem('app_org')
     deleteCookie('app_env')
+    deleteCookie('app_org')
     setUser(null)
     window.location.href = '/login'
   }

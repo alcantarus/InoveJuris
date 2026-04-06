@@ -148,6 +148,17 @@ BEGIN
 END;
 $function$;
 
+-- Função para limpar o contexto da sessão
+CREATE OR REPLACE FUNCTION public.clear_app_context()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  PERFORM reset_config('custom.organization_id');
+  PERFORM reset_config('app.current_env');
+END;
+$function$;
+
 -- Políticas para audit_logs
 DROP POLICY IF EXISTS "Enable insert for server-side auth" ON audit_logs;
 CREATE POLICY "Enable insert for server-side auth" ON audit_logs 
