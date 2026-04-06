@@ -181,7 +181,7 @@ export async function POST(request: Request) {
         .single()
 
       if (error) {
-        console.error('Session API: Erro ao inserir sessão:', error)
+        console.error('Session API: Erro ao inserir sessão:', JSON.stringify(error, null, 2))
         throw error
       }
       console.log('Session API: Sessão inserida com sucesso')
