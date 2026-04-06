@@ -138,6 +138,11 @@ BEGIN
 END;
 $function$;
 
+-- Políticas para audit_logs
+DROP POLICY IF EXISTS "Enable insert for server-side auth" ON audit_logs;
+CREATE POLICY "Enable insert for server-side auth" ON audit_logs 
+FOR INSERT WITH CHECK (true);
+
 -- Garantir que a política de RLS esteja correta e robusta
 DROP POLICY IF EXISTS "Isolamento por Tenant em kanban_boards" ON kanban_boards;
 
