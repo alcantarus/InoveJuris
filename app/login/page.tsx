@@ -212,30 +212,31 @@ function LoginPageContent() {
                   className="space-y-4"
                 >
                   <div className="grid grid-cols-1 gap-3">
-                    {organizations.map((org) => (
+                    {console.log('[Login] Renderizando organizações:', organizations)}
+                    {organizations?.map((org) => (
                       <button
-                        key={org.id}
+                        key={org?.id}
                         onClick={() => setSelectedOrg(org)}
                         className={cn(
                           "p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 w-full",
-                          selectedOrg?.id === org.id
+                          selectedOrg?.id === org?.id
                             ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20" 
                             : "border-slate-100 bg-slate-50 hover:border-slate-200"
                         )}
                       >
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center",
-                          selectedOrg?.id === org.id ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
+                          selectedOrg?.id === org?.id ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
                         )}>
                           <Globe size={20} />
                         </div>
                         <div className="flex-1">
-                          <p className={cn("font-bold text-sm", selectedOrg?.id === org.id ? "text-indigo-700" : "text-slate-700")}>
-                            {org.name}
+                          <p className={cn("font-bold text-sm", selectedOrg?.id === org?.id ? "text-indigo-700" : "text-slate-700")}>
+                            {org?.name}
                           </p>
-                          <p className="text-xs text-slate-500">{org.is_demo ? 'Ambiente de Demonstração' : 'Ambiente de Produção'}</p>
+                          <p className="text-xs text-slate-500">{org?.is_demo ? 'Ambiente de Demonstração' : 'Ambiente de Produção'}</p>
                         </div>
-                        {selectedOrg?.id === org.id && <CheckCircle2 className="text-indigo-600" size={20} />}
+                        {selectedOrg?.id === org?.id && <CheckCircle2 className="text-indigo-600" size={20} />}
                       </button>
                     ))}
                   </div>
