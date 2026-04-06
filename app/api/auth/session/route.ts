@@ -155,8 +155,14 @@ export async function POST(request: Request) {
         console.error('Anomalous Access Check Error:', e)
       }
 
-      console.log('Session API: Inserindo nova sessão')
-      const loginISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
+      console.log('Session API: Inserindo nova sessão com dados:', {
+        user_id: Number(userId),
+        environment: environment,
+        ip_address: ip,
+        user_agent: readableUA,
+        login_at: loginISO,
+        last_seen_at: loginISO,
+      })
       const { data, error } = await supabase
         .from('user_sessions')
         .insert([
