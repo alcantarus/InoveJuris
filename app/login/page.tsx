@@ -212,7 +212,9 @@ function LoginPageContent() {
                   className="space-y-4"
                 >
                   <div className="grid grid-cols-1 gap-3">
-                    {organizations?.map((org) => (
+                    {organizations?.map((org) => {
+                      console.log('[Login] Renderizando org:', org);
+                      return (
                       <button
                         key={org?.id}
                         onClick={() => setSelectedOrg(org)}
@@ -230,14 +232,16 @@ function LoginPageContent() {
                           <Globe size={20} />
                         </div>
                         <div className="flex-1">
-                          <p className={cn("font-bold text-sm", selectedOrg?.id === org?.id ? "text-indigo-700" : "text-slate-700")}>
-                            {org?.name}
+                          <p className={cn("font-bold text-lg", selectedOrg?.id === org?.id ? "text-indigo-700" : "text-slate-900")}>
+                            {org?.name || 'Organização sem nome'}
                           </p>
-                          <p className="text-xs text-slate-500">{org?.is_demo ? 'Ambiente de Demonstração' : 'Ambiente de Produção'}</p>
+                          <p className="text-sm text-slate-500">
+                            {org?.is_demo ? 'Ambiente de Demonstração' : 'Ambiente de Produção'}
+                          </p>
                         </div>
-                        {selectedOrg?.id === org?.id && <CheckCircle2 className="text-indigo-600" size={20} />}
+                        {selectedOrg?.id === org?.id && <CheckCircle2 className="text-indigo-600" size={24} />}
                       </button>
-                    ))}
+                    )})}
                   </div>
 
                   <div className="pt-2 flex gap-3">
