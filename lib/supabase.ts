@@ -69,10 +69,14 @@ export const getSupabase = () => {
   
   if (!clients.has(config.url)) {
     const client = createClient(config.url, config.key)
-    setEnvironment(client);
     clients.set(config.url, client);
   }
-  return clients.get(config.url);
+  
+  const client = clients.get(config.url);
+  // Garante que o ambiente e organização estejam atualizados no contexto do banco de dados
+  setEnvironment(client);
+  
+  return client;
 }
 
 // Export a Proxy that intercepts queries to enforce Logical Isolation

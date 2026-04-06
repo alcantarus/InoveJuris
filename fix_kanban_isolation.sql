@@ -138,6 +138,16 @@ BEGIN
 END;
 $function$;
 
+-- Função para definir o ambiente no contexto da sessão
+CREATE OR REPLACE FUNCTION public.set_app_environment(env_name text)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  PERFORM set_config('app.current_env', env_name, false);
+END;
+$function$;
+
 -- Políticas para audit_logs
 DROP POLICY IF EXISTS "Enable insert for server-side auth" ON audit_logs;
 CREATE POLICY "Enable insert for server-side auth" ON audit_logs 
@@ -152,6 +162,50 @@ USING (organization_id::TEXT = current_setting('custom.organization_id', true))
 WITH CHECK (
     -- Permite inserção se o ID da organização enviado for igual ao da sessão
     organization_id::TEXT = current_setting('custom.organization_id', true)
+);
+
+-- 4. ISOLAMENTO MULTI-TENANT E POR AMBIENTE NA TABELA LAWYERS
+-- Adicionar coluna organization_id (já feita)
+ALTER TABLE lawyers ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+
+-- Adicionar coluna environment
+ALTER TABLE lawyers ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'production';
+
+-- Atualizar políticas de RLS para a tabela lawyers (Isolamento duplo)
+DROP POLICY IF EXISTS "Allow all for lawyers" ON lawyers;
+DROP POLICY IF EXISTS "Isolamento por Tenant e Ambiente em lawyers" ON lawyers;
+
+CREATE POLICY "Isolamento por Tenant e Ambiente em lawyers" ON lawyers
+FOR ALL
+USING (
+    organization_id::TEXT = current_setting('custom.organization_id', true) AND
+    environment = current_setting('app.current_env', true)
+)
+WITH CHECK (
+    organization_id::TEXT = current_setting('custom.organization_id', true) AND
+    environment = current_setting('app.current_env', true)
+);
+
+-- 5. ISOLAMENTO MULTI-TENANT E POR AMBIENTE NA TABELA PROCESSES
+-- Adicionar coluna organization_id
+ALTER TABLE processes ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+
+-- Adicionar coluna environment
+ALTER TABLE processes ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'production';
+
+-- Atualizar políticas de RLS para a tabela processes (Isolamento duplo)
+DROP POLICY IF EXISTS "Allow all for processes" ON processes;
+DROP POLICY IF EXISTS "Isolamento por Tenant e Ambiente em processes" ON processes;
+
+CREATE POLICY "Isolamento por Tenant e Ambiente em processes" ON processes
+FOR ALL
+USING (
+    organization_id::TEXT = current_setting('custom.organization_id', true) AND
+    environment = current_setting('app.current_env', true)
+)
+WITH CHECK (
+    organization_id::TEXT = current_setting('custom.organization_id', true) AND
+    environment = current_setting('app.current_env', true)
 );
 
 -- Recarregar cache do PostgREST
