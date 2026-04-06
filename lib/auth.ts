@@ -31,11 +31,11 @@ export interface User {
   canAccessTestEnv: boolean
   is_superadmin: boolean
   expiration_date?: string
-  selectedEnv?: AppEnv
+  organizationId?: string
   sessionId?: string
 }
 
-const calculatePermissions = (userDataFromDb: any, selectedEnv: AppEnv) => {
+const calculatePermissions = (userDataFromDb: any, organizationId: string) => {
   const roleName = userDataFromDb.user_roles?.[0]?.roles?.name;
   const isAdmin = roleName === 'Administrador' || userDataFromDb.email === 'admin@admin.com';
   const isSuperadmin = userDataFromDb.is_superadmin === true || userDataFromDb.email === 'admin@admin.com';
@@ -69,7 +69,7 @@ const calculatePermissions = (userDataFromDb: any, selectedEnv: AppEnv) => {
     canAccessDashboard: hasPermission('access_dashboard') || userDataFromDb.canAccessDashboard !== false,
     canAccessProdEnv: hasPermission('access_prod_env') || userDataFromDb.canAccessProdEnv !== false,
     canAccessTestEnv: hasPermission('access_test_env') || userDataFromDb.canAccessTestEnv,
-    selectedEnv: selectedEnv
+    organizationId: organizationId
   } as User;
 }
 
@@ -83,7 +83,7 @@ export function useAuth() {
 
     const userObj = JSON.parse(storedUser)
     const email = userObj.email
-    const selectedEnv = userObj.selectedEnv
+    const organizationId = userObj.organizationId
 
     // Fetch user from DB
     const authClient = getSupabase()
@@ -107,7 +107,7 @@ export function useAuth() {
 
     if (error || !data) return
 
-    const userData = calculatePermissions(data, selectedEnv);
+    const userData = calculatePermissions(data, organizationId);
     localStorage.setItem('inovejuris_user', JSON.stringify(userData))
     setUser(userData)
   }, [])
@@ -332,7 +332,7 @@ export function useAuth() {
     window.location.href = '/login'
   }
 
-  const impersonate = async (targetUserId: number, selectedEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
+  const impersonate = async (targetUserId: number, organizationId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       if (!user || user.role_name !== 'Administrador' && user.email !== 'admin@admin.com') {
         return { success: false, error: 'Apenas administradores podem acessar como outro usuário.' }
@@ -370,7 +370,7 @@ export function useAuth() {
             action: 'impersonate',
             adminId: user.id,
             targetUserId: targetUserId,
-            environment: selectedEnv,
+            organizationId: organizationId,
             userAgent: navigator.userAgent
           })
         });
@@ -379,7 +379,7 @@ export function useAuth() {
       }
 
       // Login as the target user
-      return await login(targetUser, selectedEnv)
+      return await login(targetUser, organizationId)
     } catch (err) {
       return { success: false, error: 'Erro ao acessar como usuário.' }
     }
