@@ -71,6 +71,11 @@ function LoginPageContent() {
   }
 
   const handleFinalLogin = async (org: any) => {
+    if (!org || !org.id) {
+      setError('Por favor, selecione uma organização válida.')
+      return
+    }
+    console.log('[Login] Iniciando login final com org:', org)
     setError('')
     setIsLoading(true)
 
