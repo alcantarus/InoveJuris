@@ -24,6 +24,21 @@ const clients = new Map<string, any>();
 const setEnvironment = async (client: any) => {
   const env = getAppEnv(); // 'production' or 'test'
   await client.rpc('set_app_environment', { env_name: env });
+  
+  // NOVO: Define o usuário no contexto do banco de dados
+  if (typeof window !== 'undefined') {
+    const storedUser = localStorage.getItem('inovejuris_user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.id) {
+          await client.rpc('set_app_user', { user_id: user.id });
+        }
+      } catch (e) {
+        console.error('[Supabase] Erro ao definir usuário no banco:', e);
+      }
+    }
+  }
 };
 
 export const getSupabaseConfig = (env: 'production' | 'test') => {
