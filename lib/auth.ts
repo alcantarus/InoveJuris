@@ -419,6 +419,7 @@ export function useAuth() {
   };
 
   const fetchUserOrganizations = async (userId: number) => {
+    console.log('[Auth] Buscando organizações para userId:', userId)
     const authClient = getSupabase()
     const { data, error } = await authClient
       .from('user_organizations')
@@ -437,6 +438,7 @@ export function useAuth() {
       console.error('[Auth] Erro ao buscar organizações:', error)
       return []
     }
+    console.log('[Auth] Organizações encontradas:', data)
     return data.map((item: any) => item.organizations)
   }
 
