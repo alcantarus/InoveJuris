@@ -1233,7 +1233,8 @@ SELECT
     c."amountReceivable" AS amount_to_receive,
     (SELECT MIN("dueDate") FROM installments WHERE contract_id = c.id AND status NOT IN ('Quitado', 'Cancelada')) AS next_due_date,
     c.status AS contract_status,
-    c.environment
+    c.environment,
+    c.organization_id
 FROM 
     contracts c
 JOIN 
