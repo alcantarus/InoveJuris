@@ -563,27 +563,42 @@ DO $body$
 DECLARE
   t text;
 BEGIN
-  FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'
+  -- 1. Habilitar RLS em todas as tabelas
+  FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+  END LOOP;
+
+  -- 2. Definir políticas restritivas para tabelas com isolamento
+  FOREACH t IN ARRAY ARRAY['clients', 'indicators', 'law_areas', 'products', 'contracts', 'installments', 'processes', 'bank_accounts', 'financial_categories', 'financial_transactions', 'payments', 'notifications', 'process_deadlines', 'kanban_columns', 'kanban_boards', 'lawyers']
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "Allow all access to %I" ON %I', t, t);
+    EXECUTE format('DROP POLICY IF EXISTS "Isolamento por Tenant e Ambiente em %I" ON %I', t, t);
     
-    IF t != 'users' THEN
-      EXECUTE format('DROP POLICY IF EXISTS "Allow all access to %I" ON %I', t, t);
-      EXECUTE format('CREATE POLICY "Allow all access to %I" ON %I FOR ALL USING (true) WITH CHECK (true)', t, t);
-    END IF;
+    EXECUTE format(
+      'CREATE POLICY "Isolamento por Tenant e Ambiente em %I" ON %I 
+       FOR ALL 
+       USING (
+         organization_id::TEXT = current_setting(''custom.organization_id'', true) AND 
+         environment = current_setting(''app.current_env'', true)
+       ) 
+       WITH CHECK (
+         organization_id::TEXT = current_setting(''custom.organization_id'', true) AND 
+         environment = current_setting(''app.current_env'', true)
+       )', t, t
+    );
   END LOOP;
   
-  -- Specific policies for users table
-  EXECUTE 'DROP POLICY IF EXISTS "Allow all access to users" ON users';
+  -- 3. Políticas para tabelas globais (users, system_settings, etc.)
   EXECUTE 'DROP POLICY IF EXISTS "Users can read users" ON users';
-  EXECUTE 'DROP POLICY IF EXISTS "Users can insert users" ON users';
-  EXECUTE 'DROP POLICY IF EXISTS "Superadmin protected update" ON users';
-  EXECUTE 'DROP POLICY IF EXISTS "Superadmin protected delete" ON users';
-  
   EXECUTE 'CREATE POLICY "Users can read users" ON users FOR SELECT USING (true)';
-  EXECUTE 'CREATE POLICY "Users can insert users" ON users FOR INSERT WITH CHECK ((SELECT is_superadmin FROM users WHERE email = auth.jwt()->>''email'') = TRUE OR is_superadmin IS NOT TRUE)';
-  EXECUTE 'CREATE POLICY "Superadmin protected update" ON users FOR UPDATE USING ((SELECT is_superadmin FROM users WHERE email = auth.jwt()->>''email'') = TRUE OR is_superadmin IS NOT TRUE)';
-  EXECUTE 'CREATE POLICY "Superadmin protected delete" ON users FOR DELETE USING ((SELECT is_superadmin FROM users WHERE email = auth.jwt()->>''email'') = TRUE OR is_superadmin IS NOT TRUE)';
+  
+  EXECUTE 'DROP POLICY IF EXISTS "Allow read access to system_settings" ON system_settings';
+  EXECUTE 'CREATE POLICY "Allow read access to system_settings" ON system_settings FOR SELECT USING (true)';
+  EXECUTE 'DROP POLICY IF EXISTS "Allow admin write access to system_settings" ON system_settings';
+  EXECUTE 'CREATE POLICY "Allow admin write access to system_settings" ON system_settings FOR ALL USING (
+    (SELECT is_superadmin FROM users WHERE email = auth.jwt()->>''email'') = TRUE
+  )';
 END $body$;
 
 -- 17. Default Data

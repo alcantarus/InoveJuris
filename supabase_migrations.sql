@@ -504,7 +504,9 @@ BEGIN
   UPDATE tasks SET environment = 'production' WHERE environment IS NULL;
 
   -- 3. Recreate policies
+  EXECUTE 'DROP POLICY IF EXISTS "Allow all access to tasks" ON tasks';
   EXECUTE 'CREATE POLICY "Allow all access to tasks" ON tasks FOR ALL USING (true) WITH CHECK (true)';
+  EXECUTE 'DROP POLICY IF EXISTS "Allow all access to task_history" ON task_history';
   EXECUTE 'CREATE POLICY "Allow all access to task_history" ON task_history FOR ALL USING (true) WITH CHECK (true)';
 END $$;
 
