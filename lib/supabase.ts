@@ -82,11 +82,13 @@ export const supabase = new Proxy({} as any, {
         // 'geo_cache' is a global IP cache
         // 'client_onboarding_tokens' must be accessible globally for the onboarding flow
         // 'tasks' is currently not partitioned by environment
+        // 'organizations' is global
         if (
           table === 'users' || 
           table === 'user_sessions' || 
           table === 'geo_cache' || 
-          table === 'client_onboarding_tokens'
+          table === 'client_onboarding_tokens' ||
+          table === 'organizations'
         ) {
           return queryBuilder
         }
