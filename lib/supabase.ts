@@ -41,11 +41,14 @@ const setEnvironment = async (client: any) => {
     }
     if (storedOrg) {
       try {
+        console.log('[Supabase] Definindo organização no banco:', storedOrg);
         // Você precisará criar esta função no banco: set_app_organization(org_id uuid)
         await client.rpc('set_app_organization', { org_id: storedOrg });
       } catch (e) {
         console.error('[Supabase] Erro ao definir organização no banco:', e);
       }
+    } else {
+      console.warn('[Supabase] Nenhuma organização encontrada no localStorage.');
     }
   }
 };
@@ -123,12 +126,12 @@ export const supabase = new Proxy({} as any, {
                       ? data.map((item: any) => ({ 
                           ...item, 
                           environment: currentEnv,
-                          organization_id: currentOrg 
+                          organization_id: currentOrg || '00000000-0000-0000-0000-000000000000'
                         }))
                       : { 
                           ...data, 
                           environment: currentEnv,
-                          organization_id: currentOrg 
+                          organization_id: currentOrg || '00000000-0000-0000-0000-000000000000'
                         };
                     console.log(`[Supabase Proxy] DEBUG: ${prop} on ${table}:`, JSON.stringify(newData, null, 2));
                     result = target[prop](newData, ...args.slice(1));
@@ -140,6 +143,10 @@ export const supabase = new Proxy({} as any, {
                     result = target[prop](...args).eq('environment', currentEnv);
                     if (currentOrg) {
                       result = result.eq('organization_id', currentOrg);
+                    } else {
+                      // Se não houver organização, força um ID inválido para não retornar nada
+                      console.error(`[Supabase Proxy] ERRO: Nenhuma organização definida para a tabela ${table}. Bloqueando acesso.`);
+                      result = result.eq('organization_id', '00000000-0000-0000-0000-000000000000');
                     }
                   } else {
                     // For other methods (eq, order, limit, etc.), just execute them
