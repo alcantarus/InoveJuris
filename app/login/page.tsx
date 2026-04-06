@@ -103,7 +103,7 @@ function LoginPageContent() {
                 "w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500",
                 loginStep === 'credentials' 
                   ? "bg-indigo-600 shadow-indigo-600/20" 
-                  : (selectedEnv === 'production' ? "bg-emerald-600 shadow-emerald-600/20" : "bg-amber-500 shadow-amber-500/20")
+                  : "bg-indigo-600 shadow-indigo-600/20"
               )}>
                 <Scale className="text-white" size={32} />
               </div>
