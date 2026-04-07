@@ -87,6 +87,8 @@ export default function IndicadoresPage() {
   const [pixKeyType, setPixKeyType] = useState('CPF')
 
   useEffect(() => {
+    if (!user?.id) return
+
     const fetchIndicators = async () => {
       if (!isSupabaseConfigured) {
         setMounted(true)
@@ -96,6 +98,7 @@ export default function IndicadoresPage() {
       const { data, error } = await supabase
         .from('indicators')
         .select('*, indicator_tokens(token)')
+        .eq('organization_id', user.organizationId)
         .order('name')
       
       if (error) {
@@ -107,7 +110,7 @@ export default function IndicadoresPage() {
     }
 
     fetchIndicators()
-  }, [])
+  }, [user])
 
   const fetchIndicatorTokens = async (indicatorId: number) => {
     const { data, error } = await supabase

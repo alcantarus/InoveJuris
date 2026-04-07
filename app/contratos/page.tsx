@@ -351,12 +351,12 @@ export default function FinanceiroPage() {
     }
 
     const [contractsRes, clientsRes, indicatorsRes, productsRes, accountsRes, categoriesRes, lawyersRes] = await Promise.all([
-        supabase.from('contracts').select('*, clients(name), indicators(name), installments(*)').order('created_at', { ascending: false }),
-        supabase.from('clients').select('id, name, document').order('name'),
-        supabase.from('indicators').select('id, name').order('name'),
-        supabase.from('products').select('*, law_areas(name)').order('name'),
-        supabase.from('bank_accounts').select('id, name').order('name'),
-        supabase.from('financial_categories').select('id, name').eq('type', 'income').order('name'),
+        supabase.from('contracts').select('*, clients(name), indicators(name), installments(*)').eq('organization_id', user?.organizationId).order('created_at', { ascending: false }),
+        supabase.from('clients').select('id, name, document').eq('organization_id', user?.organizationId).order('name'),
+        supabase.from('indicators').select('id, name').eq('organization_id', user?.organizationId).order('name'),
+        supabase.from('products').select('*, law_areas(name)').eq('organization_id', user?.organizationId).order('name'),
+        supabase.from('bank_accounts').select('id, name').eq('organization_id', user?.organizationId).order('name'),
+        supabase.from('financial_categories').select('id, name').eq('type', 'income').eq('organization_id', user?.organizationId).order('name'),
         supabase.from('lawyers').select('id, user_id, users:user_id(name)')
       ])
       
@@ -379,7 +379,7 @@ export default function FinanceiroPage() {
     }
 
     fetchData()
-  }, [])
+  }, [user])
 
   const calculatedCommission = (Number(formData.base_comissao || 0) * Number(formData.commissionPercent || 0)) / 100
 
