@@ -276,6 +276,7 @@ export default function ContasAReceberPage() {
     const { data: paymentsData } = await supabase
       .from('payments')
       .select('amount')
+      .eq('organization_id', user?.organizationId)
       .gte('payment_date', firstDayOfMonth)
       .lte('payment_date', todayStr);
     
@@ -286,6 +287,7 @@ export default function ContasAReceberPage() {
     const { data: installmentsData } = await supabase
       .from('installments')
       .select('amount, amountPaid')
+      .eq('organization_id', user?.organizationId)
       .gte('dueDate', todayStr)
       .lte('dueDate', thirtyDaysStr)
       .neq('status', 'Quitado')

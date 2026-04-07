@@ -334,7 +334,8 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: debouncedSearchTerm
+            p_search_term: debouncedSearchTerm,
+            p_organization_id: user?.organizationId
           })
           
           if (error) throw error
@@ -357,7 +358,8 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: ''
+            p_search_term: '',
+            p_organization_id: user?.organizationId
           })
           
           if (error) throw error
