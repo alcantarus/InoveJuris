@@ -1099,6 +1099,9 @@ CREATE POLICY "Allow authenticated users to manage payments" ON payments
 export default function SetupPage() {
   const [customUrl, setCustomUrl] = useState(supabaseUrl)
   const [customKey, setCustomKey] = useState(supabaseKey)
+  const [copied, setCopied] = useState(false)
+
+  const isCustom = customUrl !== supabaseUrl || customKey !== supabaseKey;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(SQL_SCRIPT)
@@ -1108,11 +1111,11 @@ export default function SetupPage() {
 
   const handleConfigureDatabase = () => {
     handleCopy();
-    const supabaseUrl = config.url;
+    const urlToUse = customUrl;
     // Extract project ref from URL: https://[project-ref].supabase.co
-    const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
+    const projectRef = urlToUse.split('//')[1]?.split('.')[0];
     
-    if (projectRef && !config.isCustom) {
+    if (projectRef && !isCustom) {
       const sqlEditorUrl = `https://supabase.com/dashboard/project/${projectRef}/sql/new`;
       window.open(sqlEditorUrl, '_blank');
       alert('O script SQL foi copiado! O painel do Supabase foi aberto em uma nova aba. Vá em "SQL Editor", cole o script e clique em "Run".');
@@ -1190,7 +1193,7 @@ export default function SetupPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
-                  URL do Supabase {config.isCustom ? '(Personalizada)' : '(Padrão)'}
+                  URL do Supabase {isCustom ? '(Personalizada)' : '(Padrão)'}
                 </p>
                 <input 
                   type="text" 
@@ -1203,7 +1206,7 @@ export default function SetupPage() {
 
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
-                  Chave Anon {config.isCustom ? '(Personalizada)' : '(Padrão)'}
+                  Chave Anon {isCustom ? '(Personalizada)' : '(Padrão)'}
                 </p>
                 <input 
                   type="text" 
@@ -1222,7 +1225,7 @@ export default function SetupPage() {
               >
                 Salvar Configuração Personalizada
               </button>
-              {config.isCustom && (
+              {isCustom && (
                 <button 
                   onClick={handleClearConfig}
                   className="px-4 py-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors font-medium text-sm"
