@@ -325,6 +325,9 @@ BEGIN
 
   -- Fix audit_logs record_id constraint
   ALTER TABLE audit_logs ALTER COLUMN record_id DROP NOT NULL;
+  
+  -- Fix audit_logs sequence
+  PERFORM setval(pg_get_serial_sequence('audit_logs', 'id'), COALESCE((SELECT MAX(id) FROM audit_logs), 1));
 
   -- Fix junction tables for audit system
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'role_permissions') THEN
@@ -504,7 +507,9 @@ BEGIN
   UPDATE tasks SET environment = 'production' WHERE environment IS NULL;
 
   -- 3. Recreate policies
+  EXECUTE 'DROP POLICY IF EXISTS "Allow all access to tasks" ON tasks';
   EXECUTE 'CREATE POLICY "Allow all access to tasks" ON tasks FOR ALL USING (true) WITH CHECK (true)';
+  EXECUTE 'DROP POLICY IF EXISTS "Allow all access to task_history" ON task_history';
   EXECUTE 'CREATE POLICY "Allow all access to task_history" ON task_history FOR ALL USING (true) WITH CHECK (true)';
 END $$;
 
@@ -632,7 +637,7 @@ BEGIN
   SELECT "contractValue" INTO v_contract_value FROM contracts WHERE id = v_contract_id;
 
   -- 2. Update current installment
-  IF v_installment.status = 'Cancelado' THEN
+  IF v_installment.status IN ('Cancelado', 'Cancelada') THEN
     RAISE EXCEPTION 'Não é possível pagar uma parcela cancelada';
   END IF;
 
@@ -1223,6 +1228,7 @@ CREATE POLICY "Authenticated users can update" ON storage.objects FOR UPDATE USI
 CREATE POLICY "Authenticated users can delete" ON storage.objects FOR DELETE USING (bucket_id = 'client_documents' AND auth.role() = 'authenticated');
 
 -- 25. Contract Receivables Summary View
+DROP VIEW IF EXISTS contract_receivables_summary;
 CREATE OR REPLACE VIEW contract_receivables_summary AS
 SELECT 
     c.id AS contract_id,

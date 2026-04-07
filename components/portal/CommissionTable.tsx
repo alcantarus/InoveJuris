@@ -4,6 +4,7 @@ interface Commission {
   total_commission: number
   total_paid: number
   remaining_balance: number
+  contract_status: string
 }
 
 interface CommissionTableProps {
@@ -16,7 +17,7 @@ export function CommissionTable({ data }: CommissionTableProps) {
       <h3 className="text-xl font-bold text-slate-950 mb-8">Minhas Comissões</h3>
       <div className="space-y-4">
         {data.map((s) => {
-          const isPaid = Number(s.remaining_balance) === 0;
+          const isPaid = s.contract_status === 'Quitado';
           return (
             <div key={s.contract_id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 rounded-2xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all items-center">
               <div>
@@ -33,7 +34,7 @@ export function CommissionTable({ data }: CommissionTableProps) {
                   R$ {Number(s.remaining_balance).toFixed(2)}
                 </p>
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {isPaid ? 'Pago' : 'Pendente'}
+                  {s.contract_status}
                 </span>
               </div>
             </div>
