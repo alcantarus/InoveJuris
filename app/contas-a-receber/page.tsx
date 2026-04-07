@@ -157,7 +157,7 @@ export default function ContasAReceberPage() {
       };
       console.log('Calling RPC process_contract_cancellation with payload:', payload);
 
-      const { error: rpcError, data } = await supabase.rpc('process_contract_cancellation', payload, { schema: 'public' });
+      const { error: rpcError, data } = await supabase.rpc('process_contract_cancellation', payload);
 
       if (rpcError) {
         console.error('RPC error details:', JSON.stringify(rpcError, null, 2));
