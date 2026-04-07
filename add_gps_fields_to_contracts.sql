@@ -1,4 +1,0 @@
-ALTER TABLE contracts
-ADD COLUMN IF NOT EXISTS gps_forecast_date DATE,
-ADD COLUMN IF NOT EXISTS gps_payment_date DATE,
-ADD COLUMN IF NOT EXISTS gps_value NUMERIC(10, 2);
