@@ -26,6 +26,7 @@ import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
+import { useAuth } from '@/lib/auth'
 
 interface ChildbirthReportItem {
   id: number
@@ -124,6 +125,7 @@ const ProcessProgressBar = ({ generated, paid }: { generated: boolean, paid: boo
 
 function RelatoriosPageContent() {
   const { isVisible } = usePrivacy()
+  const { user } = useAuth()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab')
   const [activeReport, setActiveReport] = useState<ReportType>('deadlines')
