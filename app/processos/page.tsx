@@ -22,7 +22,6 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatDateTime, removeAccents, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
-import { getAppEnv } from '@/lib/env'
 import { AlertTriangle, History, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import KanbanBoard from '@/components/KanbanBoard'
@@ -352,8 +351,7 @@ export default function ProcessosPage() {
           process_id: editingProcess.id,
           deadline_date: d.deadline_time ? `${d.deadline_date} ${d.deadline_time}:00` : d.deadline_date,
           description: d.description,
-          status: d.status || 'Pendente',
-          environment: getAppEnv()
+          status: d.status || 'Pendente'
         }));
         
         console.log('Inserting deadlines:', deadlinesToInsert);
@@ -392,8 +390,7 @@ export default function ProcessosPage() {
               process_id: newProcessId,
               deadline_date: d.deadline_time ? `${d.deadline_date} ${d.deadline_time}:00` : d.deadline_date,
               description: d.description,
-              status: d.status || 'Pendente',
-              environment: getAppEnv()
+              status: d.status || 'Pendente'
             }))
             const { error: insertError } = await supabase.from('process_deadlines').insert(deadlinesToInsert)
             

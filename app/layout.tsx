@@ -40,6 +40,7 @@ export default async function RootLayout({
   // Get environment from cookies or env var for consistent SSR
   const cookieStore = await cookies();
   const envCookie = cookieStore.get('app_env')?.value;
+  const orgId = cookieStore.get('app_org')?.value;
   const appEnv = (envCookie as any) || process.env.NEXT_PUBLIC_APP_ENV || 'production';
 
   return (
@@ -53,7 +54,7 @@ export default async function RootLayout({
         <ResizeObserverFix />
         <SettingsProvider>
           <PrivacyProvider>
-            <OrganizationProvider>
+            <OrganizationProvider initialOrgId={orgId}>
               <EnvBanner />
               <SessionMonitor />
               <GlobalSearch />

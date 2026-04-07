@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Copy, CheckCircle2, AlertTriangle, Database, Save, RotateCcw, Server, ShieldCheck, Trash2, Loader2, Activity } from 'lucide-react';
-import { supabase, getSupabaseConfig } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseKey } from '@/lib/supabase';
 import { getAppEnv } from '@/lib/env';
 import { toast } from 'sonner';
 
@@ -489,13 +489,13 @@ BEGIN
 END $body$;
 
 -- Default Data
-INSERT INTO system_settings (key, value, description, category, environment)
+INSERT INTO system_settings (key, value, description, category)
 VALUES
-  ('session_timeout', '{"enabled": false, "minutes": 30, "warning_minutes": 5}', 'Configuração de timeout de sessão', 'security', 'production'),
-  ('maintenance_mode', '{"enabled": false}', 'Modo de manutenção do sistema', 'system', 'production'),
-  ('general_preferences', '{"timezone": "America/Sao_Paulo", "date_format": "DD/MM/YYYY"}', 'Preferências gerais de data e hora', 'general', 'production'),
-  ('appearance', '{"theme": "system", "primary_color": "indigo"}', 'Aparência e tema do sistema', 'appearance', 'production')
-ON CONFLICT (key, environment) DO NOTHING;
+  ('session_timeout', '{"enabled": false, "minutes": 30, "warning_minutes": 5}', 'Configuração de timeout de sessão', 'security'),
+  ('maintenance_mode', '{"enabled": false}', 'Modo de manutenção do sistema', 'system'),
+  ('general_preferences', '{"timezone": "America/Sao_Paulo", "date_format": "DD/MM/YYYY"}', 'Preferências gerais de data e hora', 'general'),
+  ('appearance', '{"theme": "system", "primary_color": "indigo"}', 'Aparência e tema do sistema', 'appearance')
+ON CONFLICT (key) DO NOTHING;
 
 -- Enable Realtime for system_settings
 DO $body$
@@ -517,16 +517,10 @@ BEGIN
 END $body$;
 
 -- 21. Security & Performance Improvements (Indexes & Constraints)
--- Indexes for Foreign Keys and Environment
-CREATE INDEX IF NOT EXISTS idx_users_environment ON users(environment);
-CREATE INDEX IF NOT EXISTS idx_clients_environment ON clients(environment);
+-- Indexes for Foreign Keys
 CREATE INDEX IF NOT EXISTS idx_contracts_client_id ON contracts(client_id);
-CREATE INDEX IF NOT EXISTS idx_contracts_environment ON contracts(environment);
 CREATE INDEX IF NOT EXISTS idx_installments_contract_id ON installments(contract_id);
-CREATE INDEX IF NOT EXISTS idx_installments_environment ON installments(environment);
 CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON financial_transactions(account_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_environment ON financial_transactions(environment);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_environment ON audit_logs(environment);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_record_id ON audit_logs(record_id);
 
 -- Data Integrity Constraints
@@ -614,11 +608,11 @@ INSERT INTO permissions (slug, description) VALUES
   ('access_test_env', 'Acesso ao Ambiente de Testes')
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO roles (name, description, environment) VALUES
-  ('Administrador', 'Acesso total ao sistema', 'production'),
-  ('Advogado', 'Acesso a clientes e processos', 'production'),
-  ('Financeiro', 'Acesso a financeiro e fluxo de caixa', 'production')
-ON CONFLICT (name, environment) DO NOTHING;
+INSERT INTO roles (name, description) VALUES
+  ('Administrador', 'Acesso total ao sistema'),
+  ('Advogado', 'Acesso a clientes e processos'),
+  ('Financeiro', 'Acesso a financeiro e fluxo de caixa')
+ON CONFLICT (name) DO NOTHING;
 
 -- Map Admin Role to All Permissions
 INSERT INTO role_permissions (role_id, permission_id)
@@ -682,8 +676,8 @@ export function SystemTab() {
 
   useEffect(() => {
     // Load existing custom config if any
-    const storedUrl = localStorage.getItem('custom_supabase_url_production');
-    const storedKey = localStorage.getItem('custom_supabase_key_production');
+    const storedUrl = localStorage.getItem('custom_supabase_url');
+    const storedKey = localStorage.getItem('custom_supabase_key');
     if (storedUrl) setCustomUrl(storedUrl);
     if (storedKey) setCustomKey(storedKey);
   }, []);
@@ -751,11 +745,11 @@ export function SystemTab() {
 
   const saveSupabaseConfig = () => {
     try {
-      if (customUrl) localStorage.setItem('custom_supabase_url_production', customUrl);
-      else localStorage.removeItem('custom_supabase_url_production');
+      if (customUrl) localStorage.setItem('custom_supabase_url', customUrl);
+      else localStorage.removeItem('custom_supabase_url');
       
-      if (customKey) localStorage.setItem('custom_supabase_key_production', customKey);
-      else localStorage.removeItem('custom_supabase_key_production');
+      if (customKey) localStorage.setItem('custom_supabase_key', customKey);
+      else localStorage.removeItem('custom_supabase_key');
 
       setSaveStatus('success');
       setTimeout(() => {
@@ -768,8 +762,8 @@ export function SystemTab() {
   };
 
   const restoreDefaultSupabaseConfig = () => {
-    localStorage.removeItem('custom_supabase_url_production');
-    localStorage.removeItem('custom_supabase_key_production');
+    localStorage.removeItem('custom_supabase_url');
+    localStorage.removeItem('custom_supabase_key');
     setCustomUrl('');
     setCustomKey('');
     setSaveStatus('success');
@@ -1123,7 +1117,7 @@ export function SystemTab() {
                     id="supabase-url"
                     value={customUrl}
                     onChange={(e) => setCustomUrl(e.target.value)}
-                    placeholder={getSupabaseConfig(env).url}
+                    placeholder={supabaseUrl}
                     className="block w-full rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
                 </div>
@@ -1140,7 +1134,7 @@ export function SystemTab() {
                     id="supabase-key"
                     value={customKey}
                     onChange={(e) => setCustomKey(e.target.value)}
-                    placeholder={getSupabaseConfig(env).key.substring(0, 10) + '...'}
+                    placeholder={supabaseKey.substring(0, 10) + '...'}
                     className="block w-full rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
                 </div>

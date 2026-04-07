@@ -157,7 +157,6 @@ export async function POST(request: Request) {
       const loginISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
       console.log('Session API: Inserindo nova sessão com dados:', {
         user_id: Number(userId),
-        environment: environment,
         ip_address: ip,
         user_agent: readableUA,
         login_at: loginISO,

@@ -74,10 +74,7 @@ export async function POST(request: Request) {
     for (const tableName of tableNames) {
       let query = supabase.from(tableName).select('*');
       
-      // Apply environment filter for all tables except 'users'
-      if (tableName !== 'users') {
-        // No longer filtering by environment
-      }
+      // Fetch all data
 
       const { data, error } = await query;
 

@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS lawyers (
   specialty TEXT,
   color_code TEXT,
   is_partner BOOLEAN DEFAULT FALSE,
-  environment TEXT DEFAULT 'production',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

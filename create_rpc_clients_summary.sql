@@ -1,9 +1,10 @@
 -- 1. Criar função RPC para buscar clientes com resumo de processos e financeiro
+DROP FUNCTION IF EXISTS get_clients_with_process_summary(INT, INT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS get_clients_with_process_summary(INT, INT, TEXT);
 CREATE OR REPLACE FUNCTION get_clients_with_process_summary(
     p_from INT,
     p_to INT,
-    p_search_term TEXT DEFAULT NULL,
-    p_environment TEXT DEFAULT 'production'
+    p_search_term TEXT DEFAULT NULL
 )
 RETURNS TABLE (
     client_data JSONB,
@@ -57,8 +58,7 @@ BEGIN
         JOIN installments i ON co.id = i.contract_id
         GROUP BY co.client_id
     ) f ON c.id = f.client_id
-    WHERE c.environment = p_environment
-      AND (p_search_term IS NULL OR c.name ILIKE '%' || p_search_term || '%')
+    WHERE (p_search_term IS NULL OR c.name ILIKE '%' || p_search_term || '%')
     ORDER BY c.name
     LIMIT (p_to - p_from + 1) OFFSET p_from;
 END;

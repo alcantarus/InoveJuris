@@ -10,8 +10,7 @@ export async function GET() {
         last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         logout_at TIMESTAMPTZ,
         ip_address TEXT,
-        user_agent TEXT,
-        environment TEXT NOT NULL DEFAULT 'production'
+        user_agent TEXT
       );
 
       ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;

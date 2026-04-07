@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled')),
     priority INT DEFAULT 1 CHECK (priority BETWEEN 1 AND 3),
     rescheduled_count INT DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    environment TEXT DEFAULT 'production'
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 

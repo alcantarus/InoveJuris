@@ -33,8 +33,6 @@ interface AuditLog {
   performer_name?: string
 }
 
-import { getAppEnv } from '@/lib/env'
-
 export default function AuditoriaPage() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'data' | 'access'>('data')
@@ -111,11 +109,9 @@ export default function AuditoriaPage() {
       }
 
       // Fetch logs
-      const currentEnv = getAppEnv()
       let query = supabase
         .from('audit_logs')
         .select('*')
-        .eq('environment', currentEnv)
         .order('performed_at', { ascending: false })
         .limit(100)
 
@@ -130,9 +126,6 @@ export default function AuditoriaPage() {
       const { data, error } = await query
       
       console.log('DEBUG: Audit Logs fetched:', data?.length);
-      if (data && data.length > 0) {
-        console.log('DEBUG: First log environment:', data[0].environment);
-      }
 
       if (error) {
         console.error('Error fetching audit logs:', error)

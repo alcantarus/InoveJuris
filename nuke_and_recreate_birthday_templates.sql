@@ -36,8 +36,7 @@ CREATE TABLE birthday_templates (
     show_client_photo BOOLEAN DEFAULT false,
     
     -- Configuração
-    is_active BOOLEAN DEFAULT true,
-    environment TEXT DEFAULT 'production'
+    is_active BOOLEAN DEFAULT true
 );
 
 -- 3. Habilitar segurança (RLS)

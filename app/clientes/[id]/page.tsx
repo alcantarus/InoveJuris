@@ -26,7 +26,6 @@ import {
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { getAppEnv } from '@/lib/env'
 import { formatCurrency, formatDate, cn, getTodayBR } from '@/lib/utils'
 import { motion } from 'motion/react'
 
@@ -161,8 +160,7 @@ export default function ClientProfilePage() {
       const dataToInsert = {
           client_id: parseInt(clientId, 10),
           token,
-          expires_at: expiresAt.toISOString(),
-          environment: getAppEnv()
+          expires_at: expiresAt.toISOString()
       };
       console.log('Dados para inserir:', dataToInsert);
 
@@ -233,8 +231,7 @@ export default function ClientProfilePage() {
           type: newInteraction.type,
           notes: newInteraction.notes,
           date: newInteraction.date,
-          user_id: user?.id,
-          environment: getAppEnv()
+          user_id: user?.id
         }])
         .select('*, users(name)')
         .single()
@@ -278,8 +275,7 @@ export default function ClientProfilePage() {
           client_id: clientId,
           file_url: publicUrl,
           document_type: file.name,
-          created_by: user?.id,
-          environment: getAppEnv()
+          created_by: user?.id
         }])
         .select()
         .single()

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getAppEnv } from '@/lib/env'
 import { Loader2, CheckCircle2, AlertTriangle, User, Mail, Phone, MapPin, FileText } from 'lucide-react'
 import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, formatCEP, formatPhone, cn } from '@/lib/utils'
 import { motion } from 'motion/react'
@@ -49,7 +48,7 @@ export default function OnboardingPage() {
         // Find token
         const { data: tokenData, error: tokenError } = await supabase
           .from('client_onboarding_tokens')
-          .select('id, client_id, used, expires_at, environment')
+          .select('id, client_id, used, expires_at')
           .eq('token', token)
           .single()
 
@@ -57,15 +56,6 @@ export default function OnboardingPage() {
           setError('Link inválido ou não encontrado.')
           setIsLoading(false)
           return
-        }
-
-        // Check if environment matches
-        const currentEnv = getAppEnv();
-        if (tokenData.environment && tokenData.environment !== currentEnv) {
-          console.log(`[Onboarding] Switching environment from ${currentEnv} to ${tokenData.environment}`);
-          document.cookie = `app_env=${tokenData.environment}; path=/; max-age=31536000`;
-          window.location.reload();
-          return;
         }
 
         if (tokenData.used) {

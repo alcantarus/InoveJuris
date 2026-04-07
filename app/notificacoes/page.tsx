@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '@/app/dashboard-layout'
 import { supabase } from '@/lib/supabase'
-import { getAppEnv } from '@/lib/env'
 import { useAuth } from '@/lib/auth'
 import { Bell, CheckCircle2, Trash2, AlertTriangle, Info, CheckCircle, Cake } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -20,7 +19,6 @@ export default function NotificationsPage() {
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
-      .eq('environment', getAppEnv())
       .order('created_at', { ascending: false })
     
     if (error) console.error('Error fetching notifications:', error)
@@ -68,8 +66,7 @@ export default function NotificationsPage() {
         .from('notifications')
         .update({ is_read: true })
         .eq('id', id)
-        .eq('user_id', user.id)
-        .eq('environment', getAppEnv());
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('[Notifications] Error marking as read:', error);
@@ -91,8 +88,7 @@ export default function NotificationsPage() {
         .from('notifications')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id)
-        .eq('environment', getAppEnv());
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('[Notifications] Error deleting notification:', error);
@@ -112,7 +108,6 @@ export default function NotificationsPage() {
       .update({ is_read: true })
       .eq('is_read', false)
       .eq('user_id', user.id)
-      .eq('environment', getAppEnv())
     
     if (error) console.error('Error marking all as read:', error)
     else {
@@ -137,8 +132,7 @@ export default function NotificationsPage() {
           message: 'Esta é uma notificação de teste para verificar se o sistema está funcionando.',
           type: 'success',
           user_id: Number(user.id),
-          is_read: false,
-          environment: getAppEnv()
+          is_read: false
         });
       
       if (error) {

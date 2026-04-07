@@ -30,7 +30,6 @@ import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPI
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { getAppEnv } from '@/lib/env'
 import Link from 'next/link'
 
 interface Client {
@@ -322,11 +321,10 @@ export default function ClientesPage() {
         const from = (page - 1) * pageSize
         const to = from + pageSize - 1
 
-        // Obtém o total real de clientes para o ambiente atual
+        // Obtém o total real de clientes
         const { count: totalCount, error: countError } = await supabase
           .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('environment', getAppEnv());
+          .select('*', { count: 'exact', head: true });
 
         if (countError) throw countError;
         setTotalCount(totalCount || 0);
@@ -336,8 +334,7 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: debouncedSearchTerm,
-            p_environment: getAppEnv()
+            p_search_term: debouncedSearchTerm
           })
           
           if (error) throw error
@@ -360,8 +357,7 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: '',
-            p_environment: getAppEnv()
+            p_search_term: ''
           })
           
           if (error) throw error

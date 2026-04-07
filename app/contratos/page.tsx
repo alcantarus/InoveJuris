@@ -350,9 +350,6 @@ export default function FinanceiroPage() {
       return
     }
 
-    const currentEnv = document.documentElement.dataset.env || 'production';
-    console.log('Fetching data for environment:', currentEnv);
-
     const [contractsRes, clientsRes, indicatorsRes, productsRes, accountsRes, categoriesRes, lawyersRes] = await Promise.all([
         supabase.from('contracts').select('*, clients(name), indicators(name), installments(*)').order('created_at', { ascending: false }),
         supabase.from('clients').select('id, name, document').order('name'),

@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     type TEXT DEFAULT 'info',
     is_read BOOLEAN DEFAULT FALSE,
     user_id BIGINT REFERENCES public.users(id) ON DELETE CASCADE,
-    environment TEXT DEFAULT 'production',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -40,7 +39,6 @@ CREATE TABLE IF NOT EXISTS public.process_deadlines (
     deadline_date DATE NOT NULL,
     description TEXT,
     status TEXT DEFAULT 'Pendente',
-    environment TEXT DEFAULT 'production',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -94,10 +92,9 @@ DECLARE
     v_process_number TEXT;
     v_client_name TEXT;
     v_days_remaining INTEGER;
-    v_env TEXT;
 BEGIN
     -- Busca informações do processo
-    SELECT number, client, created_by, environment INTO v_process_number, v_client_name, v_user_id, v_env
+    SELECT number, client, created_by INTO v_process_number, v_client_name, v_user_id
     FROM public.processes
     WHERE id = NEW.process_id;
 
@@ -117,7 +114,7 @@ BEGIN
             AND user_id = v_user_id 
             AND is_read = FALSE
         ) THEN
-            INSERT INTO public.notifications (title, message, type, user_id, environment, is_read)
+            INSERT INTO public.notifications (title, message, type, user_id, is_read)
             VALUES (
                 v_title,
                 v_message,
@@ -127,7 +124,6 @@ BEGIN
                     ELSE 'info'
                 END,
                 v_user_id,
-                COALESCE(NEW.environment, v_env, 'production'),
                 FALSE
             );
         END IF;

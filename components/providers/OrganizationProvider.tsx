@@ -5,20 +5,17 @@ import { supabase } from '@/lib/supabase';
 
 const OrganizationContext = createContext({ loading: true });
 
-export function OrganizationProvider({ children }: { children: React.ReactNode }) {
+export function OrganizationProvider({ children, initialOrgId }: { children: React.ReactNode, initialOrgId?: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initializeOrganization = async () => {
-      const orgId = localStorage.getItem('app_org');
-      const env = process.env.NEXT_PUBLIC_APP_ENV || 'production';
-      
       try {
         // Define a organização no contexto do banco de dados
         
-        if (orgId) {
-          console.log('[OrganizationProvider] Definindo organização no banco:', orgId);
-          await supabase.rpc('set_app_organization', { org_id: orgId });
+        if (initialOrgId) {
+          console.log('[OrganizationProvider] Definindo organização no banco:', initialOrgId);
+          await supabase.rpc('set_app_organization', { org_id: initialOrgId });
         }
       } catch (e) {
         console.error('[OrganizationProvider] Erro ao definir contexto no banco:', e);
@@ -27,7 +24,7 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
       }
     };
     initializeOrganization();
-  }, []);
+  }, [initialOrgId]);
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Carregando sistema...</div>;

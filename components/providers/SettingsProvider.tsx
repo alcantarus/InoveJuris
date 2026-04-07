@@ -76,7 +76,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const fetchSettings = async () => {
     try {
-      // The supabase client proxy automatically adds .eq('environment', APP_ENV)
       const { data, error } = await supabase
         .from('system_settings')
         .select('key, value');
@@ -151,7 +150,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // Optimistic update
       setSettings((prev) => ({ ...prev, [key]: value }));
 
-      // The supabase client proxy automatically adds environment: APP_ENV to the payload
       // We explicitly pass the key to ensure onConflict works correctly
       const { error } = await supabase
         .from('system_settings')

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, getSupabase, getSupabaseConfig } from './supabase'
+import { supabase, getSupabase, supabaseUrl } from './supabase'
 import bcrypt from 'bcryptjs'
 import { setCookie, deleteCookie } from 'cookies-next'
 import { AppEnv } from './env'
@@ -147,8 +147,6 @@ export function useAuth() {
       }
 
       // Debug: Check if we are using placeholder
-      const prodConfigCheck = getSupabaseConfig('production')
-      const supabaseUrl = prodConfigCheck.url
       console.log('[Auth] URL do Supabase Prod:', supabaseUrl)
       
       if (supabaseUrl.includes('placeholder')) {
@@ -337,7 +335,6 @@ export function useAuth() {
     localStorage.removeItem('inovejuris_user')
     localStorage.removeItem('session_last_activity')
     localStorage.removeItem('app_org')
-    deleteCookie('app_env')
     deleteCookie('app_org')
     setUser(null)
     window.location.href = '/login'
@@ -395,39 +392,6 @@ export function useAuth() {
       return { success: false, error: 'Erro ao acessar como usuário.' }
     }
   }
-
-  const switchEnvironment = async (newEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'Usuário não autenticado.' };
-
-    // Check permissions
-    if (newEnv === 'production' && user.canAccessProdEnv === false) {
-      return { success: false, error: 'Você não tem permissão para acessar o Ambiente de Produção.' };
-    }
-    if (newEnv === 'test' && !user.canAccessTestEnv) {
-      return { success: false, error: 'Você não tem permissão para acessar o Ambiente de Teste.' };
-    }
-
-    try {
-      const updatedUser = { ...user, selectedEnv: newEnv };
-      
-      // Set environment cookie
-      setCookie('app_env', newEnv, { 
-        maxAge: 60 * 60 * 24 * 7, 
-        path: '/',
-        sameSite: 'none',
-        secure: true
-      });
-
-      localStorage.setItem('inovejuris_user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
-      
-      // Force reload to apply changes
-      window.location.reload();
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: 'Erro ao trocar de ambiente.' };
-    }
-  };
 
   const switchOrganization = async (newOrgId: string): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Usuário não autenticado.' };
@@ -491,5 +455,5 @@ export function useAuth() {
       .filter((org: any) => org !== null)
   }
 
-  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment, switchOrganization, fetchUserOrganizations }
+  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchOrganization, fetchUserOrganizations }
 }

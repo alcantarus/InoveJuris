@@ -12,9 +12,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Datas de início e fim são obrigatórias' }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const appEnv = cookieStore.get('app_env')?.value || 'production';
-    
     // Initialize Supabase Client
     const supabase = createClient(defaultUrlProd, defaultKeyProd);
 
@@ -34,7 +31,6 @@ export async function POST(request: Request) {
     const { error, count } = await supabase
       .from('audit_logs')
       .delete({ count: 'exact' })
-      .eq('environment', appEnv)
       .gte('performed_at', start.toISOString())
       .lte('performed_at', end.toISOString());
 
