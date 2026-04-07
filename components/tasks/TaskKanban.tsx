@@ -337,9 +337,10 @@ export default function TaskKanban() {
   }, [fetchTasks]);
 
   useEffect(() => {
-    fetchBoardAndColumns();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (user?.organizationId) {
+      fetchBoardAndColumns();
+    }
+  }, [user?.organizationId, fetchBoardAndColumns]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),

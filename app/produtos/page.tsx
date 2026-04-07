@@ -55,8 +55,8 @@ export default function ProdutosPage() {
       }
 
       const [productsRes, areasRes] = await Promise.all([
-        supabase.from('products').select('*, law_areas(name)').order('name'),
-        supabase.from('law_areas').select('*').order('name')
+        supabase.from('products').select('*, law_areas(name)').eq('organization_id', user?.organizationId).order('name'),
+        supabase.from('law_areas').select('*').eq('organization_id', user?.organizationId).order('name')
       ])
       
       if (productsRes.error) console.error('Error fetching products:', productsRes.error)
@@ -96,7 +96,8 @@ export default function ProdutosPage() {
     const productData = {
       name: formData.name,
       law_area_id: formData.law_area_id,
-      updated_by: user?.id || null
+      updated_by: user?.id || null,
+      organization_id: user?.organizationId
     }
 
     if (editingProduct) {
@@ -140,7 +141,7 @@ export default function ProdutosPage() {
 
     const { data, error } = await supabase
       .from('law_areas')
-      .insert([{ name: areaName, created_by: user?.id || null, updated_by: user?.id || null }])
+      .insert([{ name: areaName, created_by: user?.id || null, updated_by: user?.id || null, organization_id: user?.organizationId }])
       .select()
     
     if (error) {

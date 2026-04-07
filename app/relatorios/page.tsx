@@ -221,6 +221,7 @@ function RelatoriosPageContent() {
       const { data, error } = await supabase
         .from('contracts')
         .select('*, clients(name)')
+        .eq('organization_id', user?.organizationId)
         .not('gps_forecast_date', 'is', null)
 
       if (error) {

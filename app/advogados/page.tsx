@@ -70,7 +70,7 @@ export default function LawyersPage() {
   }, [])
 
   async function fetchData() {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !currentUser?.organizationId) {
       setMounted(true)
       return
     }
@@ -93,13 +93,14 @@ export default function LawyersPage() {
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('id, name, email')
+        .eq('organization_id', currentUser?.organizationId)
         .order('name')
 
       if (usersError) throw usersError
       setUsers(usersData || [])
     } catch (error: any) {
       console.error('Error fetching data:', error)
-      toast.error('Erro ao carregar dados')
+      toast.error('Erro ao carregar dados.')
     } finally {
       setLoading(false)
       setMounted(true)
