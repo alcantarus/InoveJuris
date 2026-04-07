@@ -393,14 +393,18 @@ export function useAuth() {
     }
   }
 
+  const setOrganizationContext = async (orgId: string) => {
+    const authClient = getSupabase();
+    const { error } = await authClient.rpc('set_app_organization', { org_id: orgId });
+    if (error) console.error('Erro ao definir contexto de organização:', error);
+  };
+
   const switchOrganization = async (newOrgId: string): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Usuário não autenticado.' };
 
     try {
       // 1. Atualizar no banco de dados (contexto da sessão)
-      const authClient = getSupabase();
-      const { error } = await authClient.rpc('set_app_organization', { org_id: newOrgId });
-      if (error) throw error;
+      await setOrganizationContext(newOrgId);
 
       // 2. Atualizar cookies e localStorage
       setCookie('app_org', newOrgId, { 
@@ -469,5 +473,5 @@ export function useAuth() {
     }
   };
 
-  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchOrganization, fetchUserOrganizations, switchEnvironment }
+  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchOrganization, fetchUserOrganizations, switchEnvironment, setOrganizationContext }
 }

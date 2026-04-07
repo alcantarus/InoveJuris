@@ -41,7 +41,7 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = React.useState(true)
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
   const [isAboutOpen, setIsAboutOpen] = React.useState(false)
-  const { user, logout, switchEnvironment, switchOrganization, fetchUserOrganizations } = useAuth()
+  const { user, logout, switchEnvironment, switchOrganization, fetchUserOrganizations, setOrganizationContext } = useAuth()
   const { settings } = useSettings()
   const [unreadCount, setUnreadCount] = useState(0)
   const [isSwitchingEnv, setIsSwitchingEnv] = useState(false)
@@ -55,14 +55,17 @@ export function Sidebar() {
         setOrganizations(orgs);
         
         const orgId = localStorage.getItem('app_org');
-        const currentOrg = orgs.find((o: any) => o.id === orgId);
-        if (currentOrg) {
-          setOrgName(currentOrg.name);
+        if (orgId) {
+          setOrganizationContext(orgId);
+          const currentOrg = orgs.find((o: any) => o.id === orgId);
+          if (currentOrg) {
+            setOrgName(currentOrg.name);
+          }
         }
       }
     };
     fetchOrgData();
-  }, [user, fetchUserOrganizations]);
+  }, [user, fetchUserOrganizations, setOrganizationContext]);
 
   const isProduction = getIsProduction()
   const envName = getEnvName()
