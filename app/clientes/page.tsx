@@ -96,6 +96,7 @@ const DEFAULT_CLIENTS: Client[] = [
 ]
 
 function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: string | null, onChange: (name: string) => void, placeholder?: string, excludeId?: number }) {
+  const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [localClients, setLocalClients] = useState<{id: number, name: string, document?: string | null}[]>([])
