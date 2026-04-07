@@ -3,7 +3,6 @@
 import React, { useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { getAppEnv } from '@/lib/env'
 import { getTodayBR } from '@/lib/utils'
 
 export function GPSNotificationChecker() {
@@ -38,7 +37,6 @@ export function GPSNotificationChecker() {
           .eq('user_id', user.id)
           .eq('title', title)
           .eq('message', message)
-          .eq('environment', getAppEnv())
           .gte('created_at', getTodayBR())
 
         if (checkError) throw checkError
@@ -52,8 +50,7 @@ export function GPSNotificationChecker() {
               message,
               type: 'warning',
               user_id: Number(user.id),
-              is_read: false,
-              environment: getAppEnv()
+              is_read: false
             })
         }
       }

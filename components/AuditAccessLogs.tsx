@@ -33,7 +33,6 @@ import {
   Line,
 } from 'recharts'
 
-import { getAppEnv } from '@/lib/env'
 import { getTodayBR } from '@/lib/utils'
 
 interface AccessLog {
@@ -45,7 +44,6 @@ interface AccessLog {
   ip_address: string
   user_agent: string
   location: string | null
-  environment: string
   user: {
     name: string
     email: string
@@ -70,7 +68,6 @@ export function AuditAccessLogs() {
   const [dateRange, setDateRange] = useState<'all' | 'today' | '7days' | '30days'>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
   const [eventType, setEventType] = useState<string>('all')
-  const currentEnv = getAppEnv()
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -86,7 +83,6 @@ export function AuditAccessLogs() {
             *,
             user:users!user_sessions_user_id_fkey(name, email)
           `)
-          .eq('environment', currentEnv)
           .order('login_at', { ascending: false })
           .limit(500),
         supabase
@@ -112,7 +108,7 @@ export function AuditAccessLogs() {
     }
 
     fetchLogs()
-  }, [currentEnv])
+  }, [])
 
   const handleTerminateSession = async (sessionId: string) => {
     if (!confirm('Tem certeza que deseja encerrar esta sessão? O usuário será desconectado.')) return
@@ -152,7 +148,6 @@ export function AuditAccessLogs() {
           user_agent: log.user_agent,
           ip_address: log.ip_address,
           location: log.location || 'Desconhecido',
-          environment: currentEnv
         }])
 
       if (error) {
@@ -200,7 +195,6 @@ export function AuditAccessLogs() {
       log.user?.name?.toLowerCase().includes(term) ||
       log.user?.email?.toLowerCase().includes(term) ||
       log.ip_address?.toLowerCase().includes(term) ||
-      log.environment?.toLowerCase().includes(term) ||
       log.location?.toLowerCase().includes(term)
     )
     
@@ -311,13 +305,12 @@ export function AuditAccessLogs() {
 
   const exportToCSV = () => {
     if (activeTab === 'sessions') {
-      const headers = ['Usuário', 'E-mail', 'Ambiente', 'Status', 'Login', 'Último Acesso', 'IP', 'Localização', 'Dispositivo']
+      const headers = ['Usuário', 'E-mail', 'Status', 'Login', 'Último Acesso', 'IP', 'Localização', 'Dispositivo']
       const rows = filteredLogs.map(log => {
         const status = getSessionStatus(log).label
         return [
           log.user?.name || 'Desconhecido',
           log.user?.email || '',
-          log.environment === 'production' ? 'Produção' : 'Teste',
           status,
           new Date(log.login_at).toLocaleString('pt-BR'),
           new Date(log.last_seen_at).toLocaleString('pt-BR'),
@@ -570,7 +563,6 @@ export function AuditAccessLogs() {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
                     <th className="p-4 font-medium whitespace-nowrap">Usuário</th>
-                    <th className="p-4 font-medium whitespace-nowrap">Ambiente</th>
                     <th className="p-4 font-medium whitespace-nowrap">Status</th>
                     <th className="p-4 font-medium whitespace-nowrap">Login / Último Acesso</th>
                     <th className="p-4 font-medium whitespace-nowrap">IP / Local / Dispositivo</th>
@@ -585,13 +577,6 @@ export function AuditAccessLogs() {
                         <td className="p-4 whitespace-nowrap">
                           <div className="font-medium text-slate-900">{log.user?.name || 'Desconhecido'}</div>
                           <div className="text-xs text-slate-500">{log.user?.email}</div>
-                        </td>
-                        <td className="p-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            log.environment === 'production' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'
-                          }`}>
-                            {log.environment === 'production' ? 'Produção' : 'Teste'}
-                          </span>
                         </td>
                         <td className="p-4 whitespace-nowrap">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${status.color}`}>

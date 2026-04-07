@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { getAppEnv } from '@/lib/env';
 
 interface SystemSettings {
   session_timeout: {
@@ -123,7 +122,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           event: '*',
           schema: 'public',
           table: 'system_settings',
-          filter: `environment=eq.${getAppEnv()}`,
         },
         (payload: any) => {
           console.log('Settings changed:', payload);
@@ -153,20 +151,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // Optimistic update
       setSettings((prev) => ({ ...prev, [key]: value }));
 
-      const env = getAppEnv();
-      
       // The supabase client proxy automatically adds environment: APP_ENV to the payload
-      // We explicitly pass the environment and key to ensure onConflict works correctly
+      // We explicitly pass the key to ensure onConflict works correctly
       const { error } = await supabase
         .from('system_settings')
         .upsert({
           key,
           value,
-          environment: env, // Explicitly include for clarity
           updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
           ...(user?.id ? { updated_by: user.id } : {}),
         }, {
-          onConflict: 'key,environment'
+          onConflict: 'key'
         });
 
       if (error) {

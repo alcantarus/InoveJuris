@@ -434,7 +434,6 @@ CREATE TABLE IF NOT EXISTS birthday_templates (
   line_height TEXT DEFAULT '1.2',
   text_align TEXT DEFAULT 'center',
   is_active BOOLEAN DEFAULT true,
-  environment TEXT DEFAULT 'production',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -443,7 +442,6 @@ CREATE TABLE IF NOT EXISTS birthday_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   content TEXT NOT NULL,
   is_active BOOLEAN DEFAULT true,
-  environment TEXT DEFAULT 'production',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -453,7 +451,6 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
   client_id UUID NOT NULL,
   template_id UUID,
   type TEXT DEFAULT 'birthday_card',
-  environment TEXT DEFAULT 'production',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );`}
         </pre>

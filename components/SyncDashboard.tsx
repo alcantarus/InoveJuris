@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
-import { getAppEnv } from '@/lib/env';
 
 const supabase = createClient(
   defaultUrlProd,
@@ -29,20 +28,18 @@ async function syncProcess(process_id: number, process_number: string) {
 export default function SyncDashboard() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const currentEnv = getAppEnv();
 
   useEffect(() => {
     async function fetchData() {
       const { data, error } = await supabase
         .from('process_sync_status')
-        .select('*')
-        .eq('environment', currentEnv);
+        .select('*');
       
       if (data) setData(data);
       setLoading(false);
     }
     fetchData();
-  }, [currentEnv]);
+  }, []);
 
   if (loading) return <div>Carregando status de sincronização...</div>;
 

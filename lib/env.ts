@@ -1,21 +1,8 @@
-import { getCookie } from 'cookies-next';
-
 export type AppEnv = 'production' | 'test';
 
+// Simplificado: lê apenas da variável de ambiente
 export const getAppEnv = (): AppEnv => {
-  // Try to get from environment variable first (consistent across server/client)
-  const defaultEnv = (process.env.NEXT_PUBLIC_APP_ENV as AppEnv) || 'production';
-
-  if (typeof window === 'undefined') {
-    // Server-side: we cannot read cookies synchronously in Next.js 15.
-    // Return the environment variable value or 'production'.
-    return defaultEnv;
-  }
-  
-  // Client-side: try to get from html dataset (set in RootLayout)
-  const env = document.documentElement.dataset.env as AppEnv;
-  
-  return env || defaultEnv;
+  return (process.env.NEXT_PUBLIC_APP_ENV as AppEnv) || 'production';
 };
 
 export const getEnvConfig = (env: AppEnv) => {
@@ -28,8 +15,7 @@ export const getEnvConfig = (env: AppEnv) => {
   };
 };
 
-// For backward compatibility and easy access in components
-// Note: These are now functions to ensure they get the current value
+// Helpers mantidos para compatibilidade com o UI
 export const getIsProduction = () => getAppEnv() === 'production';
 export const getIsTest = () => getAppEnv() === 'test';
 export const getEnvName = () => getAppEnv() === 'production' ? 'Ambiente de Produção' : 'Ambiente de Testes';

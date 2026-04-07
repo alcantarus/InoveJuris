@@ -21,8 +21,7 @@ export async function POST(request: Request) {
     const { sendEmail, smtpConfig, userId } = body;
     
     const cookieStore = await cookies();
-    const appEnv = cookieStore.get('app_env')?.value || 'production';
-
+    
     // Initialize Supabase Client
     // Try to use service role key if available to bypass RLS
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
@@ -77,13 +76,7 @@ export async function POST(request: Request) {
       
       // Apply environment filter for all tables except 'users'
       if (tableName !== 'users') {
-        // We need to check if the table has an 'environment' column first?
-        // Or just assume it does based on our architecture.
-        // If we try to filter by a column that doesn't exist, it might error.
-        // But our architecture enforces 'environment' column on all data tables.
-        // Let's try to filter. If it fails, we might catch it.
-        // Ideally we should check columns, but for now let's assume standard architecture.
-        query = query.eq('environment', appEnv);
+        // No longer filtering by environment
       }
 
       const { data, error } = await query;
@@ -126,10 +119,10 @@ export async function POST(request: Request) {
           from: smtpConfig.from_email || smtpConfig.user,
           to: smtpConfig.user, // Send to self
           subject: `Backup do Sistema - ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
-          text: `Segue em anexo o backup do sistema gerado em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Ambiente: ${appEnv}`,
+          text: `Segue em anexo o backup do sistema gerado em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`,
           attachments: [
             {
-              filename: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
+              filename: `backup_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
               content: zipBuffer
             }
           ]
@@ -154,9 +147,7 @@ export async function POST(request: Request) {
         table_name: 'backups',
         action: 'generate',
         performed_by: Number(userId),
-        environment: appEnv,
         new_data: {
-          filename: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
           generated_at: new Date().toISOString()
         }
       }]);
@@ -165,7 +156,7 @@ export async function POST(request: Request) {
       await supabase.from('backup_logs').insert([{
         user_id: userId || null,
         status: 'success',
-        file_name: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
+        file_name: `backup_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
         message: 'Backup realizado com sucesso.'
       }]);
       console.log('Backup registered in backup_logs');
@@ -179,10 +170,9 @@ export async function POST(request: Request) {
         .from('system_settings')
         .upsert({
           key: 'backup_status',
-          value: JSON.stringify(backupStatus),
-          environment: appEnv
+          value: JSON.stringify(backupStatus)
         }, {
-          onConflict: 'key,environment'
+          onConflict: 'key'
         });
       
       if (updateError) {
@@ -197,7 +187,7 @@ export async function POST(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip"`,
+        'Content-Disposition': `attachment; filename="backup_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip"`,
       },
     });
 
@@ -207,8 +197,7 @@ export async function POST(request: Request) {
     // Log failure to backup_status in system_settings
     try {
       const cookieStore = await cookies();
-      const appEnv = cookieStore.get('app_env')?.value || 'production';
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
       const supabase = createClient(defaultUrlProd, serviceRoleKey || defaultKeyProd, {
         auth: { persistSession: false, autoRefreshToken: false }
       });
@@ -221,10 +210,9 @@ export async function POST(request: Request) {
             last_backup_date: new Date().toISOString(),
             status: 'FAILURE',
             error_message: error.message || 'Falha desconhecida ao gerar backup'
-          }),
-          environment: appEnv
+          })
         }, {
-          onConflict: 'key,environment'
+          onConflict: 'key'
         });
       console.log('Backup failure logged to system_settings');
     } catch (logError) {

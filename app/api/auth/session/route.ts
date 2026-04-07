@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const supabase = await getSupabaseServer();
     const body = await request.json()
     console.log('Session API: Corpo da requisição:', JSON.stringify(body))
-    const { userId, environment, userAgent, action, sessionId, email, reason } = body
+    const { userId, userAgent, action, sessionId, email, reason } = body
 
     // Get IP address
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
@@ -64,7 +64,6 @@ export async function POST(request: Request) {
             entity: 'users',
             entity_id: Number(targetUserId),
             details: { target_user_id: Number(targetUserId), user_agent: userAgent || request.headers.get('user-agent') || 'Unknown', ip_address: ip },
-            environment: environment
           }
         ])
       
@@ -135,8 +134,7 @@ export async function POST(request: Request) {
                 user_id: Number(userId),
                 title: 'Alerta de Segurança',
                 message: alertMessage,
-                type: 'warning',
-                environment: environment
+                type: 'warning'
               }])
               console.log('Session API: Notificação de segurança criada')
             }
@@ -170,7 +168,6 @@ export async function POST(request: Request) {
         .insert([
           {
             user_id: Number(userId),
-            environment: environment || 'production', // Valor padrão caso environment seja nulo
             ip_address: ip,
             user_agent: readableUA,
             login_at: loginISO,
@@ -194,7 +191,6 @@ export async function POST(request: Request) {
           record_id: data.id,
           action: 'login',
           performed_by: Number(userId),
-          environment: environment,
           new_data: {
             ip_address: ip,
             user_agent: readableUA,

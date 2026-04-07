@@ -47,7 +47,7 @@ export default function TodayFocusWidget() {
         // Create board if it doesn't exist
         const { data: newBoard, error: createError } = await supabase
           .from('kanban_boards')
-          .insert({ name: 'Agenda Inteligente', module: 'agenda_inteligente', environment: 'production' })
+          .insert({ name: 'Agenda Inteligente', module: 'agenda_inteligente' })
           .select()
           .single();
         if (createError) throw createError;
@@ -176,7 +176,7 @@ export default function TodayFocusWidget() {
       if (boardError || !boardData) {
         const { data: newBoard, error: createError } = await supabase
           .from('kanban_boards')
-          .insert({ name: 'Agenda Inteligente', module: 'agenda_inteligente', environment: 'production' })
+          .insert({ name: 'Agenda Inteligente', module: 'agenda_inteligente' })
           .select()
           .single();
         if (createError) throw createError;

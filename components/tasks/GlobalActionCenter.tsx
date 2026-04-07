@@ -50,7 +50,7 @@ export default function GlobalActionCenter() {
       priority: Number(priority),
       status: 'pending',
       user_id: currentUser.id.toString(), // Garantir que seja string para o banco
-      environment: getAppEnv(),
+      // environment: getAppEnv(),
       kanban_column_id: null // Placeholder, will be updated below
     };
     
