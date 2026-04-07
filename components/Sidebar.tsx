@@ -55,7 +55,7 @@ export function Sidebar() {
         setOrganizations(orgs);
         
         const orgId = localStorage.getItem('app_org');
-        const currentOrg = orgs.find(o => o.id === orgId);
+        const currentOrg = orgs.find((o: any) => o.id === orgId);
         if (currentOrg) {
           setOrgName(currentOrg.name);
         }
