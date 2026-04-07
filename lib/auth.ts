@@ -435,7 +435,7 @@ export function useAuth() {
     try {
       // 1. Atualizar no banco de dados (contexto da sessão)
       const authClient = getSupabase();
-      const { error } = await authClient.rpc('set_app_organization', { organization_id: newOrgId });
+      const { error } = await authClient.rpc('set_app_organization', { org_id: newOrgId });
       if (error) throw error;
 
       // 2. Atualizar cookies e localStorage

@@ -2,8 +2,9 @@ import { Inter, JetBrains_Mono, Playfair_Display, Geist } from 'next/font/google
 import './globals.css'
 import { EnvBanner } from '@/components/EnvBanner'
 import { SessionMonitor } from '@/components/SessionMonitor'
-import { SettingsProvider } from '@/components/providers/SettingsProvider'
-import { PrivacyProvider } from '@/components/providers/PrivacyProvider'
+import { SettingsProvider } from '@/components/providers/SettingsProvider';
+import { PrivacyProvider } from '@/components/providers/PrivacyProvider';
+import { OrganizationProvider } from '@/components/providers/OrganizationProvider';
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { Toaster } from 'sonner'
 import { ResizeObserverFix } from '@/components/ResizeObserverFix'
@@ -52,11 +53,13 @@ export default async function RootLayout({
         <ResizeObserverFix />
         <SettingsProvider>
           <PrivacyProvider>
-            <EnvBanner />
-            <SessionMonitor />
-            <GlobalSearch />
-            <Toaster position="top-right" richColors />
-            {children}
+            <OrganizationProvider>
+              <EnvBanner />
+              <SessionMonitor />
+              <GlobalSearch />
+              <Toaster position="top-right" richColors />
+              {children}
+            </OrganizationProvider>
           </PrivacyProvider>
         </SettingsProvider>
       </body>
