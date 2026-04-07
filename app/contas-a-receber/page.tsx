@@ -302,6 +302,7 @@ export default function ContasAReceberPage() {
     const { data: summaryData, error: summaryError } = await supabase
       .from('contract_receivables_summary')
       .select(`*`)
+      .eq('organization_id', user?.organizationId)
       .order('processNumber', { ascending: true })
 
     if (summaryError) {
@@ -314,6 +315,7 @@ export default function ContasAReceberPage() {
     const { data: contractsData, error: contractsError } = await supabase
       .from('contracts')
       .select('id, isProBono, isFinanced')
+      .eq('organization_id', user?.organizationId)
 
     if (contractsError) {
       console.error('Erro ao buscar detalhes dos contratos:', contractsError)
@@ -335,6 +337,7 @@ export default function ContasAReceberPage() {
       .from('installments')
       .select(`*`)
       .eq('contract_id', contractId)
+      .eq('organization_id', user?.organizationId)
       .order('dueDate', { ascending: true })
 
     if (error) {

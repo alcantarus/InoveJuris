@@ -83,6 +83,7 @@ export default function LawyersPage() {
           *,
           users:user_id (name, email)
         `)
+        .eq('organization_id', currentUser?.organizationId)
         .order('created_at', { ascending: false })
 
       if (lawyersError) throw lawyersError

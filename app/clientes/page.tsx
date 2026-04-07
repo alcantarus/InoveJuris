@@ -120,6 +120,7 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
         let query = supabase
           .from('clients')
           .select('id, name, document')
+          .eq('organization_id', user?.organizationId)
           .order('name')
           .limit(20)
         
@@ -513,6 +514,7 @@ export default function ClientesPage() {
       let query = supabase
         .from('clients')
         .select('name, document')
+        .eq('organization_id', user?.organizationId)
         .ilike('name', `%${name}%`)
       
       if (editingClient) {
@@ -529,6 +531,7 @@ export default function ClientesPage() {
       const { data: similarProcesses } = await supabase
         .from('processes')
         .select('number, client')
+        .eq('organization_id', user?.organizationId)
         .ilike('client', `%${name}%`)
         .limit(1)
 
@@ -649,6 +652,7 @@ export default function ClientesPage() {
         .from('contracts')
         .select('id')
         .eq('client_id', id)
+        .eq('organization_id', user?.organizationId)
         .limit(1)
       
       if (error) {

@@ -298,16 +298,8 @@ export function Sidebar() {
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">
                     Organização Atual
                   </p>
-                  <div className="flex gap-1">
-                    <select 
-                      className="flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold truncate w-full"
-                      value={localStorage.getItem('app_org') || ''}
-                      onChange={(e) => switchOrganization(e.target.value)}
-                    >
-                      {organizations.map(org => (
-                        <option key={org.id} value={org.id}>{org.name}</option>
-                      ))}
-                    </select>
+                  <div className="flex items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold truncate w-full min-h-[28px]">
+                    {orgName}
                   </div>
                 </div>
               </div>

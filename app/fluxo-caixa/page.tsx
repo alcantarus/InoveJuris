@@ -120,7 +120,7 @@ export default function FluxoCaixaPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isSupabaseConfigured) {
+      if (!isSupabaseConfigured || !user) {
         setMounted(true)
         setLoading(false)
         return
@@ -149,7 +149,7 @@ export default function FluxoCaixaPage() {
     }
 
     fetchData()
-  }, [])
+  }, [user])
 
   if (!mounted) return null
 

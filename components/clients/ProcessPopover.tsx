@@ -3,6 +3,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { buttonVariants } from "@/components/ui/button";
 import { FileText, AlertCircle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 interface Process {
   id: number;
@@ -17,17 +19,23 @@ interface ProcessPopoverProps {
 }
 
 export function ProcessPopover({ clientId, clientName }: ProcessPopoverProps) {
+  const { user } = useAuth();
   const [processes, setProcesses] = React.useState<Process[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
 
   const fetchProcesses = async () => {
-    // In a real implementation, you would fetch processes for this client
-    // For now, we simulate with mock data or a call to a new RPC
-    // const { data } = await supabase.from('processes').select('*').eq('client_id', clientId);
-    setProcesses([
-      { id: 1, number: '12345/2023', status: 'Em andamento' },
-      { id: 2, number: '67890/2024', status: 'Atrasado', deadline_date: '2026-04-10' },
-    ]);
+    try {
+      const { data, error } = await supabase
+        .from('processes')
+        .select('id, number, status, deadline_date')
+        .eq('client_id', clientId)
+        .eq('organization_id', user?.organizationId);
+      
+      if (error) throw error;
+      setProcesses(data || []);
+    } catch (error) {
+      console.error('Error fetching processes for popover:', error);
+    }
   };
 
   return (
