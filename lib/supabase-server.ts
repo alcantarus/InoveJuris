@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { defaultUrlProd, defaultKeyProd } from './supabase'
+import { supabaseUrl, supabaseKey } from './supabase'
 
 export const getSupabaseServer = async () => {
-  return createClient(defaultUrlProd, defaultKeyProd);
+  return createClient(supabaseUrl, supabaseKey);
 }

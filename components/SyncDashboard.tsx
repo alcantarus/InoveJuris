@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { supabaseUrl, supabaseKey } from '@/lib/supabase';
 
 const supabase = createClient(
-  defaultUrlProd,
-  defaultKeyProd
+  supabaseUrl,
+  supabaseKey
 );
 
 async function syncProcess(process_id: number, process_number: string) {

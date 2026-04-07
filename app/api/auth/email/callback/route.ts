@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { supabaseUrl, supabaseKey } from '@/lib/supabase';
 
 // Helper to get Supabase client with Service Role Key
 const getSupabase = () => {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseKey = serviceRoleKey || defaultKeyProd;
+  const key = serviceRoleKey || supabaseKey;
   
-  return createClient(defaultUrlProd, supabaseKey, {
+  return createClient(supabaseUrl, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

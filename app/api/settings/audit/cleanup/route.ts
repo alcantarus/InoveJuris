@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { supabaseUrl, supabaseKey } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Initialize Supabase Client
-    const supabase = createClient(defaultUrlProd, defaultKeyProd);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Perform deletion
     // We use >= startDate and <= endDate (inclusive)

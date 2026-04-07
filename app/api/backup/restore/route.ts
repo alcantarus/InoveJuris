@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import AdmZip from 'adm-zip';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { supabaseUrl, supabaseKey } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const cookieStore = await cookies();
     const appEnv = cookieStore.get('app_env')?.value || 'production';
-    const supabase = createClient(defaultUrlProd, defaultKeyProd);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Define restoration order to respect Foreign Keys (approximate)
     const tableOrder = [

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase'
+import { supabaseUrl, supabaseKey } from '@/lib/supabase'
 import DashboardLayout from '../dashboard-layout'
 import { 
   Search, 
@@ -265,10 +265,10 @@ export default function ProcessosPage() {
     setSyncingProcessId(proc.id)
     try {
       // Chamada à nova Edge Function
-      const supabaseUrl = defaultUrlProd;
-      const supabaseAnonKey = defaultKeyProd;
+      const supabaseUrl_ = supabaseUrl;
+      const supabaseAnonKey = supabaseKey;
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/datajud-sync`, {
+      const response = await fetch(`${supabaseUrl_}/functions/v1/datajud-sync`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

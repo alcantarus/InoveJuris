@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import archiver from 'archiver';
 import nodemailer from 'nodemailer';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { supabaseUrl, supabaseKey } from '@/lib/supabase';
 
 // Helper to convert stream to buffer
 async function streamToBuffer(stream: any): Promise<Buffer> {
@@ -25,9 +25,9 @@ export async function POST(request: Request) {
     // Initialize Supabase Client
     // Try to use service role key if available to bypass RLS
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-    const supabaseKey = serviceRoleKey || defaultKeyProd;
+    const key = serviceRoleKey || supabaseKey;
     
-    const supabase = createClient(defaultUrlProd, supabaseKey, {
+    const supabase = createClient(supabaseUrl, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
     try {
       const cookieStore = await cookies();
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-      const supabase = createClient(defaultUrlProd, serviceRoleKey || defaultKeyProd, {
+      const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseKey, {
         auth: { persistSession: false, autoRefreshToken: false }
       });
 
