@@ -455,5 +455,19 @@ export function useAuth() {
       .filter((org: any) => org !== null)
   }
 
-  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchOrganization, fetchUserOrganizations }
+  const switchEnvironment = async (targetEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Atualizar no localStorage para persistência
+      localStorage.setItem('NEXT_PUBLIC_APP_ENV', targetEnv);
+      
+      // Recarregar a página para aplicar as mudanças
+      window.location.reload();
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro ao trocar de ambiente:', err);
+      return { success: false, error: 'Erro ao trocar de ambiente.' };
+    }
+  };
+
+  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchOrganization, fetchUserOrganizations, switchEnvironment }
 }

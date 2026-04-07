@@ -2,6 +2,10 @@ export type AppEnv = 'production' | 'test';
 
 // Simplificado: lê apenas da variável de ambiente
 export const getAppEnv = (): AppEnv => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('NEXT_PUBLIC_APP_ENV');
+    if (stored) return stored as AppEnv;
+  }
   return (process.env.NEXT_PUBLIC_APP_ENV as AppEnv) || 'production';
 };
 
