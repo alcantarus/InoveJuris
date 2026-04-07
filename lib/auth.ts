@@ -436,27 +436,37 @@ export function useAuth() {
   const fetchUserOrganizations = async (userId: number) => {
     console.log('[Auth] Buscando organizações para userId:', userId)
     const authClient = getSupabase()
-    const { data, error } = await authClient
+    
+    // 1. Busca os vínculos
+    const { data: userOrgs, error: userOrgsError } = await authClient
       .from('user_organizations')
-      .select(`
-        organization_id,
-        organizations (
-          id,
-          name,
-          slug,
-          is_demo
-        )
-      `)
+      .select('organization_id')
       .eq('user_id', userId)
 
-    if (error) {
-      console.error('[Auth] Erro ao buscar organizações:', error)
+    if (userOrgsError) {
+      console.error('[Auth] Erro ao buscar vínculos:', userOrgsError)
       return []
     }
-    console.log('[Auth] Organizações encontradas:', data)
-    return data
-      .map((item: any) => item.organizations)
-      .filter((org: any) => org !== null)
+
+    if (!userOrgs || userOrgs.length === 0) {
+      console.log('[Auth] Organizações encontradas: []')
+      return []
+    }
+
+    // 2. Busca os detalhes das organizações
+    const orgIds = userOrgs.map(uo => uo.organization_id)
+    const { data: orgs, error: orgsError } = await authClient
+      .from('organizations')
+      .select('id, name, slug, is_demo')
+      .in('id', orgIds)
+
+    if (orgsError) {
+      console.error('[Auth] Erro ao buscar detalhes das organizações:', orgsError)
+      return []
+    }
+
+    console.log('[Auth] Organizações encontradas:', orgs)
+    return orgs || []
   }
 
   const switchEnvironment = async (targetEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
