@@ -26,7 +26,7 @@ export function GPSNotificationChecker() {
 
       // 2. Para cada contrato, verifica se já existe notificação para hoje
       for (const contract of contracts) {
-        const clientName = contract.clients?.name || 'Cliente Desconhecido'
+        const clientName = (Array.isArray(contract.clients) ? contract.clients[0]?.name : (contract.clients as any)?.name) || 'Cliente Desconhecido'
         const title = 'Vencimento de GPS'
         const message = `Hoje está previsto o pagamento da GPS de ${clientName}.`
 
