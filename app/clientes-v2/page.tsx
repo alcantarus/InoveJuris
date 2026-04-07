@@ -816,6 +816,7 @@ export default function ClientesPageV2() {
           {selectedBirthdayClient && (
             <BirthdayCardGenerator 
               clientName={selectedBirthdayClient.name} 
+              clientId={selectedBirthdayClient.id.toString()}
               onClose={() => setSelectedBirthdayClient(null)} 
             />
           )}

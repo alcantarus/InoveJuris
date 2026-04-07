@@ -33,6 +33,7 @@ export interface User {
   expiration_date?: string
   organizationId?: string
   sessionId?: string
+  supabase_uid?: string
 }
 
 const calculatePermissions = (userDataFromDb: any, organizationId: string) => {
@@ -69,7 +70,8 @@ const calculatePermissions = (userDataFromDb: any, organizationId: string) => {
     canAccessDashboard: hasPermission('access_dashboard') || userDataFromDb.canAccessDashboard !== false,
     canAccessProdEnv: hasPermission('access_prod_env') || userDataFromDb.canAccessProdEnv !== false,
     canAccessTestEnv: hasPermission('access_test_env') || userDataFromDb.canAccessTestEnv,
-    organizationId: organizationId
+    organizationId: organizationId,
+    supabase_uid: userDataFromDb.supabase_uid
   } as User;
 }
 
@@ -222,6 +224,36 @@ export function useAuth() {
         await logFailure('Senha incorreta')
         return { success: false, error: 'Senha incorreta.' }
       }
+
+      // --- INTEGRAÇÃO SUPABASE AUTH ---
+      console.log('[Auth] Autenticando no Supabase Auth...')
+      const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
+        email: email,
+        password: password,
+      })
+
+      if (authError) {
+        console.error('[Auth] Erro no Supabase Auth:', authError.message)
+        // Se o erro for de usuário não encontrado no Auth, mas existe na tabela users, 
+        // poderíamos tentar criar o usuário no Auth aqui, mas por segurança vamos apenas avisar.
+        if (authError.message.includes('Invalid login credentials')) {
+           return { success: false, error: 'Credenciais de acesso ao banco de dados inválidas. Contate o suporte.' }
+        }
+      } else if (authData.user) {
+        console.log('[Auth] Autenticado no Supabase Auth. UID:', authData.user.id)
+        
+        // Sincroniza o UID se necessário
+        if (data.supabase_uid !== authData.user.id) {
+          console.log('[Auth] Sincronizando supabase_uid...')
+          await authClient
+            .from('users')
+            .update({ supabase_uid: authData.user.id })
+            .eq('id', data.id)
+          
+          data.supabase_uid = authData.user.id
+        }
+      }
+      // --------------------------------
 
       // Check for expiration
       if (data.expiration_date) {
