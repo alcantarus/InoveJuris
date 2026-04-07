@@ -258,6 +258,8 @@ export default function TaskKanban() {
         boardData = newBoard;
       }
 
+      if (!boardData) throw new Error('Failed to load or create kanban board');
+
       setBoardId(boardData.id);
 
       const { data: columnsData, error: columnsError } = await supabase
