@@ -245,13 +245,14 @@ export default function TaskKanban() {
         .from('kanban_boards')
         .select('id')
         .eq('module', 'agenda_inteligente')
+        .eq('organization_id', user?.organizationId)
         .limit(1)
         .single();
 
       if (boardError || !boardData) {
         const { data: newBoard, error: createError } = await supabase
           .from('kanban_boards')
-          .insert({ name: 'Agenda Inteligente', module: 'agenda_inteligente' })
+          .insert({ name: 'Agenda Inteligente', module: 'agenda_inteligente', organization_id: user?.organizationId })
           .select()
           .single();
         if (createError) throw createError;
@@ -266,6 +267,7 @@ export default function TaskKanban() {
         .from('kanban_columns')
         .select('*')
         .eq('board_id', boardData.id)
+        .eq('organization_id', user?.organizationId)
         .order('position', { ascending: true });
 
       if (columnsError) throw columnsError;
@@ -291,7 +293,8 @@ export default function TaskKanban() {
               board_id: boardData.id, 
               title, 
               position: i + 1, 
-              color: i === 0 ? '#ef4444' : i === 1 ? '#3b82f6' : i === 2 ? '#10b981' : '#8b5cf6' 
+              color: i === 0 ? '#ef4444' : i === 1 ? '#3b82f6' : i === 2 ? '#10b981' : '#8b5cf6',
+              organization_id: user?.organizationId 
             })
             .select()
             .single();
@@ -308,7 +311,8 @@ export default function TaskKanban() {
             board_id: boardData.id, 
             title: "Concluídos", 
             position: 999, 
-            color: '#94a3b8' 
+            color: '#94a3b8',
+            organization_id: user?.organizationId 
           })
           .select()
           .single();
