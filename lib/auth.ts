@@ -281,7 +281,7 @@ export function useAuth() {
         const data = await res.json();
         
         if (!res.ok || !data.success) {
-          console.error('[Auth] Erro ao criar sessão:', data.error || 'Erro desconhecido');
+          console.error('[Auth] Erro ao criar sessão:', data.error || 'Erro desconhecido', data.details || '');
           return { success: false, error: 'Erro ao registrar sessão de acesso. Tente novamente.' }
         }
         
