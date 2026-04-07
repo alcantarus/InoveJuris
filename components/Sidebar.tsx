@@ -41,29 +41,28 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = React.useState(true)
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
   const [isAboutOpen, setIsAboutOpen] = React.useState(false)
-  const { user, logout, switchEnvironment } = useAuth()
+  const { user, logout, switchEnvironment, switchOrganization, fetchUserOrganizations } = useAuth()
   const { settings } = useSettings()
   const [unreadCount, setUnreadCount] = useState(0)
   const [isSwitchingEnv, setIsSwitchingEnv] = useState(false)
   const [orgName, setOrgName] = useState<string>('Organização')
+  const [organizations, setOrganizations] = useState<any[]>([])
 
   useEffect(() => {
-    const fetchOrgName = async () => {
-      const orgId = localStorage.getItem('app_org');
-      if (orgId) {
-        const { data, error } = await supabase
-          .from('organizations')
-          .select('name')
-          .eq('id', orgId)
-          .single();
+    const fetchOrgData = async () => {
+      if (user?.id) {
+        const orgs = await fetchUserOrganizations(user.id);
+        setOrganizations(orgs);
         
-        if (data && !error) {
-          setOrgName(data.name);
+        const orgId = localStorage.getItem('app_org');
+        const currentOrg = orgs.find(o => o.id === orgId);
+        if (currentOrg) {
+          setOrgName(currentOrg.name);
         }
       }
     };
-    fetchOrgName();
-  }, []);
+    fetchOrgData();
+  }, [user, fetchUserOrganizations]);
 
   const isProduction = getIsProduction()
   const envName = getEnvName()
@@ -297,9 +296,15 @@ export function Sidebar() {
                     Organização Atual
                   </p>
                   <div className="flex gap-1">
-                    <div className="flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700">
-                      <span className="text-[10px] font-bold truncate w-full text-center">{orgName}</span>
-                    </div>
+                    <select 
+                      className="flex-1 flex flex-col items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold truncate w-full"
+                      value={localStorage.getItem('app_org') || ''}
+                      onChange={(e) => switchOrganization(e.target.value)}
+                    >
+                      {organizations.map(org => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

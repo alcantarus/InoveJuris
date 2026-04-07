@@ -39,7 +39,7 @@ export default async function RootLayout({
   // Get environment from cookies or env var for consistent SSR
   const cookieStore = await cookies();
   const envCookie = cookieStore.get('app_env')?.value;
-  const appEnv = (envCookie as any) || 'production';
+  const appEnv = (envCookie as any) || process.env.NEXT_PUBLIC_APP_ENV || 'production';
 
   return (
     <html lang="pt-BR" className={cn(jetbrainsMono.variable, playfairDisplay.variable, "font-sans", geist.variable)} data-env={appEnv}>

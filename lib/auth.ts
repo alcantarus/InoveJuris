@@ -429,6 +429,42 @@ export function useAuth() {
     }
   };
 
+  const switchOrganization = async (newOrgId: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Usuário não autenticado.' };
+
+    try {
+      // 1. Atualizar no banco de dados (contexto da sessão)
+      const authClient = getSupabase();
+      const { error } = await authClient.rpc('set_app_organization', { organization_id: newOrgId });
+      if (error) throw error;
+
+      // 2. Atualizar cookies e localStorage
+      setCookie('app_org', newOrgId, { 
+        maxAge: 60 * 60 * 24 * 7, 
+        path: '/',
+        sameSite: 'none',
+        secure: true
+      });
+      localStorage.setItem('app_org', newOrgId);
+
+      // 3. Atualizar o objeto de usuário no localStorage
+      const storedUser = localStorage.getItem('inovejuris_user');
+      if (storedUser) {
+        const userObj = JSON.parse(storedUser);
+        userObj.organizationId = newOrgId;
+        localStorage.setItem('inovejuris_user', JSON.stringify(userObj));
+        setUser(userObj);
+      }
+
+      // 4. Recarregar a página para aplicar as mudanças
+      window.location.reload();
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro ao trocar de organização:', err);
+      return { success: false, error: 'Erro ao trocar de organização.' };
+    }
+  };
+
   const fetchUserOrganizations = async (userId: number) => {
     console.log('[Auth] Buscando organizações para userId:', userId)
     const authClient = getSupabase()
@@ -455,5 +491,5 @@ export function useAuth() {
       .filter((org: any) => org !== null)
   }
 
-  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment, fetchUserOrganizations }
+  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment, switchOrganization, fetchUserOrganizations }
 }
