@@ -11,11 +11,17 @@ export function OrganizationProvider({ children, initialOrgId }: { children: Rea
   useEffect(() => {
     const initializeOrganization = async () => {
       try {
-        // Define a organização no contexto do banco de dados
+        let orgId = initialOrgId;
+        if (!orgId) {
+          orgId = localStorage.getItem('app_org') || undefined;
+        }
         
-        if (initialOrgId) {
-          console.log('[OrganizationProvider] Definindo organização no banco:', initialOrgId);
-          await supabase.rpc('set_app_organization', { org_id: initialOrgId });
+        // Define a organização no contexto do banco de dados
+        if (orgId) {
+          console.log('[OrganizationProvider] Definindo organização no banco:', orgId);
+          await supabase.rpc('set_app_organization', { org_id: orgId });
+        } else {
+          console.log('[OrganizationProvider] Nenhuma organização encontrada para definir no banco.');
         }
       } catch (e) {
         console.error('[OrganizationProvider] Erro ao definir contexto no banco:', e);
