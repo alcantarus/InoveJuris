@@ -266,8 +266,7 @@ export default function ClientesPageV2() {
         const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
           p_from: 0,
           p_to: 1000, // Fetching a larger batch for stats
-          p_search_term: '',
-          p_organization_id: user?.organizationId
+          p_search_term: ''
         })
         
         if (error) throw error

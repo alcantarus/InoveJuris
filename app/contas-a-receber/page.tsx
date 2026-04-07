@@ -256,15 +256,17 @@ export default function ContasAReceberPage() {
   }
 
   const fetchLookups = React.useCallback(async () => {
+    if (!user?.organizationId) return;
     const [accountsRes, categoriesRes] = await Promise.all([
       supabase.from('bank_accounts').select('id, name').eq('organization_id', user?.organizationId),
       supabase.from('financial_categories').select('id, name').eq('type', 'income').eq('organization_id', user?.organizationId)
     ])
     if (accountsRes.data) setBankAccounts(accountsRes.data)
     if (categoriesRes.data) setFinancialCategories(categoriesRes.data)
-  }, [])
+  }, [user?.organizationId])
 
   const fetchDashboardMetrics = React.useCallback(async () => {
+    if (!user?.organizationId) return;
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
     const todayStr = today.toISOString().split('T')[0];
@@ -295,9 +297,10 @@ export default function ContasAReceberPage() {
 
     const totalForecast = installmentsData?.reduce((acc: number, i: any) => acc + (Number(i.amount || 0) - Number(i.amountPaid || 0)), 0) || 0;
     setForecast30d(totalForecast);
-  }, []);
+  }, [user?.organizationId]);
 
   const fetchContracts = React.useCallback(async () => {
+    if (!user?.organizationId) return;
     setLoading(true)
     const { data: summaryData, error: summaryError } = await supabase
       .from('contract_receivables_summary')
@@ -329,9 +332,10 @@ export default function ContasAReceberPage() {
       setContracts(mergedData || [])
     }
     setLoading(false)
-  }, [])
+  }, [user?.organizationId])
 
   const fetchInstallmentsForContract = React.useCallback(async (contractId: number) => {
+    if (!user?.organizationId) return;
     setLoading(true)
     const { data, error } = await supabase
       .from('installments')
@@ -347,13 +351,15 @@ export default function ContasAReceberPage() {
       setInstallments(data || [])
     }
     setLoading(false)
-  }, [])
+  }, [user?.organizationId])
 
   useEffect(() => {
-    fetchContracts()
-    fetchLookups()
-    fetchDashboardMetrics()
-  }, [fetchContracts, fetchLookups, fetchDashboardMetrics])
+    if (user?.organizationId) {
+      fetchContracts()
+      fetchLookups()
+      fetchDashboardMetrics()
+    }
+  }, [fetchContracts, fetchLookups, fetchDashboardMetrics, user?.organizationId])
 
   useEffect(() => {
     if (selectedContract) {

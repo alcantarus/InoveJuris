@@ -121,7 +121,6 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
         let query = supabase
           .from('clients')
           .select('id, name, document')
-          .eq('organization_id', user?.organizationId)
           .order('name')
           .limit(20)
         
@@ -336,8 +335,7 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: debouncedSearchTerm,
-            p_organization_id: user?.organizationId
+            p_search_term: debouncedSearchTerm
           })
           
           if (error) throw error
@@ -360,8 +358,7 @@ export default function ClientesPage() {
           const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
             p_from: from,
             p_to: to,
-            p_search_term: '',
-            p_organization_id: user?.organizationId
+            p_search_term: ''
           })
           
           if (error) throw error
