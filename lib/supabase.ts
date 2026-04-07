@@ -76,8 +76,6 @@ export const getSupabase = () => {
   }
   
   const client = clients.get(config.url);
-  // Garante que o ambiente e organização estejam atualizados no contexto do banco de dados
-  setEnvironment(client);
   
   return client;
 }
