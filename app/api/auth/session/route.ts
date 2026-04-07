@@ -167,6 +167,7 @@ export async function POST(request: Request) {
         .insert([
           {
             user_id: Number(userId),
+            organization_id: body.organizationId,
             ip_address: ip,
             user_agent: readableUA,
             login_at: loginISO,
