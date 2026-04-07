@@ -257,8 +257,8 @@ export default function ContasAReceberPage() {
 
   const fetchLookups = React.useCallback(async () => {
     const [accountsRes, categoriesRes] = await Promise.all([
-      supabase.from('bank_accounts').select('id, name'),
-      supabase.from('financial_categories').select('id, name').eq('type', 'income')
+      supabase.from('bank_accounts').select('id, name').eq('organization_id', user?.organizationId),
+      supabase.from('financial_categories').select('id, name').eq('type', 'income').eq('organization_id', user?.organizationId)
     ])
     if (accountsRes.data) setBankAccounts(accountsRes.data)
     if (categoriesRes.data) setFinancialCategories(categoriesRes.data)

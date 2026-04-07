@@ -225,18 +225,18 @@ export default function Page() {
 
       try {
         const [clientsRes, processesRes, installmentsRes, contractsRes, productsRes, auditRes, transactionsRes, lawAreasRes, deadlinesRes, receivablesMetricsRes, receivablesForecastRes, topDefaultersRes] = await Promise.all([
-          supabase.from('clients').select('*'),
-          supabase.from('processes').select('*'),
-          supabase.from('installments').select('*'),
-          supabase.from('contracts').select('*'),
-          supabase.from('products').select('*'),
-          supabase.from('audit_logs').select('*, performer:performed_by(name)').order('performed_at', { ascending: false }).limit(5),
-          supabase.from('financial_transactions').select('*').eq('type', 'income'),
-          supabase.from('law_areas').select('*'),
-          supabase.from('process_deadlines').select('*'),
-          supabase.from('vw_dashboard_receivables_metrics').select('*'),
-          supabase.from('vw_dashboard_receivables_forecast').select('*'),
-          supabase.from('vw_dashboard_top_defaulters').select('*')
+          supabase.from('clients').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('processes').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('installments').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('contracts').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('products').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('audit_logs').select('*, performer:performed_by(name)').eq('organization_id', user?.organizationId).order('performed_at', { ascending: false }).limit(5),
+          supabase.from('financial_transactions').select('*').eq('type', 'income').eq('organization_id', user?.organizationId),
+          supabase.from('law_areas').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('process_deadlines').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('vw_dashboard_receivables_metrics').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('vw_dashboard_receivables_forecast').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('vw_dashboard_top_defaulters').select('*').eq('organization_id', user?.organizationId)
         ])
 
         setData({

@@ -128,10 +128,10 @@ export default function FluxoCaixaPage() {
 
       try {
         const [accountsRes, transactionsRes, categoriesRes, installmentsRes] = await Promise.all([
-          supabase.from('bank_accounts').select('*'),
-          supabase.from('financial_transactions').select('*, bank_accounts!account_id(name), financial_categories(name)').order('date', { ascending: false }).limit(100),
-          supabase.from('financial_categories').select('*'),
-          supabase.from('installments').select('*').in('status', ['Aberto', 'Atrasada', 'Prorrogada'])
+          supabase.from('bank_accounts').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('financial_transactions').select('*, bank_accounts!account_id(name), financial_categories(name)').eq('organization_id', user?.organizationId).order('date', { ascending: false }).limit(100),
+          supabase.from('financial_categories').select('*').eq('organization_id', user?.organizationId),
+          supabase.from('installments').select('*').eq('organization_id', user?.organizationId).in('status', ['Aberto', 'Atrasada', 'Prorrogada'])
         ])
 
         setData({
