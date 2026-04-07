@@ -302,7 +302,7 @@ export default function UsuariosPage() {
         .from('users')
         .insert([userData])
         .select(`
-          id, name, email, 
+          id, name, email, is_superadmin,
           "canAccessDashboard", "canAccessClients", "canAccessProcesses", 
           "canAccessContracts", "canAccessReceivables", "canAccessCashFlow", "canAccessProducts", 
           "canAccessIndicators", "canAccessReports", "canAccessUsers", 
