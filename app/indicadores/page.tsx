@@ -338,12 +338,12 @@ export default function IndicadoresPage() {
         supabase
           .from('contracts')
           .select('id, client_id, clients(name), contractDate, contractValue, base_comissao, commissionPercent, commissionValue, commissionPaid')
-          .eq('indicator_id', indicator.id)
+          .eq('indicator_id', Number(indicator.id))
           .order('contractDate', { ascending: false }),
         supabase
           .from('vw_indicator_commission_status')
           .select('*')
-          .eq('indicator_id', indicator.id)
+          .eq('indicator_id', Number(indicator.id))
       ])
       
       if (contractsRes.error) {

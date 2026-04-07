@@ -483,7 +483,7 @@ function RelatoriosPageContent() {
           indicators (name),
           products (name)
         `)
-        .not('commissionValue', 'eq', 0)
+        .not('commissionValue', 'eq', '0')
 
       if (error) throw error
 

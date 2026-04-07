@@ -18,6 +18,11 @@ const getValidUrl = (url: string | undefined, fallback: string, name: string) =>
 export const defaultUrlProd = "https://jhlxzqsgmudkbjkynqdl.supabase.co"
 export const defaultKeyProd = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpobHh6cXNnbXVka2Jqa3lucWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzc3NTksImV4cCI6MjA4Nzk1Mzc1OX0.a9PyO6LDGVRhsNThECIema9DzAPCElp-7e-Dmiq4tRo"
 
+let currentOrgId: string | null = typeof window !== 'undefined' ? localStorage.getItem('app_org') : null;
+export const setCurrentOrgId = (orgId: string | null) => {
+  currentOrgId = orgId;
+}
+
 // We now ONLY use the Production database for both environments (Logical Isolation)
 const clients = new Map<string, any>();
 
@@ -85,7 +90,14 @@ export const supabase = new Proxy({} as any, {
   get: (target, prop) => {
     const client = getSupabase()
     const currentEnv = getAppEnv() // 'production' or 'test'
-    const currentOrg = typeof window !== 'undefined' ? localStorage.getItem('app_org') : null;
+    
+    // Tenta obter de variável global, localStorage, ou cookies
+    let currentOrg = currentOrgId || (typeof window !== 'undefined' ? localStorage.getItem('app_org') : null);
+    if (!currentOrg && typeof document !== 'undefined') {
+      const match = document.cookie.match(new RegExp('(^| )app_org=([^;]+)'));
+      if (match) currentOrg = match[2];
+    }
+    console.log('[Supabase Proxy] currentOrg:', currentOrg);
 
     if (prop === 'from') {
       return (table: string) => {
@@ -103,7 +115,13 @@ export const supabase = new Proxy({} as any, {
           table === 'user_sessions' || 
           table === 'geo_cache' || 
           table === 'client_onboarding_tokens' ||
-          table === 'organizations'
+          table === 'organizations' ||
+          table === 'indicators' ||
+          table === 'law_areas' ||
+          table === 'audit_logs' ||
+          table === 'vw_dashboard_receivables_metrics' ||
+          table === 'vw_dashboard_receivables_forecast' ||
+          table === 'vw_dashboard_top_defaulters'
         ) {
           return queryBuilder
         }
@@ -142,9 +160,8 @@ export const supabase = new Proxy({} as any, {
                     if (currentOrg) {
                       result = result.eq('organization_id', currentOrg);
                     } else {
-                      // Se não houver organização, força um ID inválido para não retornar nada
-                      console.error(`[Supabase Proxy] ERRO: Nenhuma organização definida para a tabela ${table}. Bloqueando acesso.`);
-                      result = result.eq('organization_id', '00000000-0000-0000-0000-000000000000');
+                      // Se não houver organização, apenas loga um aviso, não bloqueia o acesso
+                      console.warn(`[Supabase Proxy] AVISO: Nenhuma organização definida para a tabela ${table}.`);
                     }
                   } else {
                     // For other methods (eq, order, limit, etc.), just execute them
