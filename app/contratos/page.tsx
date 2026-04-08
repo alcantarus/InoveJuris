@@ -387,6 +387,13 @@ export default function FinanceiroPage() {
   const calculatedCommission = (Number(formData.base_comissao || 0) * Number(formData.commissionPercent || 0)) / 100
 
   const generateInstallments = () => {
+    // Prevent accidental overwrite
+    if (installments.length > 0) {
+      if (!window.confirm("Já existe um cronograma gerado. Deseja sobrescrevê-lo?")) {
+        return;
+      }
+    }
+
     const isProBono = formData.isProBono
     const totalValue = isProBono ? 0 : Number(formData.contractValue || 0)
     
