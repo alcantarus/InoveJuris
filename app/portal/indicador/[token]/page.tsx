@@ -69,7 +69,7 @@ export default function PortalIndicadorPage() {
         
         const dataWithPayments = (statusData || []).map((item: any) => ({
           ...item,
-          payments: (paymentsData || []).filter(p => p.contract_id === item.contract_id)
+          payments: (paymentsData || []).filter((p: any) => p.contract_id === item.contract_id)
         }));
 
         if (!statusData || statusData.length === 0) {
