@@ -65,8 +65,31 @@ export default function ClientProfilePage() {
   }, [])
   const [isSubmittingInteraction, setIsSubmittingInteraction] = useState(false)
 
-  const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [showTagModal, setShowTagModal] = useState(false)
+  const [newTag, setNewTag] = useState('')
+  const [isAddingTag, setIsAddingTag] = useState(false)
+
+  const handleAddTag = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTag.trim()) return
+    setIsAddingTag(true)
+    try {
+      const { data, error } = await supabase
+        .from('client_tags')
+        .insert([{ client_id: clientId, tag: newTag.trim() }])
+        .select()
+        .single()
+      if (error) throw error
+      setTags([...tags, data])
+      setNewTag('')
+      setShowTagModal(false)
+    } catch (error) {
+      console.error('Error adding tag:', error)
+      alert('Erro ao adicionar tag.')
+    } finally {
+      setIsAddingTag(false)
+    }
+  }
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -362,7 +385,10 @@ export default function ClientProfilePage() {
                 <Tag size={12} /> {tag.tag}
               </span>
             ))}
-            <button className="px-3 py-1 border border-dashed border-slate-300 text-slate-500 rounded-full text-xs font-medium hover:bg-slate-50 transition-colors flex items-center gap-1">
+            <button 
+              onClick={() => setShowTagModal(true)}
+              className="px-3 py-1 border border-dashed border-slate-300 text-slate-500 rounded-full text-xs font-medium hover:bg-slate-50 transition-colors flex items-center gap-1"
+            >
               <Plus size={12} /> Adicionar Tag
             </button>
           </div>
@@ -744,6 +770,56 @@ export default function ClientProfilePage() {
                 </button>
               </div>
             </div>
+          </motion.div>
+        </div>
+      )}
+      {showTagModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+          >
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-800">Adicionar Tag</h2>
+              <button 
+                onClick={() => setShowTagModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddTag} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Tag</label>
+                <input 
+                  type="text" 
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  value={newTag}
+                  onChange={e => setNewTag(e.target.value)}
+                  placeholder="Ex: Prioridade Alta"
+                  required
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setShowTagModal(false)}
+                  className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isAddingTag}
+                  className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex items-center gap-2"
+                >
+                  {isAddingTag ? 'Salvando...' : 'Salvar Tag'}
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}
