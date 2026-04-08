@@ -49,7 +49,7 @@ export default function PortalIndicadorPage() {
 
       // 2. Get commission status
       const { data: statusData, error: statusError } = await supabase
-        .from('vw_indicator_commission_status')
+        .from('vw_portal_commission_details')
         .select('*')
         .eq('indicator_id', tokenData.indicator_id);
 
