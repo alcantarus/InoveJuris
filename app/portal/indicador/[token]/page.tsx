@@ -80,7 +80,7 @@ export default function PortalIndicadorPage() {
             isEmpty: true
           }]);
         } else {
-          setData(dataWithPayments.map(item => ({ ...item, indicator_name: item.indicator_name || indicatorName })));
+          setData(dataWithPayments.map((item: any) => ({ ...item, indicator_name: item.indicator_name || indicatorName })));
         }
       }
       
