@@ -65,6 +65,9 @@ export default function ClientProfilePage() {
   }, [])
   const [isSubmittingInteraction, setIsSubmittingInteraction] = useState(false)
 
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
   const [showTagModal, setShowTagModal] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [isAddingTag, setIsAddingTag] = useState(false)
