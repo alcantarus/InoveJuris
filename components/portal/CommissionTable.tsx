@@ -7,6 +7,7 @@ interface Commission {
   contract_id: number
   client_name: string
   base_comissao: number
+  commissionPercent: number
   total_commission: number
   total_paid: number
   remaining_balance: number
@@ -59,7 +60,7 @@ export function CommissionTable({ data }: CommissionTableProps) {
           return (
             <div key={s.contract_id} className="border border-slate-100 rounded-2xl overflow-hidden">
               <div 
-                className="grid grid-cols-1 md:grid-cols-5 gap-4 p-6 hover:bg-indigo-50/30 transition-all items-center cursor-pointer"
+                className="grid grid-cols-1 md:grid-cols-6 gap-4 p-6 hover:bg-indigo-50/30 transition-all items-center cursor-pointer"
                 onClick={() => toggleRow(s.contract_id)}
               >
                 <div>
@@ -68,8 +69,12 @@ export function CommissionTable({ data }: CommissionTableProps) {
                   <span className="text-xs text-slate-500">{s.client_name}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Contrato</span>
                   <p className="text-lg font-bold text-slate-900">R$ {Number(s.base_comissao || 0).toFixed(2)}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">% Comissão</span>
+                  <p className="text-lg font-bold text-slate-900">{Number(s.commissionPercent || 0).toFixed(2)}%</p>
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total</span>

@@ -208,9 +208,10 @@ export default function OnboardingPage() {
       if (tokenError) throw tokenError
 
       setSuccess(true)
-    } catch (err) {
-      console.error('Error submitting onboarding:', err)
-      alert('Ocorreu um erro ao salvar seus dados. Tente novamente.')
+    } catch (err: any) {
+      console.error('Error submitting onboarding:', err);
+      console.error('Error details:', JSON.stringify(err, null, 2));
+      alert('Ocorreu um erro ao salvar seus dados: ' + (err.message || 'Erro desconhecido.'));
     } finally {
       setIsSubmitting(false)
     }
