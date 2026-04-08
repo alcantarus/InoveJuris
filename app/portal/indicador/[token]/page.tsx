@@ -53,12 +53,35 @@ export default function PortalIndicadorPage() {
         .select('*')
         .eq('indicator_id', tokenData.indicator_id);
 
+      // 3. Get detailed payment history
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('commission_payments')
+        .select('*, contracts(id)')
+        .eq('indicator_id', tokenData.indicator_id);
+
       if (statusError) {
         console.error('Erro detalhado do Supabase:', statusError);
         setErrorMsg('Erro ao buscar comissões: ' + statusError.message);
       } else {
         console.log('Dados recebidos da View:', statusData);
-        setData(statusData || []);
+        
+        const indicatorName = (tokenData.indicators as any)?.name || 'Indicador';
+        
+        const dataWithPayments = (statusData || []).map(item => ({
+          ...item,
+          payments: (paymentsData || []).filter(p => p.contract_id === item.contract_id)
+        }));
+
+        if (!statusData || statusData.length === 0) {
+          setData([{
+            indicator_name: indicatorName,
+            total_commission: 0,
+            remaining_balance: 0,
+            isEmpty: true
+          }]);
+        } else {
+          setData(dataWithPayments.map(item => ({ ...item, indicator_name: item.indicator_name || indicatorName })));
+        }
       }
       
       setLoading(false)
@@ -98,6 +121,11 @@ export default function PortalIndicadorPage() {
           <>
             <CommissionChart data={displayData} />
             <CommissionTable data={displayData} />
+            
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+              <h3 className="text-xl font-bold text-slate-950 mb-6">Próximos Recebimentos</h3>
+              <p className="text-slate-500">Nenhum recebimento previsto para os próximos 30 dias.</p>
+            </div>
           </>
         ) : (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 text-center">

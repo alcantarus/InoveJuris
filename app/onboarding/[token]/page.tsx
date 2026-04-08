@@ -181,13 +181,17 @@ export default function OnboardingPage() {
 
     try {
       // Update client
+      const { lgpd_consent, ...clientUpdateData } = formData;
+      const updateData = {
+        ...clientUpdateData,
+        birthDate: formData.birthDate || null,
+        lgpd_consent_date: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
+        lgpd_source: 'Digital Onboarding'
+      }
+      
       const { error: updateError } = await supabase
         .from('clients')
-        .update({
-          ...formData,
-          lgpd_consent_date: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
-          lgpd_source: 'Digital Onboarding'
-        })
+        .update(updateData)
         .eq('id', clientData.id)
 
       if (updateError) throw updateError
