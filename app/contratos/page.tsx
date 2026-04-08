@@ -649,14 +649,14 @@ export default function FinanceiroPage() {
       // Use upsert logic instead of delete/recreate to preserve IDs and payment history
       console.log('Installments to upsert:', installments);
       
-      // Filter out installments that are already 'Quitado' or 'Cancelado' and have an ID
-      // This prevents the backend trigger from blocking the entire transaction when saving GPS data
-      const installmentsToUpsert = installments.filter(i => {
-        if (!i.id) return true; // Always upsert new installments
-        return i.status !== 'Quitado' && i.status !== 'Cancelado';
-      });
+      // 1. Delete all unpaid installments for this contract to prevent duplication
+      await supabase.from('installments')
+        .delete()
+        .eq('contract_id', editingContract.id)
+        .eq('"amountPaid"', 0);
 
-      const instData = installmentsToUpsert.map(i => ({
+      // 2. Upsert all installments from the current schedule
+      const instData = installments.map(i => ({
         ...(i.id ? { id: i.id } : {}),
         contract_id: editingContract.id,
         installmentNumber: i.installmentNumber,
@@ -679,16 +679,6 @@ export default function FinanceiroPage() {
         }
       } else {
         console.log('No installments to upsert');
-      }
-
-      // Delete installments that are no longer in the list AND have no payments
-      const currentIds = installments.filter(i => i.id).map(i => i.id)
-      if (currentIds.length > 0) {
-        await supabase.from('installments')
-          .delete()
-          .eq('contract_id', editingContract.id)
-          .not('id', 'in', `(${currentIds.join(',')})`)
-          .eq('"amountPaid"', 0)
       }
 
       if (cData && cData[0]) {

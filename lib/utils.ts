@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getTodayBR(): string {
-  return new Date().toLocaleDateString('pt-BR')
+  return new Date().toISOString().split('T')[0]
 }
 
 export function formatCurrency(value: number, isVisible: boolean = true): string {
