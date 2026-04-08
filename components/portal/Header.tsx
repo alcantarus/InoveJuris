@@ -10,7 +10,7 @@ export function Header({ name }: { name: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
           {settings.office_logo && (
-            <div className="relative w-32 h-16">
+            <div className="relative w-[166px] h-[83px]">
               <Image 
                 src={settings.office_logo} 
                 alt="Logomarca do Escritório" 
