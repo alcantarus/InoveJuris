@@ -739,16 +739,16 @@ export default function IndicadoresPage() {
                               {formatCurrency(contract.base_comissao, isVisible('indicators_commissions'))}
                             </td>
                             <td className="p-4 text-right font-medium text-slate-900">
-                              {formatCurrency(status?.total_commission || 0, isVisible('indicators_commissions'))}
+                              {formatCurrency(Number(status?.total_commission || 0), isVisible('indicators_commissions'))}
                             </td>
                             <td className="p-4 text-right font-medium text-slate-900">
-                              {formatCurrency(status?.total_paid || 0, isVisible('indicators_commissions'))}
+                              {formatCurrency(Number(status?.total_paid || 0), isVisible('indicators_commissions'))}
                             </td>
                             <td className="p-4 text-right font-bold text-emerald-600">
-                              {formatCurrency(status?.remaining_balance || 0, isVisible('indicators_commissions'))}
+                              {formatCurrency(Number(status?.remaining_balance || 0), isVisible('indicators_commissions'))}
                             </td>
                             <td className="p-4 text-center">
-                              {(status?.remaining_balance || 0) > 0 ? (
+                              {Number(status?.remaining_balance || 0) > 0 ? (
                                 <div className="flex flex-col gap-2">
                                   <input 
                                     type="text" 

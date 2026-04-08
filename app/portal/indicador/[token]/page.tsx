@@ -21,7 +21,7 @@ export default function PortalIndicadorPage() {
       // 1. Get indicator_id from token
       const { data: tokenData, error: tokenError } = await supabase
         .from('indicator_tokens')
-        .select('indicator_id, type, expires_at, is_active')
+        .select('indicator_id, type, expires_at, is_active, indicators(name)')
         .eq('token', token)
         .single()
 
@@ -53,7 +53,21 @@ export default function PortalIndicadorPage() {
         .select('*')
         .eq('indicator_id', tokenData.indicator_id)
 
-      if (statusData) setData(statusData)
+      if (statusError) {
+        console.error('Error fetching commission status:', statusError)
+      }
+
+      setData(statusData || [])
+      // Store indicator name in case data is empty
+      if (tokenData.indicators && !statusData?.length) {
+        setData([{
+          indicator_name: (tokenData.indicators as any).name,
+          total_commission: 0,
+          remaining_balance: 0,
+          isEmpty: true
+        }])
+      }
+      
       setLoading(false)
     }
 
@@ -62,15 +76,16 @@ export default function PortalIndicadorPage() {
 
   if (loading) return <div className="p-6">Carregando...</div>
   if (errorMsg) return <div className="p-6 text-red-600 font-medium">{errorMsg}</div>
-  if (data.length === 0) return <div className="p-6">Nenhum dado encontrado.</div>
 
-  const totalCommissions = data.reduce((acc, curr) => acc + Number(curr.total_commission), 0);
-  const totalRemaining = data.reduce((acc, curr) => acc + Number(curr.remaining_balance), 0);
+  const indicatorName = data.length > 0 ? data[0].indicator_name : 'Indicador';
+  const totalCommissions = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.total_commission || 0), 0);
+  const totalRemaining = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.remaining_balance || 0), 0);
+  const displayData = data.filter(d => !d.isEmpty);
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-8">
-        <Header name={data[0].indicator_name} />
+        <Header name={indicatorName} />
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <KPICard 
@@ -86,8 +101,16 @@ export default function PortalIndicadorPage() {
           />
         </div>
 
-        <CommissionChart data={data} />
-        <CommissionTable data={data} />
+        {displayData.length > 0 ? (
+          <>
+            <CommissionChart data={displayData} />
+            <CommissionTable data={displayData} />
+          </>
+        ) : (
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 text-center">
+            <p className="text-slate-500">Nenhuma comissão registrada até o momento.</p>
+          </div>
+        )}
       </div>
     </div>
   )
