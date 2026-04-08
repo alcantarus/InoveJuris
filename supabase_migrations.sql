@@ -592,7 +592,13 @@ ON CONFLICT (email) DO UPDATE SET
   "canAccessProdEnv" = TRUE,
   "canAccessTestEnv" = TRUE;
 
--- 18. Robust Financial Functions (RPCs) for Transactional Integrity
+-- 18. Add used_at to client_onboarding_tokens
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'client_onboarding_tokens' AND column_name = 'used_at') THEN
+    ALTER TABLE client_onboarding_tokens ADD COLUMN used_at TIMESTAMPTZ;
+  END IF;
+END $$;
 
 -- Function to set app environment for RLS
 CREATE OR REPLACE FUNCTION set_app_environment(env_name TEXT)

@@ -95,6 +95,7 @@ export default function PortalIndicadorPage() {
 
   const indicatorName = data.length > 0 ? data[0].indicator_name : 'Indicador';
   const totalCommissions = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.total_commission || 0), 0);
+  const totalPaid = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.total_paid || 0), 0);
   const totalRemaining = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.remaining_balance || 0), 0);
   const displayData = data.filter(d => !d.isEmpty);
 
@@ -103,11 +104,17 @@ export default function PortalIndicadorPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         <Header name={indicatorName} />
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KPICard 
             title="Total de Comissões" 
             value={`R$ ${totalCommissions.toFixed(2)}`} 
             icon={<DollarSign size={20} />}
+          />
+          <KPICard 
+            title="Total Pago" 
+            value={`R$ ${totalPaid.toFixed(2)}`} 
+            icon={<DollarSign size={20} />}
+            trend="Saldo atualizado"
           />
           <KPICard 
             title="Total a Receber" 

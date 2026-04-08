@@ -200,8 +200,7 @@ export default function OnboardingPage() {
       const { error: tokenError } = await supabase
         .from('client_onboarding_tokens')
         .update({ 
-          used: true,
-          used_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
+          used: true
         })
         .eq('id', tokenId)
 
