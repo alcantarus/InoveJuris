@@ -51,21 +51,14 @@ export default function PortalIndicadorPage() {
       const { data: statusData, error: statusError } = await supabase
         .from('vw_indicator_commission_status')
         .select('*')
-        .eq('indicator_id', tokenData.indicator_id)
+        .eq('indicator_id', tokenData.indicator_id);
 
       if (statusError) {
-        console.error('Error fetching commission status:', statusError)
-      }
-
-      setData(statusData || [])
-      // Store indicator name in case data is empty
-      if (tokenData.indicators && !statusData?.length) {
-        setData([{
-          indicator_name: (tokenData.indicators as any).name,
-          total_commission: 0,
-          remaining_balance: 0,
-          isEmpty: true
-        }])
+        console.error('Erro detalhado do Supabase:', statusError);
+        setErrorMsg('Erro ao buscar comissões: ' + statusError.message);
+      } else {
+        console.log('Dados recebidos da View:', statusData);
+        setData(statusData || []);
       }
       
       setLoading(false)
