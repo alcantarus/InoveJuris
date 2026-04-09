@@ -671,6 +671,7 @@ export default function ClientesPage() {
           clients={clients} 
           onFilterChange={setSelectedFilter} 
           selectedFilter={selectedFilter}
+          totalCount={totalCount}
         />
 
         <button 

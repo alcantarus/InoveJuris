@@ -34,15 +34,17 @@ interface Client {
 export function ClientStatsWidget({ 
   clients, 
   onFilterChange, 
-  selectedFilter 
+  selectedFilter,
+  totalCount
 }: { 
   clients: Client[], 
   onFilterChange: (filter: string | null) => void,
-  selectedFilter: string | null
+  selectedFilter: string | null,
+  totalCount: number
 }) {
   const { isVisible, toggleVisibility } = usePrivacy();
   
-  const total = clients.length;
+  const total = totalCount;
   const minors = clients.filter(c => c.isMinor).length;
   const assisted = clients.filter(c => c.legalRepresentative).length;
   
