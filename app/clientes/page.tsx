@@ -309,85 +309,59 @@ export default function ClientesPage() {
     );
   };
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      if (!isSupabaseConfigured) {
-        setMounted(true)
-        return
-      }
-
-      setIsLoading(true)
-
-      try {
-        const from = (page - 1) * pageSize
-        const to = from + pageSize - 1
-
-        // Obtém o total real de clientes para o ambiente atual
-        const { count: totalCount, error: countError } = await supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('environment', getAppEnv());
-
-        if (countError) throw countError;
-        setTotalCount(totalCount || 0);
-
-        if (debouncedSearchTerm) {
-          // Busca com termo de pesquisa usando a nova RPC
-          const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
-            p_from: from,
-            p_to: to,
-            p_search_term: debouncedSearchTerm,
-            p_environment: getAppEnv()
-          })
-          
-          if (error) throw error
-          
-          const formattedClients = (data || []).map((item: any) => ({
-            ...item.client_data,
-            vw_client_process_summary: [{
-              active_processes_count: item.active_processes_count,
-              delayed_processes_count: item.delayed_processes_count
-            }],
-            health_score: item.health_score,
-            total_receivable: item.total_receivable,
-            total_received: item.total_received,
-            total_overdue: item.total_overdue
-          }))
-
-          setClients(formattedClients)
-        } else {
-          // Busca todos se não houver termo usando a nova RPC
-          const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
-            p_from: from,
-            p_to: to,
-            p_search_term: '',
-            p_environment: getAppEnv()
-          })
-          
-          if (error) throw error
-          
-          const formattedClients = (data || []).map((item: any) => ({
-            ...item.client_data,
-            vw_client_process_summary: [{
-              active_processes_count: item.active_processes_count,
-              delayed_processes_count: item.delayed_processes_count
-            }],
-            health_score: item.health_score,
-            total_receivable: item.total_receivable,
-            total_received: item.total_received,
-            total_overdue: item.total_overdue
-          }))
-
-          setClients(formattedClients)
-        }
-      } catch (error: any) {
-        console.error('Error fetching clients:', error.message || error)
-      } finally {
-        setIsLoading(false)
-        setMounted(true)
-      }
+  const fetchClients = async () => {
+    if (!isSupabaseConfigured) {
+      setMounted(true)
+      return
     }
 
+    setIsLoading(true)
+
+    try {
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      // Obtém o total real de clientes para o ambiente atual
+      const { count: totalCount, error: countError } = await supabase
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('environment', getAppEnv());
+
+      if (countError) throw countError;
+      setTotalCount(totalCount || 0);
+
+      // Busca usando a nova RPC
+      const { data, error } = await supabase.rpc('get_clients_with_process_summary', { 
+        p_from: from,
+        p_to: to,
+        p_search_term: debouncedSearchTerm || '',
+        p_environment: getAppEnv()
+      })
+      
+      if (error) throw error
+      
+      const formattedClients = (data || []).map((item: any) => ({
+        ...item.client_data,
+        vw_client_process_summary: [{
+          active_processes_count: item.active_processes_count,
+          delayed_processes_count: item.delayed_processes_count
+        }],
+        health_score: item.health_score,
+        total_receivable: item.total_receivable,
+        total_received: item.total_received,
+        total_overdue: item.total_overdue
+      }))
+
+      setClients(formattedClients)
+    } catch (error: any) {
+      console.error('Error fetching clients:', error.message || error)
+    } finally {
+      setIsLoading(false)
+      setMounted(true)
+    }
+  }
+
+  useEffect(() => {
     fetchClients()
   }, [debouncedSearchTerm, page, pageSize])
 
@@ -614,7 +588,7 @@ export default function ClientesPage() {
         console.error('Error updating client:', error)
         alert(`Erro ao atualizar cliente: ${error.message || error.details || JSON.stringify(error)}`)
       } else {
-        setClients(prev => prev.map(c => c.id === editingClient.id ? { ...c, ...clientData } : c).sort((a, b) => a.name.localeCompare(b.name)))
+        await fetchClients()
         setIsModalOpen(false)
         setConflictWarning(null)
         setPendingSubmitData(null)
@@ -629,9 +603,7 @@ export default function ClientesPage() {
         console.error('Error creating client:', error)
         alert(`Erro ao criar cliente: ${error.message || error.details || JSON.stringify(error)}`)
       } else {
-        if (data) {
-          setClients(prev => [...prev, data[0]].sort((a, b) => a.name.localeCompare(b.name)))
-        }
+        await fetchClients()
         setIsModalOpen(false)
         setConflictWarning(null)
         setPendingSubmitData(null)
