@@ -99,6 +99,12 @@ interface Installment {
   fine: number
 }
 
+interface Disease {
+  id: string
+  cid_code: string
+  description: string
+}
+
 interface Product {
   id: number
   name: string
