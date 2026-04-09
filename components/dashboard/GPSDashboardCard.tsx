@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { getTodayBRString } from '@/lib/utils'
 
 export function GPSDashboardCard() {
-  const [counts, setCounts] = useState({ atrasado: 0, hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 })
+  const [counts, setCounts] = useState({ hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 })
   const router = useRouter()
 
   useEffect(() => {
@@ -24,22 +24,21 @@ export function GPSDashboardCard() {
       }
 
       const todayString = getTodayBRString()
-      const today = new Date(todayString + 'T00:00:00Z')
+      const today = new Date(todayString + 'T00:00:00-03:00')
       
-      const counts = { atrasado: 0, hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 }
+      const counts = { hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 }
       
       contracts?.forEach((c: { gps_forecast_date: string }) => {
-        const forecast = new Date(c.gps_forecast_date + 'T00:00:00Z')
+        const forecast = new Date(c.gps_forecast_date + 'T00:00:00-03:00')
         
         const diffDays = Math.ceil((forecast.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
         
-        if (diffDays < 0) counts.atrasado++
-        else if (diffDays === 0) counts.hoje++
-        else if (diffDays <= 3) counts.d1_3++
-        else if (diffDays <= 7) counts.d4_7++
-        else if (diffDays <= 15) counts.d8_15++
-        else if (diffDays <= 30) counts.d16_30++
-        else counts.d30plus++
+        if (diffDays === 0) counts.hoje++
+        else if (diffDays > 0 && diffDays <= 3) counts.d1_3++
+        else if (diffDays > 3 && diffDays <= 7) counts.d4_7++
+        else if (diffDays > 7 && diffDays <= 15) counts.d8_15++
+        else if (diffDays > 15 && diffDays <= 30) counts.d16_30++
+        else if (diffDays > 30) counts.d30plus++
       })
       
       setCounts(counts)
@@ -60,11 +59,7 @@ export function GPSDashboardCard() {
         <h3 className="text-lg font-bold text-slate-900">Previsão de Vencimento GPS</h3>
       </div>
       
-      <div className="grid grid-cols-7 gap-2 text-center">
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-xl font-bold text-rose-800">{counts.atrasado}</span>
-          <span className="text-[9px] uppercase font-bold text-slate-500">Atrasado</span>
-        </div>
+      <div className="grid grid-cols-6 gap-2 text-center">
         <div className="flex flex-col items-center gap-1">
           <span className="text-xl font-bold text-rose-600">{counts.hoje}</span>
           <span className="text-[9px] uppercase font-bold text-slate-500">Hoje</span>

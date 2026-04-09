@@ -10,10 +10,7 @@ export function getTodayBR(): string {
 }
 
 export function getTodayBRString(): string {
-  const now = new Date();
-  // Adjust to UTC-3
-  now.setUTCHours(now.getUTCHours() - 3);
-  return now.toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 export function formatCurrency(value: number, isVisible: boolean = true): string {
