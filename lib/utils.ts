@@ -151,17 +151,29 @@ export function formatPhone(phone: string): string {
 
 export function getRowColor(status: string): string {
   switch (status) {
-    case 'Atrasada': return 'bg-rose-50'
-    case 'Paga': return 'bg-emerald-50'
-    default: return ''
+    case 'Cancelado': return 'bg-rose-50 hover:bg-rose-100'
+    case 'Estornado': return 'bg-rose-100 hover:bg-rose-200'
+    case 'Pro Bono': return 'bg-yellow-50 hover:bg-yellow-100'
+    case 'Quitado': return 'bg-emerald-50 hover:bg-emerald-100'
+    case 'Prorrogado': return 'bg-amber-50 hover:bg-amber-100'
+    case 'Financiado': return 'bg-cyan-50 hover:bg-cyan-100'
+    case 'Atrasada': return 'bg-rose-50 hover:bg-rose-100'
+    case 'Paga': return 'bg-emerald-50 hover:bg-emerald-100'
+    default: return 'hover:bg-slate-50'
   }
 }
 
 export function getStatusColor(status: string): string {
   switch (status) {
-    case 'Atrasada': return 'text-rose-600'
-    case 'Paga': return 'text-emerald-600'
-    default: return 'text-slate-600'
+    case 'Cancelado': return 'text-rose-700 bg-rose-100'
+    case 'Estornado': return 'text-rose-800 bg-rose-200'
+    case 'Pro Bono': return 'text-yellow-800 bg-yellow-100'
+    case 'Quitado': return 'text-emerald-700 bg-emerald-100'
+    case 'Prorrogado': return 'text-amber-700 bg-amber-100'
+    case 'Financiado': return 'text-cyan-700 bg-cyan-100'
+    case 'Atrasada': return 'text-rose-700 bg-rose-100'
+    case 'Paga': return 'text-emerald-700 bg-emerald-100'
+    default: return 'text-slate-600 bg-slate-100'
   }
 }
 

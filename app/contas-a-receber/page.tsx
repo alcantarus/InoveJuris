@@ -634,7 +634,7 @@ export default function ContasAReceberPage() {
                     <td className="p-4 text-slate-600">{c.next_due_date ? formatDate(c.next_due_date) : '-'}</td>
                     <td className="p-4">
                       <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(rowStatus), c.contract_status?.toLowerCase() === 'cancelado' && "line-through")}>
-                        {c.contract_status}
+                        {rowStatus}
                       </span>
                     </td>
                     <td className="p-4">
