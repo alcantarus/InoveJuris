@@ -58,6 +58,9 @@ import { LiquidityGapCard } from '@/components/dashboard/dynamic/LiquidityGapCar
 import { StuckProcessesCard } from '@/components/dashboard/dynamic/StuckProcessesCard'
 import { DefaultRiskCard } from '@/components/dashboard/dynamic/DefaultRiskCard'
 import { GPSDashboardCard } from '@/components/dashboard/GPSDashboardCard'
+import { ProcessVelocityCard } from '@/components/dashboard/dynamic/ProcessVelocityCard'
+import { CashFlowForecastCard } from '@/components/dashboard/dynamic/CashFlowForecastCard'
+import { AreaEfficiencyCard } from '@/components/dashboard/dynamic/AreaEfficiencyCard'
 import GlobalActionCenter from '@/components/tasks/GlobalActionCenter'
 import TodayFocusWidget from '@/components/tasks/TodayFocusWidget'
 import BirthdayWidget from '@/components/dashboard/BirthdayWidget'
@@ -771,6 +774,9 @@ export default function Page() {
           <StuckProcessesCard count={stuckInProtocol + stuckInJudicial} onAction={() => window.location.href = '/processos'} />
           <DefaultRiskCard riskAmount={overdueTotal} count={overdueInstallmentsRaw.length} onAction={() => window.location.href = '/contas-a-receber'} />
           <GPSDashboardCard />
+          <ProcessVelocityCard />
+          <CashFlowForecastCard />
+          <AreaEfficiencyCard />
         </div>
 
         {/* Task Kanban */}
