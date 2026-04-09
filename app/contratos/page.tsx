@@ -27,8 +27,10 @@ import {
   Eye,
   EyeOff,
   Scale,
-  Gift
+  Gift,
+  Stethoscope
 } from 'lucide-react'
+import { DiseaseSelector } from '@/components/diseases/DiseaseSelector'
 import toast from 'react-hot-toast'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
@@ -261,6 +263,7 @@ export default function FinanceiroPage() {
   const [filter, setFilter] = useState('Todos')
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedContractDiseases, setSelectedContractDiseases] = useState<Disease[]>([])
   const [selectedMaternityClient, setSelectedMaternityClient] = useState<{name: string, id: string} | null>(null)
   const [estornoModalOpen, setEstornoModalOpen] = useState(false)
   const [estornoIndex, setEstornoIndex] = useState<number | null>(null)
@@ -483,12 +486,17 @@ export default function FinanceiroPage() {
       })
       // Fetch installments for this contract
       if (isSupabaseConfigured) {
-        const { data } = await supabase.from('installments').select('*').eq('contract_id', contract.id).order('installmentNumber')
-        if (data) setInstallments(data)
+        const [instRes, disRes] = await Promise.all([
+          supabase.from('installments').select('*').eq('contract_id', contract.id).order('installmentNumber'),
+          supabase.from('contract_diseases').select('disease_id, diseases(*)').eq('contract_id', contract.id)
+        ])
+        if (instRes.data) setInstallments(instRes.data)
+        setSelectedContractDiseases(disRes.data?.map(d => d.diseases) || [])
       }
     } else {
       setEditingContract(null)
       setSelectedMaternityClient(null)
+      setSelectedContractDiseases([])
       setFormData({
         client_id: null,
         product_id: null,
@@ -688,6 +696,12 @@ export default function FinanceiroPage() {
         console.log('No installments to upsert');
       }
 
+      // Update diseases
+      await supabase.from('contract_diseases').delete().eq('contract_id', editingContract.id)
+      if (selectedContractDiseases.length > 0) {
+        await supabase.from('contract_diseases').insert(selectedContractDiseases.map(d => ({ contract_id: editingContract.id, disease_id: d.id })))
+      }
+      
       if (cData && cData[0]) {
         setContracts(prev => prev.map(c => c.id === editingContract.id ? { ...cData[0], installments: installments } : c))
       }
@@ -713,6 +727,12 @@ export default function FinanceiroPage() {
 
       if (cData && cData[0]) {
         const newContractId = cData[0].id
+        
+        // Save diseases
+        if (selectedContractDiseases.length > 0) {
+          await supabase.from('contract_diseases').insert(selectedContractDiseases.map(d => ({ contract_id: newContractId, disease_id: d.id })))
+        }
+
         const instData = currentInstallments.map(i => ({
           contract_id: newContractId,
           installmentNumber: i.installmentNumber,
@@ -1848,6 +1868,15 @@ export default function FinanceiroPage() {
                     <option value="">Selecione um produto...</option>
                     {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                </div>
+                
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Doenças (CIDs)</label>
+                  <DiseaseSelector 
+                    selectedDiseases={selectedContractDiseases}
+                    onDiseaseSelect={(d) => setSelectedContractDiseases(prev => [...prev, d])}
+                    onDiseaseRemove={(id) => setSelectedContractDiseases(prev => prev.filter(d => d.id !== id))}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Status do Contrato</label>

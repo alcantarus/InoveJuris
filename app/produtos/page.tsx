@@ -9,8 +9,10 @@ import {
   Trash2, 
   Edit2,
   AlertTriangle,
-  Briefcase
+  Briefcase,
+  Stethoscope
 } from 'lucide-react'
+import { DiseaseSelector } from '@/components/diseases/DiseaseSelector'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -20,6 +22,12 @@ import { formatDate, removeAccents } from '@/lib/utils'
 interface LawArea {
   id: number
   name: string
+}
+
+interface Disease {
+  id: string
+  cid_code: string
+  description: string
 }
 
 interface Product {
@@ -34,6 +42,7 @@ export default function ProdutosPage() {
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [lawAreas, setLawAreas] = useState<LawArea[]>([])
+  const [selectedDiseases, setSelectedDiseases] = useState<Disease[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false)
@@ -71,16 +80,25 @@ export default function ProdutosPage() {
     fetchData()
   }, [])
 
-  const handleOpenModal = (product?: Product) => {
+  const handleOpenModal = async (product?: Product) => {
     if (product) {
       setEditingProduct(product)
       setFormData(product)
+      
+      // Fetch associated diseases
+      const { data } = await supabase
+        .from('product_diseases')
+        .select('disease_id, diseases(*)')
+        .eq('product_id', product.id)
+      
+      setSelectedDiseases(data?.map(d => d.diseases) || [])
     } else {
       setEditingProduct(null)
       setFormData({
         name: '',
         law_area_id: lawAreas.length > 0 ? lawAreas[0].id : null
       })
+      setSelectedDiseases([])
     }
     setIsModalOpen(true)
   }
@@ -110,6 +128,12 @@ export default function ProdutosPage() {
         console.error('Error updating product:', error)
         alert('Erro ao atualizar produto.')
       } else {
+        // Update diseases
+        await supabase.from('product_diseases').delete().eq('product_id', editingProduct.id)
+        if (selectedDiseases.length > 0) {
+          await supabase.from('product_diseases').insert(selectedDiseases.map(d => ({ product_id: editingProduct.id, disease_id: d.id })))
+        }
+        
         if (data) {
           setProducts(prev => prev.map(p => p.id === editingProduct.id ? data[0] : p))
         }
@@ -126,6 +150,11 @@ export default function ProdutosPage() {
         console.error('Error creating product:', error)
         alert(`Erro ao criar produto: ${error.message || error.details || JSON.stringify(error)}`)
       } else {
+        // Save diseases
+        if (data && selectedDiseases.length > 0) {
+          await supabase.from('product_diseases').insert(selectedDiseases.map(d => ({ product_id: data[0].id, disease_id: d.id })))
+        }
+        
         if (data) {
           setProducts(prev => [...prev, data[0]])
         }
@@ -191,6 +220,13 @@ export default function ProdutosPage() {
           description="Gerencie os tipos de ações e requerimentos."
         />
         <div className="flex gap-2">
+          <button 
+            onClick={() => window.location.href = '/doencas'}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <Stethoscope size={20} />
+            Nova Doença
+          </button>
           <button 
             onClick={() => setIsAreaModalOpen(true)}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-sm"
@@ -327,6 +363,15 @@ export default function ProdutosPage() {
                   <option key={area.id} value={area.id}>{area.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Doenças (CIDs)</label>
+              <DiseaseSelector 
+                selectedDiseases={selectedDiseases}
+                onDiseaseSelect={(d) => setSelectedDiseases(prev => [...prev, d])}
+                onDiseaseRemove={(id) => setSelectedDiseases(prev => prev.filter(d => d.id !== id))}
+              />
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
