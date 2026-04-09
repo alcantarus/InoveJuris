@@ -846,7 +846,12 @@ function RelatoriosPageContent() {
 
         {activeReport === 'gps' && (
           (() => {
-            const hasOverdue = gpsData.some(item => !item.gpsPaid && item.gps_forecast_date && new Date(item.gps_forecast_date) < new Date());
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            
+            const isDueSoon = gpsData.some(item => !item.gpsPaid && item.gps_forecast_date && new Date(item.gps_forecast_date) > today && new Date(item.gps_forecast_date) <= tomorrow);
             return (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 {[
@@ -854,7 +859,7 @@ function RelatoriosPageContent() {
                   { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981' },
                   { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1' }
                 ].map((item, index) => (
-                  <div key={index} className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between ${item.title === 'Total Pendente' && hasOverdue ? 'animate-pulse ring-2 ring-rose-500' : ''}`}>
+                  <div key={index} className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between ${item.title === 'Total Pendente' && isDueSoon ? 'animate-pulse ring-2 ring-indigo-500' : ''}`}>
                     <div>
                       <div className="text-sm font-medium text-slate-500 mb-1">{item.title}</div>
                       <div className="text-2xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
@@ -1130,16 +1135,8 @@ function RelatoriosPageContent() {
                             </span>
                           </td>
                           <td className="p-4">
-                            <div className={cn(
-                              "flex items-center gap-2 font-medium",
-                              new Date(item.gps_forecast_date) < new Date() && !item.gpsPaid 
-                                ? "text-rose-600 font-bold" 
-                                : "text-slate-900"
-                            )}>
+                            <div className="flex items-center gap-2 font-medium text-slate-900">
                               {formatDate(item.gps_forecast_date)}
-                              {new Date(item.gps_forecast_date) < new Date() && !item.gpsPaid && (
-                                <AlertTriangle size={16} className="text-rose-500" />
-                              )}
                             </div>
                           </td>
                           <td className="p-4">

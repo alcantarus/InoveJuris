@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Calendar } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { getTodayBRString } from '@/lib/utils'
 
 export function GPSDashboardCard() {
   const [counts, setCounts] = useState({ atrasado: 0, hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 })
@@ -22,14 +23,13 @@ export function GPSDashboardCard() {
         return
       }
 
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      const todayString = getTodayBRString()
+      const today = new Date(todayString + 'T00:00:00Z')
       
       const counts = { atrasado: 0, hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 }
       
       contracts?.forEach((c: { gps_forecast_date: string }) => {
-        const forecast = new Date(c.gps_forecast_date)
-        forecast.setHours(0, 0, 0, 0)
+        const forecast = new Date(c.gps_forecast_date + 'T00:00:00Z')
         
         const diffDays = Math.ceil((forecast.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
         

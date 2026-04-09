@@ -9,6 +9,13 @@ export function getTodayBR(): string {
   return new Date().toISOString().split('T')[0]
 }
 
+export function getTodayBRString(): string {
+  const now = new Date();
+  // Adjust to UTC-3
+  now.setUTCHours(now.getUTCHours() - 3);
+  return now.toISOString().split('T')[0];
+}
+
 export function formatCurrency(value: number, isVisible: boolean = true): string {
   if (!isVisible) return 'R$ •••••'
   return new Intl.NumberFormat('pt-BR', {
