@@ -853,7 +853,8 @@ function RelatoriosPageContent() {
             
             const isDueSoon = gpsData.some(item => !item.gpsPaid && item.gps_forecast_date && new Date(item.gps_forecast_date) > today && new Date(item.gps_forecast_date) <= tomorrow);
             return (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="flex justify-center mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-5xl">
                 {[
                   { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
                   { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
@@ -884,6 +885,7 @@ function RelatoriosPageContent() {
                   </div>
                 ))}
               </div>
+            </div>
             );
           })()
         )}
