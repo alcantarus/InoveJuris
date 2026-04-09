@@ -853,24 +853,24 @@ function RelatoriosPageContent() {
             
             const isDueSoon = gpsData.some(item => !item.gpsPaid && item.gps_forecast_date && new Date(item.gps_forecast_date) > today && new Date(item.gps_forecast_date) <= tomorrow);
             return (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 {[
                   { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e' },
                   { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981' },
                   { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1' }
                 ].map((item, index) => (
-                  <div key={index} className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between ${item.title === 'Total Pendente' && isDueSoon ? 'animate-pulse ring-2 ring-indigo-500' : ''}`}>
+                  <div key={index} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between ${item.title === 'Total Pendente' && isDueSoon ? 'animate-pulse ring-2 ring-indigo-500' : ''}`}>
                     <div>
-                      <div className="text-sm font-medium text-slate-500 mb-1">{item.title}</div>
-                      <div className="text-2xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
+                      <div className="text-xs font-medium text-slate-500 mb-0.5">{item.title}</div>
+                      <div className="text-lg font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
                     </div>
-                    <div className="h-20 w-20">
+                    <div className="h-12 w-12">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={[{ value: item.value }, { value: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value }]}
-                            innerRadius={25}
-                            outerRadius={35}
+                            innerRadius={15}
+                            outerRadius={20}
                             paddingAngle={0}
                             dataKey="value"
                             stroke="none"
