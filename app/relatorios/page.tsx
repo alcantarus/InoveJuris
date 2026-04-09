@@ -855,21 +855,21 @@ function RelatoriosPageContent() {
             return (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 {[
-                  { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e' },
-                  { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981' },
-                  { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1' }
+                  { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
+                  { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
+                  { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1', active: false }
                 ].map((item, index) => (
-                  <div key={index} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between ${item.title === 'Total Pendente' && isDueSoon ? 'animate-pulse ring-2 ring-indigo-500' : ''}`}>
-                    <div>
-                      <div className="text-xs font-medium text-slate-500 mb-0.5">{item.title}</div>
-                      <div className="text-lg font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
+                  <div key={index} className={`bg-white p-4 rounded-2xl shadow-sm border ${item.active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200'} flex items-center justify-between`}>
+                    <div className="flex flex-col">
+                      <div className="text-xs font-medium text-slate-500 mb-1">{item.title}</div>
+                      <div className="text-xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
                     </div>
-                    <div className="h-12 w-12">
+                    <div className="h-12 w-12 shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={[{ value: item.value }, { value: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value }]}
-                            innerRadius={15}
+                            innerRadius={16}
                             outerRadius={20}
                             paddingAngle={0}
                             dataKey="value"
@@ -878,7 +878,6 @@ function RelatoriosPageContent() {
                             <Cell fill={item.color} />
                             <Cell fill="#e2e8f0" />
                           </Pie>
-                          <Tooltip formatter={(value: any) => formatCurrency(Number(value), isVisible('reports_gps'))} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
