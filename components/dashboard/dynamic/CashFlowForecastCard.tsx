@@ -19,7 +19,7 @@ export function CashFlowForecastCard() {
         return
       }
 
-      const totalForecast = data.reduce((acc, curr) => acc + curr.expected_amount, 0)
+      const totalForecast = (data || []).reduce((acc: number, curr: any) => acc + (curr.expected_amount || 0), 0)
       setForecast(totalForecast)
     }
     fetchForecast()
