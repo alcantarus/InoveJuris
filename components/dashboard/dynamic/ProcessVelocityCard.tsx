@@ -18,7 +18,7 @@ export function ProcessVelocityCard() {
         return
       }
 
-      const avgVelocity = data.reduce((acc, curr) => acc + curr.days_since_last_movement, 0) / data.length
+      const avgVelocity = (data || []).reduce((acc: number, curr: any) => acc + (curr.days_since_last_movement || 0), 0) / (data?.length || 1)
       setVelocity(avgVelocity)
     }
     fetchVelocity()
