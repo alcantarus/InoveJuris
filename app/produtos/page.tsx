@@ -91,7 +91,7 @@ export default function ProdutosPage() {
         .select('disease_id, diseases(*)')
         .eq('product_id', product.id)
       
-      setSelectedDiseases(data?.map(d => d.diseases) || [])
+      setSelectedDiseases(data?.map((d: any) => d.diseases) || [])
     } else {
       setEditingProduct(null)
       setFormData({
