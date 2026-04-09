@@ -497,7 +497,7 @@ export default function FinanceiroPage() {
           supabase.from('contract_diseases').select('disease_id, diseases(*)').eq('contract_id', contract.id)
         ])
         if (instRes.data) setInstallments(instRes.data)
-        setSelectedContractDiseases(disRes.data?.map(d => d.diseases) || [])
+        setSelectedContractDiseases(disRes.data?.map((d: any) => d.diseases) || [])
       }
     } else {
       setEditingContract(null)
