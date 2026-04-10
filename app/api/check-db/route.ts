@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   const views = ['vw_process_velocity', 'vw_cash_flow_forecast', 'vw_area_efficiency'];
-  const results = {};
+  const results: Record<string, any> = {};
 
   for (const view of views) {
     const { data, error } = await supabase.from(view).select('*').limit(5);
