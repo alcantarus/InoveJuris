@@ -638,7 +638,18 @@ export default function ContasAReceberPage() {
                       </span>
                     </td>
                     <td className="p-4">
-                      <button className="text-indigo-600 hover:text-indigo-800 font-medium text-xs uppercase tracking-wider" onClick={() => setSelectedContract({ id: c.contract_id, processNumber: c.processNumber, clients: { name: c.client_name }, status: c.contract_status, contractValue: c.contract_value, amountReceived: c.amount_received })}>Ver Parcelas</button>
+                      <button 
+                        className={cn(
+                          "font-medium text-xs uppercase tracking-wider",
+                          rowStatus === 'Cancelado' 
+                            ? "text-slate-400 cursor-not-allowed" 
+                            : "text-indigo-600 hover:text-indigo-800"
+                        )} 
+                        onClick={() => setSelectedContract({ id: c.contract_id, processNumber: c.processNumber, clients: { name: c.client_name }, status: c.contract_status, contractValue: c.contract_value, amountReceived: c.amount_received })}
+                        disabled={rowStatus === 'Cancelado'}
+                      >
+                        Ver Parcelas
+                      </button>
                     </td>
                   </motion.tr>
                 )})}

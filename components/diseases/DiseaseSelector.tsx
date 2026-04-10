@@ -23,21 +23,22 @@ export function DiseaseSelector({ selectedDiseases, onDiseaseSelect, onDiseaseRe
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
-    if (searchTerm.length > 1) {
-      const fetchDiseases = async () => {
-        const { data } = await supabase
-          .from('diseases')
-          .select('*')
-          .or(`cid_code.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
-          .limit(5)
-        setSuggestions(data || [])
-        setIsOpen(true)
-      }
-      fetchDiseases()
-    } else {
+    if (searchTerm.length <= 1) {
       setSuggestions([])
       setIsOpen(false)
+      return
     }
+
+    const fetchDiseases = async () => {
+      const { data } = await supabase
+        .from('diseases')
+        .select('*')
+        .or(`cid_code.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+        .limit(5)
+      setSuggestions(data || [])
+      setIsOpen(true)
+    }
+    fetchDiseases()
   }, [searchTerm])
 
   return (
