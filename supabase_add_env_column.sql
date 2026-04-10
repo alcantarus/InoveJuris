@@ -13,5 +13,9 @@ ADD COLUMN IF NOT EXISTS environment text DEFAULT 'production';
 ALTER TABLE template_variables 
 ADD COLUMN IF NOT EXISTS environment text DEFAULT 'production';
 
--- 3. Atualiza o cache do esquema do Supabase (para reconhecer a nova coluna imediatamente)
+-- 3. Adiciona a coluna 'environment' na tabela product_diseases
+ALTER TABLE product_diseases 
+ADD COLUMN IF NOT EXISTS environment text DEFAULT 'production';
+
+-- 4. Atualiza o cache do esquema do Supabase (para reconhecer a nova coluna imediatamente)
 NOTIFY pgrst, 'reload config';
