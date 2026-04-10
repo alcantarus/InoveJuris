@@ -8,10 +8,12 @@ import { getTodayBRString } from '@/lib/utils'
 
 export function GPSNotificationChecker() {
   const { user } = useAuth()
+  const isChecking = React.useRef(false)
 
   const checkGPSDueDates = useCallback(async () => {
-    if (!user?.id) return
-
+    if (!user?.id || isChecking.current) return
+    
+    isChecking.current = true
     try {
       // 1. Busca contratos com GPS vencendo hoje e não pagas
       const today = getTodayBRString()
@@ -59,6 +61,8 @@ export function GPSNotificationChecker() {
       }
     } catch (error) {
       console.error('Erro ao verificar vencimentos de GPS:', error)
+    } finally {
+      isChecking.current = false
     }
   }, [user])
 

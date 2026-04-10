@@ -18,6 +18,7 @@ import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { formatDate, removeAccents } from '@/lib/utils'
+import { getAppEnv } from '@/lib/env'
 
 interface LawArea {
   id: number
@@ -129,9 +130,27 @@ export default function ProdutosPage() {
         alert('Erro ao atualizar produto.')
       } else {
         // Update diseases
-        await supabase.from('product_diseases').delete().eq('product_id', editingProduct.id)
-        if (selectedDiseases.length > 0) {
-          await supabase.from('product_diseases').insert(selectedDiseases.map(d => ({ product_id: editingProduct.id, disease_id: d.id })))
+        console.log('Updating diseases for product:', editingProduct.id, selectedDiseases);
+        const currentEnv = getAppEnv();
+        const { error: deleteError } = await supabase.from('product_diseases')
+          .delete()
+          .eq('product_id', editingProduct.id)
+          .eq('environment', currentEnv)
+        if (deleteError) {
+          console.error('Error deleting old diseases:', deleteError);
+          alert('Erro ao atualizar doenças (exclusão).');
+        } else {
+          if (selectedDiseases.length > 0) {
+            const { error: insertError } = await supabase.from('product_diseases').insert(selectedDiseases.map(d => ({ 
+              product_id: editingProduct.id, 
+              disease_id: d.id,
+              environment: currentEnv // Respeitando o ambiente atual
+            })))
+            if (insertError) {
+              console.error('Error inserting new diseases:', insertError);
+              alert(`Erro ao atualizar doenças (inserção): ${insertError.message}`);
+            }
+          }
         }
         
         if (data) {
@@ -152,7 +171,16 @@ export default function ProdutosPage() {
       } else {
         // Save diseases
         if (data && selectedDiseases.length > 0) {
-          await supabase.from('product_diseases').insert(selectedDiseases.map(d => ({ product_id: data[0].id, disease_id: d.id })))
+          const currentEnv = getAppEnv();
+          const { error: insertError } = await supabase.from('product_diseases').insert(selectedDiseases.map(d => ({ 
+            product_id: data[0].id, 
+            disease_id: d.id,
+            environment: currentEnv // Respeitando o ambiente atual
+          })))
+          if (insertError) {
+            console.error('Error inserting diseases:', insertError);
+            alert(`Erro ao salvar doenças: ${insertError.message}`);
+          }
         }
         
         if (data) {

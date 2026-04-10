@@ -227,7 +227,7 @@ export default function Page() {
       }
 
       try {
-        const [clientsRes, processesRes, installmentsRes, contractsRes, productsRes, auditRes, transactionsRes, lawAreasRes, deadlinesRes, receivablesMetricsRes, receivablesForecastRes, topDefaultersRes] = await Promise.all([
+        const [clientsRes, processesRes, installmentsRes, contractsRes, productsRes, auditRes, transactionsRes, lawAreasRes, deadlinesRes, receivablesMetricsRes, receivablesForecastRes, topDefaultersRes, velocityRes, forecastRes, efficiencyRes] = await Promise.all([
           supabase.from('clients').select('*'),
           supabase.from('processes').select('*'),
           supabase.from('installments').select('*'),
@@ -239,8 +239,16 @@ export default function Page() {
           supabase.from('process_deadlines').select('*'),
           supabase.from('vw_dashboard_receivables_metrics').select('*'),
           supabase.from('vw_dashboard_receivables_forecast').select('*'),
-          supabase.from('vw_dashboard_top_defaulters').select('*')
+          supabase.from('vw_dashboard_top_defaulters').select('*'),
+          supabase.from('vw_process_velocity').select('*'),
+          supabase.from('vw_cash_flow_forecast').select('*'),
+          supabase.from('vw_area_efficiency').select('*')
         ])
+
+        console.log('Velocity:', velocityRes.data, velocityRes.error);
+        console.log('Forecast:', forecastRes.data, forecastRes.error);
+        console.log('Efficiency:', efficiencyRes.data, efficiencyRes.error);
+
 
         setData({
           clients: clientsRes.data || [],
