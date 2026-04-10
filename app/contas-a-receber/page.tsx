@@ -641,12 +641,12 @@ export default function ContasAReceberPage() {
                       <button 
                         className={cn(
                           "font-medium text-xs uppercase tracking-wider",
-                          rowStatus === 'Cancelado' 
+                          (rowStatus === 'Cancelado' || rowStatus === 'Pro Bono')
                             ? "text-slate-400 cursor-not-allowed" 
                             : "text-indigo-600 hover:text-indigo-800"
                         )} 
                         onClick={() => setSelectedContract({ id: c.contract_id, processNumber: c.processNumber, clients: { name: c.client_name }, status: c.contract_status, contractValue: c.contract_value, amountReceived: c.amount_received })}
-                        disabled={rowStatus === 'Cancelado'}
+                        disabled={rowStatus === 'Cancelado' || rowStatus === 'Pro Bono'}
                       >
                         Ver Parcelas
                       </button>
