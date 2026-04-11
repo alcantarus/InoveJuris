@@ -12,7 +12,12 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
-  const sql = fs.readFileSync('fix_partial_payments.sql', 'utf8');
+  const filePath = process.argv[2];
+  if (!filePath) {
+    console.error('Please provide a file path.');
+    process.exit(1);
+  }
+  const sql = fs.readFileSync(filePath, 'utf8');
   
   const { error } = await supabase.rpc('exec_sql', {
     sql: sql
