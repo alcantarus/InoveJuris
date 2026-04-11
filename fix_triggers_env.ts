@@ -15,15 +15,12 @@ async function fixTriggers() {
     CREATE OR REPLACE FUNCTION prevent_update_delete_paid_contract()
     RETURNS TRIGGER AS $$
     BEGIN
-      IF (OLD.status = 'Quitado') THEN
-        RAISE EXCEPTION 'Não é possível alterar ou excluir um contrato quitado.';
+      -- Permite a alteração se o contrato estiver sendo cancelado (novo status 'Cancelado')
+      IF (OLD.status = 'Quitado') AND (NEW.status <> 'Cancelado') THEN
+        RAISE EXCEPTION 'Não é possível alterar um contrato quitado.';
       END IF;
       
-      IF (TG_OP = 'UPDATE') THEN
-        RETURN NEW;
-      END IF;
-      
-      RETURN OLD;
+      RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
 

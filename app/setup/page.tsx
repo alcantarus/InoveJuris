@@ -993,7 +993,7 @@ BEGIN
   WHERE contract_id = p_contract_id;
   
   IF v_has_payments THEN
-    RAISE EXCEPTION 'Não é possível cancelar um contrato com parcelas recebidas, estornadas ou prorrogadas.';
+    RAISE EXCEPTION 'Não é possível cancelar um contrato com parcelas recebidas ou em status inválido.';
   END IF;
 
   -- 2. Update contract

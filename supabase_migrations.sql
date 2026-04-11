@@ -517,10 +517,11 @@ END $$;
 CREATE OR REPLACE FUNCTION prevent_update_delete_paid_contract()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF (OLD.status = 'Quitado') THEN
-    RAISE EXCEPTION 'Não é possível alterar ou excluir um contrato quitado.';
+  -- Permite a alteração se o contrato estiver sendo cancelado (novo status 'Cancelado')
+  IF (OLD.status = 'Quitado') AND (NEW.status <> 'Cancelado') THEN
+    RAISE EXCEPTION 'Não é possível alterar um contrato quitado.';
   END IF;
-  RETURN OLD;
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -532,10 +533,11 @@ FOR EACH ROW EXECUTE FUNCTION prevent_update_delete_paid_contract();
 CREATE OR REPLACE FUNCTION prevent_update_delete_paid_installment()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF (OLD.status = 'Quitado') THEN
-    RAISE EXCEPTION 'Não é possível alterar ou excluir uma parcela quitada.';
+  -- Permite a alteração se a parcela estiver sendo cancelada (novo status 'Cancelada')
+  IF (OLD.status = 'Quitado') AND (NEW.status <> 'Cancelada') THEN
+    RAISE EXCEPTION 'Não é possível alterar uma parcela quitada.';
   END IF;
-  RETURN OLD;
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -848,7 +850,7 @@ BEGIN
   WHERE contract_id = p_contract_id;
   
   IF v_has_payments THEN
-    RAISE EXCEPTION 'Não é possível cancelar um contrato com parcelas recebidas, estornadas ou prorrogadas.';
+    RAISE EXCEPTION 'Não é possível cancelar um contrato com parcelas recebidas ou em status inválido.';
   END IF;
 
   -- 2. Update contract
@@ -857,7 +859,9 @@ BEGIN
   UPDATE contracts 
   SET status = 'Cancelado',
       observations = COALESCE(v_old_obs, '') || E'\n\n' || '[CANCELAMENTO]: ' || p_reason,
-      updated_by = p_user_id
+      updated_by = p_user_id,
+      "commissionValue" = 0,
+      "commissionPaid" = FALSE
   WHERE id = p_contract_id;
 
   -- 3. Update all installments
