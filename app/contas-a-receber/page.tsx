@@ -279,8 +279,13 @@ export default function ContasAReceberPage() {
       .gte('payment_date', firstDayOfMonth)
       .lte('payment_date', todayStr);
     
-    console.log('Pagamentos do mês:', paymentsData);
-    const totalReceived = paymentsData?.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0) || 0;
+    // Filtra pagamentos, excluindo aqueles que contêm "estorno" na descrição ou "reversal" no tipo
+    const filteredPayments = paymentsData?.filter(p => 
+      (!p.description || !p.description.toLowerCase().includes('estorno')) &&
+      (!p.type || p.type.toLowerCase() !== 'reversal')
+    ) || [];
+
+    const totalReceived = filteredPayments.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
     setReceivedThisMonth(totalReceived);
 
     // Previsão 30 dias
