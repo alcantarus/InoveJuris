@@ -180,15 +180,13 @@ export function getStatusColor(status: string): string {
 export function isContractQuitado(statusOrContract: any, total?: number, received?: number): boolean {
   if (typeof statusOrContract === 'string') {
     const status = statusOrContract;
-    if (status === 'Quitado') return true;
-    if (total !== undefined && received !== undefined) {
-      return received >= total;
-    }
-    return false;
+    // Apenas 'Quitado' é considerado quitado. 'Prorrogado' não é.
+    return status === 'Quitado';
   }
   
   const contract = statusOrContract;
-  return contract.status === 'Quitado' || (contract.amount_received >= contract.contract_value);
+  // Apenas 'Quitado' é considerado quitado.
+  return contract.status === 'Quitado';
 }
 
 export function formatProcessNumber(number: string): string {
