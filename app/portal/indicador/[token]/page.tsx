@@ -74,7 +74,7 @@ export default function PortalIndicadorPage() {
         const indicatorName = (tokenData.indicators as any)?.name || 'Indicador';
         
         const dataWithPayments = (statusData || []).map((item: any) => {
-          const contract = contractsData?.find(c => c.id === item.contract_id);
+          const contract = contractsData?.find((c: any) => c.id === item.contract_id);
           return {
             ...item,
             contract_status: contract?.status || 'Aberto',
