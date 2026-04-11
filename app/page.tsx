@@ -427,9 +427,11 @@ export default function Page() {
 
   const totalReceived = data.transactions
     .filter((t: any) => {
-      // Financial transactions don't always link directly to contracts in this schema, 
-      // but we can try to infer or just show global if no link exists.
-      return true 
+      const tDate = new Date(t.date + 'T00:00:00')
+      const today = new Date()
+      return t.type === 'income' && 
+             tDate.getMonth() === today.getMonth() && 
+             tDate.getFullYear() === today.getFullYear()
     })
     .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)
   
