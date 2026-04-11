@@ -280,7 +280,7 @@ export default function ContasAReceberPage() {
       .lte('payment_date', todayStr);
     
     // Filtra pagamentos, excluindo aqueles que contêm "estorno" na descrição ou "reversal" no tipo
-    const filteredPayments = paymentsData?.filter(p => 
+    const filteredPayments = paymentsData?.filter((p: any) => 
       (!p.description || !p.description.toLowerCase().includes('estorno')) &&
       (!p.type || p.type.toLowerCase() !== 'reversal')
     ) || [];
