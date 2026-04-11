@@ -517,11 +517,29 @@ END $$;
 CREATE OR REPLACE FUNCTION prevent_update_delete_paid_contract()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Permite a alteração se o contrato estiver sendo cancelado (novo status 'Cancelado')
+  -- Bloqueia apenas se o contrato estiver estritamente 'Quitado' e não estiver sendo cancelado
   IF (OLD.status = 'Quitado') AND (NEW.status <> 'Cancelado') THEN
-    RAISE EXCEPTION 'Não é possível alterar um contrato quitado.';
+    IF (TG_OP = 'DELETE') THEN
+      RAISE EXCEPTION 'Não é possível excluir um contrato quitado.';
+    END IF;
+    
+    IF (TG_OP = 'UPDATE') THEN
+      -- Bloqueia apenas se campos financeiros ou críticos forem alterados
+      IF (OLD."contractValue" <> NEW."contractValue" OR 
+          OLD.status <> NEW.status OR
+          OLD."installmentsCount" <> NEW."installmentsCount" OR
+          COALESCE(OLD."paymentMethod", '') <> COALESCE(NEW."paymentMethod", '')) THEN
+          
+          RAISE EXCEPTION 'Não é possível alterar dados financeiros de um contrato quitado.';
+      END IF;
+    END IF;
   END IF;
-  RETURN NEW;
+  
+  IF (TG_OP = 'UPDATE') THEN
+    RETURN NEW;
+  END IF;
+  
+  RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -849,6 +867,7 @@ BEGIN
   FROM installments 
   WHERE contract_id = p_contract_id;
   
+  -- Permite cancelamento se não houver pagamentos, ignorando status de parcelas se forem prorrogadas ou abertas
   IF v_has_payments THEN
     RAISE EXCEPTION 'Não é possível cancelar um contrato com parcelas recebidas ou em status inválido.';
   END IF;

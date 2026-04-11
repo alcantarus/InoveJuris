@@ -16,6 +16,11 @@ async function fixTriggers() {
         END IF;
         
         IF (TG_OP = 'UPDATE') THEN
+          -- Permite a alteração se o novo status for 'Cancelado'
+          IF (NEW.status = 'Cancelado') THEN
+            RETURN NEW;
+          END IF;
+
           -- Bloqueia apenas se campos financeiros ou críticos forem alterados
           IF (OLD."contractValue" <> NEW."contractValue" OR 
               OLD.status <> NEW.status OR
@@ -44,6 +49,11 @@ async function fixTriggers() {
         END IF;
         
         IF (TG_OP = 'UPDATE') THEN
+          -- Permite a alteração se o novo status for 'Cancelada'
+          IF (NEW.status = 'Cancelada') THEN
+            RETURN NEW;
+          END IF;
+
           -- Bloqueia apenas se campos financeiros forem alterados
           IF (OLD.amount <> NEW.amount OR 
               OLD."dueDate" <> NEW."dueDate" OR 
