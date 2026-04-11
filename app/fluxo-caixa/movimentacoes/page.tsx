@@ -308,8 +308,8 @@ export default function MovimentacoesPage() {
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2 xl:col-span-1">
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+            <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2 xl:col-span-2">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 min-w-[160px]">
                 <span className="text-xs text-slate-500 font-medium">De:</span>
                 <input 
                   type="date"
@@ -318,7 +318,7 @@ export default function MovimentacoesPage() {
                   onChange={e => setStartDate(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 min-w-[160px]">
                 <span className="text-xs text-slate-500 font-medium">Até:</span>
                 <input 
                   type="date"

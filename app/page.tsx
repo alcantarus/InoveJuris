@@ -163,9 +163,11 @@ export default function Page() {
     const monthlyGoal = settings.dashboard_goals?.monthly_revenue || 150000
     const currentMonthRevenue = data.transactions
       .filter((t: any) => {
-        const today = new Date(getTodayBR() + 'T00:00:00')
         const tDate = new Date(t.date + 'T00:00:00')
-        return tDate.getMonth() === today.getMonth() && tDate.getFullYear() === today.getFullYear()
+        const today = new Date()
+        return t.type === 'income' && 
+               tDate.getMonth() === today.getMonth() && 
+               tDate.getFullYear() === today.getFullYear()
       })
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)
     
