@@ -275,10 +275,11 @@ export default function ContasAReceberPage() {
     // Recebido este mês
     const { data: paymentsData } = await supabase
       .from('payments')
-      .select('amount')
+      .select('amount, payment_date, description')
       .gte('payment_date', firstDayOfMonth)
       .lte('payment_date', todayStr);
     
+    console.log('Pagamentos do mês:', paymentsData);
     const totalReceived = paymentsData?.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0) || 0;
     setReceivedThisMonth(totalReceived);
 

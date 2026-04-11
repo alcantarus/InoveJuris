@@ -25,7 +25,7 @@ import { ModuleHeader } from '@/components/ModuleHeader'
 
 interface Lawyer {
   id: number
-  user_id?: number
+  user_id?: string
   name?: string
   oab_number: string
   specialty: string
@@ -39,7 +39,7 @@ interface Lawyer {
 }
 
 interface User {
-  id: number
+  id: string
   name: string
   email: string
 }
@@ -54,7 +54,7 @@ export default function LawyersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   
   const [formData, setFormData] = useState({
-    user_id: undefined as number | undefined,
+    user_id: undefined as string | undefined,
     name: '',
     is_manual: false,
     oab_number: '',
