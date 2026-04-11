@@ -843,7 +843,7 @@ DECLARE
   v_old_obs TEXT;
 BEGIN
   -- 1. Check if there are any invalid installments (paid, reversed, extended, etc.)
-  SELECT COALESCE(bool_or("amountPaid" > 0 OR status NOT IN ('Aberto', 'Atrasada')), false) INTO v_has_payments 
+  SELECT COALESCE(bool_or("amountPaid" > 0 OR lower(status) NOT IN ('aberto', 'atrasada', 'prorrogada', 'prorrogado')), false) INTO v_has_payments 
   FROM installments 
   WHERE contract_id = p_contract_id;
   
