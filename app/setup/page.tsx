@@ -1138,6 +1138,40 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow authenticated users to manage payments" ON payments;
 CREATE POLICY "Allow authenticated users to manage payments" ON payments
     FOR ALL USING (auth.role() = 'authenticated');
+
+-- 27. Trigger para Recálculo Automático de Contratos
+CREATE OR REPLACE FUNCTION fn_recalculate_contract_totals()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_contract_id BIGINT;
+  v_total_received DECIMAL(12,2);
+  v_contract_value DECIMAL(12,2);
+BEGIN
+  IF (TG_TABLE_NAME = 'payments') THEN
+    SELECT contract_id INTO v_contract_id FROM installments WHERE id = NEW.installment_id;
+  ELSIF (TG_TABLE_NAME = 'installments') THEN
+    v_contract_id := NEW.contract_id;
+  END IF;
+  IF v_contract_id IS NULL THEN RETURN NULL; END IF;
+  SELECT COALESCE(SUM("amountPaid"), 0) INTO v_total_received FROM installments WHERE contract_id = v_contract_id;
+  SELECT "contractValue" INTO v_contract_value FROM contracts WHERE id = v_contract_id;
+  UPDATE contracts 
+  SET "amountReceived" = v_total_received,
+      "amountReceivable" = GREATEST(0, v_contract_value - v_total_received),
+      status = CASE WHEN v_total_received >= v_contract_value THEN 'Quitado' WHEN v_total_received > 0 THEN 'Parcial' ELSE 'Aberto' END
+  WHERE id = v_contract_id;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_recalculate_contract_on_payment ON payments;
+CREATE TRIGGER trg_recalculate_contract_on_payment AFTER INSERT OR UPDATE OR DELETE ON payments FOR EACH ROW EXECUTE FUNCTION fn_recalculate_contract_totals();
+
+DROP TRIGGER IF EXISTS trg_recalculate_contract_on_installment ON installments;
+CREATE TRIGGER trg_recalculate_contract_on_installment AFTER UPDATE OF "amountPaid" ON installments FOR EACH ROW EXECUTE FUNCTION fn_recalculate_contract_totals();
+
+-- 28. Correção pontual do contrato 91
+UPDATE contracts SET "amountReceived" = 1000.00, "amountReceivable" = 0.00, status = 'Quitado', updated_at = NOW() WHERE id = 91 AND environment = 'test';
 `
 
 export default function SetupPage() {
