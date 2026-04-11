@@ -542,8 +542,8 @@ export default function FinanceiroPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (editingContract && (editingContract.status === 'Quitado' || editingContract.status === 'Cancelado')) {
-      alert('Não é possível editar um contrato que já está Quitado ou Cancelado.')
+    if (editingContract && (editingContract.status === 'Quitado' || editingContract.status === 'Cancelado' || (editingContract.amountReceived || 0) > 0)) {
+      alert('Não é possível editar um contrato que já possui pagamentos, está Quitado ou Cancelado.')
       return
     }
 
