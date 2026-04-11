@@ -339,7 +339,7 @@ export default function ContasAReceberPage() {
       .from('installments')
       .select(`*`)
       .eq('contract_id', contractId)
-      .order('dueDate', { ascending: true })
+      .order('installmentNumber', { ascending: true })
 
     if (error) {
       toast.error('Erro ao buscar parcelas')
