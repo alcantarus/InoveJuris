@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
 
-// Hardcoded para garantir execução
 const supabaseUrl = 'https://jhlxzqsgmudkbjkynqdl.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -12,16 +12,14 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
+  const sql = fs.readFileSync('fix_partial_payments.sql', 'utf8');
+  
   const { error } = await supabase.rpc('exec_sql', {
-    sql: `
-      ALTER TABLE product_diseases ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'production';
-    `
+    sql: sql
   });
 
   if (error) {
     console.error('Error executing SQL via RPC:', error);
-    // Fallback to trying to insert directly if RPC doesn't exist, but we can't alter table without RPC.
-    // Actually, we can just ask the user to run it, or I can use the postgres connection string if available.
   } else {
     console.log('SQL executed successfully');
   }

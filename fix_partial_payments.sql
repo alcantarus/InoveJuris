@@ -54,16 +54,37 @@ BEGIN
         updated_by = p_user_id
     WHERE id = p_installment_id;
   ELSE
-    -- Partial payment
+    -- Partial payment: Split installment
+    -- 1. Update current installment to 'Quitado' with the amount paid
     UPDATE installments 
-    SET status = 'Parcial', 
-        "amountPaid" = COALESCE("amountPaid", 0) + p_amount_paid, 
+    SET status = 'Quitado', 
+        amount = p_amount_paid,
+        "amountPaid" = p_amount_paid,
         interest = COALESCE(interest, 0) + p_interest, 
         fine = COALESCE(fine, 0) + p_fine,
         updated_by = p_user_id
     WHERE id = p_installment_id;
     
-    -- REMOVIDO: A criação de uma nova parcela foi removida para evitar duplicação de dívida.
+    -- 2. Create new installment with the remaining balance
+    INSERT INTO installments (
+        contract_id,
+        "installmentNumber",
+        "dueDate",
+        amount,
+        "amountPaid",
+        status,
+        environment,
+        created_by
+    ) VALUES (
+        v_contract_id,
+        (SELECT MAX("installmentNumber") + 1 FROM installments WHERE contract_id = v_contract_id),
+        v_installment."dueDate",
+        v_total_due - p_amount_paid,
+        0,
+        'Aberto',
+        v_installment.environment,
+        p_user_id
+    );
   END IF;
 
   -- 3. Create financial transaction
@@ -137,4 +158,4 @@ WHERE "amountPaid" = 0
 -- Se o contrato do Atanael José da Silva for o único afetado, você pode apagar as parcelas 5 e 6 manualmente:
 -- DELETE FROM installments WHERE contract_id = (SELECT id FROM contracts WHERE "client_name" = 'Atanael José da Silva' LIMIT 1) AND "installmentNumber" IN (5, 6);
 
-RAISE NOTICE 'Correção aplicada com sucesso!';
+-- RAISE NOTICE 'Correção aplicada com sucesso!';
