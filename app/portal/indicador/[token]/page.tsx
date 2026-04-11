@@ -59,6 +59,12 @@ export default function PortalIndicadorPage() {
         .select('*, contracts(id)')
         .eq('indicator_id', tokenData.indicator_id);
 
+      // 4. Get contract statuses
+      const { data: contractsData } = await supabase
+        .from('contracts')
+        .select('id, status')
+        .eq('indicator_id', tokenData.indicator_id);
+
       if (statusError) {
         console.error('Erro detalhado do Supabase:', statusError);
         setErrorMsg('Erro ao buscar comissões: ' + statusError.message);
@@ -67,10 +73,14 @@ export default function PortalIndicadorPage() {
         
         const indicatorName = (tokenData.indicators as any)?.name || 'Indicador';
         
-        const dataWithPayments = (statusData || []).map((item: any) => ({
-          ...item,
-          payments: (paymentsData || []).filter((p: any) => p.contract_id === item.contract_id)
-        }));
+        const dataWithPayments = (statusData || []).map((item: any) => {
+          const contract = contractsData?.find(c => c.id === item.contract_id);
+          return {
+            ...item,
+            contract_status: contract?.status || 'Aberto',
+            payments: (paymentsData || []).filter((p: any) => p.contract_id === item.contract_id)
+          }
+        });
 
         if (!statusData || statusData.length === 0) {
           setData([{
@@ -94,9 +104,10 @@ export default function PortalIndicadorPage() {
   if (errorMsg) return <div className="p-6 text-red-600 font-medium">{errorMsg}</div>
 
   const indicatorName = data.length > 0 ? data[0].indicator_name : 'Indicador';
-  const totalCommissions = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.total_commission || 0), 0);
-  const totalPaid = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.total_paid || 0), 0);
-  const totalRemaining = data.filter(d => !d.isEmpty).reduce((acc, curr) => acc + Number(curr.remaining_balance || 0), 0);
+  const activeData = data.filter(d => !d.isEmpty && d.contract_status !== 'Cancelado');
+  const totalCommissions = activeData.reduce((acc, curr) => acc + Number(curr.total_commission || 0), 0);
+  const totalPaid = activeData.reduce((acc, curr) => acc + Number(curr.total_paid || 0), 0);
+  const totalRemaining = activeData.reduce((acc, curr) => acc + Number(curr.remaining_balance || 0), 0);
   const displayData = data.filter(d => !d.isEmpty);
 
   return (

@@ -24,8 +24,6 @@ export function DiseaseSelector({ selectedDiseases, onDiseaseSelect, onDiseaseRe
 
   useEffect(() => {
     if (searchTerm.length <= 1) {
-      setSuggestions([])
-      setIsOpen(false)
       return
     }
 
@@ -60,7 +58,13 @@ export function DiseaseSelector({ selectedDiseases, onDiseaseSelect, onDiseaseRe
           className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
           placeholder="Buscar doença por CID ou descrição..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value)
+            if (e.target.value.length <= 1) {
+              setSuggestions([])
+              setIsOpen(false)
+            }
+          }}
         />
         {isOpen && suggestions.length > 0 && (
           <ul className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">

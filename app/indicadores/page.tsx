@@ -52,6 +52,7 @@ interface Contract {
   commissionPercent: number
   commissionValue: number
   commissionPaid: boolean
+  status: string
 }
 
 export default function IndicadoresPage() {
@@ -337,7 +338,7 @@ export default function IndicadoresPage() {
       const [contractsRes, statusRes] = await Promise.all([
         supabase
           .from('contracts')
-          .select('id, client_id, clients(name), contractDate, contractValue, base_comissao, commissionPercent, commissionValue, commissionPaid')
+          .select('id, client_id, clients(name), contractDate, contractValue, base_comissao, commissionPercent, commissionValue, commissionPaid, status')
           .eq('indicator_id', indicator.id)
           .order('contractDate', { ascending: false }),
         supabase
@@ -686,17 +687,25 @@ export default function IndicadoresPage() {
                 <p className="text-sm text-slate-500 font-medium">Total de Comissões Geradas</p>
                 <p className="text-2xl font-bold text-slate-900">
                   {formatCurrency(
-                    indicatorContracts.reduce((acc, c) => acc + Number(c.commissionValue || 0), 0),
+                    indicatorContracts.filter(c => c.status !== 'Cancelado').reduce((acc, c) => acc + Number(c.commissionValue || 0), 0),
                     isVisible('indicators_commissions')
                   )}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-slate-500 font-medium">A Pagar</p>
-                {commissionStatus.reduce((acc, s) => acc + Number(s.remaining_balance || 0), 0) > 0 ? (
+                {commissionStatus.reduce((acc, s) => {
+                  const contract = indicatorContracts.find(c => c.id === s.contract_id);
+                  if (contract?.status === 'Cancelado') return acc;
+                  return acc + Number(s.remaining_balance || 0);
+                }, 0) > 0 ? (
                   <p className="text-2xl font-bold text-indigo-600">
                     {formatCurrency(
-                      commissionStatus.reduce((acc, s) => acc + Number(s.remaining_balance || 0), 0),
+                      commissionStatus.reduce((acc, s) => {
+                        const contract = indicatorContracts.find(c => c.id === s.contract_id);
+                        if (contract?.status === 'Cancelado') return acc;
+                        return acc + Number(s.remaining_balance || 0);
+                      }, 0),
                       isVisible('indicators_commissions')
                     )}
                   </p>
@@ -729,26 +738,35 @@ export default function IndicadoresPage() {
                     ) : (
                       indicatorContracts.map((contract) => {
                         const status = commissionStatus.find(s => s.contract_id === contract.id)
+                        const isCancelado = contract.status === 'Cancelado';
+                        
                         return (
-                          <tr key={contract.id} className={cn("hover:bg-slate-50/50 transition-colors", (status?.remaining_balance || 0) <= 0 && "bg-emerald-50")}>
-                            <td className="p-4">
+                          <tr key={contract.id} className={cn(
+                            "transition-colors", 
+                            isCancelado ? "bg-red-50/50 opacity-75" : (status?.remaining_balance || 0) <= 0 ? "bg-emerald-50 hover:bg-emerald-100/50" : "hover:bg-slate-50/50"
+                          )}>
+                            <td className={cn("p-4", isCancelado && "line-through text-slate-500")}>
                               <div className="font-medium text-slate-900">{contract.clients?.name || 'Cliente Removido'}</div>
                               <div className="text-xs text-slate-400">ID: {contract.id}</div>
                             </td>
-                            <td className="p-4 text-right font-medium text-slate-900">
+                            <td className={cn("p-4 text-right font-medium text-slate-900", isCancelado && "line-through text-slate-500")}>
                               {formatCurrency(contract.base_comissao, isVisible('indicators_commissions'))}
                             </td>
-                            <td className="p-4 text-right font-medium text-slate-900">
-                              {formatCurrency(Number(status?.total_commission || 0), isVisible('indicators_commissions'))}
+                            <td className={cn("p-4 text-right font-medium text-slate-900", isCancelado && "line-through text-slate-500")}>
+                              {formatCurrency(isCancelado ? 0 : Number(status?.total_commission || 0), isVisible('indicators_commissions'))}
                             </td>
-                            <td className="p-4 text-right font-medium text-slate-900">
+                            <td className={cn("p-4 text-right font-medium text-slate-900", isCancelado && "line-through text-slate-500")}>
                               {formatCurrency(Number(status?.total_paid || 0), isVisible('indicators_commissions'))}
                             </td>
-                            <td className="p-4 text-right font-bold text-emerald-600">
-                              {formatCurrency(Number(status?.remaining_balance || 0), isVisible('indicators_commissions'))}
+                            <td className={cn("p-4 text-right font-bold", isCancelado ? "text-slate-500 line-through" : "text-emerald-600")}>
+                              {formatCurrency(isCancelado ? 0 : Number(status?.remaining_balance || 0), isVisible('indicators_commissions'))}
                             </td>
                             <td className="p-4 text-center">
-                              {Number(status?.remaining_balance || 0) > 0 ? (
+                              {isCancelado ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200 no-underline">
+                                  Cancelado
+                                </span>
+                              ) : Number(status?.remaining_balance || 0) > 0 ? (
                                 <div className="flex flex-col gap-2">
                                   <input 
                                     type="text" 

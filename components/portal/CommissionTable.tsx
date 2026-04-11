@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import { cn } from '@/lib/utils'
 
 interface Commission {
   contract_id: number
@@ -54,45 +55,54 @@ export function CommissionTable({ data }: CommissionTableProps) {
       <h3 className="text-xl font-bold text-slate-950 mb-8">Minhas Comissões</h3>
       <div className="space-y-4">
         {data.map((s) => {
-          const isPaid = s.payment_status === 'Pago';
+          const isCancelado = s.contract_status === 'Cancelado';
+          const isPaid = s.payment_status === 'Pago' || (s.remaining_balance <= 0 && !isCancelado);
           const isExpanded = expandedRows.includes(s.contract_id);
           
           return (
-            <div key={s.contract_id} className="border border-slate-100 rounded-2xl overflow-hidden">
+            <div key={s.contract_id} className={cn("border border-slate-100 rounded-2xl overflow-hidden", isCancelado && "opacity-75")}>
               <div 
-                className="grid grid-cols-1 md:grid-cols-6 gap-4 p-6 hover:bg-indigo-50/30 transition-all items-center cursor-pointer"
+                className={cn("grid grid-cols-1 md:grid-cols-6 gap-4 p-6 transition-all items-center cursor-pointer", isCancelado ? "bg-red-50/50" : "hover:bg-indigo-50/30")}
                 onClick={() => toggleRow(s.contract_id)}
               >
-                <div>
+                <div className={cn(isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contrato</span>
                   <p className="text-lg font-bold text-slate-950">#{s.contract_id}</p>
                   <span className="text-xs text-slate-500">{s.client_name}</span>
                 </div>
-                <div className="text-right">
+                <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Contrato</span>
                   <p className="text-lg font-bold text-slate-900">R$ {Number(s.base_comissao || 0).toFixed(2)}</p>
                 </div>
-                <div className="text-right">
+                <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">% Comissão</span>
                   <p className="text-lg font-bold text-slate-900">{Number(s.commissionPercent || 0).toFixed(2)}%</p>
                 </div>
-                <div className="text-right">
+                <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total</span>
-                  <p className="text-lg font-bold text-slate-900">R$ {Number(s.total_commission).toFixed(2)}</p>
+                  <p className="text-lg font-bold text-slate-900">R$ {isCancelado ? '0.00' : Number(s.total_commission).toFixed(2)}</p>
                 </div>
-                <div className="text-right">
+                <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pago</span>
                   <p className="text-lg font-bold text-emerald-600">R$ {Number(s.total_paid).toFixed(2)}</p>
                 </div>
                 <div className="text-right flex items-center justify-end gap-4">
                   <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Saldo</span>
-                    <p className={`text-lg font-bold ${isPaid ? 'text-slate-400' : 'text-indigo-600'}`}>
-                      R$ {Number(s.remaining_balance).toFixed(2)}
-                    </p>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {s.payment_status}
-                    </span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Status</span>
+                    {isCancelado ? (
+                      <span className="inline-block px-3 py-1 mt-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                        Cancelado
+                      </span>
+                    ) : (
+                      <>
+                        <p className={`text-lg font-bold ${isPaid ? 'text-slate-400' : 'text-indigo-600'}`}>
+                          R$ {Number(s.remaining_balance).toFixed(2)}
+                        </p>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {s.payment_status}
+                        </span>
+                      </>
+                    )}
                   </div>
                   {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </div>
