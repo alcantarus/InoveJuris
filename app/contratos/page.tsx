@@ -1448,6 +1448,7 @@ export default function FinanceiroPage() {
                     <td className="p-4 min-w-[250px]">
                       <div className="font-medium text-slate-900 flex items-center gap-2">
                         {contract.clients?.name || 'Cliente não vinculado'}
+                        <span className="text-xs text-slate-400 font-normal">#{contract.contractNumber}</span>
                         {contract.isProBono && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
                             Pro Bono

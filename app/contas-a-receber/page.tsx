@@ -317,7 +317,7 @@ export default function ContasAReceberPage() {
 
     const { data: contractsData, error: contractsError } = await supabase
       .from('contracts')
-      .select('id, isProBono, isFinanced')
+      .select('id, isProBono, isFinanced, contractNumber')
 
     if (contractsError) {
       console.error('Erro ao buscar detalhes dos contratos:', contractsError)
@@ -625,7 +625,10 @@ export default function ContasAReceberPage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500">{c.processNumber}</div>
+                      <div className="text-xs text-slate-500">
+                        {c.processNumber}
+                        {c.contracts?.contractNumber && ` - Contrato: ${c.contracts.contractNumber}`}
+                      </div>
                     </td>
                     <td className="p-4 text-right text-slate-900">{formatCurrency(c.contract_value, isVisible('receivable_table_value'))}</td>
                     <td className="p-4 text-right">
