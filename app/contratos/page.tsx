@@ -844,7 +844,11 @@ export default function FinanceiroPage() {
       }
     } catch (error: any) {
       console.error('Error canceling contract:', error)
-      setCancelError(`Erro ao cancelar contrato: ${error.message || 'Tente novamente.'}`)
+      // Tenta extrair detalhes do erro, caso seja um objeto complexo
+      const errorMessage = typeof error === 'object' && error !== null 
+        ? JSON.stringify(error) 
+        : (error.message || 'Tente novamente.');
+      setCancelError(`Erro ao cancelar contrato: ${errorMessage}`)
     }
   }
 
