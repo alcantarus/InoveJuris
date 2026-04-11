@@ -53,7 +53,7 @@ export function GPSNotificationChecker() {
               title,
               message,
               type: 'warning',
-              user_id: Number(user.id),
+              user_id: user.id,
               is_read: false,
               environment: getAppEnv()
             })

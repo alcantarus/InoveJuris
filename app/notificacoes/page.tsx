@@ -136,7 +136,7 @@ export default function NotificationsPage() {
           title: 'Notificação de Teste',
           message: 'Esta é uma notificação de teste para verificar se o sistema está funcionando.',
           type: 'success',
-          user_id: Number(user.id),
+          user_id: user.id,
           is_read: false,
           environment: getAppEnv()
         });

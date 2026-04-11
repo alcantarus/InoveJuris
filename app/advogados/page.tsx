@@ -434,7 +434,7 @@ export default function LawyersPage() {
                       <select 
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all"
                         value={formData.user_id || ''}
-                        onChange={(e) => setFormData({...formData, user_id: e.target.value ? Number(e.target.value) : undefined})}
+                        onChange={(e) => setFormData({...formData, user_id: e.target.value || undefined})}
                         required
                       >
                         <option value="">Selecione um usuário...</option>

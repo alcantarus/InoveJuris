@@ -59,11 +59,11 @@ export async function POST(request: Request) {
         .from('audit_logs')
         .insert([
           {
-            user_id: Number(adminId),
+            user_id: adminId,
             action: 'impersonate_user',
             entity: 'users',
-            entity_id: Number(targetUserId),
-            details: { target_user_id: Number(targetUserId), user_agent: userAgent || request.headers.get('user-agent') || 'Unknown', ip_address: ip },
+            entity_id: targetUserId,
+            details: { target_user_id: targetUserId, user_agent: userAgent || request.headers.get('user-agent') || 'Unknown', ip_address: ip },
             environment: environment
           }
         ])
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       await supabase
         .from('user_sessions')
         .update({ logout_at: nowISO })
-        .eq('user_id', Number(userId))
+        .eq('user_id', userId)
         .is('logout_at', null)
       console.log('Session API: Sessões anteriores finalizadas')
 
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
         const { data: trustedDevices } = await supabase
           .from('trusted_devices')
           .select('id')
-          .eq('user_id', Number(userId))
+          .eq('user_id', userId)
           .eq('user_agent', readableUA)
           .limit(1);
 
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
           const { data: previousSessions } = await supabase
             .from('user_sessions')
             .select('user_agent')
-            .eq('user_id', Number(userId))
+            .eq('user_id', userId)
             .order('login_at', { ascending: false })
             .limit(10)
 
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
 
               // Create notification
               await supabase.from('notifications').insert([{
-                user_id: Number(userId),
+                user_id: userId,
                 title: 'Alerta de Segurança',
                 message: alertMessage,
                 type: 'warning',
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
           await supabase
             .from('trusted_devices')
             .update({ last_used_at: nowISO })
-            .eq('user_id', Number(userId))
+            .eq('user_id', userId)
             .eq('user_agent', readableUA);
           console.log('Session API: Dispositivo confiável atualizado')
         }
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         .from('user_sessions')
         .insert([
           {
-            user_id: Number(userId),
+            user_id: userId,
             environment: environment,
             ip_address: ip,
             user_agent: readableUA,
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
           table_name: 'user_sessions',
           record_id: data.id,
           action: 'login',
-          performed_by: Number(userId),
+          performed_by: userId,
           environment: environment,
           new_data: {
             ip_address: ip,

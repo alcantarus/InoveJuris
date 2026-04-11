@@ -153,7 +153,7 @@ export default function ContasAReceberPage() {
       const payload = {
         p_contract_id: Number(selectedContract.id),
         p_reason: reason,
-        p_user_id: Number(user.id)
+        p_user_id: user.id
       };
       console.log('Calling RPC process_contract_cancellation with payload:', payload);
 
