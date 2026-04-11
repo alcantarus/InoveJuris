@@ -49,6 +49,7 @@ interface Contract {
   launchDate: string
   contractDate: string
   processNumber: string
+  contractNumber?: string
   contractValue: number
   base_comissao: number
   paymentMethod: string
