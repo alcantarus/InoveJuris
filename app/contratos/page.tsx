@@ -790,11 +790,11 @@ export default function FinanceiroPage() {
       return
     }
 
-    const allowedStatuses = ['Aberto', 'Atrasada']
+    const allowedStatuses = ['Aberto', 'Atrasada', 'Prorrogada']
     const hasNonCancellableInstallments = insts?.some((i: Installment) => !allowedStatuses.includes(i.status) || i.amountPaid > 0)
     
     if (hasNonCancellableInstallments || isContractQuitado(contract.status, contract.contractValue, contract.amountReceived) || contract.status === 'Parcial') {
-      alert('Não é possível cancelar títulos com pagamentos atrelados, estornados ou prorrogados. Estorne os pagamentos primeiro.')
+      alert('Não é possível cancelar títulos com pagamentos atrelados. Estorne os pagamentos primeiro.')
       return
     }
 
