@@ -242,7 +242,8 @@ function RelatoriosPageContent() {
           gps_value: item.gps_value || 0,
           gps_paid_value: item.gps_paid_value || 0,
           inss_protocol_number: item.inssProtocol,
-          isFinanced: item.isFinanced || false
+          isFinanced: item.isFinanced || false,
+          status: item.status
         }))
 
         processedData.sort((a: any, b: any) => {
@@ -856,9 +857,9 @@ function RelatoriosPageContent() {
             <div className="flex justify-center mb-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-5xl">
                 {[
-                  { title: 'Total Pendente', value: gpsData.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
-                  { title: 'Total Pago', value: gpsData.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
-                  { title: 'Total Geral', value: gpsData.reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1', active: false }
+                  { title: 'Total Pendente', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
+                  { title: 'Total Pago', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
+                  { title: 'Total Geral', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1', active: false }
                 ].map((item, index) => (
                   <div key={index} className={`bg-white p-4 rounded-2xl shadow-sm border ${item.active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200'} flex items-center justify-between`}>
                     <div className="flex flex-col">
@@ -1144,7 +1145,11 @@ function RelatoriosPageContent() {
                             </div>
                           </td>
                           <td className="p-4">
-                            {item.gpsPaid ? (
+                            {item.status?.toLowerCase().trim() === 'cancelado' ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700">
+                                Cancelado
+                              </span>
+                            ) : item.gpsPaid ? (
                               <span className="text-slate-600 font-medium">{formatDate(item.gps_payment_date)}</span>
                             ) : (
                               <button
