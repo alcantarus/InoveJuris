@@ -1003,7 +1003,10 @@ function RelatoriosPageContent() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
                       key={item.id} 
-                      className="hover:bg-slate-50/50 transition-colors"
+                      className={cn(
+                        "hover:bg-slate-50/50 transition-colors",
+                        item.status === 'Cancelado' && "opacity-60 line-through"
+                      )}
                     >
                       {activeReport === 'deadlines' ? (
                         <>

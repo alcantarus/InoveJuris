@@ -642,7 +642,11 @@ export default function ContasAReceberPage() {
                     <td className="p-4 text-right text-slate-600">{formatCurrency(c.amount_to_receive, isVisible('receivable_table_to_receive'))}</td>
                     <td className="p-4 text-slate-600">{c.next_due_date ? formatDate(c.next_due_date) : '-'}</td>
                     <td className="p-4">
-                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(rowStatus), c.contract_status?.toLowerCase() === 'cancelado' && "line-through")}>
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-semibold", 
+                        getStatusColor(rowStatus), 
+                        c.contract_status?.toLowerCase() === 'cancelado' && "line-through opacity-60"
+                      )}>
                         {rowStatus}
                       </span>
                     </td>
@@ -687,7 +691,7 @@ export default function ContasAReceberPage() {
                   onClick={cancelContract}
                   disabled={selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || installments.some(i => Number(i.amountPaid || 0) > 0)}
                 >
-                  Cancelar Contrato
+                  {selectedContract.status === 'Cancelado' ? 'Contrato Cancelado' : 'Cancelar Contrato'}
                 </button>
               </div>
             </div>

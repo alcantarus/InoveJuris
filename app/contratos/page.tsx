@@ -1453,7 +1453,7 @@ export default function FinanceiroPage() {
                     <td className="p-4 min-w-[250px]">
                       <div className={cn(
                         "font-medium text-slate-900 flex items-center gap-2",
-                        contract.status === 'Cancelado' && "line-through text-slate-400"
+                        contract.status?.toLowerCase().trim() === 'cancelado' && "line-through text-slate-400"
                       )}>
                         {contract.clients?.name || 'Cliente não vinculado'}
                         <span className="text-xs text-slate-400 font-normal">#{contract.contractNumber}</span>
@@ -2758,10 +2758,11 @@ export default function FinanceiroPage() {
               <div className="mt-8 space-y-3">
                 <button 
                   onClick={executeCancelContract}
-                  className="w-full py-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  disabled={contractToCancel.status === 'Cancelado'}
+                  className="w-full py-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Ban size={20} />
-                  Confirmar Cancelamento
+                  {contractToCancel.status === 'Cancelado' ? 'Contrato já cancelado' : 'Confirmar Cancelamento'}
                 </button>
                 <button 
                   onClick={() => setCancelModalOpen(false)}

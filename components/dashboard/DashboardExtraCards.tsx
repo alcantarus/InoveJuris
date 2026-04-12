@@ -13,17 +13,24 @@ interface DashboardExtraCardsProps {
   user: any;
 }
 
+import { getAppEnv } from '@/lib/env'
+// ... (outros imports)
+
 export default function DashboardExtraCards({ data, isVisible, toggleVisibility, user }: DashboardExtraCardsProps) {
   const newClientsRef = useRef<HTMLDivElement>(null);
   const financeRef = useRef<HTMLDivElement>(null);
   const workloadRef = useRef<HTMLDivElement>(null);
   const cycleTimeRef = useRef<HTMLDivElement>(null);
+  
+  const currentEnv = getAppEnv();
+  console.log(`[Dashboard] Ambiente atual: ${currentEnv}`);
+
   // Calculations
   const newClientsCount = data.clients.filter((c: any) => new Date(c.created_at).getMonth() === new Date().getMonth()).length;
   
   const totalReceived = data.transactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
   const totalReceivable = data.installments
-    .filter((t: any) => ['Aberto', 'Parcial', 'Prorrogada', 'Atrasada'].includes(t.status))
+    .filter((t: any) => t.environment === currentEnv && ['Aberto', 'Parcial', 'Prorrogada', 'Atrasada'].includes(t.status))
     .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0) - (Number(t.amountPaid) || 0), 0);
 
   // Workload by User
