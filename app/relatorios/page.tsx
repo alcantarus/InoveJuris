@@ -1006,7 +1006,7 @@ function RelatoriosPageContent() {
                       key={item.id} 
                       className={cn(
                         "hover:bg-slate-50/50 transition-colors",
-                        item.status === 'Cancelado' && "opacity-60 line-through"
+                        activeReport === 'gps' && item.status?.toLowerCase().trim() === 'cancelado' && "opacity-60 line-through text-slate-400"
                       )}
                     >
                       {activeReport === 'deadlines' ? (
@@ -1134,9 +1134,10 @@ function RelatoriosPageContent() {
                           <td className="p-4">
                             <span className={cn(
                               "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              item.status?.toLowerCase().trim() === 'cancelado' ? "bg-rose-100 text-rose-700" :
                               item.gpsPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                             )}>
-                              {item.gpsPaid ? 'Pago' : 'Pendente'}
+                              {item.status?.toLowerCase().trim() === 'cancelado' ? 'Cancelado' : (item.gpsPaid ? 'Pago' : 'Pendente')}
                             </span>
                           </td>
                           <td className="p-4">
