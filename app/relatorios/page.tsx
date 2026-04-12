@@ -1006,7 +1006,9 @@ function RelatoriosPageContent() {
                       key={item.id} 
                       className={cn(
                         "hover:bg-slate-50/50 transition-colors",
-                        activeReport === 'gps' && item.status?.toLowerCase().trim() === 'cancelado' && "opacity-60 line-through text-slate-400"
+                        (activeReport === 'gps' && item.status?.toLowerCase().trim() === 'cancelado') || 
+                        (activeReport === 'commissions' && item.status?.toLowerCase().trim() === 'cancelado') 
+                          ? "opacity-60 line-through text-slate-400" : ""
                       )}
                     >
                       {activeReport === 'deadlines' ? (
