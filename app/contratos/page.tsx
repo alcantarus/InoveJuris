@@ -1451,7 +1451,10 @@ export default function FinanceiroPage() {
                     )}
                   >
                     <td className="p-4 min-w-[250px]">
-                      <div className="font-medium text-slate-900 flex items-center gap-2">
+                      <div className={cn(
+                        "font-medium text-slate-900 flex items-center gap-2",
+                        contract.status === 'Cancelado' && "line-through text-slate-400"
+                      )}>
                         {contract.clients?.name || 'Cliente não vinculado'}
                         <span className="text-xs text-slate-400 font-normal">#{contract.contractNumber}</span>
                         {contract.isProBono && (
@@ -1581,14 +1584,14 @@ export default function FinanceiroPage() {
                         )}
                         <button 
                           onClick={() => handleOpenModal(contract)}
-                          disabled={contract.status === 'Cancelado' || contract.status === 'Quitado'}
+                          disabled={contract.status === 'Cancelado'}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            (contract.status === 'Cancelado' || contract.status === 'Quitado')
+                            contract.status === 'Cancelado'
                               ? "text-slate-300 cursor-not-allowed" 
                               : "text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent"
                           )}
-                          title={(contract.status === 'Cancelado' || contract.status === 'Quitado') ? "Contrato cancelado ou quitado não pode ser editado" : "Editar Contrato"}
+                          title={contract.status === 'Cancelado' ? "Contrato cancelado não pode ser editado" : "Editar Contrato"}
                         >
                           <Edit2 size={18} />
                         </button>
