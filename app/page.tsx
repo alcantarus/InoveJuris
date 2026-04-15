@@ -1089,11 +1089,14 @@ export default function Page() {
             <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
               {data.deadlines.length === 0 && <p className="text-sm text-slate-500 px-4">Nenhum prazo pendente.</p>}
               {data.deadlines.slice(0, 10).sort((a: any, b: any) => {
-                  const valA = Number.isNaN(Number(a.days_remaining)) ? 0 : Number(a.days_remaining);
-                  const valB = Number.isNaN(Number(b.days_remaining)) ? 0 : Number(b.days_remaining);
-                  return valA - valB;
+                  const dateA = new Date(a.deadline_date || a.dueDate || 0).getTime();
+                  const dateB = new Date(b.deadline_date || b.dueDate || 0).getTime();
+                  return dateA - dateB;
                 }).map((d: any) => {
-                const daysRemaining = Number.isNaN(Number(d.days_remaining)) ? 0 : Number(d.days_remaining);
+                const deadlineDate = new Date(d.deadline_date || d.dueDate || 0);
+                const today = new Date();
+                const diffTime = deadlineDate.getTime() - today.getTime();
+                const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 const isCritical = daysRemaining <= 1;
                 const progress = Math.min(100, Math.max(0, (30 - daysRemaining) / 30 * 100));
                 
