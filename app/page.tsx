@@ -1088,9 +1088,10 @@ export default function Page() {
 
             <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
               {data.deadlines.length === 0 && <p className="text-sm text-slate-500 px-4">Nenhum prazo pendente.</p>}
-              {data.deadlines.slice(0, 10).sort((a: any, b: any) => a.days_remaining - b.days_remaining).map((d: any) => {
-                const isCritical = d.days_remaining <= 1;
-                const progress = Math.min(100, Math.max(0, (30 - d.days_remaining) / 30 * 100));
+              {data.deadlines.slice(0, 10).sort((a: any, b: any) => (a.days_remaining || 0) - (b.days_remaining || 0)).map((d: any) => {
+                const daysRemaining = d.days_remaining ?? 0;
+                const isCritical = daysRemaining <= 1;
+                const progress = Math.min(100, Math.max(0, (30 - daysRemaining) / 30 * 100));
                 
                 return (
                   <div 
@@ -1109,7 +1110,7 @@ export default function Page() {
                         "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter",
                         isCritical ? "bg-rose-200 text-rose-800" : "bg-slate-100 text-slate-600"
                       )}>
-                        {d.days_remaining} {d.days_remaining === 1 ? 'dia' : 'dias'}
+                        {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mb-1 truncate">{d.client_name}</p>
