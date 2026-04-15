@@ -1088,8 +1088,12 @@ export default function Page() {
 
             <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
               {data.deadlines.length === 0 && <p className="text-sm text-slate-500 px-4">Nenhum prazo pendente.</p>}
-              {data.deadlines.slice(0, 10).sort((a: any, b: any) => (a.days_remaining || 0) - (b.days_remaining || 0)).map((d: any) => {
-                const daysRemaining = d.days_remaining ?? 0;
+              {data.deadlines.slice(0, 10).sort((a: any, b: any) => {
+                  const valA = Number.isNaN(Number(a.days_remaining)) ? 0 : Number(a.days_remaining);
+                  const valB = Number.isNaN(Number(b.days_remaining)) ? 0 : Number(b.days_remaining);
+                  return valA - valB;
+                }).map((d: any) => {
+                const daysRemaining = Number.isNaN(Number(d.days_remaining)) ? 0 : Number(d.days_remaining);
                 const isCritical = daysRemaining <= 1;
                 const progress = Math.min(100, Math.max(0, (30 - daysRemaining) / 30 * 100));
                 
