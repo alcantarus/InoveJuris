@@ -27,7 +27,7 @@ export const LiquidityGapCard = ({ gap, isVisible, toggleVisibility }: { gap: nu
           {isVisible ? <Eye size={18} /> : <EyeOff size={18} />}
         </button>
       </div>
-      <p className="text-3xl font-bold text-slate-900 mb-2">
+      <p className={cn("text-2xl md:text-3xl font-bold text-slate-900 mb-2 truncate", !isVisible && "font-mono")}>
         {isVisible ? formatCurrency(gap) : '••••••'}
       </p>
       <p className={cn("text-sm font-medium", isNegative ? "text-rose-600" : "text-emerald-600")}>
