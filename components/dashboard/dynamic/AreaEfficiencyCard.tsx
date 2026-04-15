@@ -11,19 +11,21 @@ export function AreaEfficiencyCard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    async function fetchEfficiency() {
-      const { data, error } = await supabase
-        .from('vw_area_efficiency')
-        .select('*')
-      
-      if (error) {
-        console.error('Erro ao buscar eficiência:', error)
-        return
-      }
-
+  const fetchEfficiency = async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('vw_area_efficiency')
+      .select('*')
+    
+    if (error) {
+      console.error('Erro ao buscar eficiência:', error)
+    } else {
       setEfficiency(data || [])
     }
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchEfficiency()
   }, [])
 
@@ -54,17 +56,21 @@ export function AreaEfficiencyCard() {
         onClose={() => setIsModalOpen(false)}
         title="Eficiência por Área - Detalhes"
       >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">Ticket médio por área de atuação:</p>
-          <div className="max-h-[300px] overflow-y-auto space-y-2">
-            {efficiency.map((area, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg text-sm">
-                <span className="font-medium text-slate-900">{area.law_area}</span>
-                <span className="font-bold text-purple-600">{formatCurrency(area.average_ticket)}</span>
-              </div>
-            ))}
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-purple-600" size={32} /></div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">Ticket médio por área de atuação:</p>
+            <div className="max-h-[300px] overflow-y-auto space-y-2">
+              {efficiency.map((area, index) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg text-sm">
+                  <span className="font-medium text-slate-900">{area.law_area}</span>
+                  <span className="font-bold text-purple-600">{formatCurrency(area.average_ticket)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </Modal>
     </>
   )
