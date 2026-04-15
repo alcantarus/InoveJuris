@@ -29,11 +29,18 @@ export function AreaEfficiencyCard() {
     fetchEfficiency()
   }, [])
 
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+    if (efficiency.length === 0) {
+      fetchEfficiency();
+    }
+  };
+
   return (
     <>
       <div 
         className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
-        onClick={() => setIsModalOpen(true)}
+        onClick={handleOpenModal}
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
