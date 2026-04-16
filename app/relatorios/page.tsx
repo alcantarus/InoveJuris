@@ -368,12 +368,16 @@ function RelatoriosPageContent() {
         today.setHours(0, 0, 0, 0)
 
         const processedData: ChildbirthReportItem[] = data.map((item: any) => {
-          const cbDate = new Date(item.childbirthDate)
-          cbDate.setHours(0, 0, 0, 0)
+          // Garante que a data seja interpretada corretamente no fuso local
+          const [year, month, day] = item.childbirthDate.split('-').map(Number);
+          const cbDate = new Date(year, month - 1, day);
           
-          const diffTime = cbDate.getTime() - today.getTime()
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const diffTime = cbDate.getTime() - today.getTime();
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)); // Usar round para evitar erros de arredondamento próximos à meia-noite
+          
           return {
             id: item.id,
             clientName: item.clients?.name || 'Cliente não encontrado',
