@@ -241,7 +241,7 @@ export function BirthdayChecker() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed top-36 md:top-20 right-6 z-40"
+            className="fixed top-40 md:top-24 right-4 md:right-6 z-40"
           >
             <button
               onClick={() => setIsOpen(true)}
