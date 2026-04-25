@@ -13,20 +13,20 @@ export async function GET() {
            sql: `
 DO $$ 
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'status' AND data_type = 'USER-DEFINED') THEN
-        ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lead_status') THEN
+        BEGIN
+            ALTER TYPE lead_status ADD VALUE 'Em Atendimento';
+        EXCEPTION WHEN duplicate_object THEN
+            NULL; -- Ignore if already exists
+        END;
     END IF;
-    DROP TYPE IF EXISTS lead_status CASCADE;
 END $$;
-
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all access to leads" ON leads;
-CREATE POLICY "Allow all access to leads" ON leads FOR ALL USING (true) WITH CHECK (true);
 `
         });
         console.log("Resultado da correção de banco:", { error, data });
         return NextResponse.json({ error, data });
     } catch (e: any) {
-        return NextResponse.json({ error: e.message });
+        console.error("Erro fatal no fix-db:", e);
+        return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
