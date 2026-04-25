@@ -13,12 +13,9 @@ export async function GET() {
            sql: `
 DO $$ 
 BEGIN
-    -- Converte a coluna para TEXT
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'status' AND data_type = 'USER-DEFINED') THEN
         ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
     END IF;
-
-    -- Remove o tipo ENUM se não estiver mais em uso
     DROP TYPE IF EXISTS lead_status CASCADE;
 END $$;
 
