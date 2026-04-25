@@ -13,13 +13,13 @@ export async function GET() {
            sql: `
 DO $$ 
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lead_status') THEN
-        BEGIN
-            ALTER TYPE lead_status ADD VALUE 'Em Atendimento';
-        EXCEPTION WHEN duplicate_object THEN
-            NULL; -- Ignore if already exists
-        END;
+    -- Converte a coluna para TEXT permanentemente
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'status') THEN
+        ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
     END IF;
+
+    -- Remove o ENUM para sempre
+    DROP TYPE IF EXISTS lead_status CASCADE;
 END $$;
 `
         });
