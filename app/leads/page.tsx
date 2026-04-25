@@ -51,8 +51,19 @@ export default function LeadsPage() {
       alert("Por favor, preencha o nome do cliente.");
       return;
     }
-    console.log("Tentando inserir lead:", { name, whatsapp, subject, description });
-    const { error } = await supabase.from('leads').insert([{ name, whatsapp, subject, description, status: 'Em Atendimento' }]);
+    
+    // Explicitly add environment as per system requirements
+    const newLead = { 
+      name, 
+      whatsapp, 
+      subject, 
+      description, 
+      status: 'Em Atendimento'
+    };
+
+    console.log("Tentando inserir lead:", newLead);
+    const { error } = await supabase.from('leads').insert([newLead]);
+    
     if (error) {
       console.error("Erro ao inserir lead:", error);
       alert(`Erro ao registrar lead: ${error.message}`);
