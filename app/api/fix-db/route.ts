@@ -11,14 +11,23 @@ export async function GET() {
     try {
         const { error, data } = await supabase.rpc('exec_sql', {
            sql: `
-ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
+DO $$ 
+BEGIN
+    -- Converte a coluna para TEXT
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'status' AND data_type = 'USER-DEFINED') THEN
+        ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
+    END IF;
+
+    -- Remove o tipo ENUM se não estiver mais em uso
+    DROP TYPE IF EXISTS lead_status CASCADE;
+END $$;
+
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access to leads" ON leads;
-DROP POLICY IF EXISTS "Allow authenticated access to leads" ON leads;
 CREATE POLICY "Allow all access to leads" ON leads FOR ALL USING (true) WITH CHECK (true);
 `
         });
-        console.log("Database update result:", { error, data });
+        console.log("Resultado da correção de banco:", { error, data });
         return NextResponse.json({ error, data });
     } catch (e: any) {
         return NextResponse.json({ error: e.message });
