@@ -9,13 +9,11 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
     try {
-        const { error } = await supabase.rpc('exec_sql', {
-           sql: `
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all access to leads" ON leads;
-CREATE POLICY "Allow all access to leads" ON leads FOR ALL USING (true) WITH CHECK (true);`
+        const { error, data } = await supabase.rpc('exec_sql', {
+           sql: 'SELECT 1'
         });
-        return NextResponse.json({ error });
+        console.log("exec_sql result:", { error, data });
+        return NextResponse.json({ error, data });
     } catch (e: any) {
         return NextResponse.json({ error: e.message });
     }
