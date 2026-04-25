@@ -27,6 +27,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     fetchLeads()
+    fetch('/api/fix-db').then(res => res.json()).then(data => console.log("RLS fix result:", data))
   }, [])
 
   const fetchLeads = async () => {
@@ -59,7 +60,7 @@ export default function LeadsPage() {
       subject, 
       description,
       environment: 'production',
-      status: 'Aberto'
+      status: 'Em Atendimento'
     };
 
     console.log("Tentando inserir lead:", newLead);
