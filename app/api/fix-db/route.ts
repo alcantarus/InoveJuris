@@ -13,15 +13,18 @@ export async function GET() {
            sql: `
 DO $$ 
 BEGIN
-    -- Converte a coluna para TEXT permanentemente
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'status') THEN
+    BEGIN
         ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
-    END IF;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Error altering status: %', SQLERRM;
+    END;
 
-    -- Remove o ENUM para sempre
-    DROP TYPE IF EXISTS lead_status CASCADE;
-END $$;
-`
+    BEGIN
+        DROP TYPE IF EXISTS lead_status CASCADE;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Error dropping type: %', SQLERRM;
+    END;
+END $$;`
         });
         console.log("Resultado da correção de banco:", { error, data });
         return NextResponse.json({ error, data });
