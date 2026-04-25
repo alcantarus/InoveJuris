@@ -5,6 +5,6 @@ ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow authenticated access to leads" ON leads;
 CREATE POLICY "Allow authenticated access to leads" ON leads
     FOR ALL
-    TO authenticated
+    TO authenticated, anon
     USING (true)
     WITH CHECK (true);

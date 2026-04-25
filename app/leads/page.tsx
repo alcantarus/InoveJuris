@@ -26,8 +26,16 @@ export default function LeadsPage() {
   const [description, setDescription] = useState('')
 
   useEffect(() => {
-    fetchLeads()
-    fetch('/api/fix-db').then(res => res.json()).then(data => console.log("RLS fix result:", data))
+    fetch('/api/fix-db')
+      .then(res => res.json())
+      .then(data => {
+        console.log("RLS fix result:", data);
+        fetchLeads();
+      })
+      .catch(err => {
+        console.error("Error on fix-db:", err);
+        fetchLeads();
+      });
   }, [])
 
   const fetchLeads = async () => {
@@ -59,7 +67,8 @@ export default function LeadsPage() {
       whatsapp, 
       subject, 
       description,
-      environment: 'production'
+      environment: 'production',
+      status: 'Em Atendimento'
     };
 
     console.log("Tentando inserir lead:", newLead);
