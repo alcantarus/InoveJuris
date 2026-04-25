@@ -4,8 +4,16 @@ import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { MessageSquare, Plus, CheckCircle2, XCircle, Clock, Trash2, UserPlus, Filter, Edit2 } from 'lucide-react'
+import { GoogleGenAI } from '@google/genai';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+
+const statusColors: Record<string, string> = {
+  'Em Atendimento': 'bg-amber-100 text-amber-800 border-amber-200',
+  'Atendido': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'Descartado': 'bg-rose-100 text-rose-800 border-rose-200',
+  'Stand-by': 'bg-sky-100 text-sky-800 border-sky-200',
+}
 
 interface Lead {
   id: string
@@ -25,6 +33,8 @@ export default function LeadsPage() {
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
+  const [insights, setInsights] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   useEffect(() => {
     fetch('/api/fix-db')
@@ -106,12 +116,34 @@ export default function LeadsPage() {
     }
   }
 
+  const analyzeLead = async (desc: string) => {
+    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+        setInsights('API Key do Gemini não configurada.')
+        return
+    }
+    setIsAnalyzing(true)
+    setInsights('')
+    try {
+        const genAI = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const prompt = `Analise a descrição deste lead: "${desc}". (1) Identifique o sentimento do cliente (positivo/negativo/neutral). (2) Liste 3 pontos chave do problema. (3) Sugira a melhor abordagem de contato. Mantenha em bullets.`
+        const result = await model.generateContent(prompt);
+        setInsights(result.response.text());
+    } catch (e: any) {
+        console.error("Gemini Error:", e)
+        setInsights(`Não foi possível gerar insights: ${e.message}`)
+    } finally {
+        setIsAnalyzing(false)
+    }
+  }
+
   const editLead = (lead: Lead) => {
     setEditingLead(lead)
     setName(lead.name)
     setWhatsapp(lead.whatsapp)
     setSubject(lead.subject)
     setDescription(lead.description)
+    analyzeLead(lead.description)
   }
 
   const updateStatus = async (id: string, status: Lead['status']) => {
@@ -177,6 +209,14 @@ export default function LeadsPage() {
           <button onClick={editingLead ? saveLead : addLead} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
             <Plus size={20} /> {editingLead ? 'Salvar Alterações' : 'Registrar Lead'}
           </button>
+          
+          {insights && (
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-sm">
+              <h4 className="font-bold mb-2">Insights do Inteligente:</h4>
+              <div className="whitespace-pre-wrap">{insights}</div>
+            </div>
+          )}
+          {isAnalyzing && <div className="p-4 text-sm text-slate-500">Analisando com Inteligência Artificial...</div>}
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -198,7 +238,11 @@ export default function LeadsPage() {
                   </td>
                   <td className="p-4">{lead.subject}</td>
                   <td className="p-4 text-center">
-                    <select value={lead.status} onChange={e => updateStatus(lead.id, e.target.value as any)} className="px-2 py-1 border rounded-lg text-sm bg-transparent">
+                    <select 
+                        value={lead.status} 
+                        onChange={e => updateStatus(lead.id, e.target.value as any)} 
+                        className={cn("px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer", statusColors[lead.status])}
+                    >
                       <option>Em Atendimento</option>
                       <option>Atendido</option>
                       <option>Descartado</option>
