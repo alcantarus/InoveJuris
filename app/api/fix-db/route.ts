@@ -4,7 +4,10 @@ import { supabase } from '@/lib/supabase';
 export async function GET() {
     try {
         const { error, data } = await supabase.rpc('exec_sql', {
-           sql: 'ALTER TYPE lead_status ADD VALUE IF NOT EXISTS \'Em Atendimento\';'
+           sql: `
+            ALTER TABLE leads ALTER COLUMN status TYPE TEXT USING status::text;
+            DROP TYPE IF EXISTS lead_status CASCADE;
+           `
         });
         if (error) {
             console.error("SQL Error:", error);

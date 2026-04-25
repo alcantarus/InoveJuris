@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
-import { MessageSquare, Plus, CheckCircle2, XCircle, Clock, Trash2, UserPlus, Filter } from 'lucide-react'
+import { MessageSquare, Plus, CheckCircle2, XCircle, Clock, Trash2, UserPlus, Filter, Edit2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +24,7 @@ export default function LeadsPage() {
   const [whatsapp, setWhatsapp] = useState('')
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
+  const [editingLead, setEditingLead] = useState<Lead | null>(null)
 
   useEffect(() => {
     fetch('/api/fix-db')
@@ -87,6 +88,32 @@ export default function LeadsPage() {
     }
   }
 
+  const saveLead = async () => {
+    if (!editingLead) return
+    const { error } = await supabase.from('leads').update({
+        name, whatsapp, subject, description
+    }).eq('id', editingLead.id)
+    
+    if (error) {
+        alert("Erro ao editar: " + error.message)
+    } else {
+        setEditingLead(null)
+        setName('')
+        setWhatsapp('')
+        setSubject('')
+        setDescription('')
+        fetchLeads()
+    }
+  }
+
+  const editLead = (lead: Lead) => {
+    setEditingLead(lead)
+    setName(lead.name)
+    setWhatsapp(lead.whatsapp)
+    setSubject(lead.subject)
+    setDescription(lead.description)
+  }
+
   const updateStatus = async (id: string, status: Lead['status']) => {
     await supabase.from('leads').update({ status }).eq('id', id)
     fetchLeads()
@@ -140,15 +167,15 @@ export default function LeadsPage() {
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Novo Atendimento</h3>
+          <h3 className="font-semibold text-lg">{editingLead ? 'Editando Atendimento' : 'Novo Atendimento'}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input placeholder="Nome do Cliente" className={inputClass} value={name} onChange={e => setName(e.target.value)} />
             <input placeholder="(00) 00000-0000" className={inputClass} value={whatsapp} onChange={e => handleWhatsappChange(e.target.value)} />
             <input placeholder="Assunto" className={cn(inputClass, "md:col-span-2")} value={subject} onChange={e => setSubject(e.target.value)} />
             <textarea placeholder="Descrição do Problema" className={cn(inputClass, "md:col-span-2")} rows={3} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
-          <button onClick={addLead} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
-            <Plus size={20} /> Registrar Lead
+          <button onClick={editingLead ? saveLead : addLead} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
+            <Plus size={20} /> {editingLead ? 'Salvar Alterações' : 'Registrar Lead'}
           </button>
         </div>
 
@@ -180,6 +207,7 @@ export default function LeadsPage() {
                   </td>
                   <td className="p-4 flex gap-2 justify-center">
                     <button onClick={() => convertToClient(lead)} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg" title="Converter em Cliente"><UserPlus size={18} /></button>
+                    <button onClick={() => editLead(lead)} className="text-blue-500 p-2 hover:bg-blue-50 rounded-lg" title="Editar Lead"><Edit2 size={18} /></button>
                     <button className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
                   </td>
                 </tr>
