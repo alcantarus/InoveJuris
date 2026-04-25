@@ -57,7 +57,9 @@ export default function LeadsPage() {
       name, 
       whatsapp, 
       subject, 
-      description
+      description,
+      environment: 'production',
+      status: 'Aberto'
     };
 
     console.log("Tentando inserir lead:", newLead);
