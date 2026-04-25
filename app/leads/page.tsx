@@ -37,15 +37,32 @@ export default function LeadsPage() {
     setIsLoading(false)
   }
 
+  const handleWhatsappChange = (value: string) => {
+    // Basic mask: (XX) XXXXX-XXXX
+    let v = value.replace(/\D/g, '').substring(0, 11)
+    if (v.length > 6) v = `(${v.substring(0, 2)}) ${v.substring(2, 7)}-${v.substring(7)}`
+    else if (v.length > 2) v = `(${v.substring(0, 2)}) ${v.substring(2)}`
+    else if (v.length > 0) v = `(${v}`
+    setWhatsapp(v)
+  }
+
   const addLead = async () => {
-    if (!name) return
-    const { error } = await supabase.from('leads').insert([{ name, whatsapp, subject, description, status: 'Em Atendimento' }])
-    if (!error) {
-      setName('')
-      setWhatsapp('')
-      setSubject('')
-      setDescription('')
-      fetchLeads()
+    if (!name) {
+      alert("Por favor, preencha o nome do cliente.");
+      return;
+    }
+    console.log("Tentando inserir lead:", { name, whatsapp, subject, description });
+    const { error } = await supabase.from('leads').insert([{ name, whatsapp, subject, description, status: 'Em Atendimento' }]);
+    if (error) {
+      console.error("Erro ao inserir lead:", error);
+      alert(`Erro ao registrar lead: ${error.message}`);
+    } else {
+      console.log("Lead registrado com sucesso!");
+      setName('');
+      setWhatsapp('');
+      setSubject('');
+      setDescription('');
+      fetchLeads();
     }
   }
 
@@ -77,6 +94,8 @@ export default function LeadsPage() {
 
   const filteredLeads = filter === 'Todos' ? leads : leads.filter(l => l.status === filter)
 
+  const inputClass = "w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -102,12 +121,12 @@ export default function LeadsPage() {
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 className="font-semibold text-lg">Novo Atendimento</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input placeholder="Nome do Cliente" className="p-3 border rounded-xl" value={name} onChange={e => setName(e.target.value)} />
-            <input placeholder="WhatsApp" className="p-3 border rounded-xl" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />
-            <input placeholder="Assunto" className="p-3 border rounded-xl md:col-span-2" value={subject} onChange={e => setSubject(e.target.value)} />
-            <textarea placeholder="Descrição do Problema" className="p-3 border rounded-xl md:col-span-2" rows={3} value={description} onChange={e => setDescription(e.target.value)} />
+            <input placeholder="Nome do Cliente" className={inputClass} value={name} onChange={e => setName(e.target.value)} />
+            <input placeholder="(00) 00000-0000" className={inputClass} value={whatsapp} onChange={e => handleWhatsappChange(e.target.value)} />
+            <input placeholder="Assunto" className={cn(inputClass, "md:col-span-2")} value={subject} onChange={e => setSubject(e.target.value)} />
+            <textarea placeholder="Descrição do Problema" className={cn(inputClass, "md:col-span-2")} rows={3} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
-          <button onClick={addLead} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2">
+          <button onClick={addLead} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
             <Plus size={20} /> Registrar Lead
           </button>
         </div>
