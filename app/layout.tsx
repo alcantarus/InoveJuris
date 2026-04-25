@@ -5,6 +5,7 @@ import { SessionMonitor } from '@/components/SessionMonitor'
 import { SettingsProvider } from '@/components/providers/SettingsProvider'
 import { PrivacyProvider } from '@/components/providers/PrivacyProvider'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { LeadsButton } from '@/components/LeadsButton'
 import { Toaster } from 'sonner'
 import { ResizeObserverFix } from '@/components/ResizeObserverFix'
 import { cookies } from 'next/headers'
@@ -55,6 +56,7 @@ export default async function RootLayout({
             <EnvBanner />
             <SessionMonitor />
             <GlobalSearch />
+            <LeadsButton />
             <Toaster position="top-right" richColors />
             {children}
           </PrivacyProvider>

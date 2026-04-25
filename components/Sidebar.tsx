@@ -25,7 +25,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Briefcase,
-  Calendar
+  MessageSquare,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
