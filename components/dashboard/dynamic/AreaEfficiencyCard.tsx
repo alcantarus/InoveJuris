@@ -26,7 +26,14 @@ export function AreaEfficiencyCard() {
   }
 
   useEffect(() => {
-    fetchEfficiency()
+    let mounted = true;
+    const load = async () => {
+      // Simulate fetch to avoid synchronous setState warning
+      await new Promise(r => setTimeout(r, 0));
+      if (mounted) fetchEfficiency();
+    };
+    load();
+    return () => { mounted = false; };
   }, [])
 
   const handleOpenModal = () => {

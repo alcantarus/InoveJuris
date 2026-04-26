@@ -309,7 +309,7 @@ export default function ClientesPage() {
     );
   };
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setMounted(true)
       return
@@ -359,11 +359,11 @@ export default function ClientesPage() {
       setIsLoading(false)
       setMounted(true)
     }
-  }
+  }, [page, pageSize, debouncedSearchTerm]);
 
   useEffect(() => {
     fetchClients()
-  }, [debouncedSearchTerm, page, pageSize])
+  }, [fetchClients])
 
   if (!mounted) return null
 
