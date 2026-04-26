@@ -29,6 +29,7 @@ interface Lead {
   score?: string
   funnel_stage?: string
   ai_notes?: string | null
+  history?: any[]
 }
 
 const whatsappTemplates = [
@@ -51,6 +52,12 @@ export default function LeadsPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
   const [activeWhatsappMenu, setActiveWhatsappMenu] = useState<string | null>(null);
+  const [activeAgendaMenu, setActiveAgendaMenu] = useState<string | null>(null);
+  const [callPromptLead, setCallPromptLead] = useState<Lead | null>(null);
+  const [contractPromptLead, setContractPromptLead] = useState<Lead | null>(null);
+  const [callNotes, setCallNotes] = useState('');
+  const [contractCpf, setContractCpf] = useState('');
+  const [contractValue, setContractValue] = useState('');
 
 
   useEffect(() => {
@@ -83,24 +90,76 @@ export default function LeadsPage() {
     setWhatsapp(v)
   }
 
+  const addHistory = async (leadId: string, currentHistory: any[], action: string, type: string) => {
+    const newHistory = [{
+        date: new Date().toISOString(),
+        action,
+        type
+    }, ...(currentHistory || [])];
+    await supabase.from('leads').update({ history: newHistory }).eq('id', leadId);
+    return newHistory;
+  }
+
   const addLead = async () => {
     if (!name) {
       alert("Por favor, preencha o nome do cliente.");
       return;
     }
     
-    // Explicitly add environment as per system requirements
+    setIsLoading(true);
+    let generatedScore = '❄️ Frio';
+    let generatedNotes = description;
+
+    // AI Analysis during creation
+    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY && description) {
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+            const prompt = `Analise este lead. Descreva o problema em 2 linhas. Defina o nível de urgência/temperatura respondendo APENAS com um emoji (🔥 para Quente/Urgente, 🌤️ para Morno, ❄️ para Frio).
+            
+            Texto: "${description}"
+            
+            Formato de Resposta (JSON estrito):
+            { "score": "🔥", "notes": "Descrição do problema..." }`;
+            
+            const result = await ai.models.generateContent({
+                model: "gemini-3-flash-preview",
+                contents: prompt,
+            });
+            const text = result.text || "";
+            try {
+                const parsed = JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
+                generatedScore = parsed.score || '❄️ Frio';
+                generatedNotes = parsed.notes || description;
+            } catch (e) {
+                console.log("JSON parse failed, skipping AI structured response");
+            }
+        } catch (e) {
+            console.error("Gemini skipped:", e);
+        }
+    }
+
+    const initialHistory = [{
+        date: new Date().toISOString(),
+        action: 'Lead Entrou',
+        type: 'system'
+    }];
+
     const newLead = { 
       name, 
       whatsapp, 
       subject, 
       description,
       environment: 'production',
-      status: 'Em Atendimento'
+      status: 'Em Atendimento',
+      score: generatedScore,
+      ai_notes: generatedNotes,
+      history: initialHistory,
+      next_action_type: 'Primeiro Contato',
+      next_action_date: new Date().toISOString()
     };
 
-    console.log("Tentando inserir lead:", newLead);
     const { error } = await supabase.from('leads').insert([newLead]);
+    setIsLoading(false);
     
     if (error) {
       console.error("Erro ao inserir lead:", error);
@@ -173,36 +232,82 @@ export default function LeadsPage() {
     fetchLeads()
   }
 
-  const updateFunnelStage = async (id: string, stage: string) => {
-    await supabase.from('leads').update({ funnel_stage: stage }).eq('id', id)
+  const updateFunnelStage = async (lead: Lead, stage: string) => {
+    await supabase.from('leads').update({ funnel_stage: stage }).eq('id', lead.id)
+    await addHistory(lead.id, lead.history || [], `Avançou para ${stage}`, 'system');
     fetchLeads()
   }
 
-  // Convert Lead to Client - simple direct implementation
+  const handleSchedule = async (lead: Lead, days: number, label: string) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    await supabase.from('leads').update({ 
+        next_action_date: d.toISOString(),
+        next_action_type: label
+    }).eq('id', lead.id);
+    await addHistory(lead.id, lead.history || [], `Agendou: ${label}`, 'schedule');
+    setActiveAgendaMenu(null);
+    fetchLeads();
+  }
+
+  const handleWhatsappClick = async (lead: Lead, t: typeof whatsappTemplates[0]) => {
+     await addHistory(lead.id, lead.history || [], `Enviada msg no WhatsApp (${t.label})`, 'communication');
+     setActiveWhatsappMenu(null);
+  }
+
+  const handleCallComplete = async () => {
+      if (!callPromptLead) return;
+      await addHistory(callPromptLead.id, callPromptLead.history || [], `Ligou: ${callNotes || 'Sem anotações'}`, 'communication');
+      setCallPromptLead(null);
+      setCallNotes('');
+      fetchLeads();
+  }
+
+  const finishContract = async () => {
+      if (!contractPromptLead) return;
+      
+      const { error: clientError } = await supabase.from('clients').insert([{
+        name: contractPromptLead.name,
+        phone: contractPromptLead.whatsapp,
+        cpf: contractCpf || null,
+        status: 'Ativo',
+        type: 'Pessoa Física',
+      }]);
+
+      if (clientError) {
+        alert(`Erro ao criar cliente: ${clientError.message}`);
+        return;
+      }
+
+      await supabase.from('leads').update({ status: 'Atendido', funnel_stage: 'Fechamento' }).eq('id', contractPromptLead.id);
+      await addHistory(contractPromptLead.id, contractPromptLead.history || [], `Convertido em Cliente (Contrato Gerado)`, 'system');
+      
+      setContractPromptLead(null);
+      setContractCpf('');
+      setContractValue('');
+      fetchLeads();
+  }
+
   const convertToClient = async (lead: Lead) => {
-    if (!confirm(`Converter ${lead.name} em cliente?`)) return
-    
-    // 1. Create client
-    const { error: clientError } = await supabase.from('clients').insert([{
-      name: lead.name,
-      phone: lead.whatsapp,
-      status: 'Ativo',
-      type: 'Pessoa Física'
-    }])
-
-    if (clientError) {
-      alert(`Erro ao converter: ${clientError.message}`)
-      return
-    }
-
-    // 2. Mark lead as Atendido
-    await updateStatus(lead.id, 'Atendido')
+    setContractPromptLead(lead);
   }
 
   const filteredLeads = leads.filter(l => {
     if (filter === 'Todos') return true;
     if (filter === 'Requer Atenção Hoje') return l.status === 'Em Atendimento';
     return l.status === filter;
+  }).sort((a, b) => {
+      // 1. Atrasados / Hoje primeiro (se em atendimento)
+      const isAtrasadoA = a.status === 'Em Atendimento' && (!a.next_action_date || new Date(a.next_action_date) <= new Date());
+      const isAtrasadoB = b.status === 'Em Atendimento' && (!b.next_action_date || new Date(b.next_action_date) <= new Date());
+      
+      if (isAtrasadoA && !isAtrasadoB) return -1;
+      if (!isAtrasadoA && isAtrasadoB) return 1;
+
+      // 2. Depois pela data da próxima ação
+      const da = a.next_action_date ? new Date(a.next_action_date).getTime() : 0;
+      const db = b.next_action_date ? new Date(b.next_action_date).getTime() : 0;
+      return da - db;
   });
 
   const inputClass = "w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
@@ -306,14 +411,19 @@ export default function LeadsPage() {
                   </td>
                   <td className="p-4">
                      <div className="text-sm font-medium text-slate-900">{lead.next_action_type || "Agendar Reunião"}</div>
-                     <div className="text-xs text-rose-500 font-semibold">{!lead.next_action_date ? "Atrasado (Atenção)" : "Hoje"}</div>
+                     <div className={cn("text-xs font-semibold", (!lead.next_action_date || new Date(lead.next_action_date) <= new Date()) ? "text-rose-500" : "text-emerald-600")}>
+                         {!lead.next_action_date ? "Sem Próxima Ação" : (new Date(lead.next_action_date) <= new Date() ? "Atrasado (Atenção)" : new Date(lead.next_action_date).toLocaleDateString())}
+                     </div>
                   </td>
                   <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1 justify-center relative">
-                        <button onClick={() => setActiveWhatsappMenu(activeWhatsappMenu === lead.id ? null : lead.id)} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg" title="WhatsApp Rápido"><Zap size={16} /></button>
+                        <button onClick={() => { setActiveAgendaMenu(null); setActiveWhatsappMenu(activeWhatsappMenu === lead.id ? null : lead.id); }} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg" title="WhatsApp Rápido"><Zap size={16} /></button>
                         {activeWhatsappMenu === lead.id && (
                             <div className="absolute top-10 right-0 z-50 w-72 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left">
-                                <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">Templates de Abordagem</div>
+                                <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
+                                    <span>Templates de Abordagem</span>
+                                    <button onClick={() => setActiveWhatsappMenu(null)} className="text-slate-400 hover:text-slate-600">×</button>
+                                </div>
                                 {whatsappTemplates.map(t => (
                                     <a 
                                         key={t.label} 
@@ -321,15 +431,40 @@ export default function LeadsPage() {
                                         target="_blank" 
                                         rel="noreferrer"
                                         className="block p-3 text-sm hover:bg-indigo-50 border-b last:border-0 text-slate-700 hover:text-indigo-700 transition"
-                                        onClick={() => setActiveWhatsappMenu(null)}
+                                        onClick={() => handleWhatsappClick(lead, t)}
                                     >
                                         {t.label}
                                     </a>
                                 ))}
                             </div>
                         )}
-                        <button className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="Marcar Ligação"><Phone size={16} /></button>
-                        <button className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="Agendar"><Calendar size={16} /></button>
+                        <button 
+                            onClick={() => { 
+                                window.open(`tel:${lead.whatsapp}`, '_self');
+                                setCallPromptLead(lead); 
+                            }} 
+                            className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="Marcar Ligação"
+                        >
+                            <Phone size={16} />
+                        </button>
+                        
+                        <div className="relative">
+                            <button onClick={() => { setActiveWhatsappMenu(null); setActiveAgendaMenu(activeAgendaMenu === lead.id ? null : lead.id); }} className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="Agendar">
+                                <Calendar size={16} />
+                            </button>
+                            {activeAgendaMenu === lead.id && (
+                                <div className="absolute top-10 right-0 z-50 w-48 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left">
+                                     <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
+                                        <span>Agendar</span>
+                                        <button onClick={() => setActiveAgendaMenu(null)} className="text-slate-400 hover:text-slate-600">×</button>
+                                     </div>
+                                     <button onClick={() => handleSchedule(lead, 0, 'Reunião Hoje')} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b text-slate-700">Para Hoje</button>
+                                     <button onClick={() => handleSchedule(lead, 1, 'Ligar Amanhã')} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b text-slate-700">Ligar Amanhã</button>
+                                     <button onClick={() => handleSchedule(lead, 2, 'Mandar Mensagem')} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 text-slate-700">Em 2 dias</button>
+                                </div>
+                            )}
+                        </div>
+
                         <button onClick={() => convertToClient(lead)} className="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg" title="Avançar para Contrato"><UserPlus size={16} /></button>
                     </div>
                   </td>
@@ -337,7 +472,7 @@ export default function LeadsPage() {
                 {expandedLeadId === lead.id && (
                     <tr className="bg-slate-50/80 border-b border-t shadow-inner">
                         <td colSpan={5} className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div>
                                     <h4 className="text-sm font-semibold text-slate-900 mb-2">Assunto & Descrição</h4>
                                     <div className="text-sm text-slate-900 font-medium mb-1">{lead.subject}</div>
@@ -356,8 +491,23 @@ export default function LeadsPage() {
                                         Nenhuma análise de IA disponível.
                                     </div>
                                 )}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Linha do Tempo</h4>
+                                    <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
+                                        {lead.history && lead.history.length > 0 ? lead.history.map((h, i) => (
+                                            <div key={i} className="flex gap-3 text-sm">
+                                                <div className="text-slate-400 text-xs mt-0.5 whitespace-nowrap">
+                                                    {new Date(h.date).toLocaleDateString()} {new Date(h.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                </div>
+                                                <div className="text-slate-700">{h.action}</div>
+                                            </div>
+                                        )) : (
+                                            <div className="text-slate-400 text-sm">Nenhum histórico registrado.</div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="mt-6 flex flex-wrap gap-2 items-center justify-between">
+                            <div className="mt-6 flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-slate-100">
                                 <div className="flex gap-2">
                                     <button onClick={() => editLead(lead)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100 transition shadow-sm">Editar Lead</button>
                                     <button onClick={() => updateStatus(lead.id, 'Descartado')} className="px-4 py-2 bg-white border border-slate-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50 transition shadow-sm">Descartar</button>
@@ -367,7 +517,7 @@ export default function LeadsPage() {
                                     {['Contato', 'Qualificado', 'Proposta', 'Fechamento'].map((stage) => (
                                         <button 
                                             key={stage}
-                                            onClick={() => updateFunnelStage(lead.id, stage)}
+                                            onClick={() => updateFunnelStage(lead, stage)}
                                             className={cn(
                                                 "px-3 py-1 rounded-full text-xs font-semibold border transition",
                                                 (lead.funnel_stage || 'Contato') === stage ? "border-indigo-600 text-indigo-700 bg-indigo-50" : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
@@ -387,6 +537,53 @@ export default function LeadsPage() {
           </table>
         </div>
       </div>
+      
+      {/* Call Prompt Modal */}
+      <Drawer isOpen={!!callPromptLead} onClose={() => setCallPromptLead(null)} title="Feedback da Ligação">
+        <div className="space-y-4">
+            <h4 className="font-semibold text-slate-900">Como foi a ligação com {callPromptLead?.name}?</h4>
+            <textarea 
+                className={inputClass} 
+                rows={4} 
+                placeholder="Ex: Cliente não atendeu, ligar amanhã. Ou: Demonstrou interesse, enviar proposta."
+                value={callNotes}
+                onChange={e => setCallNotes(e.target.value)}
+            />
+            <button onClick={handleCallComplete} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition">
+                Salvar Feedback
+            </button>
+        </div>
+      </Drawer>
+
+      {/* Contract Generate Modal */}
+      <Drawer isOpen={!!contractPromptLead} onClose={() => setContractPromptLead(null)} title="Avançar para Contrato">
+        <div className="space-y-4">
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl mb-4">
+                <div className="text-sm font-semibold text-indigo-900">{contractPromptLead?.name}</div>
+                <div className="text-xs text-indigo-700">{contractPromptLead?.whatsapp}</div>
+                <div className="text-xs text-indigo-700 mt-1">{contractPromptLead?.subject}</div>
+            </div>
+            
+            <input 
+                placeholder="CPF do Cliente (Opcional por enquanto)" 
+                className={inputClass} 
+                value={contractCpf} 
+                onChange={e => setContractCpf(e.target.value)} 
+            />
+            
+            <input 
+                placeholder="Valor Base dos Honorários (Ex: R$ 5.000,00)" 
+                className={inputClass} 
+                value={contractValue} 
+                onChange={e => setContractValue(e.target.value)} 
+            />
+
+            <button onClick={finishContract} className="w-full px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition mt-4">
+                Gerar Cliente e Fechar Contrato
+            </button>
+        </div>
+      </Drawer>
+
     </DashboardLayout>
   )
 }
