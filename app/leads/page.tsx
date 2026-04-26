@@ -59,6 +59,7 @@ export default function LeadsPage() {
   const [contractCpf, setContractCpf] = useState('');
   const [contractValue, setContractValue] = useState('');
   const [customApiKey, setCustomApiKey] = useState('');
+  const [isAnalyzingId, setIsAnalyzingId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check for saved API key in localStorage
@@ -224,6 +225,64 @@ export default function LeadsPage() {
         setInsights(`Não foi possível gerar insights: ${e.message}`)
     } finally {
         setIsAnalyzing(false)
+    }
+  }
+
+  const generateAiAnalysisForLead = async (lead: Lead) => {
+    const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) {
+        alert('API Key do Gemini não configurada. Defina na área de configuração abaixo da lista.');
+        return;
+    }
+
+    if (!lead.description) {
+        alert('O lead não possui descrição para ser analisada.');
+        return;
+    }
+
+    setIsAnalyzingId(lead.id);
+
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `Analise este lead. Descreva o problema em 2 linhas. Defina o nível de urgência/temperatura respondendo APENAS com um emoji (🔥 para Quente/Urgente, 🌤️ para Morno, ❄️ para Frio).
+        
+        Texto: "${lead.description}"
+        
+        Formato de Resposta (JSON estrito):
+        { "score": "🔥", "notes": "Descrição do problema..." }`;
+        
+        const result = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+        });
+        const text = result.text || "";
+        
+        let generatedScore = lead.score;
+        let generatedNotes = lead.ai_notes;
+        
+        try {
+            const parsed = JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
+            generatedScore = parsed.score || lead.score;
+            generatedNotes = parsed.notes || text;
+            
+            await supabase.from('leads').update({
+                score: generatedScore,
+                ai_notes: generatedNotes
+            }).eq('id', lead.id);
+            
+            await addHistory(lead.id, lead.history || [], 'Análise de IA gerada para o Lead', 'system');
+            
+            fetchLeads();
+        } catch (e) {
+            console.error("JSON parse failed", e);
+            alert('Falha ao interpretar a resposta da IA.');
+        }
+
+    } catch (e: any) {
+        console.error("Gemini Error:", e);
+        alert(`Erro na IA: ${e.message}`);
+    } finally {
+        setIsAnalyzingId(null);
     }
   }
 
@@ -515,8 +574,15 @@ export default function LeadsPage() {
                                         <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{lead.ai_notes}</p>
                                     </div>
                                 ) : (
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center text-slate-400 text-sm">
-                                        Nenhuma análise de IA disponível.
+                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-slate-400 text-sm">
+                                        <span className="mb-3">Nenhuma análise de IA disponível.</span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); generateAiAnalysisForLead(lead); }}
+                                            disabled={isAnalyzingId === lead.id}
+                                            className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors flex items-center gap-2"
+                                        >
+                                            <span className="text-lg">🤖</span> {isAnalyzingId === lead.id ? 'Analisando...' : 'Gerar Análise agora'}
+                                        </button>
                                     </div>
                                 )}
                                 <div>
