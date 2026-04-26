@@ -129,11 +129,13 @@ export default function LeadsPage() {
     setIsAnalyzing(true)
     setInsights('')
     try {
-        const genAI = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
         const prompt = `Analise a descrição deste lead: "${desc}". (1) Identifique o sentimento do cliente (positivo/negativo/neutral). (2) Liste 3 pontos chave do problema. (3) Sugira a melhor abordagem de contato. Mantenha em bullets.`
-        const result = await model.generateContent(prompt);
-        setInsights(result.response.text());
+        const result = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+        });
+        setInsights(result.text || "");
     } catch (e: any) {
         console.error("Gemini Error:", e)
         setInsights(`Não foi possível gerar insights: ${e.message}`)
