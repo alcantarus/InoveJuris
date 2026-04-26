@@ -58,7 +58,15 @@ export default function LeadsPage() {
   const [callNotes, setCallNotes] = useState('');
   const [contractCpf, setContractCpf] = useState('');
   const [contractValue, setContractValue] = useState('');
+  const [customApiKey, setCustomApiKey] = useState('');
 
+  useEffect(() => {
+    // Check for saved API key in localStorage
+    const savedKey = localStorage.getItem('GEMINI_API_KEY');
+    if (savedKey) {
+        setCustomApiKey(savedKey);
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/fix-db')
@@ -111,9 +119,10 @@ export default function LeadsPage() {
     let generatedNotes = description;
 
     // AI Analysis during creation
-    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY && description) {
+    const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey && description) {
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+            const ai = new GoogleGenAI({ apiKey });
             const prompt = `Analise este lead. Descreva o problema em 2 linhas. Defina o nível de urgência/temperatura respondendo APENAS com um emoji (🔥 para Quente/Urgente, 🌤️ para Morno, ❄️ para Frio).
             
             Texto: "${description}"
@@ -195,14 +204,15 @@ export default function LeadsPage() {
   }
 
   const analyzeLead = async (desc: string) => {
-    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+    const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) {
         setInsights('API Key do Gemini não configurada.')
         return
     }
     setIsAnalyzing(true)
     setInsights('')
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         const prompt = `Analise a descrição deste lead: "${desc}". (1) Identifique o sentimento do cliente (positivo/negativo/neutral). (2) Liste 3 pontos chave do problema. (3) Sugira a melhor abordagem de contato. Mantenha em bullets.`
         const result = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
@@ -370,6 +380,24 @@ export default function LeadsPage() {
                 </div>
             )}
             {isAnalyzing && <div className="p-4 text-sm text-slate-500">Analisando com Inteligência Artificial...</div>}
+
+            <div className="pt-4 border-t border-slate-100">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Configuração (Opcional)</label>
+                <input 
+                    type="password"
+                    placeholder="Sua Gemini API Key (Se o seu plano não for AI Studio)" 
+                    className={inputClass + " text-sm"} 
+                    value={customApiKey} 
+                    onChange={e => {
+                        setCustomApiKey(e.target.value);
+                        if (e.target.value) {
+                            localStorage.setItem('GEMINI_API_KEY', e.target.value);
+                        } else {
+                            localStorage.removeItem('GEMINI_API_KEY');
+                        }
+                    }} 
+                />
+            </div>
           </div>
         </Drawer>
 
