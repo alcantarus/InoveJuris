@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
-import { MessageSquare, Plus, CheckCircle2, XCircle, Clock, Trash2, UserPlus, Filter, Edit2 } from 'lucide-react'
+import { MessageSquare, Plus, Phone, Calendar, Trash2, UserPlus, Filter, Edit2, Zap } from 'lucide-react'
 import { GoogleGenAI } from '@google/genai';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { LeadKpiHeader } from '@/components/leads/LeadKpiHeader'
+import { Drawer } from '@/components/leads/Drawer'
 
 const statusColors: Record<string, string> = {
   'Em Atendimento': 'bg-amber-100 text-amber-800 border-amber-200',
@@ -27,6 +29,7 @@ interface Lead {
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [filter, setFilter] = useState<string>('Todos')
   const [name, setName] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
@@ -94,6 +97,7 @@ export default function LeadsPage() {
       setWhatsapp('');
       setSubject('');
       setDescription('');
+      setIsDrawerOpen(false)
       fetchLeads();
     }
   }
@@ -112,6 +116,7 @@ export default function LeadsPage() {
         setWhatsapp('')
         setSubject('')
         setDescription('')
+        setIsDrawerOpen(false)
         fetchLeads()
     }
   }
@@ -144,6 +149,7 @@ export default function LeadsPage() {
     setSubject(lead.subject)
     setDescription(lead.description)
     analyzeLead(lead.description)
+    setIsDrawerOpen(true)
   }
 
   const updateStatus = async (id: string, status: Lead['status']) => {
@@ -179,11 +185,18 @@ export default function LeadsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <ModuleHeader 
-          icon={MessageSquare}
-          title="Gestão de Leads" 
-          description="Atendimento rápido e eficiente."
-        />
+        <div className="flex justify-between items-center">
+            <ModuleHeader 
+              icon={MessageSquare}
+              title="Gestão de Leads" 
+              description="Atendimento rápido e eficiente."
+            />
+            <button onClick={() => { setIsDrawerOpen(true); setEditingLead(null); }} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
+                <Plus size={20} /> Novo Atendimento
+            </button>
+        </div>
+
+        <LeadKpiHeader leads={leads} />
 
         <div className="flex gap-2 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <Filter size={18} className="text-slate-400" />
@@ -198,61 +211,59 @@ export default function LeadsPage() {
           ))}
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">{editingLead ? 'Editando Atendimento' : 'Novo Atendimento'}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title={editingLead ? 'Editando Atendimento' : 'Novo Atendimento'}>
+          <div className="space-y-4">
             <input placeholder="Nome do Cliente" className={inputClass} value={name} onChange={e => setName(e.target.value)} />
             <input placeholder="(00) 00000-0000" className={inputClass} value={whatsapp} onChange={e => handleWhatsappChange(e.target.value)} />
-            <input placeholder="Assunto" className={cn(inputClass, "md:col-span-2")} value={subject} onChange={e => setSubject(e.target.value)} />
-            <textarea placeholder="Descrição do Problema" className={cn(inputClass, "md:col-span-2")} rows={3} value={description} onChange={e => setDescription(e.target.value)} />
+            <input placeholder="Assunto" className={inputClass} value={subject} onChange={e => setSubject(e.target.value)} />
+            <textarea placeholder="Descrição do Problema" className={inputClass} rows={4} value={description} onChange={e => setDescription(e.target.value)} />
+            
+            <button onClick={editingLead ? saveLead : addLead} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-indigo-700 transition">
+                {editingLead ? 'Salvar Alterações' : 'Registrar Lead'}
+            </button>
+            
+            {insights && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-sm">
+                <h4 className="font-bold mb-2">Insights do Inteligente:</h4>
+                <div className="whitespace-pre-wrap">{insights}</div>
+                </div>
+            )}
+            {isAnalyzing && <div className="p-4 text-sm text-slate-500">Analisando com Inteligência Artificial...</div>}
           </div>
-          <button onClick={editingLead ? saveLead : addLead} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
-            <Plus size={20} /> {editingLead ? 'Salvar Alterações' : 'Registrar Lead'}
-          </button>
-          
-          {insights && (
-            <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-sm">
-              <h4 className="font-bold mb-2">Insights do Inteligente:</h4>
-              <div className="whitespace-pre-wrap">{insights}</div>
-            </div>
-          )}
-          {isAnalyzing && <div className="p-4 text-sm text-slate-500">Analisando com Inteligência Artificial...</div>}
-        </div>
+        </Drawer>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b">
               <tr>
-                <th className="p-4">Cliente</th>
-                <th className="p-4">Assunto</th>
-                <th className="p-4 text-center">Status</th>
-                <th className="p-4 text-center">Ações</th>
+                <th className="p-4 text-sm font-medium text-slate-500">Score</th>
+                <th className="p-4 text-sm font-medium text-slate-500">Lead</th>
+                <th className="p-4 text-sm font-medium text-slate-500">Assunto</th>
+                <th className="p-4 text-sm font-medium text-slate-500 text-center">Status</th>
+                <th className="p-4 text-sm font-medium text-slate-500 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredLeads.map(lead => (
-                <tr key={lead.id} className="hover:bg-slate-50">
+                <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
-                    <div className="font-bold">{lead.name}</div>
-                    <div className="text-sm text-slate-500">{lead.whatsapp}</div>
+                    <span className="text-xl">🔥</span>
                   </td>
-                  <td className="p-4">{lead.subject}</td>
+                  <td className="p-4">
+                    <div className="font-semibold text-slate-900">{lead.name}</div>
+                    <div className="text-xs text-slate-500">{lead.whatsapp}</div>
+                  </td>
+                  <td className="p-4 text-sm text-slate-700">{lead.subject}</td>
                   <td className="p-4 text-center">
-                    <select 
-                        value={lead.status} 
-                        onChange={e => updateStatus(lead.id, e.target.value as any)} 
-                        className={cn("px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer", statusColors[lead.status])}
-                    >
-                      <option>Em Atendimento</option>
-                      <option>Atendido</option>
-                      <option>Descartado</option>
-                      <option>Stand-by</option>
-                    </select>
+                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold border", statusColors[lead.status])}>
+                          {lead.status}
+                      </span>
                   </td>
-                  <td className="p-4 flex gap-2 justify-center">
-                    <button onClick={() => convertToClient(lead)} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg" title="Converter em Cliente"><UserPlus size={18} /></button>
-                    <button onClick={() => editLead(lead)} className="text-blue-500 p-2 hover:bg-blue-50 rounded-lg" title="Editar Lead"><Edit2 size={18} /></button>
-                    <button className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                  <td className="p-4 flex gap-1 justify-center">
+                    <button className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="WhatsApp"><Zap size={16} /></button>
+                    <button className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="Ligar"><Phone size={16} /></button>
+                    <button className="text-slate-500 p-2 hover:bg-slate-100 rounded-lg" title="Agendar"><Calendar size={16} /></button>
+                    <button onClick={() => editLead(lead)} className="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg" title="Editar"><Edit2 size={16} /></button>
                   </td>
                 </tr>
               ))}
