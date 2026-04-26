@@ -196,7 +196,7 @@ export default function LeadsPage() {
 
   const analyzeLead = async (desc: string) => {
     if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-        setInsights('API Key do Gemini não configurada.')
+        setInsights('API Key do Gemini não configurada. Adicione a chave NEXT_PUBLIC_GEMINI_API_KEY no menu Settings (ícone de engrenagem) do AI Studio.')
         return
     }
     setIsAnalyzing(true)
