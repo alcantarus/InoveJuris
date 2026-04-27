@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
-import { MessageSquare, Plus, Phone, Calendar, Trash2, UserPlus, Filter, Edit2, Zap } from 'lucide-react'
+import { MessageSquare, Plus, Phone, Calendar, Trash2, UserPlus, Filter, Edit2, Zap, ChevronRight } from 'lucide-react'
 import { GoogleGenAI } from '@google/genai';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -322,6 +322,9 @@ export default function LeadsPage() {
   const handleWhatsappClick = async (lead: Lead, t: typeof whatsappTemplates[0]) => {
      await addHistory(lead.id, lead.history || [], `Enviada msg no WhatsApp (${t.label})`, 'communication');
      setActiveWhatsappMenu(null);
+     const cleanPhone = lead.whatsapp.replace(/\D/g, '');
+     let text = t.text.replace('{name}', lead.name).replace('{subject}', lead.subject || 'seu caso');
+     window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   }
 
   const handleCallComplete = async () => {
@@ -361,14 +364,27 @@ export default function LeadsPage() {
     setContractPromptLead(lead);
   }
 
+  const isLeadAtrasadoOuHoje = (l: Lead) => {
+    return l.status === 'Em Atendimento' && (!l.next_action_date || new Date(l.next_action_date) <= new Date());
+  };
+
+  const counts: Record<string, number> = {
+    'Requer Atenção Hoje': leads.filter(isLeadAtrasadoOuHoje).length,
+    'Todos': leads.length,
+    'Em Atendimento': leads.filter(l => l.status === 'Em Atendimento').length,
+    'Atendido': leads.filter(l => l.status === 'Atendido').length,
+    'Descartado': leads.filter(l => l.status === 'Descartado').length,
+    'Stand-by': leads.filter(l => l.status === 'Stand-by').length,
+  };
+
   const filteredLeads = leads.filter(l => {
     if (filter === 'Todos') return true;
-    if (filter === 'Requer Atenção Hoje') return l.status === 'Em Atendimento';
+    if (filter === 'Requer Atenção Hoje') return isLeadAtrasadoOuHoje(l);
     return l.status === filter;
   }).sort((a, b) => {
       // 1. Atrasados / Hoje primeiro (se em atendimento)
-      const isAtrasadoA = a.status === 'Em Atendimento' && (!a.next_action_date || new Date(a.next_action_date) <= new Date());
-      const isAtrasadoB = b.status === 'Em Atendimento' && (!b.next_action_date || new Date(b.next_action_date) <= new Date());
+      const isAtrasadoA = isLeadAtrasadoOuHoje(a);
+      const isAtrasadoB = isLeadAtrasadoOuHoje(b);
       
       if (isAtrasadoA && !isAtrasadoB) return -1;
       if (!isAtrasadoA && isAtrasadoB) return 1;
@@ -410,13 +426,21 @@ export default function LeadsPage() {
               key={f} 
               onClick={() => setFilter(f)}
               className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap", 
-                  filter === f ? "bg-indigo-600 text-white" : 
-                    f === 'Requer Atenção Hoje' ? "bg-rose-100 text-rose-700 hover:bg-rose-200" :
-                    "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-all", 
+                  filter === f ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : 
+                    f === 'Requer Atenção Hoje' ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200" :
+                    "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
               )}
             >
               {f}
+              <span className={cn(
+                  "px-1.5 py-0.5 rounded-md text-[10px] font-bold",
+                  filter === f ? "bg-white/20 text-white" : 
+                    f === 'Requer Atenção Hoje' ? "bg-rose-200 text-rose-800" :
+                    "bg-slate-100 text-slate-500"
+              )}>
+                  {counts[f] || 0}
+              </span>
             </button>
           ))}
         </div>
@@ -477,17 +501,40 @@ export default function LeadsPage() {
                 <React.Fragment key={lead.id}>
                 <tr 
                   onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
-                  className={cn("hover:bg-slate-50 transition-colors cursor-pointer", lead.status === 'Em Atendimento' && !lead.next_action_date ? "bg-rose-50/50" : "")}
+                  className={cn(
+                      "cursor-pointer transition",
+                      expandedLeadId === lead.id ? "bg-indigo-50/50" : "hover:bg-slate-50",
+                      lead.score === '🔥' && expandedLeadId !== lead.id ? "bg-orange-50/30" : "",
+                      lead.status === 'Em Atendimento' && (!lead.next_action_date || new Date(lead.next_action_date) <= new Date()) && expandedLeadId !== lead.id ? "bg-rose-50/30" : ""
+                  )}
                 >
                   <td className="p-4">
-                    <span className="text-xl" title={lead.score || "Frio"}>{lead.score?.includes('🔥') ? '🔥' : lead.score?.includes('🌤️') ? '🌤️' : lead.score?.includes('❄️') ? '❄️' : '🔥'}</span>
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-lg" title={lead.score === '🔥' ? 'Lead Quente / Urgente' : ''} >
+                        {lead.score || '❄️'}
+                    </div>
                   </td>
                   <td className="p-4">
                     <div className="font-semibold text-slate-900">{lead.name}</div>
                     <div className="text-xs text-slate-500">{lead.whatsapp}</div>
                   </td>
                   <td className="p-4 text-sm text-slate-700">
-                    <div className="font-medium text-slate-900 text-xs mb-2 uppercase">{lead.funnel_stage || 'Contato'}</div>
+                    <div className="font-medium text-slate-900 text-xs mb-2 uppercase flex items-center justify-between">
+                        {lead.funnel_stage || 'Contato'}
+                        {getFunnelIndex(lead.funnel_stage) < 3 && (
+                            <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    const stages = ['Contato', 'Qualificado', 'Proposta', 'Fechamento'];
+                                    const nextStage = stages[getFunnelIndex(lead.funnel_stage) + 1];
+                                    updateFunnelStage(lead, nextStage); 
+                                }} 
+                                className="text-indigo-600 hover:text-indigo-800 text-[10px] bg-indigo-50 px-2 py-0.5 rounded-full flex items-center"
+                                title="Avançar Funil Rapidamente"
+                            >
+                                Avançar <ChevronRight size={12} className="ml-0.5" />
+                            </button>
+                        )}
+                    </div>
                     <div className="flex items-center gap-1.5">
                         {['Contato', 'Qualificado', 'Proposta', 'Fechamento'].map((stage, idx) => {
                             const isPast = idx <= getFunnelIndex(lead.funnel_stage);
@@ -513,16 +560,13 @@ export default function LeadsPage() {
                                     <button onClick={() => setActiveWhatsappMenu(null)} className="text-slate-400 hover:text-slate-600">×</button>
                                 </div>
                                 {whatsappTemplates.map(t => (
-                                    <a 
+                                    <button 
                                         key={t.label} 
-                                        href={`https://wa.me/55${lead.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(t.text.replace('{name}', lead.name).replace('{subject}', lead.subject))}`} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        className="block p-3 text-sm hover:bg-indigo-50 border-b last:border-0 text-slate-700 hover:text-indigo-700 transition"
-                                        onClick={() => handleWhatsappClick(lead, t)}
+                                        className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b last:border-0 text-slate-700 hover:text-indigo-700 transition"
+                                        onClick={(e) => { e.stopPropagation(); handleWhatsappClick(lead, t); }}
                                     >
                                         {t.label}
-                                    </a>
+                                    </button>
                                 ))}
                             </div>
                         )}
