@@ -390,13 +390,13 @@ export default function LeadsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-20">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
             <ModuleHeader 
               icon={MessageSquare}
               title="Gestão de Leads" 
               description="Atendimento rápido e eficiente."
             />
-            <button onClick={() => { setIsDrawerOpen(true); setEditingLead(null); }} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition">
+            <button onClick={() => { setIsDrawerOpen(true); setEditingLead(null); }} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition w-full sm:w-auto justify-center">
                 <Plus size={20} /> Novo Atendimento
             </button>
         </div>
@@ -461,17 +461,18 @@ export default function LeadsPage() {
         </Drawer>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="p-4 text-sm font-medium text-slate-500 w-16">Score</th>
-                <th className="p-4 text-sm font-medium text-slate-500">Lead</th>
-                <th className="p-4 text-sm font-medium text-slate-500 min-w-[200px]">Funil</th>
-                <th className="p-4 text-sm font-medium text-slate-500">Próxima Ação</th>
-                <th className="p-4 text-sm font-medium text-slate-500 text-center w-48">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[900px]">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="p-4 text-sm font-medium text-slate-500 w-16">Score</th>
+                  <th className="p-4 text-sm font-medium text-slate-500">Lead</th>
+                  <th className="p-4 text-sm font-medium text-slate-500 min-w-[200px]">Funil</th>
+                  <th className="p-4 text-sm font-medium text-slate-500">Próxima Ação</th>
+                  <th className="p-4 text-sm font-medium text-slate-500 text-center w-48">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
               {filteredLeads.map(lead => (
                 <React.Fragment key={lead.id}>
                 <tr 
@@ -606,20 +607,22 @@ export default function LeadsPage() {
                                     <button onClick={() => editLead(lead)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100 transition shadow-sm">Editar Lead</button>
                                     <button onClick={() => updateStatus(lead.id, 'Descartado')} className="px-4 py-2 bg-white border border-slate-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50 transition shadow-sm">Descartar</button>
                                 </div>
-                                <div className="flex gap-2 items-center">
-                                    <span className="text-xs text-slate-500 font-medium mr-2">Avançar Funil:</span>
-                                    {['Contato', 'Qualificado', 'Proposta', 'Fechamento'].map((stage) => (
-                                        <button 
-                                            key={stage}
-                                            onClick={() => updateFunnelStage(lead, stage)}
-                                            className={cn(
-                                                "px-3 py-1 rounded-full text-xs font-semibold border transition",
-                                                (lead.funnel_stage || 'Contato') === stage ? "border-indigo-600 text-indigo-700 bg-indigo-50" : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
-                                            )}
-                                        >
-                                            {stage}
-                                        </button>
-                                    ))}
+                                <div className="flex flex-wrap gap-2 items-center mt-4 md:mt-0">
+                                    <span className="text-xs text-slate-500 font-medium mr-2 block w-full md:w-auto">Avançar Funil:</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Contato', 'Qualificado', 'Proposta', 'Fechamento'].map((stage) => (
+                                            <button 
+                                                key={stage}
+                                                onClick={() => updateFunnelStage(lead, stage)}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-full text-xs font-semibold border transition",
+                                                    (lead.funnel_stage || 'Contato') === stage ? "border-indigo-600 text-indigo-700 bg-indigo-50" : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
+                                                )}
+                                            >
+                                                {stage}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -629,6 +632,7 @@ export default function LeadsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
       
