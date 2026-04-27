@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
   "canAccessAudit" BOOLEAN DEFAULT FALSE,
   "canAccessUsers" BOOLEAN DEFAULT FALSE,
   "canAccessDocuments" BOOLEAN DEFAULT FALSE,
+  "canAccessLeads" BOOLEAN DEFAULT FALSE,
   "canAccessProdEnv" BOOLEAN DEFAULT TRUE,
   "canAccessTestEnv" BOOLEAN DEFAULT FALSE,
   is_superadmin BOOLEAN DEFAULT FALSE,
@@ -68,6 +69,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'canAccessDocuments') THEN
       ALTER TABLE users ADD COLUMN "canAccessDocuments" BOOLEAN DEFAULT FALSE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'canAccessLeads') THEN
+      ALTER TABLE users ADD COLUMN "canAccessLeads" BOOLEAN DEFAULT FALSE;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'canAccessProdEnv') THEN
       ALTER TABLE users ADD COLUMN "canAccessProdEnv" BOOLEAN DEFAULT TRUE;

@@ -26,6 +26,7 @@ export interface User {
   canAccessDocuments: boolean
   canAccessDocTemplates: boolean
   canAccessDocGeneration: boolean
+  canAccessLeads: boolean
   canAccessDashboard: boolean
   canAccessProdEnv: boolean
   canAccessTestEnv: boolean
@@ -66,6 +67,7 @@ const calculatePermissions = (userDataFromDb: any, selectedEnv: AppEnv) => {
     canAccessDocuments: hasPermission('access_documents') || userDataFromDb.canAccessDocuments,
     canAccessDocTemplates: hasPermission('access_doc_templates') || userDataFromDb.canAccessDocTemplates,
     canAccessDocGeneration: hasPermission('access_doc_generation') || userDataFromDb.canAccessDocGeneration,
+    canAccessLeads: hasPermission('access_leads') || userDataFromDb.canAccessLeads,
     canAccessDashboard: hasPermission('access_dashboard') || userDataFromDb.canAccessDashboard !== false,
     canAccessProdEnv: hasPermission('access_prod_env') || userDataFromDb.canAccessProdEnv !== false,
     canAccessTestEnv: hasPermission('access_test_env') || userDataFromDb.canAccessTestEnv,

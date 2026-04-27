@@ -107,6 +107,7 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
                     <PermissionBadge hasPermission={user.canAccessDocuments} label="Documentos" />
                     <PermissionBadge hasPermission={user.canAccessDocTemplates} label="Gestão Modelos" />
                     <PermissionBadge hasPermission={user.canAccessDocGeneration} label="Geração Docs" />
+                    <PermissionBadge hasPermission={user.canAccessLeads} label="Gestão Leads" />
                     <PermissionBadge hasPermission={user.canAccessProdEnv !== false} label="Amb. Produção" />
                     <PermissionBadge hasPermission={user.canAccessTestEnv} label="Amb. Testes" />
                   </div>
@@ -215,6 +216,7 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
               <PermissionBadge hasPermission={user.canAccessDocuments} label="Documentos" />
               <PermissionBadge hasPermission={user.canAccessDocTemplates} label="Gestão Modelos" />
               <PermissionBadge hasPermission={user.canAccessDocGeneration} label="Geração Docs" />
+              <PermissionBadge hasPermission={user.canAccessLeads} label="Gestão Leads" />
               <PermissionBadge hasPermission={user.canAccessProdEnv !== false} label="Amb. Produção" />
               <PermissionBadge hasPermission={user.canAccessTestEnv} label="Amb. Testes" />
             </div>

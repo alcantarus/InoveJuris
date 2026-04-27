@@ -57,6 +57,7 @@ export default function UsuariosPage() {
     canAccessDocuments: false,
     canAccessDocTemplates: false,
     canAccessDocGeneration: false,
+    canAccessLeads: false,
     canAccessSettings: false,
     canAccessAudit: false,
     canAccessLawyers: false,
@@ -204,6 +205,7 @@ export default function UsuariosPage() {
     newPermissions.canAccessDocuments = has('access_documents')
     newPermissions.canAccessDocTemplates = has('access_doc_templates')
     newPermissions.canAccessDocGeneration = has('access_doc_generation')
+    newPermissions.canAccessLeads = has('access_leads')
     newPermissions.canAccessProdEnv = has('access_prod_env')
     newPermissions.canAccessTestEnv = has('access_test_env')
 
@@ -239,6 +241,7 @@ export default function UsuariosPage() {
       canAccessDocuments: formData.canAccessDocuments,
       canAccessDocTemplates: formData.canAccessDocTemplates,
       canAccessDocGeneration: formData.canAccessDocGeneration,
+      canAccessLeads: formData.canAccessLeads,
       canAccessProdEnv: currentEnv === 'test' ? false : formData.canAccessProdEnv,
       canAccessTestEnv: formData.canAccessTestEnv,
       is_superadmin: formData.is_superadmin,
@@ -599,6 +602,10 @@ export default function UsuariosPage() {
                 <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessDocGeneration} onChange={e => setFormData({...formData, canAccessDocGeneration: e.target.checked})} />
                   <span className="text-sm font-medium text-slate-700">Geração de Documentos</span>
+                </label>
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessLeads} onChange={e => setFormData({...formData, canAccessLeads: e.target.checked})} />
+                  <span className="text-sm font-medium text-slate-700">Gestão de Leads</span>
                 </label>
                 <label className={`flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 border-emerald-200 bg-emerald-50/30 ${getAppEnv() === 'test' ? 'opacity-60 grayscale' : ''}`}>
                   <input 
