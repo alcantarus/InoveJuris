@@ -30,6 +30,8 @@ interface Lead {
   funnel_stage?: string
   ai_notes?: string | null
   history?: any[]
+  indicator_id?: number | null
+  prospecting_source?: string | null
 }
 
 const whatsappTemplates = [
@@ -47,6 +49,9 @@ export default function LeadsPage() {
   const [whatsapp, setWhatsapp] = useState('')
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
+  const [indicatorId, setIndicatorId] = useState<string>('')
+  const [prospectingSource, setProspectingSource] = useState('')
+  const [indicators, setIndicators] = useState<{id: number, name: string}[]>([])
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [insights, setInsights] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -80,6 +85,9 @@ export default function LeadsPage() {
         console.error("Error on fix-db:", err);
         fetchLeads();
       });
+    
+    // Fetch indicators
+    supabase.from('indicators').select('id, name').then(({ data }) => setIndicators(data || []));
   }, [])
 
   const fetchLeads = async () => {
@@ -159,6 +167,8 @@ export default function LeadsPage() {
       whatsapp, 
       subject, 
       description,
+      indicator_id: indicatorId ? parseInt(indicatorId) : null,
+      prospecting_source: prospectingSource,
       environment: 'production',
       status: 'Em Atendimento',
       score: generatedScore,
@@ -180,6 +190,8 @@ export default function LeadsPage() {
       setWhatsapp('');
       setSubject('');
       setDescription('');
+      setIndicatorId('');
+      setProspectingSource('');
       setIsDrawerOpen(false)
       fetchLeads();
     }
@@ -188,7 +200,9 @@ export default function LeadsPage() {
   const saveLead = async () => {
     if (!editingLead) return
     const { error } = await supabase.from('leads').update({
-        name, whatsapp, subject, description
+        name, whatsapp, subject, description,
+        indicator_id: indicatorId ? parseInt(indicatorId) : null,
+        prospecting_source: prospectingSource
     }).eq('id', editingLead.id)
     
     if (error) {
@@ -199,6 +213,8 @@ export default function LeadsPage() {
         setWhatsapp('')
         setSubject('')
         setDescription('')
+        setIndicatorId('')
+        setProspectingSource('')
         setIsDrawerOpen(false)
         fetchLeads()
     }
@@ -292,6 +308,8 @@ export default function LeadsPage() {
     setWhatsapp(lead.whatsapp)
     setSubject(lead.subject)
     setDescription(lead.description)
+    setIndicatorId(lead.indicator_id?.toString() || '')
+    setProspectingSource(lead.prospecting_source || '')
     analyzeLead(lead.description)
     setIsDrawerOpen(true)
   }
@@ -451,6 +469,12 @@ export default function LeadsPage() {
             <input placeholder="(00) 00000-0000" className={inputClass} value={whatsapp} onChange={e => handleWhatsappChange(e.target.value)} />
             <input placeholder="Assunto" className={inputClass} value={subject} onChange={e => setSubject(e.target.value)} />
             <textarea placeholder="Descrição do Problema" className={inputClass} rows={4} value={description} onChange={e => setDescription(e.target.value)} />
+            
+            <select className={inputClass} value={indicatorId} onChange={e => setIndicatorId(e.target.value)}>
+                <option value="">Selecione um Indicador (Opcional)</option>
+                {indicators.map(ind => <option key={ind.id} value={ind.id}>{ind.name}</option>)}
+            </select>
+            <input placeholder="Fonte de Prospecção" className={inputClass} value={prospectingSource} onChange={e => setProspectingSource(e.target.value)} />
             
             <button onClick={editingLead ? saveLead : addLead} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-indigo-700 transition">
                 {editingLead ? 'Salvar Alterações' : 'Registrar Lead'}
