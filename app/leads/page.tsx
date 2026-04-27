@@ -87,7 +87,7 @@ export default function LeadsPage() {
       });
     
     // Fetch indicators
-    supabase.from('indicators').select('id, name').then(({ data }) => setIndicators(data || []));
+    supabase.from('indicators').select('id, name').then(({ data }) => setIndicators((data as {id: number, name: string}[] | null) || []));
   }, [])
 
   const fetchLeads = async () => {
