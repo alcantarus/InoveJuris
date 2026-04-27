@@ -108,6 +108,7 @@ export function Sidebar() {
     { name: 'Notificações', href: '/notificacoes', icon: Bell, show: true, group: 'Operacional' },
     { name: 'Produtos', href: '/produtos', icon: Package, show: user?.canAccessProducts, group: 'Operacional' },
     { name: 'Indicadores', href: '/indicadores', icon: BarChart3, show: user?.canAccessIndicators, group: 'Operacional' },
+    { name: 'Gestão de Leads', href: '/leads', icon: MessageSquare, show: true, group: 'Operacional' },
     { name: 'Relatórios', href: '/relatorios', icon: FileText, show: user?.canAccessReports, group: 'Relatórios' },
     { name: 'Auditoria', href: '/auditoria', icon: ShieldCheck, show: user?.canAccessAudit, group: 'Administrativo' },
     { name: 'Usuários', href: '/usuarios', icon: Users, show: user?.canAccessUsers, group: 'Administrativo' },
