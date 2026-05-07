@@ -27,25 +27,48 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
   const fetchPayments = async () => {
     setLoading(true)
 
-    // Busca pagamentos vinculados a parcelas deste contrato via JOIN
-    const { data, error } = await supabase
-      .from('payments')
-      .select(`
-        *, 
-        installments!inner(id, installmentNumber, contract_id),                
-        financial_categories(name)
-      `)
-      .eq('installments.contract_id', contractId)
-      .order('payment_date', { ascending: false })
+    // 1. Busca todas as parcelas do contrato
+    const { data: installments, error: instError } = await supabase
+      .from('installments')
+      .select('id, installmentNumber')
+      .eq('contract_id', contractId)
 
-    if (error) {
-      toast.error('Erro ao buscar extrato de pagamentos')
-      console.error(error)
+    if (instError) {
+      toast.error('Erro ao buscar parcelas')
+      console.error('Erro installments:', instError)
       setLoading(false)
       return
     }
 
-    setPayments(data || [])
+    const installmentIds = installments?.map(i => i.id) || []
+    console.log('Installment IDs found:', installmentIds)
+
+    // 2. Busca pagamentos para essas parcelas
+    const { data: payments, error: payError } = await supabase
+      .from('payments')
+      .select(`
+        *, 
+        financial_categories(name)
+      `)
+      .in('installment_id', installmentIds)
+      .order('payment_date', { ascending: false })
+
+    if (payError) {
+      toast.error('Erro ao buscar pagamentos')
+      console.error('Erro payments:', payError)
+      setLoading(false)
+      return
+    }
+
+    console.log('Payments found:', payments)
+
+    // 3. Mapeia e junta
+    const mappedPayments = (payments || []).map(p => ({
+      ...p,
+      installments: installments.find(i => i.id === p.installment_id)
+    }))
+
+    setPayments(mappedPayments)
     setLoading(false)
   }
 
