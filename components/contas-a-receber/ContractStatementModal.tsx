@@ -42,52 +42,60 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
   }
 
   const totalReceived = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)
+  const uniqueInstallments = new Set(payments.map(p => p.installments?.installmentNumber)).size
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Extrato de Recebimentos">
       <div className="space-y-6">
-        <div className="p-4 bg-slate-50 rounded-lg">
-          <p className="text-sm text-slate-500">Extrato Consolidado</p>
-          <p className="font-bold text-lg">{contractTitle}</p>
+        <div className="bg-white border-b border-slate-100 pb-4">
+          <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Contrato / Cliente</p>
+          <p className="font-bold text-slate-900">{contractTitle}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+            <p className="text-xs text-emerald-600 font-medium">Total Recebido</p>
+            <p className="text-xl font-bold text-emerald-900">{formatCurrency(totalReceived)}</p>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <p className="text-xs text-slate-600 font-medium">Parcelas Pagas</p>
+            <p className="text-xl font-bold text-slate-900">{uniqueInstallments}</p>
+          </div>
         </div>
 
         {loading ? (
-          <p className="text-center p-4">Carregando histórico...</p>
+          <p className="text-center p-4 text-slate-500">Carregando histórico...</p>
         ) : (
-          <>
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-xs">
+                <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
                   <tr>
-                    <th className="p-2 text-left">Data</th>
-                    <th className="p-2 text-left">Parcela</th>
-                    <th className="p-2 text-left">Categoria</th>
-                    <th className="p-2 text-right">Valor</th>
+                    <th className="p-3 text-left">Data</th>
+                    <th className="p-3 text-left">Parcela</th>
+                    <th className="p-3 text-left">Categoria</th>
+                    <th className="p-3 text-right">Valor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {payments.map((p) => (
-                    <tr key={p.id}>
-                      <td className="p-2">{formatDate(p.payment_date)}</td>
-                      <td className="p-2">{p.installments?.installmentNumber}</td>
-                      <td className="p-2">{p.financial_categories?.name || '-'}</td>
-                      <td className="p-2 text-right font-medium text-emerald-600">{formatCurrency(p.amount)}</td>
+                    <tr key={p.id} className="hover:bg-slate-50/50">
+                      <td className="p-3 text-slate-600">{formatDate(p.payment_date)}</td>
+                      <td className="p-3 font-medium text-slate-900">{p.installments?.installmentNumber || '-'}</td>
+                      <td className="p-3 text-slate-600">{p.financial_categories?.name || '-'}</td>
+                      <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(p.amount)}</td>
                     </tr>
                   ))}
                   {payments.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="p-4 text-center text-slate-500">Nenhum pagamento encontrado.</td>
+                      <td colSpan={4} className="p-8 text-center text-slate-500">Nenhum pagamento registrado.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-end p-4 border-t">
-              <span className="text-lg font-bold">Total Recebido: {formatCurrency(totalReceived)}</span>
-            </div>
-          </>
+          </div>
         )}
       </div>
     </Modal>
   )
-}

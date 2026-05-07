@@ -995,7 +995,7 @@ export default function ContasAReceberPage() {
           isOpen={statementModalOpen} 
           onClose={() => setStatementModalOpen(false)} 
           contractId={selectedContract?.id}
-          contractTitle={`${selectedContract?.processNumber} - ${selectedContract?.clients?.name}`}
+          contractTitle={`${selectedContract?.processNumber || 'Sem Processo'} - ${selectedContract?.clients?.name || 'Sem Cliente'}`}
         />
       </div>
     </DashboardLayout>
