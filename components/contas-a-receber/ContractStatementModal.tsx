@@ -48,7 +48,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     )
     
     // Ordena por data de pagamento (mais recente primeiro)
-    allPayments.sort((a, b) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime())
+    allPayments.sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime())
     
     setPayments(allPayments)
     setLoading(false)
