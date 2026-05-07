@@ -40,7 +40,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
       return
     }
 
-    const installmentIds = installments?.map(i => i.id) || []
+    const installmentIds = installments?.map((i: any) => i.id) || []
     console.log('Installment IDs found:', installmentIds)
 
     // 2. Busca pagamentos para essas parcelas
@@ -63,9 +63,9 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     console.log('Payments found:', payments)
 
     // 3. Mapeia e junta
-    const mappedPayments = (payments || []).map(p => ({
+    const mappedPayments = (payments || []).map((p: any) => ({
       ...p,
-      installments: installments.find(i => i.id === p.installment_id)
+      installments: installments?.find((i: any) => i.id === p.installment_id)
     }))
 
     setPayments(mappedPayments)
