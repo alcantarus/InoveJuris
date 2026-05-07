@@ -27,10 +27,10 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
   const fetchPayments = async () => {
     setLoading(true)
 
-    // 1. Busca todas as parcelas do contrato
+    // 1. Busca todas as parcelas do contrato incluindo todos os campos
     const { data: installments, error: instError } = await supabase
       .from('installments')
-      .select('id, installmentNumber')
+      .select('*')
       .eq('contract_id', contractId)
 
     if (instError) {
@@ -39,6 +39,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
       setLoading(false)
       return
     }
+    console.log('Installments found:', installments)
 
     const installmentIds = installments?.map((i: any) => i.id) || []
     console.log('Installment IDs found:', installmentIds)
@@ -65,9 +66,28 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     // 3. Mapeia e junta
     const mappedPayments = (payments || []).map((p: any) => ({
       ...p,
-      installments: installments?.find((i: any) => i.id === p.installment_id)
+      installments: installments?.find((i: any) => i.id === p.installment_id),
+      isGenerated: false
     }))
 
+    // 4. Adiciona parcelas quitadas que não possuem pagamentos registrados no histórico
+    installments?.forEach((i: any) => {
+      // Se a parcela está quitada e não tem pagamentos mapeados
+      if (i.status === 'Quitado' && !mappedPayments.find((p: any) => p.installment_id === i.id)) {
+        mappedPayments.push({
+          id: `gen-${i.id}`,
+          amount: i.paid_amount || i.value,
+          payment_date: i.due_date, // Usando data de vencimento se não houver data de pagamento
+          financial_categories: { name: 'Recebimento (Parcela Quitada)' },
+          installments: i,
+          isGenerated: true
+        })
+      }
+    })
+
+    // Ordena por data de pagamento
+    mappedPayments.sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime())
+    
     setPayments(mappedPayments)
     setLoading(false)
   }
