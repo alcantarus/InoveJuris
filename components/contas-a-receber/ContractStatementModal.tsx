@@ -5,7 +5,6 @@ import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
-import { FileText } from 'lucide-react'
 
 interface ContractStatementModalProps {
   isOpen: boolean
@@ -28,7 +27,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     setLoading(true)
     const { data, error } = await supabase
       .from('payments')
-      .select('*, installments!inner(contract_id, installmentNumber), bank_accounts(name), financial_categories(name)')
+      .select('*, installments!inner(contract_id, installmentNumber), financial_categories(name)')
       .eq('installments.contract_id', contractId)
       .order('payment_date', { ascending: false })
 
@@ -98,4 +97,5 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
         )}
       </div>
     </Modal>
+  )
 }
