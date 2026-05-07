@@ -98,4 +98,4 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
         )}
       </div>
     </Modal>
-  )
+}
