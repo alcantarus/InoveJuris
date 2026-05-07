@@ -26,18 +26,31 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
 
   const fetchPayments = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*, installments!inner(contract_id, installmentNumber), financial_categories(name)')
-      .eq('installments.contract_id', contractId)
-      .order('payment_date', { ascending: false })
+    // Busca todas as parcelas do contrato e seus pagamentos associados
+    const { data: installments, error } = await supabase
+      .from('installments')
+      .select('id, installmentNumber, payments(*, financial_categories(name))')
+      .eq('contract_id', contractId)
 
     if (error) {
       toast.error('Erro ao buscar extrato de pagamentos')
       console.error(error)
-    } else {
-      setPayments(data || [])
+      setLoading(false)
+      return
     }
+
+    // Achata a estrutura para ter uma lista plana de pagamentos
+    const allPayments = (installments || []).flatMap(i => 
+      (i.payments || []).map(p => ({
+        ...p,
+        installments: { installmentNumber: i.installmentNumber }
+      }))
+    )
+    
+    // Ordena por data de pagamento (mais recente primeiro)
+    allPayments.sort((a, b) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime())
+    
+    setPayments(allPayments)
     setLoading(false)
   }
 
