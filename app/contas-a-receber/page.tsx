@@ -13,6 +13,7 @@ import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
+import { ContractStatementModal } from '@/components/contas-a-receber/ContractStatementModal'
 
 export default function ContasAReceberPage() {
   const { isVisible, toggleVisibility } = usePrivacy()
@@ -29,6 +30,7 @@ export default function ContasAReceberPage() {
   const [receiveModalOpen, setReceiveModalOpen] = useState(false)
   const [prorogueModalOpen, setProrogueModalOpen] = useState(false)
   const [reverseModalOpen, setReverseModalOpen] = useState(false)
+  const [statementModalOpen, setStatementModalOpen] = useState(false)
   const [estornoReason, setEstornoReason] = useState('')
   const [estornoAccountId, setEstornoAccountId] = useState('')
   const [activeInstallment, setActiveInstallment] = useState<any>(null)
@@ -693,6 +695,12 @@ export default function ContasAReceberPage() {
                 >
                   {selectedContract.status === 'Cancelado' ? 'Contrato Cancelado' : 'Cancelar Contrato'}
                 </button>
+                <button 
+                  className="flex-1 md:flex-none px-4 py-2 bg-slate-600 text-white rounded-xl text-sm font-medium hover:bg-slate-700 transition"
+                  onClick={() => setStatementModalOpen(true)}
+                >
+                  Ver Extrato de Recebimentos
+                </button>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -982,6 +990,13 @@ export default function ContasAReceberPage() {
             </div>
           )}
         </Modal>
+
+        <ContractStatementModal 
+          isOpen={statementModalOpen} 
+          onClose={() => setStatementModalOpen(false)} 
+          contractId={selectedContract?.id}
+          contractTitle={`${selectedContract?.processNumber} - ${selectedContract?.clients?.name}`}
+        />
       </div>
     </DashboardLayout>
   )
