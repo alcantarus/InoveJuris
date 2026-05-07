@@ -40,7 +40,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     }
 
     // Achata a estrutura para ter uma lista plana de pagamentos
-    const allPayments = (installments || []).flatMap(i => 
+    const allPayments = (installments || []).flatMap((i: any) => 
       (i.payments || []).map(p => ({
         ...p,
         installments: { installmentNumber: i.installmentNumber }
