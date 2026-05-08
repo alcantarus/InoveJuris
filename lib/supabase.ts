@@ -71,7 +71,8 @@ export const supabase = new Proxy({} as any, {
           table === 'users' || 
           table === 'user_sessions' || 
           table === 'geo_cache' || 
-          table === 'client_onboarding_tokens'
+          table === 'client_onboarding_tokens' ||
+          table === 'contract_diseases'
         ) {
           return queryBuilder
         }
