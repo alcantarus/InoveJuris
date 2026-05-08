@@ -18,12 +18,6 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (isOpen && contractId) {
-      fetchPayments()
-    }
-  }, [isOpen, contractId])
-
   const fetchPayments = async () => {
     setLoading(true)
 
@@ -91,6 +85,12 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     setPayments(mappedPayments)
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (isOpen && contractId) {
+      fetchPayments()
+    }
+  }, [isOpen, contractId])
 
   const totalReceived = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)
   const uniqueInstallments = new Set(payments.map(p => p.installments?.installmentNumber)).size

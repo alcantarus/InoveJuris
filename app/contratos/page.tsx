@@ -673,6 +673,12 @@ export default function FinanceiroPage() {
       
       // 1. Delete all unpaid installments for this contract to prevent duplication
       console.log('Deleting installments for contract:', editingContract.id);
+      
+      const { data: allExisting, error: fetchErr } = await supabase.from('installments')
+        .select('id, amountPaid, installmentNumber')
+        .eq('contract_id', editingContract.id);
+      console.log('All existing installments (for debug):', allExisting);
+
       const { data: toDelete, error: fetchForDeleteError } = await supabase.from('installments')
         .select('id, amountPaid')
         .eq('contract_id', editingContract.id)
