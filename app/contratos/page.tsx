@@ -675,7 +675,7 @@ export default function FinanceiroPage() {
       await supabase.from('installments')
         .delete()
         .eq('contract_id', editingContract.id)
-        .eq('"amountPaid"', 0);
+        .eq('amountPaid', 0);
 
       // 2. Upsert all installments from the current schedule
       const instData = installments.map(i => ({

@@ -7,7 +7,7 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function listColumns() {
   const { data, error } = await supabase
-    .from('contracts')
+    .from('payments')
     .select('*')
     .limit(1)
 
