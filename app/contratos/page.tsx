@@ -672,10 +672,16 @@ export default function FinanceiroPage() {
       console.log('Installments to upsert:', installments);
       
       // 1. Delete all unpaid installments for this contract to prevent duplication
-      await supabase.from('installments')
+      const { error: deleteError } = await supabase.from('installments')
         .delete()
         .eq('contract_id', editingContract.id)
-        .eq('amountPaid', 0);
+        .lt('amountPaid', 0.01); // Delete if paid amount is effectively 0
+
+      if (deleteError) {
+        console.error('Error deleting existing installments:', deleteError);
+        alert(`Erro ao limpar parcelas antigas: ${deleteError.message}`);
+        return;
+      }
 
       // 2. Upsert all installments from the current schedule
       const instData = installments.map(i => ({
