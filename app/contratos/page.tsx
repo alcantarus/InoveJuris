@@ -687,9 +687,9 @@ export default function FinanceiroPage() {
       console.log('All existing installments:', allExisting);
       
       // Filter for those that are truly unpaid
-      const toDeleteIds = allExisting?.filter(i => {
+      const toDeleteIds = allExisting?.filter((i: any) => {
            return Number(i.amountPaid || 0) < 0.01 && ['Aberto', 'aberto'].includes(i.status);
-      }).map(i => i.id);
+      }).map((i: any) => i.id);
       
       if (toDeleteIds && toDeleteIds.length > 0) {
         console.log('Deleting IDs:', toDeleteIds);
