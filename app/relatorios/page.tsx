@@ -33,6 +33,7 @@ interface ChildbirthReportItem {
   document: string
   phone: string
   childbirthDate: string
+  rn_birth_date: string | null
   daysRemaining: number
   isProBono: boolean
   isFinanced: boolean
@@ -352,6 +353,7 @@ function RelatoriosPageContent() {
         .select(`
           id,
           childbirthDate,
+          rn_birth_date,
           isProBono,
           isFinanced,
           status,
@@ -386,6 +388,7 @@ function RelatoriosPageContent() {
             document: item.clients?.document || 'N/A',
             phone: item.clients?.phone || 'N/A',
             childbirthDate: item.childbirthDate,
+            rn_birth_date: item.rn_birth_date,
             daysRemaining: diffDays,
             isProBono: item.isProBono || false,
             isFinanced: item.isFinanced || false,
@@ -928,7 +931,8 @@ function RelatoriosPageContent() {
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Modalidade</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">CPF</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">WhatsApp</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data do Parto</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Previsão Parto</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data Parto</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Dias Faltantes</th>
                     </>
                   ) : activeReport === 'birthdays' ? (
@@ -1067,6 +1071,9 @@ function RelatoriosPageContent() {
                           <td className={cn("p-4 text-slate-600", item.status === 'Cancelado' && "line-through opacity-60")}>{item.phone}</td>
                           <td className={cn("p-4 text-slate-900 font-medium", item.status === 'Cancelado' && "line-through opacity-60")}>
                             {formatDate(item.childbirthDate)}
+                          </td>
+                          <td className={cn("p-4 text-slate-900 font-medium", item.status === 'Cancelado' && "line-through opacity-60")}>
+                            {item.rn_birth_date ? formatDate(item.rn_birth_date) : '-'}
                           </td>
                           <td className="p-4 text-right">
                             <span className={cn(`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold`,

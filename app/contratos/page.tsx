@@ -671,18 +671,40 @@ export default function FinanceiroPage() {
       // Use upsert logic instead of delete/recreate to preserve IDs and payment history
       console.log('Installments to upsert:', installments);
       
-      // 1. Delete all 'Aberto' installments (unpaid) for this contract to prevent duplication
-      console.log('Deleting unpaid installments for contract:', editingContract.id);
+      // 1. Delete all 'Aberto' installments (unpaid) for this contract, using IDs to ensure robustness
+      console.log('Fetching unpaid installments for contract:', editingContract.id);
       
-      const { error: deleteError } = await supabase.from('installments')
-        .delete()
-        .eq('contract_id', editingContract.id)
-        .in('status', ['Aberto', 'aberto']); // Ensure all unpaid statuses are covered
-
-      if (deleteError) {
-        console.error('Error deleting existing installments:', deleteError);
-        alert(`Erro ao limpar parcelas antigas: ${deleteError.message}`);
+      const { data: allExisting, error: fetchErr } = await supabase.from('installments')
+        .select('id, amountPaid, installmentNumber, status')
+        .eq('contract_id', editingContract.id);
+      
+      if (fetchErr) {
+        console.error('Error fetching installments for deletion:', fetchErr);
+        alert(`Erro ao buscar parcelas para exclusão: ${fetchErr.message}`);
         return;
+      }
+      
+      console.log('All existing installments:', allExisting);
+      
+      // Filter for those that are truly unpaid
+      const toDeleteIds = allExisting?.filter(i => {
+           return Number(i.amountPaid || 0) < 0.01 && ['Aberto', 'aberto'].includes(i.status);
+      }).map(i => i.id);
+      
+      if (toDeleteIds && toDeleteIds.length > 0) {
+        console.log('Deleting IDs:', toDeleteIds);
+        const { error: deleteError } = await supabase.from('installments')
+            .delete()
+            .in('id', toDeleteIds);
+        
+        if (deleteError) {
+          console.error('Error deleting installments:', deleteError);
+          alert(`Erro ao limpar parcelas antigas: ${deleteError.message}`);
+          return;
+        }
+        console.log('Deleted successfully.');
+      } else {
+        console.log('No unpaid installments found to delete.');
       }
 
       // 2. Upsert all installments from the current schedule
