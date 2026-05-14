@@ -651,7 +651,9 @@ export default function ProcessosPage() {
                   <div className="col-span-2 mt-4 space-y-2">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Prazos do Processo</p>
                     
-                    {process.process_deadlines?.map((d: any) => (
+                    {process.process_deadlines
+                      ?.sort((a: any, b: any) => new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime())
+                      ?.map((d: any) => (
                       <div key={d.id} className={cn(
                         "flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium",
                         getDeadlineStatus(d.deadline_date) === 'expired' ? "bg-rose-50 text-rose-700 border-rose-200" :
