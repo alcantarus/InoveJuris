@@ -29,10 +29,7 @@ export function DiseaseSelector({ selectedDiseases, onDiseaseSelect, onDiseaseRe
 
     const fetchDiseases = async () => {
       const { data } = await supabase
-        .from('diseases')
-        .select('*')
-        .or(`cid_code.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
-        .limit(5)
+        .rpc('search_diseases', { p_term: searchTerm, p_limit: 5 })
       setSuggestions(data || [])
       setIsOpen(true)
     }

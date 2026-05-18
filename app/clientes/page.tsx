@@ -125,7 +125,12 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
           .limit(20)
         
         if (debouncedSearch) {
-          query = query.ilike('name', `%${debouncedSearch}%`)
+          const { data: searchResults, error: rpcError } = await supabase.rpc('search_clients_basic', { 
+            p_term: debouncedSearch,
+            p_limit: 20
+          })
+          if (rpcError) throw rpcError
+          query = query.in('id', (searchResults || []).map(c => c.id))
         }
         
         if (excludeId) {

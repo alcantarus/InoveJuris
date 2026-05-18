@@ -33,39 +33,15 @@ export function GlobalSearch() {
     const fetchResults = async () => {
       setLoading(true)
       try {
-        // Buscar clientes
-        const { data: clientsData } = await supabase
-          .from('clients')
-          .select('id, name')
-          .ilike('name', `%${query}%`)
-          .limit(3)
-          
-        // Buscar processos
-        const { data: processesData } = await supabase
-          .from('processes')
-          .select('id, number')
-          .ilike('number', `%${query}%`)
-          .limit(3)
-
-        // Buscar contratos (financeiro)
-        const { data: contractsData } = await supabase
-          .from('contracts')
-          .select('id, clients(name)')
-          .ilike('clients.name', `%${query}%`)
-          .limit(3)
-
-        const combinedResults = [
-          ...(clientsData?.map((c: any) => ({ type: 'client', id: c.id, title: c.name, link: `/clientes/${c.id}` })) || []),
-          ...(processesData?.map((p: any) => ({ type: 'process', id: p.id, title: `Processo: ${p.number}`, link: `/processos` })) || []),
-          ...(contractsData?.map((c: any) => ({ 
-            type: 'contract', 
-            id: c.id, 
-            title: `Financeiro: ${Array.isArray(c.clients) ? (c.clients[0]?.name || 'Sem cliente') : (c.clients?.name || 'Sem cliente')}`, 
-            link: `/financeiro` 
-          })) || [])
-        ]
+        // Buscar todos os resultados usando o RPC accent-insensitive
+        const { data, error } = await supabase.rpc('search_all', { 
+          p_term: query,
+          p_environment: process.env.NEXT_PUBLIC_ENVIRONMENT || 'production'
+        })
         
-        setResults(combinedResults)
+        if (error) throw error
+        
+        setResults(data || [])
       } catch (error) {
         console.error('Error fetching search results:', error)
       } finally {

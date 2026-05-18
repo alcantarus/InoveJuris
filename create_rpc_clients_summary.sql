@@ -58,7 +58,10 @@ BEGIN
         GROUP BY co.client_id
     ) f ON c.id = f.client_id
     WHERE c.environment = p_environment
-      AND (p_search_term IS NULL OR c.name ILIKE '%' || p_search_term || '%')
+      AND (p_search_term IS NULL OR 
+           unaccent(c.name) ILIKE unaccent('%' || p_search_term || '%') OR
+           unaccent(c.document) ILIKE unaccent('%' || p_search_term || '%') OR
+           unaccent(c.email) ILIKE unaccent('%' || p_search_term || '%'))
     ORDER BY c.name
     LIMIT (p_to - p_from + 1) OFFSET p_from;
 END;
