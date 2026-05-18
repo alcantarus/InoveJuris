@@ -130,7 +130,7 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
             p_limit: 20
           })
           if (rpcError) throw rpcError
-          query = query.in('id', (searchResults || []).map(c => c.id))
+          query = query.in('id', (searchResults || []).map((c: any) => c.id))
         }
         
         if (excludeId) {
