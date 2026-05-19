@@ -123,18 +123,7 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
           .select('id, name, document')
           .eq('environment', getAppEnv())
           .order('name')
-        
-        // Buscar usando RPC apenas se houver termo de busca, caso contrário buscar todos
-        if (debouncedSearch) {
-          const { data: searchResults, error: rpcError } = await supabase.rpc('search_clients_basic', { 
-            p_term: debouncedSearch,
-            p_environment: getAppEnv(),
-            p_limit: 1000
-          })
-          if (rpcError) throw rpcError
-          query = query.in('id', (searchResults || []).map((c: any) => c.id))
-        }
-
+          .limit(1000)
         
         if (excludeId) {
           query = query.neq('id', excludeId)
@@ -151,7 +140,7 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
     }
 
     fetchLocalClients()
-  }, [debouncedSearch, isOpen, excludeId])
+  }, [isOpen, excludeId])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -164,7 +153,10 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [value])
 
-  const filteredClients = localClients;
+  const filteredClients = localClients.filter(c => 
+    removeAccents(c.name).toLowerCase().includes(removeAccents(searchTerm).toLowerCase()) || 
+    (c.document && removeAccents(c.document).toLowerCase().includes(removeAccents(searchTerm).toLowerCase()))
+  );
 
   return (
     <div className="relative" ref={wrapperRef}>
