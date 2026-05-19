@@ -124,14 +124,15 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
           .eq('environment', getAppEnv())
           .order('name')
         
-        if (debouncedSearch) {
-          const { data: searchResults, error: rpcError } = await supabase.rpc('search_clients_basic', { 
-            p_term: debouncedSearch,
-            p_environment: getAppEnv()
-          })
-          if (rpcError) throw rpcError
-          query = query.in('id', (searchResults || []).map((c: any) => c.id))
-        }
+        // Buscar sempre usando RPC para garantir a busca accent-insensitive e consistência
+        const { data: searchResults, error: rpcError } = await supabase.rpc('search_clients_basic', { 
+          p_term: debouncedSearch || '',
+          p_environment: getAppEnv(),
+          p_limit: 1000
+        })
+        if (rpcError) throw rpcError
+        query = query.in('id', (searchResults || []).map((c: any) => c.id))
+
         
         if (excludeId) {
           query = query.neq('id', excludeId)
@@ -139,6 +140,7 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
         
         const { data, error } = await query
         if (error) throw error
+        console.log('DEBUG: Fetched clients:', data?.length, data)
         setLocalClients(data || [])
       } catch (error) {
         console.error('Error fetching local clients:', error)
