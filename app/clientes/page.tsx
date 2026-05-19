@@ -121,12 +121,14 @@ function ClientCombobox({ value, onChange, placeholder, excludeId }: { value: st
         let query = supabase
           .from('clients')
           .select('id, name, document')
+          .eq('environment', getAppEnv())
           .order('name')
           .limit(20)
         
         if (debouncedSearch) {
           const { data: searchResults, error: rpcError } = await supabase.rpc('search_clients_basic', { 
             p_term: debouncedSearch,
+            p_environment: getAppEnv(),
             p_limit: 20
           })
           if (rpcError) throw rpcError

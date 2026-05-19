@@ -1,6 +1,7 @@
 -- CRIAÇÃO DA FUNÇÃO DE BUSCA INSENSÍVEL A ACENTOS (USANDO TRANSLATE)
 CREATE OR REPLACE FUNCTION search_clients_basic(
     p_term TEXT,
+    p_environment TEXT,
     p_limit INT DEFAULT 20
 )
 RETURNS TABLE (
@@ -17,10 +18,12 @@ BEGIN
     RETURN QUERY
     SELECT c.id, c.name, c.document
     FROM clients c
-    WHERE 
+    WHERE c.environment = p_environment
+    AND (
       lower(translate(c.name, 'áàâãéèêíïóôõúüçñÁÀÂÃÉÈÊÍÏÓÔÕÚÜÇÑ', 'aaaaeeeiiooouucnAAAAEEEIIOOOUUCN')) LIKE '%' || v_term || '%'
       OR 
       lower(translate(c.document, 'áàâãéèêíïóôõúüçñÁÀÂÃÉÈÊÍÏÓÔÕÚÜÇÑ', 'aaaaeeeiiooouucnAAAAEEEIIOOOUUCN')) LIKE '%' || v_term || '%'
+    )
     ORDER BY c.name
     LIMIT p_limit;
 END;
