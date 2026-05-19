@@ -24,8 +24,8 @@ BEGIN
       OR 
       lower(translate(c.document, 'áàâãéèêíïóôõúüçñÁÀÂÃÉÈÊÍÏÓÔÕÚÜÇÑ', 'aaaaeeeiiooouucnAAAAEEEIIOOOUUCN')) LIKE '%' || v_term || '%'
     )
-    ORDER BY c.name
-    LIMIT p_limit;
+    ORDER BY c.name;
+    -- LIMIT p_limit; -- Removed limit to show all
 END;
 $$ LANGUAGE plpgsql;
 
