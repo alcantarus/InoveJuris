@@ -1448,6 +1448,9 @@ export default function FinanceiroPage() {
                   else if (contract.isFinanced) rowStatus = 'Financiado';
                   else if (isQuitado) rowStatus = 'Quitado';
 
+                  const isFinalized = ['Quitado', 'Cancelado', 'Pro Bono', 'Financiado', 'Estornado', 'Prorrogado'].includes(rowStatus);
+
+
                   const rowColors = {
                     'Cancelado': 'bg-[#ea9999]/10 hover:bg-[#ea9999]/20',
                     'Estornado': 'bg-[#f4cccc]/20 hover:bg-[#f4cccc]/30',
@@ -1477,7 +1480,7 @@ export default function FinanceiroPage() {
                     className={cn(
                       "transition-colors group",
                       rowColors,
-                      contract.status === 'Cancelado' && "opacity-60 line-through"
+                      isFinalized && "opacity-75"
                     )}
                   >
                     <td className="p-4 min-w-[250px]">
@@ -1612,19 +1615,17 @@ export default function FinanceiroPage() {
                             <Gift size={18} />
                           </button>
                         )}
-                        <button 
-                          onClick={() => handleOpenModal(contract)}
-                          disabled={contract.status === 'Cancelado'}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            contract.status === 'Cancelado'
-                              ? "text-slate-300 cursor-not-allowed" 
-                              : "text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent"
-                          )}
-                          title={contract.status === 'Cancelado' ? "Contrato cancelado não pode ser editado" : "Editar Contrato"}
-                        >
-                          <Edit2 size={18} />
-                        </button>
+                        {isFinalized ? (
+                          <div className="w-9" />
+                        ) : (
+                          <button 
+                            onClick={() => handleOpenModal(contract)}
+                            className="p-2 rounded-lg transition-colors text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent"
+                            title="Editar Contrato"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                        )}
                 {contract.status !== 'Cancelado' && !isContractQuitado(contract.status, contract.contractValue, contract.amountReceived) && Number(contract.amountReceived || 0) === 0 && (
                           <button 
                             onClick={(e) => handleCancelClick(e, contract)}
@@ -1670,6 +1671,9 @@ export default function FinanceiroPage() {
                 else if (contract.isProBono) rowStatus = 'Pro Bono';
                 else if (contract.isFinanced) rowStatus = 'Financiado';
                 else if (isQuitado) rowStatus = 'Quitado';
+
+                const isFinalized = ['Quitado', 'Cancelado', 'Pro Bono', 'Financiado', 'Estornado', 'Prorrogado'].includes(rowStatus);
+
 
                 const rowColors = {
                   'Cancelado': 'bg-[#ea9999]/10 hover:bg-[#ea9999]/20',
