@@ -1448,9 +1448,6 @@ export default function FinanceiroPage() {
                   else if (contract.isFinanced) rowStatus = 'Financiado';
                   else if (isQuitado) rowStatus = 'Quitado';
 
-                  const isFinalized = ['Quitado', 'Cancelado', 'Pro Bono', 'Financiado', 'Estornado', 'Prorrogado'].includes(rowStatus);
-
-
                   const rowColors = {
                     'Cancelado': 'bg-[#ea9999]/10 hover:bg-[#ea9999]/20',
                     'Estornado': 'bg-[#f4cccc]/20 hover:bg-[#f4cccc]/30',
@@ -1480,7 +1477,7 @@ export default function FinanceiroPage() {
                     className={cn(
                       "transition-colors group",
                       rowColors,
-                      isFinalized && "opacity-75"
+                      contract.status === 'Cancelado' && "opacity-60 line-through"
                     )}
                   >
                     <td className="p-4 min-w-[250px]">
