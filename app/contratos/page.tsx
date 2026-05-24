@@ -269,6 +269,21 @@ export default function FinanceiroPage() {
   const [lawyers, setLawyers] = useState<any[]>([])
   const [filter, setFilter] = useState('Todos')
   const [searchTerm, setSearchTerm] = useState('')
+  const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: string) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'asc' ? <ArrowUpCircle size={14} className="ml-1 inline" /> : <ArrowDownCircle size={14} className="ml-1 inline" />;
+  };
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedContractDiseases, setSelectedContractDiseases] = useState<Disease[]>([])
   const [selectedMaternityClient, setSelectedMaternityClient] = useState<{name: string, id: string} | null>(null)
@@ -1161,6 +1176,36 @@ export default function FinanceiroPage() {
     if (filter === 'Outros') return matchesSearch && !productName.includes('Salário-Maternidade')
     return matchesSearch
   }).sort((a, b) => {
+    if (sortConfig.key) {
+      let valueA: any, valueB: any;
+      if (sortConfig.key === 'client') {
+        valueA = a.clients?.name || '';
+        valueB = b.clients?.name || '';
+      } else if (sortConfig.key === 'data') {
+        valueA = a.launchDate;
+        valueB = b.launchDate;
+      } else if (sortConfig.key === 'valor') {
+        valueA = a.contractValue;
+        valueB = b.contractValue;
+      } else if (sortConfig.key === 'vencimento') {
+        const nextA = a.installments
+          ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
+          .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0];
+        const nextB = b.installments
+          ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
+          .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0];
+        valueA = nextA ? nextA.dueDate : '9999-12-31';
+        valueB = nextB ? nextB.dueDate : '9999-12-31';
+      } else if (sortConfig.key === 'receber') {
+        valueA = a.amountReceivable;
+        valueB = b.amountReceivable;
+      }
+
+      if (valueA < valueB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valueA > valueB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    }
+
     const nextA = a.installments
       ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
       .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0]
@@ -1388,25 +1433,31 @@ export default function FinanceiroPage() {
             <table className="w-full text-left border-collapse hidden md:table min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-sm text-slate-500">
-                  <th className="p-4 font-medium">Cliente / Produto</th>
-                  <th className="p-4 font-medium">Data</th>
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium cursor-pointer hover:text-indigo-600" onClick={() => requestSort('client')}>
+                    Cliente / Produto {getSortIcon('client')}
+                  </th>
+                  <th className="p-4 font-medium cursor-pointer hover:text-indigo-600" onClick={() => requestSort('data')}>
+                    Data {getSortIcon('data')}
+                  </th>
+                  <th className="p-4 font-medium cursor-pointer hover:text-indigo-600" onClick={() => requestSort('valor')}>
                     <div className="flex items-center gap-1">
-                      Valor
+                      Valor {getSortIcon('valor')}
                       <button 
-                        onClick={(e) => { e.preventDefault(); toggleVisibility('finance_table_value'); }} 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVisibility('finance_table_value'); }} 
                         className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
                       >
                         {isVisible('finance_table_value') ? <Eye size={12} /> : <EyeOff size={12} />}
                       </button>
                     </div>
                   </th>
-                  <th className="p-4 font-medium">Próximo Vencimento</th>
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium cursor-pointer hover:text-indigo-600" onClick={() => requestSort('vencimento')}>
+                    Próximo Vencimento {getSortIcon('vencimento')}
+                  </th>
+                  <th className="p-4 font-medium cursor-pointer hover:text-indigo-600" onClick={() => requestSort('receber')}>
                     <div className="flex items-center gap-1">
-                      A Receber
+                      A Receber {getSortIcon('receber')}
                       <button 
-                        onClick={(e) => { e.preventDefault(); toggleVisibility('finance_table_receivable'); }} 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVisibility('finance_table_receivable'); }} 
                         className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
                       >
                         {isVisible('finance_table_receivable') ? <Eye size={12} /> : <EyeOff size={12} />}
