@@ -117,8 +117,8 @@ export default function MovimentacoesPage() {
       setCategories(catRes.data || [])
       
       const transactionsData = transRes.data || []
-      setTotalIncome(transactionsData.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0))
-      setTotalExpense(transactionsData.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0))
+      setTotalIncome(transactionsData.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
+      setTotalExpense(transactionsData.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
 
       setLoading(false)
       setMounted(true)
