@@ -363,7 +363,7 @@ export default function MovimentacoesPage() {
                   <Pie data={chartDataIncome} dataKey="total_amount" nameKey="category_name" cx="50%" cy="50%" outerRadius={80} label>
                     {chartDataIncome.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -380,7 +380,7 @@ export default function MovimentacoesPage() {
                   <Pie data={chartDataExpense} dataKey="total_amount" nameKey="category_name" cx="50%" cy="50%" outerRadius={80} label>
                     {chartDataExpense.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
