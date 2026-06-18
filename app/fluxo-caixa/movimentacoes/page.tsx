@@ -72,6 +72,8 @@ export default function MovimentacoesPage() {
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [totalIncome, setTotalIncome] = useState(0)
+  const [totalExpense, setTotalExpense] = useState(0)
 
   useEffect(() => {
     // Parse query params for initial filters
@@ -113,6 +115,11 @@ export default function MovimentacoesPage() {
       setTransactions(transRes.data || [])
       setAccounts(accRes.data || [])
       setCategories(catRes.data || [])
+      
+      const transactionsData = transRes.data || []
+      setTotalIncome(transactionsData.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0))
+      setTotalExpense(transactionsData.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0))
+
       setLoading(false)
       setMounted(true)
     }
@@ -291,6 +298,22 @@ export default function MovimentacoesPage() {
               </button>
             </h1>
             <p className="text-slate-500 mt-1">Extrato detalhado de entradas, saídas e transferências.</p>
+          </div>
+        </div>
+
+        {/* Resumo Financeiro */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm text-slate-500 font-medium">Entradas</h3>
+            <p className="text-2xl font-bold text-emerald-600">+{formatCurrency(totalIncome, isVisible('cashflow_total'))}</p>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm text-slate-500 font-medium">Saídas</h3>
+            <p className="text-2xl font-bold text-rose-600">-{formatCurrency(totalExpense, isVisible('cashflow_total'))}</p>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm text-slate-500 font-medium">Saldo</h3>
+            <p className="text-2xl font-bold text-indigo-900">{formatCurrency(totalIncome - totalExpense, isVisible('cashflow_total'))}</p>
           </div>
         </div>
 
