@@ -118,7 +118,7 @@ export default function MovimentacoesPage() {
       
       const transactionsData = transRes.data || []
       
-      const filteredForSummary = transactionsData.filter(t => {
+      const filteredForSummary = transactionsData.filter((t: any) => {
         const matchesAccount = accountFilter === 'all' || t.account_id.toString() === accountFilter
         const matchesCategory = categoryFilter === 'all' || (t.category_id && t.category_id.toString() === categoryFilter)
         return matchesAccount && matchesCategory
