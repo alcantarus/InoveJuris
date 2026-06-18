@@ -18,8 +18,17 @@ import {
   Download,
   AlertTriangle,
   Eye,
-  EyeOff
+  EyeOff,
+  PieChart as PieChartIcon
 } from 'lucide-react'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -74,6 +83,9 @@ export default function MovimentacoesPage() {
   const [endDate, setEndDate] = useState('')
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpense, setTotalExpense] = useState(0)
+  const [chartDataExpense, setChartDataExpense] = useState<any[]>([])
+  const [chartDataIncome, setChartDataIncome] = useState<any[]>([])
+  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
     // Parse query params for initial filters
@@ -106,7 +118,7 @@ export default function MovimentacoesPage() {
         query = query.lte('date', endDate)
       }
 
-      const [transRes, accRes, catRes, summaryRes] = await Promise.all([
+      const [transRes, accRes, catRes, summaryRes, incomeRes, expenseRes] = await Promise.all([
         query,
         supabase.from('bank_accounts').select('*').order('name'),
         supabase.from('financial_categories').select('*').order('name'),
@@ -115,6 +127,18 @@ export default function MovimentacoesPage() {
           p_end_date: endDate || '2100-01-01',
           p_account_id: accountFilter === 'all' ? null : Number(accountFilter),
           p_category_id: categoryFilter === 'all' ? null : Number(categoryFilter),
+          p_environment: 'production'
+        }),
+        supabase.rpc('get_financial_chart_data', {
+          p_start_date: startDate || '1900-01-01',
+          p_end_date: endDate || '2100-01-01',
+          p_type: 'income',
+          p_environment: 'production'
+        }),
+        supabase.rpc('get_financial_chart_data', {
+          p_start_date: startDate || '1900-01-01',
+          p_end_date: endDate || '2100-01-01',
+          p_type: 'expense',
           p_environment: 'production'
         })
       ])
@@ -126,6 +150,8 @@ export default function MovimentacoesPage() {
       const summaryData = summaryRes.data || []
       setTotalIncome(Number(summaryData.find((s: any) => s.transaction_type === 'income')?.total_amount || 0))
       setTotalExpense(Number(summaryData.find((s: any) => s.transaction_type === 'expense')?.total_amount || 0))
+      setChartDataIncome(incomeRes.data || [])
+      setChartDataExpense(expenseRes.data || [])
 
       setLoading(false)
       setMounted(true)
@@ -321,6 +347,44 @@ export default function MovimentacoesPage() {
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-sm text-slate-500 font-medium">Saldo</h3>
             <p className="text-2xl font-bold text-indigo-900">{formatCurrency(totalIncome - totalExpense, isVisible('cashflow_total'))}</p>
+          </div>
+        </div>
+
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <PieChartIcon size={20} className="text-emerald-500" />
+              Distribuição de Entradas
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={chartDataIncome} dataKey="total_amount" nameKey="category_name" cx="50%" cy="50%" outerRadius={80} label>
+                    {chartDataIncome.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <PieChartIcon size={20} className="text-rose-500" />
+              Distribuição de Despesas
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={chartDataExpense} dataKey="total_amount" nameKey="category_name" cx="50%" cy="50%" outerRadius={80} label>
+                    {chartDataExpense.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
