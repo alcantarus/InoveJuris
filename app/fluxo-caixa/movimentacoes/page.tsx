@@ -106,26 +106,26 @@ export default function MovimentacoesPage() {
         query = query.lte('date', endDate)
       }
 
-      const [transRes, accRes, catRes] = await Promise.all([
+      const [transRes, accRes, catRes, summaryRes] = await Promise.all([
         query,
         supabase.from('bank_accounts').select('*').order('name'),
-        supabase.from('financial_categories').select('*').order('name')
+        supabase.from('financial_categories').select('*').order('name'),
+        supabase.rpc('get_financial_summary', {
+          p_start_date: startDate || '1900-01-01',
+          p_end_date: endDate || '2100-01-01',
+          p_account_id: accountFilter === 'all' ? null : Number(accountFilter),
+          p_category_id: categoryFilter === 'all' ? null : Number(categoryFilter),
+          p_environment: 'production'
+        })
       ])
       
       setTransactions(transRes.data || [])
       setAccounts(accRes.data || [])
       setCategories(catRes.data || [])
-      
-      const transactionsData = transRes.data || []
-      
-      const filteredForSummary = transactionsData.filter((t: any) => {
-        const matchesAccount = accountFilter === 'all' || t.account_id.toString() === accountFilter
-        const matchesCategory = categoryFilter === 'all' || (t.category_id && t.category_id.toString() === categoryFilter)
-        return matchesAccount && matchesCategory
-      })
 
-      setTotalIncome(filteredForSummary.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
-      setTotalExpense(filteredForSummary.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
+      const summaryData = summaryRes.data || []
+      setTotalIncome(Number(summaryData.find((s: any) => s.transaction_type === 'income')?.total_amount || 0))
+      setTotalExpense(Number(summaryData.find((s: any) => s.transaction_type === 'expense')?.total_amount || 0))
 
       setLoading(false)
       setMounted(true)
