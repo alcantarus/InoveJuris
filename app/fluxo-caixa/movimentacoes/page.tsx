@@ -117,15 +117,22 @@ export default function MovimentacoesPage() {
       setCategories(catRes.data || [])
       
       const transactionsData = transRes.data || []
-      setTotalIncome(transactionsData.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
-      setTotalExpense(transactionsData.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
+      
+      const filteredForSummary = transactionsData.filter(t => {
+        const matchesAccount = accountFilter === 'all' || t.account_id.toString() === accountFilter
+        const matchesCategory = categoryFilter === 'all' || (t.category_id && t.category_id.toString() === categoryFilter)
+        return matchesAccount && matchesCategory
+      })
+
+      setTotalIncome(filteredForSummary.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
+      setTotalExpense(filteredForSummary.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount), 0))
 
       setLoading(false)
       setMounted(true)
     }
 
     fetchData()
-  }, [startDate, endDate])
+  }, [startDate, endDate, accountFilter, categoryFilter])
 
   if (!mounted) return null
 
