@@ -28,7 +28,7 @@ export function GPSDashboardCard() {
       
       const counts = { hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 }
       
-      const filteredContracts = contracts?.filter(c => 
+      const filteredContracts = contracts?.filter((c: { gps_forecast_date: string, status: string }) => 
         !['cancelado', 'cancelada'].includes(c.status?.toLowerCase())
       )
       
