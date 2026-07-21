@@ -14,9 +14,10 @@ export function GPSDashboardCard() {
     async function fetchCounts() {
       const { data: contracts, error } = await supabase
         .from('contracts')
-        .select('gps_forecast_date')
+        .select('gps_forecast_date, status')
         .eq('gpsPaid', false)
         .not('gps_forecast_date', 'is', null)
+        .neq('status', 'CANCELADO')
       
       if (error) {
         console.error('Erro ao buscar GPS:', error)
@@ -28,7 +29,7 @@ export function GPSDashboardCard() {
       
       const counts = { hoje: 0, d1_3: 0, d4_7: 0, d8_15: 0, d16_30: 0, d30plus: 0 }
       
-      contracts?.forEach((c: { gps_forecast_date: string }) => {
+      contracts?.forEach((c: { gps_forecast_date: string, status: string }) => {
         const forecast = new Date(c.gps_forecast_date + 'T00:00:00-03:00')
         
         const diffDays = Math.ceil((forecast.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
