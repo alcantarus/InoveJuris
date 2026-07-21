@@ -224,6 +224,7 @@ function RelatoriosPageContent() {
         .from('contracts')
         .select('*, clients(name)')
         .not('gps_forecast_date', 'is', null)
+        .neq('status', 'CANCELADO')
 
       if (error) {
         console.error('Supabase error:', error)

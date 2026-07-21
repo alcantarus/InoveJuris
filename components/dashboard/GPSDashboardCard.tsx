@@ -17,7 +17,7 @@ export function GPSDashboardCard() {
         .select('gps_forecast_date, status')
         .eq('gpsPaid', false)
         .not('gps_forecast_date', 'is', null)
-        .neq('status', 'CANCELADO')
+        .not('status', 'in', '("CANCELADO", "CANCELADA")')
       
       if (error) {
         console.error('Erro ao buscar GPS:', error)
