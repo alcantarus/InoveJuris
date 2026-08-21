@@ -19,7 +19,8 @@ import {
   Coins,
   CheckCircle2,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Receipt
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import DashboardLayout from '../dashboard-layout'
@@ -74,7 +75,17 @@ interface CommissionReportItem {
   contractDate: string
 }
 
-type ReportType = 'childbirth' | 'deadlines' | 'birthdays' | 'commissions' | 'gps'
+interface RecebimentoItem {
+  id: number
+  date: string
+  clientName: string
+  description: string
+  accountName: string
+  categoryName: string
+  amount: number
+}
+
+type ReportType = 'childbirth' | 'deadlines' | 'birthdays' | 'commissions' | 'gps' | 'recebimentos'
 
 // Componente de Badge para o status do INSS
 const StatusBadge = ({ protocolNumber }: { protocolNumber: string | null | undefined }) => {
@@ -150,10 +161,37 @@ function RelatoriosPageContent() {
   const [commissionData, setCommissionData] = useState<CommissionReportItem[]>([])
   const [gpsData, setGpsData] = useState<any[]>([]) // Adicionado estado para GPS
   const [gpsFilter, setGpsFilter] = useState<'all' | 'paid' | 'unpaid' | 'financed' | 'normal' | 'divergence'>('all')
+  const [recebimentosData, setRecebimentosData] = useState<RecebimentoItem[]>([])
+  const [recebimentosStartDate, setRecebimentosStartDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  })
+  const [recebimentosEndDate, setRecebimentosEndDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+  })
+  const [recebimentosAccountFilter, setRecebimentosAccountFilter] = useState('all')
+  const [accountsList, setAccountsList] = useState<any[]>([])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [selectedGps, setSelectedGps] = useState<any>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (tab === 'gps') {
+      setActiveReport('gps')
+    } else if (tab === 'childbirth') {
+      setActiveReport('childbirth')
+    } else if (tab === 'birthdays') {
+      setActiveReport('birthdays')
+    } else if (tab === 'commissions') {
+      setActiveReport('commissions')
+    } else if (tab === 'deadlines') {
+      setActiveReport('deadlines')
+    } else if (tab === 'recebimentos') {
+      setActiveReport('recebimentos')
+    }
+  }, [tab])
 
   useEffect(() => {
     if (activeReport === 'childbirth') {
@@ -166,9 +204,79 @@ function RelatoriosPageContent() {
       fetchCommissionData()
     } else if (activeReport === 'gps') {
       fetchGpsData()
+    } else if (activeReport === 'recebimentos') {
+      fetchRecebimentosData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeReport])
+  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter])
+
+  const fetchRecebimentosData = async () => {
+    if (!isSupabaseConfigured) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      if (accountsList.length === 0) {
+        const { data: accs } = await supabase.from('bank_accounts').select('id, name')
+        if (accs) setAccountsList(accs)
+      }
+
+      let query = supabase
+        .from('financial_transactions')
+        .select(`
+          id,
+          date,
+          amount,
+          type,
+          description,
+          account_id,
+          category_id,
+          bank_accounts(name),
+          financial_categories(name),
+          contracts(
+            clients(name)
+          )
+        `)
+        .eq('type', 'income')
+        .gte('date', recebimentosStartDate)
+        .lte('date', recebimentosEndDate)
+
+      if (recebimentosAccountFilter !== 'all') {
+        query = query.eq('account_id', Number(recebimentosAccountFilter))
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      if (data) {
+        const processed: RecebimentoItem[] = data.map((item: any) => ({
+          id: item.id,
+          date: item.date,
+          clientName: item.contracts?.clients?.name || 'Cliente Avulso / Outros',
+          description: item.description || 'Recebimento',
+          accountName: item.bank_accounts?.name || 'Conta não informada',
+          categoryName: item.financial_categories?.name || 'Sem categoria',
+          amount: item.amount || 0
+        }))
+
+        processed.sort((a, b) => {
+          const dateA = new Date(a.date).getTime()
+          const dateB = new Date(b.date).getTime()
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+        })
+
+        setRecebimentosData(processed)
+      }
+    } catch (error) {
+      console.error('Error fetching recebimentos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Re-sort when sortOrder changes
   useEffect(() => {
@@ -584,7 +692,7 @@ function RelatoriosPageContent() {
         )}
 
         {/* Report Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <button
             onClick={() => setActiveReport('deadlines')}
             className={`p-4 rounded-xl border text-left transition-all ${
@@ -689,6 +797,27 @@ function RelatoriosPageContent() {
               Vencimentos e pagamentos de GPS
             </p>
           </button>
+
+          <button
+            onClick={() => setActiveReport('recebimentos')}
+            className={`p-4 rounded-xl border text-left transition-all ${
+              activeReport === 'recebimentos'
+                ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20'
+                : 'bg-white border-slate-200 hover:border-emerald-200 hover:bg-slate-50'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+              activeReport === 'recebimentos' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              <Receipt size={20} />
+            </div>
+            <h3 className={`font-bold ${activeReport === 'recebimentos' ? 'text-emerald-900' : 'text-slate-700'}`}>
+              Recebimentos
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Extrato de entradas por período
+            </p>
+          </button>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -698,11 +827,15 @@ function RelatoriosPageContent() {
                 activeReport === 'deadlines' ? 'bg-indigo-100 text-indigo-600' : 
                 activeReport === 'childbirth' ? 'bg-rose-100 text-rose-600' :
                 activeReport === 'birthdays' ? 'bg-emerald-100 text-emerald-600' :
+                activeReport === 'gps' ? 'bg-blue-100 text-blue-600' :
+                activeReport === 'recebimentos' ? 'bg-emerald-100 text-emerald-600' :
                 'bg-amber-100 text-amber-600'
               }`}>
                 {activeReport === 'deadlines' ? <Clock size={20} /> : 
                  activeReport === 'childbirth' ? <Baby size={20} /> :
                  activeReport === 'birthdays' ? <Gift size={20} /> :
+                 activeReport === 'gps' ? <Calendar size={20} /> :
+                 activeReport === 'recebimentos' ? <Receipt size={20} /> :
                  <Coins size={20} />}
               </div>
               <div>
@@ -711,6 +844,7 @@ function RelatoriosPageContent() {
                    activeReport === 'childbirth' ? 'Previsão de Partos' :
                    activeReport === 'birthdays' ? 'Relatório de Aniversariantes' :
                    activeReport === 'gps' ? 'Relatório de Controle de GPS' :
+                   activeReport === 'recebimentos' ? 'Relatório de Recebimentos' :
                    'Relatório de Comissões'}
                 </h2>
                 <p className="text-sm text-slate-500">
@@ -722,6 +856,8 @@ function RelatoriosPageContent() {
                     ? 'Acompanhamento de aniversários de clientes'
                     : activeReport === 'gps'
                     ? 'Acompanhamento de vencimentos e pagamentos de GPS'
+                    : activeReport === 'recebimentos'
+                    ? 'Extrato detalhado de recebimentos e entradas por período'
                     : 'Acompanhamento de comissões devidas a indicadores'}
                 </p>
               </div>
@@ -760,6 +896,42 @@ function RelatoriosPageContent() {
                   >
                     Pro Bono
                   </button>
+                </div>
+              )}
+
+              {activeReport === 'recebimentos' && (
+                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
+                  <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
+                    <span>De:</span>
+                    <input
+                      type="date"
+                      value={recebimentosStartDate}
+                      onChange={(e) => setRecebimentosStartDate(e.target.value)}
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
+                    <span>Até:</span>
+                    <input
+                      type="date"
+                      value={recebimentosEndDate}
+                      onChange={(e) => setRecebimentosEndDate(e.target.value)}
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
+                    <span>Conta:</span>
+                    <select
+                      value={recebimentosAccountFilter}
+                      onChange={(e) => setRecebimentosAccountFilter(e.target.value)}
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                    >
+                      <option value="all">Todas</option>
+                      {accountsList.map(acc => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
 
@@ -856,6 +1028,35 @@ function RelatoriosPageContent() {
           </div>
         </div>
 
+        {activeReport === 'recebimentos' && (
+          <div className="flex justify-center mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total Recebido no Período</div>
+                  <div className="text-2xl font-bold text-emerald-600">
+                    {formatCurrency(recebimentosData.reduce((acc, item) => acc + item.amount, 0), isVisible('reports_recebimentos'))}
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                  <Receipt size={24} />
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total de Lançamentos</div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {recebimentosData.length}
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <BarChart3 size={24} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeReport === 'gps' && (
           (() => {
             const today = new Date();
@@ -917,6 +1118,15 @@ function RelatoriosPageContent() {
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Valor Previsto</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Valor Pago</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right w-1/6">Diferença</th>
+                    </>
+                  ) : activeReport === 'recebimentos' ? (
+                    <>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data do Recebimento</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente / Parte</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Descrição / Título</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Conta Creditada</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Categoria</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Valor Recebido</th>
                     </>
                   ) : activeReport === 'deadlines' ? (
                     <>
@@ -984,6 +1194,7 @@ function RelatoriosPageContent() {
                     if (gpsFilter === 'divergence') return item.gps_value !== (item.gps_paid_value || 0);
                     return true;
                   }) : 
+                  activeReport === 'recebimentos' ? recebimentosData :
                   commissionData
                 ).length === 0 ? (
                   <tr>
@@ -1009,6 +1220,7 @@ function RelatoriosPageContent() {
                       if (gpsFilter === 'normal') return !item.isFinanced;
                       return true;
                     }) :
+                    activeReport === 'recebimentos' ? recebimentosData :
                     commissionData
                   ).map((item: any, index) => (
                     <motion.tr 
@@ -1024,7 +1236,26 @@ function RelatoriosPageContent() {
                           ? "opacity-60 line-through text-slate-400" : ""
                       )}
                     >
-                      {activeReport === 'deadlines' ? (
+                      {activeReport === 'recebimentos' ? (
+                        <>
+                          <td className="p-4 font-medium text-slate-900">{formatDate(item.date)}</td>
+                          <td className="p-4 font-semibold text-slate-900">{item.clientName}</td>
+                          <td className="p-4 text-slate-600">{item.description}</td>
+                          <td className="p-4 text-slate-600 font-medium">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 text-slate-700">
+                              {item.accountName}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-600">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-indigo-50 text-indigo-700">
+                              {item.categoryName}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right font-bold text-emerald-600">
+                            {formatCurrency(item.amount, isVisible('reports_recebimentos'))}
+                          </td>
+                        </>
+                      ) : activeReport === 'deadlines' ? (
                         <>
                           <td className="p-4 font-medium text-slate-900">{item.processNumber}</td>
                           <td className="p-4 text-slate-600">{item.clientName}</td>

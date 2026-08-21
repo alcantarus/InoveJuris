@@ -1,5 +1,8 @@
 {
   "name": "InoveJuris - Sistema de Gestão Jurídica",
   "description": "Sistema completo para gestão de escritórios de advocacia, processos e financeiro.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
