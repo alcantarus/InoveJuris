@@ -102,7 +102,8 @@ export default function UsuariosPage() {
           "canAccessContracts", "canAccessReceivables", "canAccessCashFlow", "canAccessProducts", 
           "canAccessIndicators", "canAccessReports", "canAccessUsers", 
           "canAccessSettings", "canAccessAudit", "canAccessLawyers", "canAccessProdEnv", 
-          "canAccessTestEnv", "canAccessDocuments", "canAccessDocTemplates", "canAccessDocGeneration", expiration_date, created_at,
+          "canAccessTestEnv", "canAccessDocuments", "canAccessDocTemplates", "canAccessDocGeneration", 
+          "canAccessLeads", expiration_date, created_at,
           user_roles!user_id (
             role_id,
             roles (name)
@@ -145,6 +146,7 @@ export default function UsuariosPage() {
         canAccessReceivables: user.canAccessReceivables || false,
         canAccessDocTemplates: user.canAccessDocTemplates || false,
         canAccessDocGeneration: user.canAccessDocGeneration || false,
+        canAccessLeads: user.canAccessLeads || false,
         is_superadmin: user.is_superadmin || false,
         role_id: (user as any).role_id
       })
@@ -168,6 +170,7 @@ export default function UsuariosPage() {
         canAccessDocuments: false,
         canAccessDocTemplates: false,
         canAccessDocGeneration: false,
+        canAccessLeads: false,
         canAccessSettings: false,
         canAccessAudit: false,
         canAccessProdEnv: true,
