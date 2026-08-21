@@ -225,24 +225,32 @@ function RelatoriosPageContent() {
       }
 
       let query = supabase
-        .from('financial_transactions')
+        .from('payments')
         .select(`
           id,
-          date,
+          payment_date,
           amount,
           type,
           description,
           account_id,
           category_id,
-          bank_accounts(name),
-          financial_categories(name),
-          contracts(
-            clients(name)
+          bank_accounts(id, name),
+          financial_categories(id, name),
+          installments(
+            id,
+            installmentNumber,
+            contracts(
+              id,
+              processNumber,
+              clients(
+                id,
+                name
+              )
+            )
           )
         `)
-        .eq('type', 'income')
-        .gte('date', recebimentosStartDate)
-        .lte('date', recebimentosEndDate)
+        .gte('payment_date', recebimentosStartDate)
+        .lte('payment_date', recebimentosEndDate)
 
       if (recebimentosAccountFilter !== 'all') {
         query = query.eq('account_id', Number(recebimentosAccountFilter))
@@ -250,18 +258,36 @@ function RelatoriosPageContent() {
 
       const { data, error } = await query
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching payments in relatorios:', error)
+        throw error
+      }
 
       if (data) {
-        const processed: RecebimentoItem[] = data.map((item: any) => ({
-          id: item.id,
-          date: item.date,
-          clientName: item.contracts?.clients?.name || 'Cliente Avulso / Outros',
-          description: item.description || 'Recebimento',
-          accountName: item.bank_accounts?.name || 'Conta não informada',
-          categoryName: item.financial_categories?.name || 'Sem categoria',
-          amount: item.amount || 0
-        }))
+        const processed: RecebimentoItem[] = data
+          .filter((item: any) => item.type !== 'reversal' || Number(item.amount) > 0)
+          .map((item: any) => {
+            const clientName = item.installments?.contracts?.clients?.name || 'Cliente Avulso / Não informado'
+            const installmentNum = item.installments?.installmentNumber
+            const processNum = item.installments?.contracts?.processNumber
+            
+            let defaultDesc = 'Recebimento de Parcela'
+            if (installmentNum && processNum) {
+              defaultDesc = `Parcela ${installmentNum} - Processo ${processNum}`
+            } else if (installmentNum) {
+              defaultDesc = `Parcela ${installmentNum}`
+            }
+
+            return {
+              id: item.id,
+              date: item.payment_date,
+              clientName: clientName,
+              description: item.description || defaultDesc,
+              accountName: item.bank_accounts?.name || 'Conta não informada',
+              categoryName: item.financial_categories?.name || 'Receitas de Contratos',
+              amount: Number(item.amount || 0)
+            }
+          })
 
         processed.sort((a, b) => {
           const dateA = new Date(a.date).getTime()
@@ -315,6 +341,13 @@ function RelatoriosPageContent() {
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
       })
       setGpsData(sorted)
+    } else if (activeReport === 'recebimentos' && recebimentosData.length > 0) {
+      const sorted = [...recebimentosData].sort((a, b) => {
+        const dateA = new Date(a.date).getTime()
+        const dateB = new Date(b.date).getTime()
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+      })
+      setRecebimentosData(sorted)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortOrder])
