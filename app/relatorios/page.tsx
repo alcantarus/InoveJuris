@@ -162,6 +162,7 @@ function RelatoriosPageContent() {
   const [gpsData, setGpsData] = useState<any[]>([]) // Adicionado estado para GPS
   const [gpsFilter, setGpsFilter] = useState<'all' | 'paid' | 'unpaid' | 'financed' | 'normal' | 'divergence'>('all')
   const [recebimentosData, setRecebimentosData] = useState<RecebimentoItem[]>([])
+  const [rawRecebimentosData, setRawRecebimentosData] = useState<any[]>([])
   const [recebimentosStartDate, setRecebimentosStartDate] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
@@ -171,11 +172,56 @@ function RelatoriosPageContent() {
     return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
   })
   const [recebimentosAccountFilter, setRecebimentosAccountFilter] = useState('all')
+  const [recebimentosTagFilter, setRecebimentosTagFilter] = useState('')
   const [accountsList, setAccountsList] = useState<any[]>([])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [selectedGps, setSelectedGps] = useState<any>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [loading, setLoading] = useState(true)
+
+  // Filter raw data when filter or raw data changes
+  useEffect(() => {
+    if (rawRecebimentosData.length > 0) {
+      const processed: RecebimentoItem[] = rawRecebimentosData
+        .filter((item: any) => {
+          const passesType = item.type !== 'reversal' || Number(item.amount) > 0;
+          if (!recebimentosTagFilter) return passesType;
+          const tags = item.installments?.contracts?.clients?.tags || [];
+          return passesType && tags.some((t: string) => t.toLowerCase().includes(recebimentosTagFilter.toLowerCase()));
+        })
+        .map((item: any) => {
+          const clientName = item.installments?.contracts?.clients?.name || 'Cliente Avulso / Não informado'
+          const installmentNum = item.installments?.installmentNumber
+          const processNum = item.installments?.contracts?.processNumber
+          
+          let defaultDesc = 'Recebimento de Parcela'
+          if (installmentNum && processNum) {
+            defaultDesc = `Parcela ${installmentNum} - Processo ${processNum}`
+          } else if (installmentNum) {
+            defaultDesc = `Parcela ${installmentNum}`
+          }
+
+          return {
+            id: item.id,
+            date: item.payment_date,
+            clientName: clientName,
+            description: item.description || defaultDesc,
+            accountName: item.bank_accounts?.name || 'Conta não informada',
+            categoryName: item.financial_categories?.name || 'Receitas de Contratos',
+            amount: Number(item.amount || 0)
+          }
+        })
+
+      processed.sort((a, b) => {
+        const dateA = new Date(a.date).getTime()
+        const dateB = new Date(b.date).getTime()
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+      })
+      setRecebimentosData(processed)
+    } else {
+      setRecebimentosData([])
+    }
+  }, [rawRecebimentosData, recebimentosTagFilter, sortOrder])
 
   useEffect(() => {
     if (tab === 'gps') {
@@ -244,7 +290,8 @@ function RelatoriosPageContent() {
               processNumber,
               clients(
                 id,
-                name
+                name,
+                tags
               )
             )
           )
@@ -263,40 +310,7 @@ function RelatoriosPageContent() {
         throw error
       }
 
-      if (data) {
-        const processed: RecebimentoItem[] = data
-          .filter((item: any) => item.type !== 'reversal' || Number(item.amount) > 0)
-          .map((item: any) => {
-            const clientName = item.installments?.contracts?.clients?.name || 'Cliente Avulso / Não informado'
-            const installmentNum = item.installments?.installmentNumber
-            const processNum = item.installments?.contracts?.processNumber
-            
-            let defaultDesc = 'Recebimento de Parcela'
-            if (installmentNum && processNum) {
-              defaultDesc = `Parcela ${installmentNum} - Processo ${processNum}`
-            } else if (installmentNum) {
-              defaultDesc = `Parcela ${installmentNum}`
-            }
-
-            return {
-              id: item.id,
-              date: item.payment_date,
-              clientName: clientName,
-              description: item.description || defaultDesc,
-              accountName: item.bank_accounts?.name || 'Conta não informada',
-              categoryName: item.financial_categories?.name || 'Receitas de Contratos',
-              amount: Number(item.amount || 0)
-            }
-          })
-
-        processed.sort((a, b) => {
-          const dateA = new Date(a.date).getTime()
-          const dateB = new Date(b.date).getTime()
-          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
-        })
-
-        setRecebimentosData(processed)
-      }
+      setRawRecebimentosData(data || [])
     } catch (error) {
       console.error('Error fetching recebimentos:', error)
     } finally {
@@ -341,13 +355,6 @@ function RelatoriosPageContent() {
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
       })
       setGpsData(sorted)
-    } else if (activeReport === 'recebimentos' && recebimentosData.length > 0) {
-      const sorted = [...recebimentosData].sort((a, b) => {
-        const dateA = new Date(a.date).getTime()
-        const dateB = new Date(b.date).getTime()
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
-      })
-      setRecebimentosData(sorted)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortOrder])
@@ -964,6 +971,16 @@ function RelatoriosPageContent() {
                         <option key={acc.id} value={acc.id}>{acc.name}</option>
                       ))}
                     </select>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
+                    <span>TAG:</span>
+                    <input
+                      type="text"
+                      placeholder="Filtrar por tag..."
+                      value={recebimentosTagFilter}
+                      onChange={(e) => setRecebimentosTagFilter(e.target.value)}
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs w-32"
+                    />
                   </div>
                 </div>
               )}
