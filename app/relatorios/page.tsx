@@ -1044,16 +1044,18 @@ function RelatoriosPageContent() {
               )}
 
               {activeReport === 'a-receber' && (
-                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
-                  <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
-                    <span>TAG:</span>
-                    <input
-                      type="text"
-                      placeholder="Filtrar por tag..."
-                      value={aReceberTagFilter}
-                      onChange={(e) => setAReceberTagFilter(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs w-32"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-sm text-slate-500 font-medium">Total Pendente</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(aReceberData.reduce((acc, item) => acc + item.amount, 0))}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-sm text-slate-500 font-medium">Vencendo este mês</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0))}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-sm text-slate-500 font-medium">Total em Atraso</p>
+                    <p className="text-2xl font-bold text-rose-600 mt-1">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate) < new Date()).reduce((acc, item) => acc + item.amount, 0))}</p>
                   </div>
                 </div>
               )}
@@ -1259,6 +1261,15 @@ function RelatoriosPageContent() {
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data do Prazo</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Dias Restantes</th>
                     </>
+                  ) : activeReport === 'a-receber' ? (
+                    <>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data Venc.</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente / Contrato</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Processo</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">TAGs</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Valor</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Status</th>
+                    </>
                   ) : activeReport === 'childbirth' ? (
                     <>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
@@ -1318,6 +1329,7 @@ function RelatoriosPageContent() {
                     return true;
                   }) : 
                   activeReport === 'recebimentos' ? recebimentosData :
+                  activeReport === 'a-receber' ? aReceberData :
                   commissionData
                 ).length === 0 ? (
                   <tr>
@@ -1344,6 +1356,7 @@ function RelatoriosPageContent() {
                       return true;
                     }) :
                     activeReport === 'recebimentos' ? recebimentosData :
+                    activeReport === 'a-receber' ? aReceberData :
                     commissionData
                   ).map((item: any, index) => (
                     <motion.tr 
@@ -1376,6 +1389,28 @@ function RelatoriosPageContent() {
                           </td>
                           <td className="p-4 text-right font-bold text-emerald-600">
                             {formatCurrency(item.amount, isVisible('reports_recebimentos'))}
+                          </td>
+                        </>
+                      ) : activeReport === 'a-receber' ? (
+                        <>
+                          <td className="p-4 font-medium text-slate-900">{formatDate(item.dueDate)}</td>
+                          <td className="p-4 font-semibold text-slate-900">{item.contracts?.clients?.name || 'Cliente Avulso'}</td>
+                          <td className="p-4 text-slate-600">{item.contracts?.processNumber || '-'}</td>
+                          <td className="p-4">
+                            <div className="flex gap-1 flex-wrap">
+                              {(item.contracts?.clients?.tags || []).map((tag: string) => (
+                                <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]">{tag}</span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-4 text-right font-bold text-slate-900">{formatCurrency(item.amount)}</td>
+                          <td className="p-4">
+                            <span className={cn(
+                              "px-2 py-1 rounded-full text-[10px] font-medium",
+                              new Date(item.dueDate) < new Date() ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"
+                            )}>
+                              {new Date(item.dueDate) < new Date() ? 'Atrasado' : 'Pendente'}
+                            </span>
                           </td>
                         </>
                       ) : activeReport === 'deadlines' ? (
