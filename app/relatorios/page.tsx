@@ -85,7 +85,7 @@ interface RecebimentoItem {
   amount: number
 }
 
-type ReportType = 'childbirth' | 'deadlines' | 'birthdays' | 'commissions' | 'gps' | 'recebimentos'
+type ReportType = 'childbirth' | 'deadlines' | 'birthdays' | 'commissions' | 'gps' | 'recebimentos' | 'a-receber'
 
 // Componente de Badge para o status do INSS
 const StatusBadge = ({ protocolNumber }: { protocolNumber: string | null | undefined }) => {
@@ -172,7 +172,8 @@ function RelatoriosPageContent() {
     return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
   })
   const [recebimentosAccountFilter, setRecebimentosAccountFilter] = useState('all')
-  const [recebimentosTagFilter, setRecebimentosTagFilter] = useState('')
+  const [aReceberData, setAReceberData] = useState<any[]>([])
+  const [aReceberTagFilter, setAReceberTagFilter] = useState('')
   const [accountsList, setAccountsList] = useState<any[]>([])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [selectedGps, setSelectedGps] = useState<any>(null)
@@ -252,6 +253,8 @@ function RelatoriosPageContent() {
       fetchGpsData()
     } else if (activeReport === 'recebimentos') {
       fetchRecebimentosData()
+    } else if (activeReport === 'a-receber') {
+      fetchAReceberData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter])
@@ -313,6 +316,40 @@ function RelatoriosPageContent() {
       setRawRecebimentosData(data || [])
     } catch (error) {
       console.error('Error fetching recebimentos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAReceberData = async () => {
+    if (!isSupabaseConfigured) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      
+      const { data, error } = await supabase
+        .from('installments')
+        .select(`
+          id,
+          amount,
+          dueDate,
+          status,
+          contract_id,
+          contracts(
+            processNumber,
+            clients(name, tags)
+          )
+        `)
+        .eq('status', 'Pendente')
+
+      if (error) throw error
+
+      setAReceberData(data || [])
+    } catch (error) {
+      console.error('Error fetching A Receber data:', error)
     } finally {
       setLoading(false)
     }
@@ -856,6 +893,26 @@ function RelatoriosPageContent() {
             </h3>
             <p className="text-sm text-slate-500 mt-1">
               Extrato de entradas por período
+            </p>
+          </button>
+          <button
+            onClick={() => setActiveReport('a-receber')}
+            className={`p-4 rounded-xl border text-left transition-all ${
+              activeReport === 'a-receber'
+                ? 'bg-amber-50 border-amber-200 ring-2 ring-amber-500/20'
+                : 'bg-white border-slate-200 hover:border-amber-200 hover:bg-slate-50'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+              activeReport === 'a-receber' ? 'bg-amber-200 text-amber-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              <Coins size={20} />
+            </div>
+            <h3 className={`font-bold ${activeReport === 'a-receber' ? 'text-amber-900' : 'text-slate-700'}`}>
+              A Receber
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Controle de valores a receber
             </p>
           </button>
         </div>
