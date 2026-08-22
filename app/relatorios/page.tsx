@@ -172,6 +172,7 @@ function RelatoriosPageContent() {
     return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
   })
   const [recebimentosAccountFilter, setRecebimentosAccountFilter] = useState('all')
+  const [recebimentosTagFilter, setRecebimentosTagFilter] = useState('')
   const [aReceberData, setAReceberData] = useState<any[]>([])
   const [aReceberTagFilter, setAReceberTagFilter] = useState('')
   const [accountsList, setAccountsList] = useState<any[]>([])
