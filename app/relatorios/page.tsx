@@ -1043,6 +1043,21 @@ function RelatoriosPageContent() {
                 </div>
               )}
 
+              {activeReport === 'a-receber' && (
+                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
+                  <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
+                    <span>TAG:</span>
+                    <input
+                      type="text"
+                      placeholder="Filtrar por tag..."
+                      value={aReceberTagFilter}
+                      onChange={(e) => setAReceberTagFilter(e.target.value)}
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs w-32"
+                    />
+                  </div>
+                </div>
+              )}
+
                   {activeReport === 'gps' && (
                     <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
                       <button
