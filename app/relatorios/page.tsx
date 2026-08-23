@@ -376,6 +376,33 @@ function RelatoriosPageContent() {
     }
   }
 
+  const handleQuitarAReceberItem = async (item: any) => {
+    try {
+      const remaining = Number(item.amount || 0) - Number(item.amountPaid || 0);
+      if (remaining <= 0) {
+        toast.info('Esta parcela já está quitada.');
+        return;
+      }
+      const { error } = await supabase.rpc('process_installment_payment', {
+        p_installment_id: item.id,
+        p_amount_paid: remaining,
+        p_account_id: null,
+        p_category_id: null,
+        p_date: new Date().toISOString().split('T')[0],
+        p_description: `Quitação via Relatório A Receber`,
+        p_user_id: null,
+        p_interest: 0,
+        p_fine: 0
+      });
+      if (error) throw error;
+      toast.success('Parcela quitada com sucesso!');
+      fetchAReceberData();
+    } catch (err: any) {
+      console.error('Erro ao quitar parcela:', err);
+      toast.error('Erro ao quitar parcela: ' + (err.message || 'Erro desconhecido'));
+    }
+  };
+
   const getFilteredAReceberData = () => {
     const filtered = aReceberData.filter(item => {
       // 1. Tag filter
@@ -1012,12 +1039,12 @@ function RelatoriosPageContent() {
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {activeReport === 'childbirth' && (
-                <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
+                <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
                   <button
                     onClick={() => setChildbirthFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                       childbirthFilter === 'all' 
                         ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -1027,7 +1054,7 @@ function RelatoriosPageContent() {
                   </button>
                   <button
                     onClick={() => setChildbirthFilter('financed')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                       childbirthFilter === 'financed' 
                         ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -1037,7 +1064,7 @@ function RelatoriosPageContent() {
                   </button>
                   <button
                     onClick={() => setChildbirthFilter('probono')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                       childbirthFilter === 'probono' 
                         ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -1049,7 +1076,7 @@ function RelatoriosPageContent() {
               )}
 
               {activeReport === 'recebimentos' && (
-                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
+                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 w-full sm:w-auto">
                   <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
                     <span>De:</span>
                     <input
@@ -1088,319 +1115,321 @@ function RelatoriosPageContent() {
                       placeholder="Filtrar por tag..."
                       value={recebimentosTagFilter}
                       onChange={(e) => setRecebimentosTagFilter(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs w-32"
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs w-28 sm:w-32"
                     />
                   </div>
                 </div>
               )}
 
-              {activeReport === 'a-receber' && (
-                <>
-                  {(() => {
-                    const totalPendente = aReceberData.reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
-                    
-                    const vencendoEsteMes = aReceberData.filter(item => {
-                      if (!item.dueDate) return false;
-                      const d = new Date(item.dueDate);
-                      const now = new Date();
-                      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                    }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
-
-                    const totalEmAtraso = aReceberData.filter(item => {
-                      if (!item.dueDate) return false;
-                      const d = new Date(item.dueDate);
-                      const now = new Date();
-                      const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-                      const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                      return dDate < nowDate;
-                    }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
-
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        {/* Card 1: Total Pendente */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Total Pendente</span>
-                            <h3 className="text-2xl font-extrabold text-slate-950 truncate leading-none" title={formatCurrency(totalPendente)}>
-                              {formatCurrency(totalPendente)}
-                            </h3>
-                          </div>
-                          <div className="p-3 rounded-xl bg-slate-50 text-slate-600 ml-4 flex-shrink-0">
-                            <Coins className="w-5 h-5" />
-                          </div>
-                        </div>
-
-                        {/* Card 2: Vencendo Este Mês */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Vencendo este mês</span>
-                            <h3 className="text-2xl font-extrabold text-indigo-600 truncate leading-none" title={formatCurrency(vencendoEsteMes)}>
-                              {formatCurrency(vencendoEsteMes)}
-                            </h3>
-                          </div>
-                          <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 ml-4 flex-shrink-0">
-                            <Calendar className="w-5 h-5" />
-                          </div>
-                        </div>
-
-                        {/* Card 3: Total em Atraso */}
-                        <div className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-xs font-semibold text-rose-500 uppercase tracking-wider block mb-1">Total em Atraso</span>
-                            <h3 className="text-2xl font-extrabold text-rose-600 truncate leading-none" title={formatCurrency(totalEmAtraso)}>
-                              {formatCurrency(totalEmAtraso)}
-                            </h3>
-                          </div>
-                          <div className="p-3 rounded-xl bg-rose-50 text-rose-600 ml-4 flex-shrink-0">
-                            <AlertTriangle className="w-5 h-5" />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 mb-6 flex flex-wrap items-center gap-4">
-                    {/* Period Filters */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
-                        <span className="text-slate-400 uppercase tracking-wider text-[10px]">Início:</span>
-                        <input
-                          type="date"
-                          value={aReceberStartDate}
-                          onChange={(e) => setAReceberStartDate(e.target.value)}
-                          className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-700 focus:ring-0 outline-none w-28"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
-                        <span className="text-slate-400 uppercase tracking-wider text-[10px]">Fim:</span>
-                        <input
-                          type="date"
-                          value={aReceberEndDate}
-                          onChange={(e) => setAReceberEndDate(e.target.value)}
-                          className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-700 focus:ring-0 outline-none w-28"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Status Filter Buttons */}
-                    <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80 shadow-xs">
-                      <button
-                        onClick={() => setAReceberStatusFilter('all')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                          aReceberStatusFilter === 'all'
-                            ? "bg-slate-900 text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-800"
-                        )}
-                      >
-                        Todas
-                      </button>
-                      <button
-                        onClick={() => setAReceberStatusFilter('pending')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                          aReceberStatusFilter === 'pending'
-                            ? "bg-indigo-600 text-white shadow-xs"
-                            : "text-slate-600 hover:text-indigo-600"
-                        )}
-                      >
-                        A Vencer
-                      </button>
-                      <button
-                        onClick={() => setAReceberStatusFilter('overdue')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                          aReceberStatusFilter === 'overdue'
-                            ? "bg-rose-600 text-white shadow-xs"
-                            : "text-slate-600 hover:text-rose-600"
-                        )}
-                      >
-                        Atrasadas
-                      </button>
-                    </div>
-
-                    {/* Tag Filter Input */}
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs flex-1 min-w-[150px]">
-                      <span className="text-slate-400 uppercase tracking-wider text-[10px]">TAG:</span>
-                      <input
-                        type="text"
-                        placeholder="Filtrar por tag..."
-                        value={aReceberTagFilter}
-                        onChange={(e) => setAReceberTagFilter(e.target.value)}
-                        className="bg-transparent border-0 p-0 text-xs text-slate-700 focus:ring-0 outline-none w-full font-medium"
-                      />
-                    </div>
-                  </div>
-                </>
+              {activeReport === 'gps' && (
+                <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                  <button
+                    onClick={() => setGpsFilter('all')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      gpsFilter === 'all' 
+                        ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => setGpsFilter('paid')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      gpsFilter === 'paid' 
+                        ? 'bg-white text-emerald-600 shadow-sm border border-slate-200/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Pagas
+                  </button>
+                  <button
+                    onClick={() => setGpsFilter('unpaid')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      gpsFilter === 'unpaid' 
+                        ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Não Pagas
+                  </button>
+                  <div className="w-px h-5 bg-slate-200 mx-0.5 hidden sm:block"></div>
+                  <button
+                    onClick={() => setGpsFilter('financed')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      gpsFilter === 'financed' 
+                        ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Financiados
+                  </button>
+                  <button
+                    onClick={() => setGpsFilter('normal')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      gpsFilter === 'normal' 
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    onClick={() => setGpsFilter('divergence')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      gpsFilter === 'divergence' 
+                        ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Divergências
+                  </button>
+                </div>
               )}
 
-                  {activeReport === 'gps' && (
-                    <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2">
-                      <button
-                        onClick={() => setGpsFilter('all')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          gpsFilter === 'all' 
-                            ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Todos
-                      </button>
-                      <button
-                        onClick={() => setGpsFilter('paid')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          gpsFilter === 'paid' 
-                            ? 'bg-white text-emerald-600 shadow-sm border border-slate-200/50' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Pagas
-                      </button>
-                      <button
-                        onClick={() => setGpsFilter('unpaid')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          gpsFilter === 'unpaid' 
-                            ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Não Pagas
-                      </button>
-                      <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                      <button
-                        onClick={() => setGpsFilter('financed')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          gpsFilter === 'financed' 
-                            ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Financiados
-                      </button>
-                      <button
-                        onClick={() => setGpsFilter('normal')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          gpsFilter === 'normal' 
-                            ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Normal
-                      </button>
-                      <button
-                        onClick={() => setGpsFilter('divergence')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          gpsFilter === 'divergence' 
-                            ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Divergências
-                      </button>
-                    </div>
-                  )}
-
-              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-              <button
-                onClick={() => setSortOrder('asc')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  sortOrder === 'asc' 
-                    ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' 
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <ArrowUpCircle size={16} />
-                Crescente
-              </button>
-              <button
-                onClick={() => setSortOrder('desc')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  sortOrder === 'desc' 
-                    ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' 
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <ArrowDownCircle size={16} />
-                Decrescente
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {activeReport === 'recebimentos' && (
-          <div className="flex justify-center mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total Recebido no Período</div>
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {formatCurrency(recebimentosData.reduce((acc, item) => acc + item.amount, 0), isVisible('reports_recebimentos'))}
-                  </div>
-                </div>
-                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                  <Receipt size={24} />
-                </div>
-              </div>
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total de Lançamentos</div>
-                  <div className="text-2xl font-bold text-slate-900">
-                    {recebimentosData.length}
-                  </div>
-                </div>
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                  <BarChart3 size={24} />
-                </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                <button
+                  onClick={() => setSortOrder('asc')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                    sortOrder === 'asc' 
+                      ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' 
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <ArrowUpCircle size={15} />
+                  Crescente
+                </button>
+                <button
+                  onClick={() => setSortOrder('desc')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                    sortOrder === 'desc' 
+                      ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' 
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <ArrowDownCircle size={15} />
+                  Decrescente
+                </button>
               </div>
             </div>
           </div>
-        )}
 
-        {activeReport === 'gps' && (
-          (() => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(today.getDate() + 1);
-            
-            const isDueSoon = gpsData.some(item => !item.gpsPaid && item.gps_forecast_date && new Date(item.gps_forecast_date) > today && new Date(item.gps_forecast_date) <= tomorrow);
-            return (
-            <div className="flex justify-center mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-5xl">
-                {[
-                  { title: 'Total Pendente', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
-                  { title: 'Total Pago', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
-                  { title: 'Total Geral', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1', active: false }
-                ].map((item, index) => (
-                  <div key={index} className={`bg-white p-4 rounded-2xl shadow-sm border ${item.active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200'} flex items-center justify-between`}>
-                    <div className="flex flex-col">
-                      <div className="text-xs font-medium text-slate-500 mb-1">{item.title}</div>
-                      <div className="text-xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
+          {activeReport === 'a-receber' && (
+            <div className="p-4 sm:p-6 pb-2 space-y-4">
+              {(() => {
+                const totalPendente = aReceberData.reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+                
+                const vencendoEsteMes = aReceberData.filter(item => {
+                  if (!item.dueDate) return false;
+                  const d = new Date(item.dueDate);
+                  const now = new Date();
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+
+                const totalEmAtraso = aReceberData.filter(item => {
+                  if (!item.dueDate) return false;
+                  const d = new Date(item.dueDate);
+                  const now = new Date();
+                  const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                  const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  return dDate < nowDate;
+                }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {/* Card 1: Total Pendente */}
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Total Pendente</span>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 truncate leading-none" title={formatCurrency(totalPendente)}>
+                          {formatCurrency(totalPendente)}
+                        </h3>
+                      </div>
+                      <div className="p-2.5 sm:p-3 rounded-xl bg-slate-100 text-slate-700 ml-3 shrink-0">
+                        <Coins className="w-5 h-5" />
+                      </div>
                     </div>
-                    <div className="h-12 w-12 shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[{ value: item.value }, { value: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value }]}
-                            innerRadius={16}
-                            outerRadius={20}
-                            paddingAngle={0}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            <Cell fill={item.color} />
-                            <Cell fill="#e2e8f0" />
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
+
+                    {/* Card 2: Vencendo Este Mês */}
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-indigo-100 shadow-sm flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider block mb-1">Vencendo este mês</span>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-indigo-600 truncate leading-none" title={formatCurrency(vencendoEsteMes)}>
+                          {formatCurrency(vencendoEsteMes)}
+                        </h3>
+                      </div>
+                      <div className="p-2.5 sm:p-3 rounded-xl bg-indigo-50 text-indigo-600 ml-3 shrink-0">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    {/* Card 3: Total em Atraso */}
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between sm:col-span-2 lg:col-span-1">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold text-rose-500 uppercase tracking-wider block mb-1">Total em Atraso</span>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-rose-600 truncate leading-none" title={formatCurrency(totalEmAtraso)}>
+                          {formatCurrency(totalEmAtraso)}
+                        </h3>
+                      </div>
+                      <div className="p-2.5 sm:p-3 rounded-xl bg-rose-50 text-rose-600 ml-3 shrink-0">
+                        <AlertTriangle className="w-5 h-5" />
+                      </div>
                     </div>
                   </div>
-                ))}
+                );
+              })()}
+
+              {/* Filter Bar */}
+              <div className="bg-slate-50/80 p-3 sm:p-4 rounded-2xl border border-slate-200/80 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
+                {/* Period Filters */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs">
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">Início:</span>
+                    <input
+                      type="date"
+                      value={aReceberStartDate}
+                      onChange={(e) => setAReceberStartDate(e.target.value)}
+                      className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-800 focus:ring-0 outline-none w-full sm:w-28 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs">
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">Fim:</span>
+                    <input
+                      type="date"
+                      value={aReceberEndDate}
+                      onChange={(e) => setAReceberEndDate(e.target.value)}
+                      className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-800 focus:ring-0 outline-none w-full sm:w-28 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 justify-end">
+                  {/* Status Filter Buttons */}
+                  <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                    <button
+                      onClick={() => setAReceberStatusFilter('all')}
+                      className={cn(
+                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
+                        aReceberStatusFilter === 'all'
+                          ? "bg-slate-900 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Todas
+                    </button>
+                    <button
+                      onClick={() => setAReceberStatusFilter('pending')}
+                      className={cn(
+                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
+                        aReceberStatusFilter === 'pending'
+                          ? "bg-indigo-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-indigo-600"
+                      )}
+                    >
+                      A Vencer
+                    </button>
+                    <button
+                      onClick={() => setAReceberStatusFilter('overdue')}
+                      className={cn(
+                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
+                        aReceberStatusFilter === 'overdue'
+                          ? "bg-rose-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-rose-600"
+                      )}
+                    >
+                      Atrasadas
+                    </button>
+                  </div>
+
+                  {/* Tag Filter Input */}
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs w-full sm:w-52">
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">TAG:</span>
+                    <input
+                      type="text"
+                      placeholder="Filtrar por tag..."
+                      value={aReceberTagFilter}
+                      onChange={(e) => setAReceberTagFilter(e.target.value)}
+                      className="bg-transparent border-0 p-0 text-xs text-slate-700 focus:ring-0 outline-none w-full font-medium"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            );
-          })()
-        )}
+          )}
+
+          {activeReport === 'recebimentos' && (
+            <div className="p-4 sm:p-6 pb-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total Recebido no Período</div>
+                    <div className="text-xl sm:text-2xl font-bold text-emerald-600">
+                      {formatCurrency(recebimentosData.reduce((acc, item) => acc + item.amount, 0), isVisible('reports_recebimentos'))}
+                    </div>
+                  </div>
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                    <Receipt size={22} />
+                  </div>
+                </div>
+                <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total de Lançamentos</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900">
+                      {recebimentosData.length}
+                    </div>
+                  </div>
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                    <BarChart3 size={22} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeReport === 'gps' && (
+            (() => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+              
+              return (
+                <div className="p-4 sm:p-6 pb-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { title: 'Total Pendente', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
+                      { title: 'Total Pago', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
+                      { title: 'Total Geral', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1', active: false }
+                    ].map((item, index) => (
+                      <div key={index} className={`bg-white p-4 rounded-2xl shadow-sm border ${item.active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200'} flex items-center justify-between`}>
+                        <div className="flex flex-col">
+                          <div className="text-xs font-medium text-slate-500 mb-1">{item.title}</div>
+                          <div className="text-lg sm:text-xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
+                        </div>
+                        <div className="h-11 w-11 sm:h-12 sm:w-12 shrink-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[{ value: item.value }, { value: Math.max(0, gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value) }]}
+                                innerRadius={15}
+                                outerRadius={19}
+                                paddingAngle={0}
+                                dataKey="value"
+                                stroke="none"
+                              >
+                                <Cell fill={item.color} />
+                                <Cell fill="#e2e8f0" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -1442,7 +1471,8 @@ function RelatoriosPageContent() {
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Processo</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">TAGs</th>
                       <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Valor</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Status</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                      <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Ações</th>
                     </>
                   ) : activeReport === 'childbirth' ? (
                     <>
@@ -1585,6 +1615,15 @@ function RelatoriosPageContent() {
                             )}>
                               {new Date(item.dueDate) < new Date() ? 'Atrasado' : 'Pendente'}
                             </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => handleQuitarAReceberItem(item)}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+                              title="Quitar saldo restante"
+                            >
+                              Quitar
+                            </button>
                           </td>
                         </>
                       ) : activeReport === 'deadlines' ? (

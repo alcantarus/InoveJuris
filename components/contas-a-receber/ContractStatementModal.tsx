@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Download } from 'lucide-react'
 import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
@@ -18,7 +18,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     setLoading(true)
 
     // 1. Busca todas as parcelas do contrato incluindo todos os campos
@@ -84,13 +84,14 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     
     setPayments(mappedPayments)
     setLoading(false)
-  }
+  }, [contractId])
 
   useEffect(() => {
     if (isOpen && contractId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchPayments()
     }
-  }, [isOpen, contractId])
+  }, [isOpen, contractId, fetchPayments])
 
   const totalReceived = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)
   const uniqueInstallments = new Set(payments.map(p => p.installments?.installmentNumber)).size
