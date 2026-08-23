@@ -1,0 +1,2 @@
+                   activeReport === 'recebimentos' ? 'Relatório de Recebimentos' :
+                   'Relatório de Comissões'}

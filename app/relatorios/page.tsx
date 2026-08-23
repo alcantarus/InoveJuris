@@ -943,7 +943,7 @@ function RelatoriosPageContent() {
                    activeReport === 'birthdays' ? 'Relatório de Aniversariantes' :
                    activeReport === 'gps' ? 'Relatório de Controle de GPS' :
                    activeReport === 'recebimentos' ? 'Relatório de Recebimentos' :
-                   'Relatório de Comissões'}
+                   activeReport === 'a-receber' ? 'Relatório de Contas a Receber' : 'Relatório de Comissões'}
                 </h2>
                 <p className="text-sm text-slate-500">
                   {activeReport === 'deadlines' 
@@ -956,6 +956,8 @@ function RelatoriosPageContent() {
                     ? 'Acompanhamento de vencimentos e pagamentos de GPS'
                     : activeReport === 'recebimentos'
                     ? 'Extrato detalhado de recebimentos e entradas por período'
+                    : activeReport === 'a-receber'
+                    ? 'Acompanhamento de valores pendentes de recebimento'
                     : 'Acompanhamento de comissões devidas a indicadores'}
                 </p>
               </div>
