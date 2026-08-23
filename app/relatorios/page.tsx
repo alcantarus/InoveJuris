@@ -175,6 +175,15 @@ function RelatoriosPageContent() {
   const [recebimentosTagFilter, setRecebimentosTagFilter] = useState('')
   const [aReceberData, setAReceberData] = useState<any[]>([])
   const [aReceberTagFilter, setAReceberTagFilter] = useState('')
+  const [aReceberStartDate, setAReceberStartDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  })
+  const [aReceberEndDate, setAReceberEndDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear() + 1, now.getMonth(), 0).toISOString().split('T')[0]
+  })
+  const [aReceberStatusFilter, setAReceberStatusFilter] = useState<'all' | 'pending' | 'overdue'>('all')
   const [accountsList, setAccountsList] = useState<any[]>([])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [selectedGps, setSelectedGps] = useState<any>(null)
@@ -258,7 +267,7 @@ function RelatoriosPageContent() {
       fetchAReceberData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter, 'a-receber'])
+  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter, aReceberStartDate, aReceberEndDate])
 
   const fetchRecebimentosData = async () => {
     if (!isSupabaseConfigured) {
@@ -331,11 +340,12 @@ function RelatoriosPageContent() {
     try {
       setLoading(true)
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('installments')
         .select(`
           id,
           amount,
+          amountPaid,
           dueDate,
           status,
           contract_id,
@@ -345,6 +355,15 @@ function RelatoriosPageContent() {
           )
         `)
         .neq('status', 'Quitado')
+
+      if (aReceberStartDate) {
+        query = query.gte('dueDate', aReceberStartDate)
+      }
+      if (aReceberEndDate) {
+        query = query.lte('dueDate', aReceberEndDate)
+      }
+
+      const { data, error } = await query
         .order('dueDate', { ascending: true })
 
       if (error) throw error
@@ -356,6 +375,35 @@ function RelatoriosPageContent() {
       setLoading(false)
     }
   }
+
+  const getFilteredAReceberData = () => {
+    const filtered = aReceberData.filter(item => {
+      // 1. Tag filter
+      if (aReceberTagFilter) {
+        const tags = item.contracts?.clients?.tags || [];
+        const hasTag = tags.some((t: string) => t.toLowerCase().includes(aReceberTagFilter.toLowerCase()));
+        if (!hasTag) return false;
+      }
+
+      // 2. Status Filter
+      if (aReceberStatusFilter === 'pending') {
+        const isOverdue = new Date(item.dueDate) < new Date();
+        if (isOverdue) return false;
+      } else if (aReceberStatusFilter === 'overdue') {
+        const isOverdue = new Date(item.dueDate) < new Date();
+        if (!isOverdue) return false;
+      }
+
+      return true;
+    });
+
+    // 3. Sort by dueDate
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.dueDate).getTime();
+      const dateB = new Date(b.dueDate).getTime();
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+  };
 
   // Re-sort when sortOrder changes
   useEffect(() => {
@@ -1048,29 +1096,138 @@ function RelatoriosPageContent() {
 
               {activeReport === 'a-receber' && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                      <p className="text-sm text-slate-500 font-medium truncate">Total Pendente</p>
-                      <p className="text-xl font-bold text-slate-900 mt-1 truncate">{formatCurrency(aReceberData.reduce((acc, item) => acc + item.amount, 0))}</p>
+                  {(() => {
+                    const totalPendente = aReceberData.reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+                    
+                    const vencendoEsteMes = aReceberData.filter(item => {
+                      if (!item.dueDate) return false;
+                      const d = new Date(item.dueDate);
+                      const now = new Date();
+                      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                    }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+
+                    const totalEmAtraso = aReceberData.filter(item => {
+                      if (!item.dueDate) return false;
+                      const d = new Date(item.dueDate);
+                      const now = new Date();
+                      const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                      const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                      return dDate < nowDate;
+                    }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        {/* Card 1: Total Pendente */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Total Pendente</span>
+                            <h3 className="text-2xl font-extrabold text-slate-950 truncate leading-none" title={formatCurrency(totalPendente)}>
+                              {formatCurrency(totalPendente)}
+                            </h3>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-50 text-slate-600 ml-4 flex-shrink-0">
+                            <Coins className="w-5 h-5" />
+                          </div>
+                        </div>
+
+                        {/* Card 2: Vencendo Este Mês */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Vencendo este mês</span>
+                            <h3 className="text-2xl font-extrabold text-indigo-600 truncate leading-none" title={formatCurrency(vencendoEsteMes)}>
+                              {formatCurrency(vencendoEsteMes)}
+                            </h3>
+                          </div>
+                          <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 ml-4 flex-shrink-0">
+                            <Calendar className="w-5 h-5" />
+                          </div>
+                        </div>
+
+                        {/* Card 3: Total em Atraso */}
+                        <div className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-semibold text-rose-500 uppercase tracking-wider block mb-1">Total em Atraso</span>
+                            <h3 className="text-2xl font-extrabold text-rose-600 truncate leading-none" title={formatCurrency(totalEmAtraso)}>
+                              {formatCurrency(totalEmAtraso)}
+                            </h3>
+                          </div>
+                          <div className="p-3 rounded-xl bg-rose-50 text-rose-600 ml-4 flex-shrink-0">
+                            <AlertTriangle className="w-5 h-5" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 mb-6 flex flex-wrap items-center gap-4">
+                    {/* Period Filters */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
+                        <span className="text-slate-400 uppercase tracking-wider text-[10px]">Início:</span>
+                        <input
+                          type="date"
+                          value={aReceberStartDate}
+                          onChange={(e) => setAReceberStartDate(e.target.value)}
+                          className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-700 focus:ring-0 outline-none w-28"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
+                        <span className="text-slate-400 uppercase tracking-wider text-[10px]">Fim:</span>
+                        <input
+                          type="date"
+                          value={aReceberEndDate}
+                          onChange={(e) => setAReceberEndDate(e.target.value)}
+                          className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-700 focus:ring-0 outline-none w-28"
+                        />
+                      </div>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                      <p className="text-sm text-slate-500 font-medium truncate">Vencendo este mês</p>
-                      <p className="text-xl font-bold text-slate-900 mt-1 truncate">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0))}</p>
+
+                    {/* Status Filter Buttons */}
+                    <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80 shadow-xs">
+                      <button
+                        onClick={() => setAReceberStatusFilter('all')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                          aReceberStatusFilter === 'all'
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-800"
+                        )}
+                      >
+                        Todas
+                      </button>
+                      <button
+                        onClick={() => setAReceberStatusFilter('pending')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                          aReceberStatusFilter === 'pending'
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "text-slate-600 hover:text-indigo-600"
+                        )}
+                      >
+                        A Vencer
+                      </button>
+                      <button
+                        onClick={() => setAReceberStatusFilter('overdue')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                          aReceberStatusFilter === 'overdue'
+                            ? "bg-rose-600 text-white shadow-xs"
+                            : "text-slate-600 hover:text-rose-600"
+                        )}
+                      >
+                        Atrasadas
+                      </button>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                      <p className="text-sm text-slate-500 font-medium truncate">Total em Atraso</p>
-                      <p className="text-xl font-bold text-rose-600 mt-1 truncate">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate) < new Date()).reduce((acc, item) => acc + item.amount, 0))}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2 mb-6">
-                    <div className="flex items-center gap-1 text-xs font-medium text-slate-600 px-1">
-                      <span>TAG:</span>
+
+                    {/* Tag Filter Input */}
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs flex-1 min-w-[150px]">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px]">TAG:</span>
                       <input
                         type="text"
                         placeholder="Filtrar por tag..."
                         value={aReceberTagFilter}
                         onChange={(e) => setAReceberTagFilter(e.target.value)}
-                        className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs w-32"
+                        className="bg-transparent border-0 p-0 text-xs text-slate-700 focus:ring-0 outline-none w-full font-medium"
                       />
                     </div>
                   </div>
@@ -1346,7 +1503,7 @@ function RelatoriosPageContent() {
                     return true;
                   }) : 
                   activeReport === 'recebimentos' ? recebimentosData :
-                  activeReport === 'a-receber' ? aReceberData :
+                  activeReport === 'a-receber' ? getFilteredAReceberData() :
                   commissionData
                 ).length === 0 ? (
                   <tr>
@@ -1373,7 +1530,7 @@ function RelatoriosPageContent() {
                       return true;
                     }) :
                     activeReport === 'recebimentos' ? recebimentosData :
-                    activeReport === 'a-receber' ? aReceberData :
+                    activeReport === 'a-receber' ? getFilteredAReceberData() :
                     commissionData
                   ).map((item: any, index) => (
                     <motion.tr 
@@ -1420,7 +1577,7 @@ function RelatoriosPageContent() {
                               ))}
                             </div>
                           </td>
-                          <td className="p-4 text-right font-bold text-slate-900">{formatCurrency(item.amount)}</td>
+                          <td className="p-4 text-right font-bold text-slate-900">{formatCurrency(Number(item.amount || 0) - Number(item.amountPaid || 0))}</td>
                           <td className="p-4">
                             <span className={cn(
                               "px-2 py-1 rounded-full text-[10px] font-medium",
