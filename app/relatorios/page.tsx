@@ -176,6 +176,8 @@ function RelatoriosPageContent() {
   const [recebimentosTagFilter, setRecebimentosTagFilter] = useState('')
   const [aReceberData, setAReceberData] = useState<any[]>([])
   const [aReceberTagFilter, setAReceberTagFilter] = useState('')
+  const [aReceberShowAllPeriods, setAReceberShowAllPeriods] = useState(true)
+  const [aReceberSearch, setAReceberSearch] = useState('')
   const [aReceberStartDate, setAReceberStartDate] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
@@ -268,7 +270,7 @@ function RelatoriosPageContent() {
       fetchAReceberData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter, aReceberStartDate, aReceberEndDate])
+  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter, aReceberStartDate, aReceberEndDate, aReceberShowAllPeriods])
 
   const fetchRecebimentosData = async () => {
     if (!isSupabaseConfigured) {
@@ -349,6 +351,7 @@ function RelatoriosPageContent() {
           amountPaid,
           dueDate,
           status,
+          installmentNumber,
           contract_id,
           contracts(
             processNumber,
@@ -356,12 +359,15 @@ function RelatoriosPageContent() {
           )
         `)
         .neq('status', 'Quitado')
+        .neq('status', 'Cancelada')
 
-      if (aReceberStartDate) {
-        query = query.gte('dueDate', aReceberStartDate)
-      }
-      if (aReceberEndDate) {
-        query = query.lte('dueDate', aReceberEndDate)
+      if (!aReceberShowAllPeriods) {
+        if (aReceberStartDate) {
+          query = query.gte('dueDate', aReceberStartDate)
+        }
+        if (aReceberEndDate) {
+          query = query.lte('dueDate', aReceberEndDate)
+        }
       }
 
       const { data, error } = await query
@@ -406,6 +412,16 @@ function RelatoriosPageContent() {
 
   const getFilteredAReceberData = () => {
     const filtered = aReceberData.filter(item => {
+      // 0. Search filter
+      if (aReceberSearch) {
+        const queryText = aReceberSearch.toLowerCase();
+        const clientName = (item.contracts?.clients?.name || '').toLowerCase();
+        const processNum = (item.contracts?.processNumber || '').toLowerCase();
+        if (!clientName.includes(queryText) && !processNum.includes(queryText)) {
+          return false;
+        }
+      }
+
       // 1. Tag filter
       if (aReceberTagFilter) {
         const tags = item.contracts?.clients?.tags || [];
@@ -1236,8 +1252,14 @@ function RelatoriosPageContent() {
                   return dDate < nowDate;
                 }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
 
+                const totalResiduais = aReceberData.filter(item => {
+                  const paid = Number(item.amountPaid || 0);
+                  const total = Number(item.amount || 0);
+                  return paid > 0 && paid < total;
+                }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     {/* Card 1: Total Pendente */}
                     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                       <div className="min-w-0 flex-1">
@@ -1245,6 +1267,7 @@ function RelatoriosPageContent() {
                         <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 truncate leading-none" title={formatCurrency(totalPendente)}>
                           {formatCurrency(totalPendente)}
                         </h3>
+                        <span className="text-[11px] text-slate-400 mt-1 block">{aReceberData.length} parcelas em aberto</span>
                       </div>
                       <div className="p-2.5 sm:p-3 rounded-xl bg-slate-100 text-slate-700 ml-3 shrink-0">
                         <Coins className="w-5 h-5" />
@@ -1258,6 +1281,7 @@ function RelatoriosPageContent() {
                         <h3 className="text-xl sm:text-2xl font-extrabold text-indigo-600 truncate leading-none" title={formatCurrency(vencendoEsteMes)}>
                           {formatCurrency(vencendoEsteMes)}
                         </h3>
+                        <span className="text-[11px] text-indigo-400 mt-1 block">Previsão corrente</span>
                       </div>
                       <div className="p-2.5 sm:p-3 rounded-xl bg-indigo-50 text-indigo-600 ml-3 shrink-0">
                         <Calendar className="w-5 h-5" />
@@ -1265,93 +1289,146 @@ function RelatoriosPageContent() {
                     </div>
 
                     {/* Card 3: Total em Atraso */}
-                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between sm:col-span-2 lg:col-span-1">
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between">
                       <div className="min-w-0 flex-1">
                         <span className="text-xs font-semibold text-rose-500 uppercase tracking-wider block mb-1">Total em Atraso</span>
                         <h3 className="text-xl sm:text-2xl font-extrabold text-rose-600 truncate leading-none" title={formatCurrency(totalEmAtraso)}>
                           {formatCurrency(totalEmAtraso)}
                         </h3>
+                        <span className="text-[11px] text-rose-400 mt-1 block">Requer cobrança</span>
                       </div>
                       <div className="p-2.5 sm:p-3 rounded-xl bg-rose-50 text-rose-600 ml-3 shrink-0">
                         <AlertTriangle className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    {/* Card 4: Residuais e Parciais */}
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-100 shadow-sm flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider block mb-1">Saldos Residuais</span>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-amber-600 truncate leading-none" title={formatCurrency(totalResiduais)}>
+                          {formatCurrency(totalResiduais)}
+                        </h3>
+                        <span className="text-[11px] text-amber-500 mt-1 block">Pagamentos parciais</span>
+                      </div>
+                      <div className="p-2.5 sm:p-3 rounded-xl bg-amber-50 text-amber-600 ml-3 shrink-0">
+                        <Receipt className="w-5 h-5" />
                       </div>
                     </div>
                   </div>
                 );
               })()}
 
-              {/* Filter Bar */}
-              <div className="bg-slate-50/80 p-3 sm:p-4 rounded-2xl border border-slate-200/80 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
-                {/* Period Filters */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs">
-                    <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">Início:</span>
+              {/* Innovative Filter Bar */}
+              <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200/95 space-y-3">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                  {/* Search Input */}
+                  <div className="relative flex-1 max-w-md">
                     <input
-                      type="date"
-                      value={aReceberStartDate}
-                      onChange={(e) => setAReceberStartDate(e.target.value)}
-                      className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-800 focus:ring-0 outline-none w-full sm:w-28 cursor-pointer"
+                      type="text"
+                      placeholder="Pesquisar por cliente ou nº do processo..."
+                      value={aReceberSearch}
+                      onChange={(e) => setAReceberSearch(e.target.value)}
+                      className="w-full bg-white border border-slate-200 px-4 py-2.5 pl-9 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none shadow-2xs"
                     />
+                    <svg className="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs">
-                    <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">Fim:</span>
-                    <input
-                      type="date"
-                      value={aReceberEndDate}
-                      onChange={(e) => setAReceberEndDate(e.target.value)}
-                      className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-800 focus:ring-0 outline-none w-full sm:w-28 cursor-pointer"
-                    />
+
+                  {/* Toggle All Periods */}
+                  <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-2xs">
+                    <label className="relative flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={aReceberShowAllPeriods}
+                        onChange={(e) => setAReceberShowAllPeriods(e.target.checked)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                      />
+                      <span>Exibir Todos os Períodos (Passados e Futuros)</span>
+                    </label>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 justify-end">
-                  {/* Status Filter Buttons */}
-                  <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
-                    <button
-                      onClick={() => setAReceberStatusFilter('all')}
-                      className={cn(
-                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
-                        aReceberStatusFilter === 'all'
-                          ? "bg-slate-900 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      )}
-                    >
-                      Todas
-                    </button>
-                    <button
-                      onClick={() => setAReceberStatusFilter('pending')}
-                      className={cn(
-                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
-                        aReceberStatusFilter === 'pending'
-                          ? "bg-indigo-600 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-indigo-600"
-                      )}
-                    >
-                      A Vencer
-                    </button>
-                    <button
-                      onClick={() => setAReceberStatusFilter('overdue')}
-                      className={cn(
-                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
-                        aReceberStatusFilter === 'overdue'
-                          ? "bg-rose-600 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-rose-600"
-                      )}
-                    >
-                      Atrasadas
-                    </button>
-                  </div>
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-2 border-t border-slate-200/60">
+                  {/* Period Filters (Conditional) */}
+                  {!aReceberShowAllPeriods ? (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs">
+                        <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">Início:</span>
+                        <input
+                          type="date"
+                          value={aReceberStartDate}
+                          onChange={(e) => setAReceberStartDate(e.target.value)}
+                          className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-800 focus:ring-0 outline-none w-full sm:w-28 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs">
+                        <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">Fim:</span>
+                        <input
+                          type="date"
+                          value={aReceberEndDate}
+                          onChange={(e) => setAReceberEndDate(e.target.value)}
+                          className="bg-transparent border-0 p-0 text-xs font-semibold text-slate-800 focus:ring-0 outline-none w-full sm:w-28 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-emerald-600 font-semibold flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Exibindo todos os registros em aberto e residuais sem restrição de datas.
+                    </div>
+                  )}
 
-                  {/* Tag Filter Input */}
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs w-full sm:w-52">
-                    <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">TAG:</span>
-                    <input
-                      type="text"
-                      placeholder="Filtrar por tag..."
-                      value={aReceberTagFilter}
-                      onChange={(e) => setAReceberTagFilter(e.target.value)}
-                      className="bg-transparent border-0 p-0 text-xs text-slate-700 focus:ring-0 outline-none w-full font-medium"
-                    />
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 justify-end">
+                    {/* Status Filter Buttons */}
+                    <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                      <button
+                        onClick={() => setAReceberStatusFilter('all')}
+                        className={cn(
+                          "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
+                          aReceberStatusFilter === 'all'
+                            ? "bg-slate-900 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        )}
+                      >
+                        Todas
+                      </button>
+                      <button
+                        onClick={() => setAReceberStatusFilter('pending')}
+                        className={cn(
+                          "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
+                          aReceberStatusFilter === 'pending'
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-indigo-600"
+                        )}
+                      >
+                        A Vencer
+                      </button>
+                      <button
+                        onClick={() => setAReceberStatusFilter('overdue')}
+                        className={cn(
+                          "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-center",
+                          aReceberStatusFilter === 'overdue'
+                            ? "bg-rose-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-rose-600"
+                        )}
+                      >
+                        Atrasadas
+                      </button>
+                    </div>
+
+                    {/* Tag Filter Input */}
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-2xs w-full sm:w-48">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">TAG:</span>
+                      <input
+                        type="text"
+                        placeholder="Filtrar por tag..."
+                        value={aReceberTagFilter}
+                        onChange={(e) => setAReceberTagFilter(e.target.value)}
+                        className="bg-transparent border-0 p-0 text-xs text-slate-700 focus:ring-0 outline-none w-full font-medium"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
