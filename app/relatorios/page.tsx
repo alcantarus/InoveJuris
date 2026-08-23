@@ -258,7 +258,7 @@ function RelatoriosPageContent() {
       fetchAReceberData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter])
+  }, [activeReport, recebimentosStartDate, recebimentosEndDate, recebimentosAccountFilter, 'a-receber'])
 
   const fetchRecebimentosData = async () => {
     if (!isSupabaseConfigured) {
@@ -344,7 +344,7 @@ function RelatoriosPageContent() {
             clients(name, tags)
           )
         `)
-        .eq('status', 'Pendente')
+        .order('dueDate', { ascending: true })
 
       if (error) throw error
 
