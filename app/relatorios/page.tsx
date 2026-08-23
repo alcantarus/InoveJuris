@@ -27,6 +27,7 @@ import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
+import { toast } from 'sonner'
 
 interface ChildbirthReportItem {
   id: number
@@ -380,7 +381,7 @@ function RelatoriosPageContent() {
     try {
       const remaining = Number(item.amount || 0) - Number(item.amountPaid || 0);
       if (remaining <= 0) {
-        toast.info('Esta parcela já está quitada.');
+        toast.warning('Esta parcela já está quitada.');
         return;
       }
       const { error } = await supabase.rpc('process_installment_payment', {
