@@ -344,6 +344,7 @@ function RelatoriosPageContent() {
             clients(name, tags)
           )
         `)
+        .neq('status', 'Quitado')
         .order('dueDate', { ascending: true })
 
       if (error) throw error
@@ -1048,17 +1049,17 @@ function RelatoriosPageContent() {
               {activeReport === 'a-receber' && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                      <p className="text-sm text-slate-500 font-medium">Total Pendente</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(aReceberData.reduce((acc, item) => acc + item.amount, 0))}</p>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                      <p className="text-sm text-slate-500 font-medium truncate">Total Pendente</p>
+                      <p className="text-xl font-bold text-slate-900 mt-1 truncate">{formatCurrency(aReceberData.reduce((acc, item) => acc + item.amount, 0))}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                      <p className="text-sm text-slate-500 font-medium">Vencendo este mês</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0))}</p>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                      <p className="text-sm text-slate-500 font-medium truncate">Vencendo este mês</p>
+                      <p className="text-xl font-bold text-slate-900 mt-1 truncate">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0))}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                      <p className="text-sm text-slate-500 font-medium">Total em Atraso</p>
-                      <p className="text-2xl font-bold text-rose-600 mt-1">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate) < new Date()).reduce((acc, item) => acc + item.amount, 0))}</p>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                      <p className="text-sm text-slate-500 font-medium truncate">Total em Atraso</p>
+                      <p className="text-xl font-bold text-rose-600 mt-1 truncate">{formatCurrency(aReceberData.filter(item => new Date(item.dueDate) < new Date()).reduce((acc, item) => acc + item.amount, 0))}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 mr-2 mb-6">
