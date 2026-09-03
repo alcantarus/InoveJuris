@@ -8,7 +8,7 @@ import { KPICard } from '@/components/ui/KPICard'
 import { DollarSign, Search, Calendar, CheckCircle2, Clock, AlertCircle, Plus, Receipt, Download, FileText, History, Eye, EyeOff } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { supabase, processContractCancellation } from '@/lib/supabase'
 import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
@@ -152,27 +152,18 @@ export default function ContasAReceberPage() {
         setLoading(false);
         return;
       }
-      const payload = {
-        p_contract_id: Number(selectedContract.id),
-        p_reason: reason,
-        p_user_id: user.id
-      };
-      console.log('Calling RPC process_contract_cancellation with payload:', payload);
 
-      const { error: rpcError, data } = await supabase.rpc('process_contract_cancellation', payload, { schema: 'public' });
-
-      if (rpcError) {
-        console.error('RPC error details:', JSON.stringify(rpcError, null, 2));
-        throw rpcError;
-      }
-      
-      console.log('RPC success data:', data);
+      await processContractCancellation(
+        Number(selectedContract.id),
+        reason,
+        user.id
+      );
 
       toast.success('Contrato cancelado com sucesso!');
       setSelectedContract(null);
       fetchContracts();
-    } catch (error) {
-      toast.error('Erro ao cancelar contrato');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao cancelar contrato');
       console.error('Full error:', error);
     } finally {
       setLoading(false);

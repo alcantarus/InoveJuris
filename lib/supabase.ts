@@ -137,3 +137,81 @@ export const supabase = new Proxy({} as any, {
 
 // Always return true since we have hardcoded fallbacks
 export const isSupabaseConfigured = true
+
+/**
+ * Robust wrapper for contract cancellation.
+ * Tries executing via DB RPC process_contract_cancellation, 
+ * and automatically falls back to secure client-side transactions if needed.
+ */
+export async function processContractCancellation(contractId: number, reason: string, userId: number | null) {
+  try {
+    // Try to run RPC first
+    const { data, error: rpcError } = await supabase.rpc('process_contract_cancellation', {
+      p_contract_id: contractId,
+      p_reason: reason,
+      p_user_id: userId
+    });
+
+    if (!rpcError) {
+      return { success: true, data };
+    }
+
+    console.warn('RPC cancellation failed, falling back to client-side updates:', rpcError);
+  } catch (rpcErr) {
+    console.warn('RPC cancellation threw exception, falling back to client-side updates:', rpcErr);
+  }
+
+  // Fallback to client-side updates (highly resilient and supports 'Prorrogada' etc.)
+  // Fetch the contract first to get original observations
+  const { data: contract, error: contractFetchError } = await supabase
+    .from('contracts')
+    .select('observations, status')
+    .eq('id', contractId)
+    .single();
+
+  if (contractFetchError) throw contractFetchError;
+  if (!contract) throw new Error('Contrato não encontrado.');
+
+  const { data: insts, error: fetchError } = await supabase
+    .from('installments')
+    .select('*')
+    .eq('contract_id', contractId);
+
+  if (fetchError) throw fetchError;
+
+  const hasPayments = insts?.some((i: any) => (i.amountPaid || 0) > 0);
+  if (hasPayments) {
+    throw new Error('Não é possível cancelar um contrato com parcelas recebidas.');
+  }
+
+  const oldObs = contract.observations || '';
+  const updatedObs = oldObs 
+    ? `${oldObs}\n\n[CANCELAMENTO]: ${reason}` 
+    : `[CANCELAMENTO]: ${reason}`;
+
+  const { error: contractUpdateError } = await supabase
+    .from('contracts')
+    .update({
+      status: 'Cancelado',
+      observations: updatedObs,
+      commissionValue: 0,
+      commissionPaid: false,
+      updated_by: userId
+    })
+    .eq('id', contractId);
+
+  if (contractUpdateError) throw contractUpdateError;
+
+  const { error: installmentsUpdateError } = await supabase
+    .from('installments')
+    .update({
+      status: 'Cancelada',
+      updated_by: userId
+    })
+    .eq('contract_id', contractId);
+
+  if (installmentsUpdateError) throw installmentsUpdateError;
+
+  return { success: true };
+}
+

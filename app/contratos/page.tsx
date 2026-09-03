@@ -36,7 +36,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { KPICard } from '@/components/ui/KPICard'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured, processContractCancellation } from '@/lib/supabase'
 import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor, getTodayBR, isContractQuitado } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
@@ -865,13 +865,11 @@ export default function FinanceiroPage() {
 
     try {
       if (isSupabaseConfigured) {
-        const { error: rpcError } = await supabase.rpc('process_contract_cancellation', {
-          p_contract_id: contractToCancel.id,
-          p_reason: cancelReason,
-          p_user_id: user?.id || null
-        })
-
-        if (rpcError) throw rpcError
+        await processContractCancellation(
+          contractToCancel.id,
+          cancelReason,
+          user?.id || null
+        )
 
         // Update local state
         const updatedObs = contractToCancel.observations 
