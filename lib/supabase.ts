@@ -144,6 +144,22 @@ export const isSupabaseConfigured = true
  * and automatically falls back to secure client-side transactions if needed.
  */
 export async function processContractCancellation(contractId: number, reason: string, userId: number | null) {
+  // Fetch status first to check if it's 'Prorrogado' (known issue in RPC)
+  const { data: contract, error: contractFetchError } = await supabase
+    .from('contracts')
+    .select('observations, status')
+    .eq('id', contractId)
+    .single();
+
+  if (contractFetchError) throw contractFetchError;
+  if (!contract) throw new Error('Contrato não encontrado.');
+
+  // If Prorrogado, bypass RPC due to SQL restriction
+  if (contract.status === 'Prorrogado') {
+    console.log('[processContractCancellation] Bypassing RPC for Prorrogado status');
+    return await performFallbackCancellation(contractId, reason, userId, contract);
+  }
+
   try {
     // Try to run RPC first
     const { data, error: rpcError } = await supabase.rpc('process_contract_cancellation', {
@@ -156,31 +172,33 @@ export async function processContractCancellation(contractId: number, reason: st
       return { success: true, data };
     }
 
-    console.warn('RPC cancellation failed, falling back to client-side updates:', rpcError);
+    console.warn('RPC cancellation failed, falling back to client-side updates:', JSON.stringify(rpcError));
   } catch (rpcErr) {
     console.warn('RPC cancellation threw exception, falling back to client-side updates:', rpcErr);
   }
 
-  // Fallback to client-side updates (highly resilient and supports 'Prorrogada' etc.)
-  // Fetch the contract first to get original observations
-  const { data: contract, error: contractFetchError } = await supabase
-    .from('contracts')
-    .select('observations, status')
-    .eq('id', contractId)
-    .single();
+  // Fallback to client-side updates
+  return await performFallbackCancellation(contractId, reason, userId, contract);
+}
 
-  if (contractFetchError) throw contractFetchError;
-  if (!contract) throw new Error('Contrato não encontrado.');
+async function performFallbackCancellation(contractId: number, reason: string, userId: number | null, contract: any) {
+  console.log('[processContractCancellation] Starting fallback for contractId:', contractId);
 
   const { data: insts, error: fetchError } = await supabase
     .from('installments')
     .select('*')
     .eq('contract_id', contractId);
 
-  if (fetchError) throw fetchError;
+  if (fetchError) {
+    console.error('[processContractCancellation] Installments fetch error:', fetchError);
+    throw fetchError;
+  }
+
+  console.log('[processContractCancellation] Fetched installments:', insts);
 
   const hasPayments = insts?.some((i: any) => (i.amountPaid || 0) > 0);
   if (hasPayments) {
+    console.warn('[processContractCancellation] Blocked due to payments');
     throw new Error('Não é possível cancelar um contrato com parcelas recebidas.');
   }
 
