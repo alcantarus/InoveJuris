@@ -154,30 +154,8 @@ export async function processContractCancellation(contractId: number, reason: st
   if (contractFetchError) throw contractFetchError;
   if (!contract) throw new Error('Contrato não encontrado.');
 
-  // If Prorrogado, bypass RPC due to SQL restriction
-  if (contract.status === 'Prorrogado') {
-    console.log('[processContractCancellation] Bypassing RPC for Prorrogado status');
-    return await performFallbackCancellation(contractId, reason, userId, contract);
-  }
-
-  try {
-    // Try to run RPC first
-    const { data, error: rpcError } = await supabase.rpc('process_contract_cancellation', {
-      p_contract_id: contractId,
-      p_reason: reason,
-      p_user_id: userId
-    });
-
-    if (!rpcError) {
-      return { success: true, data };
-    }
-
-    console.warn('RPC cancellation failed, falling back to client-side updates:', JSON.stringify(rpcError));
-  } catch (rpcErr) {
-    console.warn('RPC cancellation threw exception, falling back to client-side updates:', rpcErr);
-  }
-
-  // Fallback to client-side updates
+  // Always use fallback to avoid RPC restrictions
+  console.log('[processContractCancellation] Bypassing RPC for all cancellations to ensure reliability');
   return await performFallbackCancellation(contractId, reason, userId, contract);
 }
 
