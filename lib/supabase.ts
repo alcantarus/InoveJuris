@@ -180,6 +180,12 @@ async function performFallbackCancellation(contractId: number, reason: string, u
     throw new Error('Não é possível cancelar um contrato com parcelas recebidas.');
   }
 
+  // Defensiva: Se o contrato já estiver cancelado, não fazemos nada e retornamos sucesso
+  if (contract.status === 'Cancelado') {
+    console.log('[processContractCancellation] Contract already canceled');
+    return { success: true };
+  }
+
   const oldObs = contract.observations || '';
   const updatedObs = oldObs 
     ? `${oldObs}\n\n[CANCELAMENTO]: ${reason}` 
