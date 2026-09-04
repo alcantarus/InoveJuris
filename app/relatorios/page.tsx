@@ -355,11 +355,13 @@ function RelatoriosPageContent() {
           contract_id,
           contracts(
             processNumber,
+            status,
             clients(name, tags)
           )
         `)
         .neq('status', 'Quitado')
         .neq('status', 'Cancelada')
+        .neq('contracts.status', 'Cancelado')
 
       if (!aReceberShowAllPeriods) {
         if (aReceberStartDate) {
