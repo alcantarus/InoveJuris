@@ -510,7 +510,10 @@ function RelatoriosPageContent() {
     try {
       setLoading(true)
       
-      const { data, error } = await supabase.rpc('get_gps_report_data')
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*, clients(name)')
+        .not('gps_forecast_date', 'is', null)
 
       if (error) {
         console.error('Supabase error:', error)
@@ -520,20 +523,44 @@ function RelatoriosPageContent() {
       console.log('Supabase data (GPS):', data)
 
       if (data) {
-        const processedData = data.map((item: any) => ({
+        // Filtragem robusta: Remove contratos CANCELADOS
+        const filteredData = data.filter((item: any) => item.status !== 'CANCELADO');
+
+        const processedData = filteredData.map((item: any) => ({
           id: item.id,
-          clientName: item.client_name || 'Cliente não encontrado',
-          childbirthDate: item.childbirth_date,
+          clientName: item.clients?.name || 'Cliente não encontrado',
+          childbirthDate: item.childbirthDate,
           gps_forecast_date: item.gps_forecast_date,
-          gpsGenerated: item.gps_generated || false,
-          gpsPaid: item.gps_paid || false,
+          gpsGenerated: item.gpsGenerated || false,
+          gpsPaid: item.gpsPaid || false,
           gps_payment_date: item.gps_payment_date,
           gps_value: item.gps_value || 0,
           gps_paid_value: item.gps_paid_value || 0,
-          inss_protocol_number: item.inss_protocol_number,
-          isFinanced: item.is_financed || false,
+          inss_protocol_number: item.inssProtocol,
+          isFinanced: item.isFinanced || false,
           status: item.status
         }))
+
+        // Ordenação robusta
+        processedData.sort((a: any, b: any) => {
+          const getPriority = (item: any) => {
+            if (item.status === 'CANCELADO') return 3;
+            if (item.gpsPaid === true) return 2;
+            return 1; // PENDENTE
+          };
+
+          const priorityA = getPriority(a);
+          const priorityB = getPriority(b);
+
+          if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+          }
+          
+          const dateA = new Date(a.gps_forecast_date || '9999-12-31').getTime();
+          const dateB = new Date(b.gps_forecast_date || '9999-12-31').getTime();
+          
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        })
 
         setGpsData(processedData)
       }
