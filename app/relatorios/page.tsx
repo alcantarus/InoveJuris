@@ -510,11 +510,7 @@ function RelatoriosPageContent() {
     try {
       setLoading(true)
       
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('*, clients(name)')
-        .not('gps_forecast_date', 'is', null)
-        .neq('status', 'CANCELADO')
+      const { data, error } = await supabase.rpc('get_gps_report_data')
 
       if (error) {
         console.error('Supabase error:', error)
@@ -526,42 +522,18 @@ function RelatoriosPageContent() {
       if (data) {
         const processedData = data.map((item: any) => ({
           id: item.id,
-          clientName: item.clients?.name || 'Cliente não encontrado',
-          childbirthDate: item.childbirthDate,
+          clientName: item.client_name || 'Cliente não encontrado',
+          childbirthDate: item.childbirth_date,
           gps_forecast_date: item.gps_forecast_date,
-          gpsGenerated: item.gpsGenerated || false,
-          gpsPaid: item.gpsPaid || false,
+          gpsGenerated: item.gps_generated || false,
+          gpsPaid: item.gps_paid || false,
           gps_payment_date: item.gps_payment_date,
           gps_value: item.gps_value || 0,
           gps_paid_value: item.gps_paid_value || 0,
-          inss_protocol_number: item.inssProtocol,
-          isFinanced: item.isFinanced || false,
+          inss_protocol_number: item.inss_protocol_number,
+          isFinanced: item.is_financed || false,
           status: item.status
         }))
-
-        processedData.sort((a: any, b: any) => {
-          // 1. Definição de Prioridades:
-          // Pendente = 1, Pago = 2, Cancelado = 3
-          const getPriority = (item: any) => {
-            if (item.status === 'CANCELADO') return 3;
-            if (item.gpsPaid === true) return 2;
-            return 1; // Assume 'PENDENTE' ou qualquer outro como pendente
-          };
-
-          const priorityA = getPriority(a);
-          const priorityB = getPriority(b);
-
-          // 2. Ordena pela prioridade definida acima
-          if (priorityA !== priorityB) {
-            return priorityA - priorityB;
-          }
-          
-          // 3. Se ambos forem do mesmo grupo, aplica a ordenação secundária (Data)
-          const dateA = new Date(a.gps_forecast_date || '9999-12-31').getTime();
-          const dateB = new Date(b.gps_forecast_date || '9999-12-31').getTime();
-          
-          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-        })
 
         setGpsData(processedData)
       }
