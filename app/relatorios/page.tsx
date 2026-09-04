@@ -523,10 +523,9 @@ function RelatoriosPageContent() {
       console.log('Supabase data (GPS):', data)
 
       if (data) {
-        // Filtragem robusta: Remove contratos CANCELADOS
-        const filteredData = data.filter((item: any) => item.status !== 'CANCELADO');
-
-        const processedData = filteredData.map((item: any) => ({
+        // Removemos a filtragem que excluía cancelados, pois você deseja que eles apareçam por último.
+        
+        const processedData = data.map((item: any) => ({
           id: item.id,
           clientName: item.clients?.name || 'Cliente não encontrado',
           childbirthDate: item.childbirthDate,
@@ -541,10 +540,11 @@ function RelatoriosPageContent() {
           status: item.status
         }))
 
-        // Ordenação robusta
+        // Ordenação robusta (Case-Insensitive)
         processedData.sort((a: any, b: any) => {
           const getPriority = (item: any) => {
-            if (item.status === 'CANCELADO') return 3;
+            const status = item.status?.toUpperCase();
+            if (status === 'CANCELADO') return 3;
             if (item.gpsPaid === true) return 2;
             return 1; // PENDENTE
           };
