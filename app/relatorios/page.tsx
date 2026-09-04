@@ -380,7 +380,7 @@ function RelatoriosPageContent() {
       // Filtragem robusta: 
       // 1. Remove contratos cancelados.
       // 2. Remove parcelas sem contrato ou sem cliente vinculado (evita "Cliente Avulso").
-      const filteredData = (data || []).filter(item => 
+      const filteredData = (data || []).filter((item: any) => 
         item.contracts && 
         item.contracts.status !== 'Cancelado' && 
         item.contracts.clients?.name
