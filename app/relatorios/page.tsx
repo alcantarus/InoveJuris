@@ -377,7 +377,16 @@ function RelatoriosPageContent() {
 
       if (error) throw error
 
-      setAReceberData(data || [])
+      // Filtragem robusta: 
+      // 1. Remove contratos cancelados.
+      // 2. Remove parcelas sem contrato ou sem cliente vinculado (evita "Cliente Avulso").
+      const filteredData = (data || []).filter(item => 
+        item.contracts && 
+        item.contracts.status !== 'Cancelado' && 
+        item.contracts.clients?.name
+      )
+
+      setAReceberData(filteredData || [])
     } catch (error) {
       console.error('Error fetching A Receber data:', error)
     } finally {
