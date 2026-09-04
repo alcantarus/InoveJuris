@@ -540,10 +540,16 @@ function RelatoriosPageContent() {
         }))
 
         processedData.sort((a: any, b: any) => {
+          // 1. Prioridade: Pendentes primeiro (gpsPaid = false)
           if (a.gpsPaid !== b.gpsPaid) {
-            return a.gpsPaid ? 1 : -1;
+            return a.gpsPaid ? 1 : -1; // Se 'a' está pago (true), ele vai para baixo. Se 'b' está pago, 'a' vem antes.
           }
-          return new Date(a.gps_forecast_date || '9999-12-31').getTime() - new Date(b.gps_forecast_date || '9999-12-31').getTime();
+          
+          // 2. Se ambos têm o mesmo status (pendente ou pago), ordena pela data de previsão
+          const dateA = new Date(a.gps_forecast_date || '9999-12-31').getTime();
+          const dateB = new Date(b.gps_forecast_date || '9999-12-31').getTime();
+          
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
         })
 
         setGpsData(processedData)
