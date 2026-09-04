@@ -540,12 +540,23 @@ function RelatoriosPageContent() {
         }))
 
         processedData.sort((a: any, b: any) => {
-          // 1. Prioridade: Pendentes primeiro (gpsPaid = false)
-          if (a.gpsPaid !== b.gpsPaid) {
-            return a.gpsPaid ? 1 : -1; // Se 'a' está pago (true), ele vai para baixo. Se 'b' está pago, 'a' vem antes.
+          // 1. Definição de Prioridades:
+          // Pendente = 1, Pago = 2, Cancelado = 3
+          const getPriority = (item: any) => {
+            if (item.status === 'CANCELADO') return 3;
+            if (item.gpsPaid === true) return 2;
+            return 1; // Assume 'PENDENTE' ou qualquer outro como pendente
+          };
+
+          const priorityA = getPriority(a);
+          const priorityB = getPriority(b);
+
+          // 2. Ordena pela prioridade definida acima
+          if (priorityA !== priorityB) {
+            return priorityA - priorityB;
           }
           
-          // 2. Se ambos têm o mesmo status (pendente ou pago), ordena pela data de previsão
+          // 3. Se ambos forem do mesmo grupo, aplica a ordenação secundária (Data)
           const dateA = new Date(a.gps_forecast_date || '9999-12-31').getTime();
           const dateB = new Date(b.gps_forecast_date || '9999-12-31').getTime();
           
