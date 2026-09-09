@@ -26,6 +26,7 @@ import { getAppEnv } from '@/lib/env'
 import { AlertTriangle, History, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import KanbanBoard from '@/components/KanbanBoard'
+import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
 
 interface Process {
   id: number
@@ -581,146 +582,14 @@ export default function ProcessosPage() {
         </div>
 
         {viewMode === 'list' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-            {filteredProcesses.map((process, index) => (
-              <motion.div
-              key={process.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-2 rounded-lg",
-                    process.court === 'INSS' ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600"
-                  )}>
-                    {process.court === 'INSS' ? <FileText size={20} /> : <Scale size={20} />}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{process.number}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                        process.priority?.toLowerCase() === 'alta' ? "bg-rose-100 text-rose-700" : 
-                        process.priority?.toLowerCase() === 'média' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-                      )}>
-                        {process.priority}
-                      </span>
-                      <p className="text-sm text-slate-500">{process.court}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <User size={16} className="text-slate-400" />
-                  <span className="font-medium">{process.client}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <FileText size={16} className="text-slate-400" />
-                  <span>{process.type}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Clock size={16} className="text-slate-400" />
-                  <span>{process.status}</span>
-                </div>
-                {process.lawyer_id && (
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <div 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: lawyers.find(l => l.id === process.lawyer_id)?.color_code || '#cbd5e1' }}
-                    />
-                    <span>
-                      {(() => {
-                        const lawyer = lawyers.find(l => l.id === process.lawyer_id);
-                        return lawyer?.users?.name || lawyer?.name || 'Advogado';
-                      })()}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Calendar size={16} className="text-slate-400" />
-                  <span>Atualizado {process.last_update}</span>
-                </div>
-                
-                {/* Prazos do Processo */}
-                {(process.process_deadlines && process.process_deadlines.length > 0) && (
-                  <div className="col-span-2 mt-4 space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Prazos do Processo</p>
-                    
-                    {process.process_deadlines
-                      ?.sort((a: any, b: any) => new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime())
-                      ?.map((d: any) => (
-                      <div key={d.id} className={cn(
-                        "flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium",
-                        getDeadlineStatus(d.deadline_date) === 'expired' ? "bg-rose-50 text-rose-700 border-rose-200" :
-                        getDeadlineStatus(d.deadline_date) === 'critical' ? "bg-orange-50 text-orange-700 border-orange-200" :
-                        getDeadlineStatus(d.deadline_date) === 'warning' ? "bg-amber-50 text-amber-700 border-amber-200" :
-                        "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      )}>
-                        <div className="flex items-center gap-2">
-                          {getDeadlineStatus(d.deadline_date) === 'expired' ? <AlertTriangle size={16} /> : 
-                           getDeadlineStatus(d.deadline_date) === 'critical' ? <Clock size={16} /> : <Calendar size={16} />}
-                          <span>{d.description || 'Prazo'}: {d.deadline_date ? formatDateTime(d.deadline_date) : 'Data não definida'}</span>
-                        </div>
-                        <span className="text-[10px] uppercase opacity-70">{d.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {process.history && process.history.length > 0 && (
-                <div className="mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><History size={14} /> Histórico do Processo</h4>
-                  <ul className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                    {[...(process.history || [])]
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((h, i) => (
-                      <li key={i} className="text-xs text-slate-600 flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-300 mt-1 shrink-0"></span>
-                        <div>
-                          <span className="font-medium block">{formatDate(h.date)}</span>
-                          {h.description}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleOpenModal(process.court === 'INSS' ? 'previdenciario' : 'judicial', process)}
-                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                    title="Editar Processo"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(process.id)}
-                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                    title="Excluir Processo"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-                <button 
-                  onClick={() => handleSyncProcess(process)}
-                  disabled={syncingProcessId === process.id}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw size={14} className={syncingProcessId === process.id ? "animate-spin" : ""} />
-                  {syncingProcessId === process.id ? 'Sincronizando...' : 'Sincronizar'}
-                </button>
-              </div>
-            </motion.div>
-            ))}
-          </div>
+          <BentoProcessGrid
+            processes={filteredProcesses}
+            onEdit={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)}
+            onDelete={handleDelete}
+            onSync={handleSyncProcess}
+            syncingId={syncingProcessId}
+            lawyers={lawyers}
+          />
         ) : (
           <KanbanBoard processes={filteredProcesses} onProcessUpdate={fetchProcesses} onEditProcess={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)} />
         )}
