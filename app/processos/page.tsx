@@ -14,7 +14,10 @@ import {
   Clock,
   ExternalLink,
   Trash2,
-  Edit2
+  Edit2,
+  AlertTriangle,
+  History,
+  RefreshCw
 } from 'lucide-react'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import SyncDashboard from '@/components/SyncDashboard'
@@ -24,7 +27,6 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatDateTime, removeAccents, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
 import { getAppEnv } from '@/lib/env'
 import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
-import { AlertTriangle, History, RefreshCw, Search } from 'lucide-react'
 import KanbanBoard from '@/components/KanbanBoard'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
 
