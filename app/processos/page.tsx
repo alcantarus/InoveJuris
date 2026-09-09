@@ -23,8 +23,8 @@ import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatDateTime, removeAccents, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
 import { getAppEnv } from '@/lib/env'
-import { AlertTriangle, History, RefreshCw } from 'lucide-react'
-import { useAuth } from '@/lib/auth'
+import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
+import { AlertTriangle, History, RefreshCw, Search } from 'lucide-react'
 import KanbanBoard from '@/components/KanbanBoard'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
 
@@ -581,6 +581,8 @@ export default function ProcessosPage() {
             </p>
           </div>
         )}
+
+        <StrategicCockpit processes={filteredProcesses} />
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />

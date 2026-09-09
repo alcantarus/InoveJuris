@@ -62,10 +62,21 @@ export function BentoProcessGrid({ processes, onEdit, onDelete, onSync, syncingI
 
           {/* Grid Content */}
           <div className="grid grid-cols-1 gap-3 mb-6 flex-grow">
+            {/* Timeline indicator - Visual History */}
+            <div className="flex items-center gap-1 mb-2">
+              {['Distribuição', 'Concluso', 'Julgado'].map((stage, i) => (
+                <div key={stage} className={cn(
+                  "h-1 flex-1 rounded-full",
+                  i <= (process.history?.length || 0) - 1 ? "bg-indigo-500" : "bg-slate-200"
+                )} />
+              ))}
+            </div>
+
             <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg">
               <User size={16} className="text-indigo-400" />
               <span className="font-medium text-slate-800">{process.client}</span>
             </div>
+            
             <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg">
               <Clock size={16} className="text-indigo-400" />
               <span>{process.status}</span>
@@ -83,6 +94,16 @@ export function BentoProcessGrid({ processes, onEdit, onDelete, onSync, syncingI
                  )}
               </div>
             )}
+            
+            {/* Context-aware suggestions */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {process.status === 'Em Análise' && (
+                <button className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200">Verificar documentos</button>
+              )}
+              {process.status === 'Sentença' && (
+                <button className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200">Gerar Recurso</button>
+              )}
+            </div>
           </div>
 
           {/* Actions Footer */}
