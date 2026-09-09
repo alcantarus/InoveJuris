@@ -27,6 +27,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatDateTime, removeAccents, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
 import { getAppEnv } from '@/lib/env'
 import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
+import { useAuth } from '@/lib/auth'
 import KanbanBoard from '@/components/KanbanBoard'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
 
