@@ -200,6 +200,10 @@ export default function ProcessosPage() {
         type: process.type || (mode === 'previdenciario' ? defaultProduct : 'Cível'),
         status: process.status || (mode === 'previdenciario' ? 'Em Análise' : 'Em Andamento'),
         priority: process.priority || 'Média',
+        risk_assessment: process.risk_assessment || 'Possível',
+        tags: process.tags || '',
+        case_value: process.case_value || 0,
+        internal_notes: process.internal_notes || '',
         lawyer_id: process.lawyer_id || null,
         history: process.history || [],
         deadlines: process.process_deadlines?.map(d => ({
@@ -217,6 +221,10 @@ export default function ProcessosPage() {
         type: mode === 'previdenciario' ? defaultProduct : 'Cível',
         status: mode === 'previdenciario' ? 'Em Análise' : 'Em Andamento',
         priority: 'Média',
+        risk_assessment: 'Possível',
+        tags: '',
+        case_value: 0,
+        internal_notes: '',
         lawyer_id: null,
         history: [],
         deadlines: []
@@ -328,6 +336,10 @@ export default function ProcessosPage() {
       type: formData.type,
       status: formData.status,
       priority: formData.priority,
+      risk_assessment: formData.risk_assessment,
+      tags: formData.tags,
+      case_value: formData.case_value,
+      internal_notes: formData.internal_notes,
       lawyer_id: formData.lawyer_id || null,
       history: historyToSave.length > 0 ? historyToSave : (editingProcess?.history || []),
       last_update: 'Agora',
@@ -755,7 +767,7 @@ export default function ProcessosPage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
                 {modalMode === 'previdenciario' ? (
@@ -786,6 +798,49 @@ export default function ProcessosPage() {
                   </select>
                 )}
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Risco (Probabilidade)</label>
+                <select 
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={formData.risk_assessment || 'Possível'}
+                  onChange={e => setFormData({ ...formData, risk_assessment: e.target.value })}
+                >
+                  <option>Provável</option>
+                  <option>Possível</option>
+                  <option>Remoto</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Valor da Causa (R$)</label>
+              <input 
+                type="number"
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                value={formData.case_value || ''}
+                onChange={e => setFormData({ ...formData, case_value: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tags (separadas por vírgula)</label>
+              <input 
+                type="text"
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                placeholder="Ex: Urgente, Alvará, Recurso"
+                value={formData.tags || ''}
+                onChange={e => setFormData({ ...formData, tags: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Notas Internas</label>
+              <textarea 
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                rows={3}
+                value={formData.internal_notes || ''}
+                onChange={e => setFormData({ ...formData, internal_notes: e.target.value })}
+              />
             </div>
 
             {/* Prazos do Processo */}
