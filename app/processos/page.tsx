@@ -76,6 +76,10 @@ export default function ProcessosPage() {
     type: 'Cível',
     status: 'Em Andamento',
     priority: 'Média',
+    risk_assessment: 'Possível',
+    tags: '',
+    case_value: 0,
+    internal_notes: '',
     lawyer_id: null as number | null,
     history: [] as any[],
     deadlines: [] as {id?: string, deadline_date: string, deadline_time?: string, description: string, status: string}[]
