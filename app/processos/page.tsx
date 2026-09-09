@@ -43,6 +43,10 @@ interface Process {
   lawyer_id?: number | null
   history?: any[]
   process_deadlines?: any[]
+  risk_assessment?: string
+  tags?: string
+  case_value?: number
+  internal_notes?: string
 }
 
 const DEFAULT_PROCESSES: Process[] = [
