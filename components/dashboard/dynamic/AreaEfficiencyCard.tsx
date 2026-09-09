@@ -15,7 +15,7 @@ export function AreaEfficiencyCard() {
     setLoading(true)
     const { data, error } = await supabase
       .from('vw_area_efficiency')
-      .select('*')
+      .select('law_area, average_ticket')
     
     if (error) {
       console.error('Erro ao buscar eficiência:', error)

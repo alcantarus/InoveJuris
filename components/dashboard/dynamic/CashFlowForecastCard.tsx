@@ -33,7 +33,7 @@ export function CashFlowForecastCard() {
     setLoading(true)
     const { data, error } = await supabase
       .from('vw_cash_flow_forecast')
-      .select('*')
+      .select('installment_id, contract_id, due_date, amount, paid_amount, status, expected_amount')
       .limit(10)
     
     if (!error) setDetails(data || [])

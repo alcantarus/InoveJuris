@@ -242,9 +242,9 @@ export default function Page() {
           supabase.from('vw_dashboard_receivables_metrics').select('*'),
           supabase.from('vw_dashboard_receivables_forecast').select('*'),
           supabase.from('vw_dashboard_top_defaulters').select('*'),
-          supabase.from('vw_process_velocity').select('*'),
-          supabase.from('vw_cash_flow_forecast').select('*'),
-          supabase.from('vw_area_efficiency').select('*')
+          supabase.from('vw_process_velocity').select('contract_id, client_id, law_area, created_at, last_update, days_since_last_movement'),
+          supabase.from('vw_cash_flow_forecast').select('installment_id, contract_id, due_date, amount, paid_amount, status, expected_amount'),
+          supabase.from('vw_area_efficiency').select('law_area, total_processes, average_ticket')
         ])
 
         console.log('Velocity:', velocityRes.data, velocityRes.error);

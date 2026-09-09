@@ -1170,6 +1170,7 @@ export default function FinanceiroPage() {
                           removeAccents(productName.toLowerCase() || '').includes(term)
     
     if (filter === 'Todos') return matchesSearch
+    if (filter === 'Pendentes Assinatura') return matchesSearch && !c.contractSigned
     if (filter === 'Salário-Maternidade') return matchesSearch && productName.includes('Salário-Maternidade')
     if (filter === 'Outros') return matchesSearch && !productName.includes('Salário-Maternidade')
     return matchesSearch
@@ -1409,7 +1410,7 @@ export default function FinanceiroPage() {
             />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-            {['Todos', 'Salário-Maternidade', 'Outros'].map(f => (
+            {['Todos', 'Pendentes Assinatura', 'Salário-Maternidade', 'Outros'].map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
