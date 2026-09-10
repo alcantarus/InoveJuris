@@ -259,15 +259,15 @@ export default function FluxoCaixaPage() {
         )}
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {stats.map((stat, index) => (
             <StatCard key={stat.label} stat={stat} isVisible={isVisible} toggleVisibility={toggleVisibility} />
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="space-y-8">
           {/* Daily Flow Chart */}
-          <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden relative">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden relative w-full">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-xl font-black text-slate-900 tracking-tight">Fluxo Diário</h3>
@@ -321,8 +321,8 @@ export default function FluxoCaixaPage() {
             </div>
           </div>
 
-          {/* Accounts Summary */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col">
+          {/* Accounts Summary (Compact) */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ export default function FluxoCaixaPage() {
               </Link>
             </div>
             
-            <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {data.accounts.length > 0 ? (
                 data.accounts.map((account, idx) => (
                   <motion.button 
@@ -352,18 +352,12 @@ export default function FluxoCaixaPage() {
                     transition={{ delay: idx * 0.1 }}
                     onClick={() => setSelectedAccountId(selectedAccountId === account.id ? 'all' : account.id)}
                     className={cn(
-                      "w-full text-left p-5 rounded-3xl border transition-all duration-300 group relative overflow-hidden",
+                      "text-left p-5 rounded-3xl border transition-all duration-300 group relative overflow-hidden",
                       selectedAccountId === account.id 
                         ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200" 
                         : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-md"
                     )}
                   >
-                    {/* Decorative Circle */}
-                    <div className={cn(
-                      "absolute -right-6 -bottom-6 w-20 h-20 rounded-full opacity-[0.05]",
-                      selectedAccountId === account.id ? "bg-white" : "bg-indigo-600"
-                    )} />
-
                     <div className="flex items-center justify-between mb-4 relative z-10">
                       <div className="flex items-center gap-3">
                         <div className={cn(
@@ -373,60 +367,35 @@ export default function FluxoCaixaPage() {
                           <CreditCard size={18} />
                         </div>
                         <span className={cn(
-                          "font-bold tracking-tight",
+                          "font-bold tracking-tight text-sm",
                           selectedAccountId === account.id ? "text-white" : "text-slate-900"
                         )}>{account.name}</span>
                       </div>
-                      <span className={cn(
-                        "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md",
-                        selectedAccountId === account.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-500"
-                      )}>{account.type}</span>
                     </div>
                     
                     <div className="relative z-10">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className={cn(
-                          "text-xs font-bold uppercase tracking-widest",
-                          selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
-                        )}>Saldo Disponível</p>
-                        <button 
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVisibility('cashflow_account_' + account.id); }} 
-                          className={cn(
-                            "p-1 rounded-md transition-all",
-                            selectedAccountId === account.id ? "text-white/60 hover:text-white hover:bg-white/10" : "text-slate-300 hover:text-indigo-600 hover:bg-indigo-50"
-                          )}
-                        >
-                          {isVisible('cashflow_account_' + account.id) ? <Eye size={12} /> : <EyeOff size={12} />}
-                        </button>
-                      </div>
                       <p className={cn(
-                        "text-2xl font-black tracking-tight",
+                        "text-xs font-bold uppercase tracking-widest",
+                        selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
+                      )}>Saldo</p>
+                      <p className={cn(
+                        "text-lg font-black tracking-tight",
                         selectedAccountId === account.id ? "text-white" : "text-slate-900"
                       )}>
                         {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
                       </p>
                     </div>
-
-                    <div className={cn(
-                      "mt-4 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-all",
-                      selectedAccountId === account.id ? "text-white/80" : "text-indigo-600 opacity-0 group-hover:opacity-100"
-                    )}>
-                      {selectedAccountId === account.id ? 'Filtrando por esta conta' : 'Clique para filtrar'}
-                      <ArrowRightLeft size={10} />
-                    </div>
                   </motion.button>
                 ))
               ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-300">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <Wallet size={32} />
-                  </div>
+                <div className="col-span-4 text-center py-8 text-slate-300">
                   <p className="text-sm font-bold">Nenhuma conta encontrada</p>
                 </div>
               )}
             </div>
           </div>
         </div>
+
 
         {/* Recent Transactions / Bank Statement */}
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
