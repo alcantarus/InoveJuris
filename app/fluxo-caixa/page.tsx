@@ -295,12 +295,14 @@ export default function FluxoCaixaPage() {
                     tickLine={false} 
                     tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} 
                     dy={10}
+                    interval={4}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} 
                     tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`} 
+                    domain={[0, 8000]}
                   />
                   <Tooltip 
                     cursor={{ fill: '#f1f5f9', radius: 8 }}
