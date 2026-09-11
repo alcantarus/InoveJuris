@@ -101,6 +101,7 @@ export default function FluxoCaixaPage() {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
+  const [showZeroBalanceAccounts, setShowZeroBalanceAccounts] = useState(false)
   const [data, setData] = useState({
     accounts: [] as any[],
     transactions: [] as any[],
@@ -285,7 +286,7 @@ export default function FluxoCaixaPage() {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} 
-                    tickFormatter={(value) => \`R$ \${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}\`} 
+                    tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`} 
                   />
                   <Tooltip 
                     cursor={{ fill: '#f1f5f9', radius: 8 }}
@@ -307,7 +308,7 @@ export default function FluxoCaixaPage() {
           </div>
 
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Minhas Contas</h3>
@@ -319,64 +320,113 @@ export default function FluxoCaixaPage() {
                     {isVisible('cashflow_accounts') ? <Eye size={16} /> : <EyeOff size={16} />}
                   </button>
                 </div>
-                <p className="text-sm text-slate-400 font-medium">Saldos atuais por instituição</p>
+                <p className="text-sm text-slate-400 font-medium">Saldos atuais por instituição e agrupamento inteligente</p>
               </div>
-              <Link href="/fluxo-caixa/contas" className="p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                <ChevronRight size={20} />
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowZeroBalanceAccounts(!showZeroBalanceAccounts)}
+                  className={cn(
+                    "px-4 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2",
+                    showZeroBalanceAccounts 
+                      ? "bg-indigo-50 border-indigo-200 text-indigo-700" 
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  <Filter size={14} />
+                  {showZeroBalanceAccounts ? "Ocultar Contas Zeradas" : "Exibir Contas Zeradas"}
+                </button>
+                <Link href="/fluxo-caixa/contas" className="p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                  <ChevronRight size={20} />
+                </Link>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {data.accounts.length > 0 ? (
-                data.accounts.map((account, idx) => (
-                  <motion.button 
-                    key={account.id} 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    onClick={() => setSelectedAccountId(selectedAccountId === account.id ? 'all' : account.id)}
-                    className={cn(
-                      "text-left p-5 rounded-3xl border transition-all duration-300 group relative overflow-hidden",
-                      selectedAccountId === account.id 
-                        ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200" 
-                        : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-md"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "p-2.5 rounded-xl transition-colors",
-                          selectedAccountId === account.id ? "bg-white/20 text-white" : "bg-white text-indigo-600 shadow-sm"
-                        )}>
-                          <CreditCard size={18} />
-                        </div>
-                        <span className={cn(
-                          "font-bold tracking-tight text-sm",
-                          selectedAccountId === account.id ? "text-white" : "text-slate-900"
-                        )}>{account.name}</span>
+            {(() => {
+              const filteredAccounts = data.accounts.filter(acc => {
+                if (!showZeroBalanceAccounts && Number(acc.current_balance || 0) === 0) return false;
+                return true;
+              });
+
+              const groupedAccounts = filteredAccounts.reduce((acc: any, account: any) => {
+                const name = (account.name || '').toLowerCase();
+                let group = 'Contas Correntes';
+                if (name.includes('invest') || name.includes('aplic') || name.includes('poupança') || name.includes('fundo') || name.includes('cdb')) {
+                  group = 'Investimentos';
+                } else if (name.includes('caixa') || name.includes('cofre') || name.includes('especie') || name.includes('dinheiro') || name.includes('espécie')) {
+                  group = 'Caixa Interno';
+                }
+                if (!acc[group]) acc[group] = [];
+                acc[group].push(account);
+                return acc;
+              }, {});
+
+              const groupKeys = Object.keys(groupedAccounts);
+
+              if (groupKeys.length === 0) {
+                return (
+                  <div className="text-center py-12 text-slate-300">
+                    <p className="text-sm font-bold">Nenhuma conta encontrada com os filtros atuais.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-8">
+                  {groupKeys.map(groupName => (
+                    <div key={groupName} className="space-y-4">
+                      <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 px-1">
+                        {groupName} ({groupedAccounts[groupName].length})
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {groupedAccounts[groupName].map((account: any, idx: number) => (
+                          <motion.button 
+                            key={account.id} 
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            onClick={() => setSelectedAccountId(selectedAccountId === account.id ? 'all' : account.id)}
+                            className={cn(
+                              "text-left p-5 rounded-3xl border transition-all duration-300 group relative overflow-hidden",
+                              selectedAccountId === account.id 
+                                ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200" 
+                                : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-md"
+                            )}
+                          >
+                            <div className="flex items-center justify-between mb-4 relative z-10">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "p-2.5 rounded-xl transition-colors",
+                                  selectedAccountId === account.id ? "bg-white/20 text-white" : "bg-white text-indigo-600 shadow-sm"
+                                })}>
+                                  <CreditCard size={18} />
+                                </div>
+                                <span className={cn(
+                                  "font-bold tracking-tight text-sm",
+                                  selectedAccountId === account.id ? "text-white" : "text-slate-900"
+                                )}>{account.name}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="relative z-10">
+                              <p className={cn(
+                                "text-xs font-bold uppercase tracking-widest",
+                                selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
+                              )}>Saldo</p>
+                              <p className={cn(
+                                "text-lg font-black tracking-tight",
+                                selectedAccountId === account.id ? "text-white" : "text-slate-900"
+                              )}>
+                                {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
+                              </p>
+                            </div>
+                          </motion.button>
+                        ))}
                       </div>
                     </div>
-                    
-                    <div className="relative z-10">
-                      <p className={cn(
-                        "text-xs font-bold uppercase tracking-widest",
-                        selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
-                      )}>Saldo</p>
-                      <p className={cn(
-                        "text-lg font-black tracking-tight",
-                        selectedAccountId === account.id ? "text-white" : "text-slate-900"
-                      )}>
-                        {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
-                      </p>
-                    </div>
-                  </motion.button>
-                ))
-              ) : (
-                <div className="col-span-4 text-center py-8 text-slate-300">
-                  <p className="text-sm font-bold">Nenhuma conta encontrada</p>
+                  ))}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -388,7 +438,7 @@ export default function FluxoCaixaPage() {
                   <History size={20} />
                 </div>
                 <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                  {selectedAccountId === 'all' ? 'Extrato Geral' : \`Extrato: \${data.accounts.find(a => a.id === selectedAccountId)?.name}\`}
+                  {selectedAccountId === 'all' ? 'Extrato Geral' : `Extrato: ${data.accounts.find(a => a.id === selectedAccountId)?.name}`}
                 </h3>
                 <button 
                   onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_transactions'); }} 
@@ -401,7 +451,7 @@ export default function FluxoCaixaPage() {
               <p className="text-sm text-slate-400 font-medium mt-2">
                 {selectedAccountId === 'all' 
                   ? 'Visão consolidada de todas as suas movimentações financeiras' 
-                  : \`Exibindo apenas movimentações da conta \${data.accounts.find(a => a.id === selectedAccountId)?.name}\`}
+                  : `Exibindo apenas movimentações da conta ${data.accounts.find(a => a.id === selectedAccountId)?.name}`}
               </p>
             </div>
             
