@@ -130,7 +130,7 @@ export default function FluxoCaixaPage() {
       const accounts = accountsData || []
       const transactions = txData || []
 
-      const totalBalance = accounts.reduce((acc, curr) => acc + Number(curr.current_balance || 0), 0)
+      const totalBalance = accounts.reduce((acc: number, curr: any) => acc + Number(curr.current_balance || 0), 0)
 
       const now = new Date()
       const currentMonth = now.toISOString().slice(0, 7) // YYYY-MM
