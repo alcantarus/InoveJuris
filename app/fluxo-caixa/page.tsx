@@ -111,12 +111,24 @@ export default function FluxoCaixaPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
+  const [showAllAccounts, setShowAllAccounts] = useState(false)
   const [data, setData] = useState({
     accounts: [] as any[],
     transactions: [] as any[],
     categories: [] as any[],
     installments: [] as any[]
   })
+
+  const filteredAccounts = showAllAccounts 
+    ? data.accounts 
+    : data.accounts.filter(a => Number(a.current_balance) > 0);
+
+  const groupedAccounts = filteredAccounts.reduce((acc, account) => {
+    const group = account.type || 'Outros';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(account);
+    return acc;
+  }, {} as any);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -342,59 +354,80 @@ export default function FluxoCaixaPage() {
               </Link>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {data.accounts.length > 0 ? (
-                data.accounts.map((account, idx) => (
-                  <motion.button 
-                    key={account.id} 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    onClick={() => setSelectedAccountId(selectedAccountId === account.id ? 'all' : account.id)}
-                    className={cn(
-                      "text-left p-5 rounded-3xl border transition-all duration-300 group relative overflow-hidden",
-                      selectedAccountId === account.id 
-                        ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200" 
-                        : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-md"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "p-2.5 rounded-xl transition-colors",
-                          selectedAccountId === account.id ? "bg-white/20 text-white" : "bg-white text-indigo-600 shadow-sm"
-                        )}>
-                          <CreditCard size={18} />
-                        </div>
-                        <span className={cn(
-                          "font-bold tracking-tight text-sm",
-                          selectedAccountId === account.id ? "text-white" : "text-slate-900"
-                        )}>{account.name}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="relative z-10">
-                      <p className={cn(
-                        "text-xs font-bold uppercase tracking-widest",
-                        selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
-                      )}>Saldo</p>
-                      <p className={cn(
-                        "text-lg font-black tracking-tight",
-                        selectedAccountId === account.id ? "text-white" : "text-slate-900"
-                      )}>
-                        {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
-                      </p>
-                    </div>
-                  </motion.button>
-                ))
-              ) : (
-                <div className="col-span-4 text-center py-8 text-slate-300">
-                  <p className="text-sm font-bold">Nenhuma conta encontrada</p>
-                </div>
-              )}
+            <div className="mb-6 flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-500">
+                <input 
+                  type="checkbox" 
+                  checked={showAllAccounts} 
+                  onChange={(e) => setShowAllAccounts(e.target.checked)}
+                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                Exibir contas zeradas
+              </label>
             </div>
-          </div>
+
+            <div className="space-y-6">
+              {Object.entries(groupedAccounts).map(([group, accounts]) => (
+                <div key={group}>
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 px-2">{group}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {accounts.map((account: any, idx: number) => (
+                      <motion.button 
+                        key={account.id} 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        onClick={() => setSelectedAccountId(selectedAccountId === account.id ? 'all' : account.id)}
+                        className={cn(
+                          "text-left p-5 rounded-3xl border transition-all duration-300 group relative overflow-hidden",
+                          selectedAccountId === account.id 
+                            ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200" 
+                            : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-md"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-4 relative z-10">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "p-2.5 rounded-xl transition-colors",
+                              selectedAccountId === account.id ? "bg-white/20 text-white" : "bg-white text-indigo-600 shadow-sm"
+                            )}>
+                              <CreditCard size={18} />
+                            </div>
+                            <span className={cn(
+                              "font-bold tracking-tight text-sm",
+                              selectedAccountId === account.id ? "text-white" : "text-slate-900"
+                            )}>{account.name}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="relative z-10">
+                          <p className={cn(
+                            "text-xs font-bold uppercase tracking-widest",
+                            selectedAccountId === account.id ? "text-white/60" : "text-slate-400"
+                          )}>Saldo</p>
+                          <p className={cn(
+                            "text-lg font-black tracking-tight",
+                            selectedAccountId === account.id ? "text-white" : "text-slate-900"
+                          )}>
+                            {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
+                          </p>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-300">
+              <p className="text-sm font-bold">Nenhuma conta encontrada</p>
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  )
+}
 
 
         {/* Recent Transactions / Bank Statement */}
