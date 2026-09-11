@@ -567,7 +567,6 @@ export default function FluxoCaixaPage() {
             </Link>
           </div>
         </div>
-      </div>
     </DashboardLayout>
   )
 }
