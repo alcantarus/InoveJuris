@@ -28,7 +28,12 @@ import {
   Cell,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid
 } from 'recharts'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
@@ -37,6 +42,7 @@ import { useAuth } from '@/lib/auth'
 import { formatDate, formatCurrency, removeAccents, getTodayBR } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
+import { useMemo } from 'react'
 
 interface Transaction {
   id: number
@@ -164,6 +170,26 @@ export default function MovimentacoesPage() {
 
     fetchData()
   }, [startDate, endDate, accountFilter, categoryFilter])
+
+  const processedExpenseData = useMemo(() => {
+    if (!chartDataExpense || chartDataExpense.length === 0) return [];
+    
+    const total = chartDataExpense.reduce((sum: number, item: any) => sum + Number(item.total_amount), 0);
+    const threshold = total * 0.03; // 3%
+    
+    const mainItems = chartDataExpense.filter((item: any) => Number(item.total_amount) >= threshold);
+    const others = chartDataExpense.filter((item: any) => Number(item.total_amount) < threshold);
+    
+    const othersTotal = others.reduce((sum: number, item: any) => sum + Number(item.total_amount), 0);
+    
+    const result = [...mainItems];
+    if (othersTotal > 0) {
+      result.push({ category_name: 'Outros', total_amount: othersTotal });
+    }
+    
+    // Sort by amount descending
+    return result.sort((a: any, b: any) => Number(b.total_amount) - Number(a.total_amount));
+  }, [chartDataExpense]);
 
   if (!mounted) return null
 
@@ -420,21 +446,39 @@ export default function MovimentacoesPage() {
               </ResponsiveContainer>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <PieChartIcon size={20} className="text-rose-500" />
               Distribuição de Despesas
             </h3>
-            <div className="h-64">
+            <div className="h-64 mb-4">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chartDataExpense} dataKey="total_amount" nameKey="category_name" cx="50%" cy="50%" outerRadius={80} label>
-                    {chartDataExpense.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                  </Pie>
+                <BarChart data={processedExpenseData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="category_name" type="category" width={100} tick={{ fontSize: 10 }} />
                   <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
-                  <Legend />
-                </PieChart>
+                  <Bar dataKey="total_amount" fill="#f43f5e" />
+                </BarChart>
               </ResponsiveContainer>
+            </div>
+            <div className="max-h-40 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b text-slate-500">
+                    <th className="text-left py-1">Categoria</th>
+                    <th className="text-right py-1">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {processedExpenseData.map((item: any, index: number) => (
+                    <tr key={index} className="border-b">
+                      <td className="py-1">{item.category_name}</td>
+                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
