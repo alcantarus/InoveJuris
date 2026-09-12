@@ -608,15 +608,15 @@ export default function MovimentacoesPage() {
         {/* Transactions Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Data</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Descrição</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Categoria</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Conta</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right">Valor</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600"></th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Data</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Descrição</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Categoria</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Conta</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right whitespace-nowrap">Valor</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -628,10 +628,10 @@ export default function MovimentacoesPage() {
                   </tr>
                 ) : filteredTransactions.map((transaction) => (
                   <tr key={transaction.id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
                       {formatDate(transaction.date)}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {transaction.type === 'income' && <TrendingUp size={14} className="text-emerald-500" />}
                         {transaction.type === 'expense' && <TrendingDown size={14} className="text-rose-500" />}
@@ -639,22 +639,22 @@ export default function MovimentacoesPage() {
                         <span className="font-medium text-slate-900">{transaction.description}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
                         {transaction.financial_categories?.name || (transaction.type === 'transfer' ? 'Transferência' : 'Sem categoria')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
+                    <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                       {transaction.bank_accounts?.name}
                     </td>
-                    <td className={`px-6 py-4 text-right font-bold ${
+                    <td className={`px-6 py-4 text-right font-bold whitespace-nowrap ${
                       transaction.type === 'income' ? 'text-emerald-600' : 
                       transaction.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
                     }`}>
                       {transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}
                       {formatCurrency(transaction.amount, isVisible('cashflow_transactions'))}
                     </td>
-                    <td className="px-6 py-4 text-right md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-end gap-1">
+                    <td className="px-6 py-4 text-right md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-end gap-1 whitespace-nowrap">
                       <button 
                         onClick={() => openReclassifyModal(transaction)}
                         className="p-2 text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"

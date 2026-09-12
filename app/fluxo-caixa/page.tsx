@@ -452,14 +452,14 @@ export default function FluxoCaixaPage() {
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-50">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Data</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Descrição</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Categoria</th>
-                  {selectedAccountId === 'all' && <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Conta</th>}
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Valor</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Data</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Descrição</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Categoria</th>
+                  {selectedAccountId === 'all' && <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Conta</th>}
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right whitespace-nowrap">Valor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -474,13 +474,13 @@ export default function FluxoCaixaPage() {
                     transition={{ delay: idx * 0.03 }}
                     className="group hover:bg-slate-50/50 transition-all duration-200"
                   >
-                    <td className="px-8 py-5">
+                    <td className="px-8 py-5 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-slate-900">{formatDate(transaction.date).split('/')[0]}</span>
                         <span className="text-[10px] font-bold text-slate-400 uppercase">{formatDate(transaction.date).split('/').slice(1).join('/')}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-8 py-5 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
@@ -491,13 +491,13 @@ export default function FluxoCaixaPage() {
                         <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{transaction.description}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-8 py-5 whitespace-nowrap">
                       <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
                         {transaction.financial_categories?.name || 'Sem categoria'}
                       </span>
                     </td>
                     {selectedAccountId === 'all' && (
-                      <td className="px-8 py-5">
+                      <td className="px-8 py-5 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-slate-300" />
                           <span className="text-xs font-bold text-slate-500">{transaction.bank_accounts?.name}</span>
@@ -505,7 +505,7 @@ export default function FluxoCaixaPage() {
                       </td>
                     )}
                     <td className={cn(
-                      "px-8 py-5 text-right text-base font-black tracking-tight",
+                      "px-8 py-5 text-right text-base font-black tracking-tight whitespace-nowrap",
                       transaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600'
                     )}>
                       {transaction.type === 'expense' ? '-' : '+'}
