@@ -452,14 +452,14 @@ export default function FluxoCaixaPage() {
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-50">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Data</th>
+                  <th className="w-[100px] px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Data</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Descrição</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Categoria</th>
-                  {selectedAccountId === 'all' && <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Conta</th>}
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right whitespace-nowrap">Valor</th>
+                  <th className="w-[150px] px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Categoria</th>
+                  {selectedAccountId === 'all' && <th className="w-[150px] px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Conta</th>}
+                  <th className="w-[150px] px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right whitespace-nowrap">Valor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -480,7 +480,7 @@ export default function FluxoCaixaPage() {
                         <span className="text-[10px] font-bold text-slate-400 uppercase">{formatDate(transaction.date).split('/').slice(1).join('/')}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5 whitespace-nowrap">
+                    <td className="px-8 py-5 truncate">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
@@ -488,19 +488,19 @@ export default function FluxoCaixaPage() {
                         )}>
                           {transaction.type === 'income' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
                         </div>
-                        <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{transaction.description}</span>
+                        <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">{transaction.description}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    <td className="px-8 py-5 truncate">
+                      <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider truncate">
                         {transaction.financial_categories?.name || 'Sem categoria'}
                       </span>
                     </td>
                     {selectedAccountId === 'all' && (
-                      <td className="px-8 py-5 whitespace-nowrap">
+                      <td className="px-8 py-5 truncate">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-slate-300" />
-                          <span className="text-xs font-bold text-slate-500">{transaction.bank_accounts?.name}</span>
+                          <span className="text-xs font-bold text-slate-500 truncate">{transaction.bank_accounts?.name}</span>
                         </div>
                       </td>
                     )}

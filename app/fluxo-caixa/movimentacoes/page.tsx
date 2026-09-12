@@ -608,15 +608,15 @@ export default function MovimentacoesPage() {
         {/* Transactions Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Data</th>
+                  <th className="w-[100px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Data</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Descrição</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Categoria</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Conta</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right whitespace-nowrap">Valor</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap"></th>
+                  <th className="w-[150px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Categoria</th>
+                  <th className="w-[150px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Conta</th>
+                  <th className="w-[120px] px-6 py-4 text-sm font-semibold text-slate-600 text-right whitespace-nowrap">Valor</th>
+                  <th className="w-[100px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -631,20 +631,20 @@ export default function MovimentacoesPage() {
                     <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
                       {formatDate(transaction.date)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 truncate">
                       <div className="flex items-center gap-2">
                         {transaction.type === 'income' && <TrendingUp size={14} className="text-emerald-500" />}
                         {transaction.type === 'expense' && <TrendingDown size={14} className="text-rose-500" />}
                         {transaction.type === 'transfer' && <ArrowRightLeft size={14} className="text-indigo-500" />}
-                        <span className="font-medium text-slate-900">{transaction.description}</span>
+                        <span className="font-medium text-slate-900 truncate">{transaction.description}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
+                    <td className="px-6 py-4 truncate">
+                      <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium truncate inline-block max-w-full">
                         {transaction.financial_categories?.name || (transaction.type === 'transfer' ? 'Transferência' : 'Sem categoria')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm text-slate-500 truncate">
                       {transaction.bank_accounts?.name}
                     </td>
                     <td className={`px-6 py-4 text-right font-bold whitespace-nowrap ${
