@@ -339,8 +339,8 @@ export default function ClientesPageV2() {
           title={editingClient ? 'Editar Cliente' : 'Novo Cliente'}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700">Nome</label>
                 <input required className="w-full px-4 py-2 border border-slate-200 rounded-xl" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
@@ -363,7 +363,7 @@ export default function ClientesPageV2() {
                 <label className="block text-sm font-medium text-slate-700">Documento</label>
                 <input className={cn("w-full px-4 py-2 border rounded-xl", errors.document ? "border-rose-500" : "border-slate-200")} value={formData.document || ''} onChange={e => setFormData({...formData, document: e.target.value})} />
               </div>
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700">Endereço</label>
                 <input className="w-full px-4 py-2 border border-slate-200 rounded-xl" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
               </div>
@@ -420,7 +420,7 @@ export default function ClientesPageV2() {
                 <label className="block text-sm font-medium text-slate-700">PIS/NIS/NIT</label>
                 <input className="w-full px-4 py-2 border border-slate-200 rounded-xl" value={formData.pisNisNit || ''} onChange={e => setFormData({...formData, pisNisNit: e.target.value})} />
               </div>
-              <div className="col-span-2 flex items-center gap-4">
+              <div className="md:col-span-2 flex items-center gap-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                   <input type="checkbox" checked={formData.contractSigned} onChange={e => setFormData({...formData, contractSigned: e.target.checked})} />
                   Contrato Assinado
@@ -435,7 +435,7 @@ export default function ClientesPageV2() {
                 </label>
               </div>
               {formData.isMinor && (
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700">Representante Legal</label>
                   <input className="w-full px-4 py-2 border border-slate-200 rounded-xl" value={formData.legalRepresentative} onChange={e => setFormData({...formData, legalRepresentative: e.target.value})} />
                 </div>

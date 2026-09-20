@@ -20,7 +20,9 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Receipt
+  Receipt,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import DashboardLayout from '../dashboard-layout'
@@ -137,7 +139,7 @@ const ProcessProgressBar = ({ generated, paid }: { generated: boolean, paid: boo
 }
 
 function RelatoriosPageContent() {
-  const { isVisible } = usePrivacy()
+  const { isVisible, toggleVisibility } = usePrivacy()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab')
   const [activeReport, setActiveReport] = useState<ReportType>('deadlines')
@@ -1290,9 +1292,18 @@ function RelatoriosPageContent() {
                     {/* Card 1: Total Pendente */}
                     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                       <div className="min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Total Pendente</span>
-                        <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 truncate leading-none" title={formatCurrency(totalPendente)}>
-                          {formatCurrency(totalPendente)}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Total Pendente</span>
+                          <button 
+                            onClick={(e) => { e.preventDefault(); toggleVisibility('reports_total_pendente'); }} 
+                            className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title={isVisible('reports_total_pendente') ? "Ocultar valor" : "Mostrar valor"}
+                          >
+                            {isVisible('reports_total_pendente') ? <Eye size={14} /> : <EyeOff size={14} />}
+                          </button>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 truncate leading-none" title={formatCurrency(totalPendente, isVisible('reports_total_pendente'))}>
+                          {formatCurrency(totalPendente, isVisible('reports_total_pendente'))}
                         </h3>
                         <span className="text-[11px] text-slate-400 mt-1 block">{aReceberData.length} parcelas em aberto</span>
                       </div>
@@ -1304,9 +1315,18 @@ function RelatoriosPageContent() {
                     {/* Card 2: Vencendo Este Mês */}
                     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-indigo-100 shadow-sm flex items-center justify-between">
                       <div className="min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider block mb-1">Vencendo este mês</span>
-                        <h3 className="text-xl sm:text-2xl font-extrabold text-indigo-600 truncate leading-none" title={formatCurrency(vencendoEsteMes)}>
-                          {formatCurrency(vencendoEsteMes)}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider block">Vencendo este mês</span>
+                          <button 
+                            onClick={(e) => { e.preventDefault(); toggleVisibility('reports_vencendo'); }} 
+                            className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title={isVisible('reports_vencendo') ? "Ocultar valor" : "Mostrar valor"}
+                          >
+                            {isVisible('reports_vencendo') ? <Eye size={14} /> : <EyeOff size={14} />}
+                          </button>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-indigo-600 truncate leading-none" title={formatCurrency(vencendoEsteMes, isVisible('reports_vencendo'))}>
+                          {formatCurrency(vencendoEsteMes, isVisible('reports_vencendo'))}
                         </h3>
                         <span className="text-[11px] text-indigo-400 mt-1 block">Previsão corrente</span>
                       </div>
@@ -1318,9 +1338,18 @@ function RelatoriosPageContent() {
                     {/* Card 3: Total em Atraso */}
                     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between">
                       <div className="min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-rose-500 uppercase tracking-wider block mb-1">Total em Atraso</span>
-                        <h3 className="text-xl sm:text-2xl font-extrabold text-rose-600 truncate leading-none" title={formatCurrency(totalEmAtraso)}>
-                          {formatCurrency(totalEmAtraso)}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-rose-500 uppercase tracking-wider block">Total em Atraso</span>
+                          <button 
+                            onClick={(e) => { e.preventDefault(); toggleVisibility('reports_atraso'); }} 
+                            className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title={isVisible('reports_atraso') ? "Ocultar valor" : "Mostrar valor"}
+                          >
+                            {isVisible('reports_atraso') ? <Eye size={14} /> : <EyeOff size={14} />}
+                          </button>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-rose-600 truncate leading-none" title={formatCurrency(totalEmAtraso, isVisible('reports_atraso'))}>
+                          {formatCurrency(totalEmAtraso, isVisible('reports_atraso'))}
                         </h3>
                         <span className="text-[11px] text-rose-400 mt-1 block">Requer cobrança</span>
                       </div>
@@ -1332,9 +1361,18 @@ function RelatoriosPageContent() {
                     {/* Card 4: Residuais e Parciais */}
                     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-100 shadow-sm flex items-center justify-between">
                       <div className="min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider block mb-1">Saldos Residuais</span>
-                        <h3 className="text-xl sm:text-2xl font-extrabold text-amber-600 truncate leading-none" title={formatCurrency(totalResiduais)}>
-                          {formatCurrency(totalResiduais)}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider block">Saldos Residuais</span>
+                          <button 
+                            onClick={(e) => { e.preventDefault(); toggleVisibility('reports_residuais'); }} 
+                            className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title={isVisible('reports_residuais') ? "Ocultar valor" : "Mostrar valor"}
+                          >
+                            {isVisible('reports_residuais') ? <Eye size={14} /> : <EyeOff size={14} />}
+                          </button>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-amber-600 truncate leading-none" title={formatCurrency(totalResiduais, isVisible('reports_residuais'))}>
+                          {formatCurrency(totalResiduais, isVisible('reports_residuais'))}
                         </h3>
                         <span className="text-[11px] text-amber-500 mt-1 block">Pagamentos parciais</span>
                       </div>
