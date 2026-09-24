@@ -458,9 +458,9 @@ export default function MovimentacoesPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={processedIncomeData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
+                  <XAxis type="number" tickFormatter={(value) => isVisible('cashflow_all') ? value : '•••'} />
                   <YAxis dataKey="category_name" type="category" width={100} tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
+                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0), isVisible('cashflow_all'))} />
                   <Bar dataKey="total_amount" fill="#10b981" />
                 </BarChart>
               </ResponsiveContainer>
@@ -477,7 +477,7 @@ export default function MovimentacoesPage() {
                   {processedIncomeData.map((item: any, index: number) => (
                     <tr key={index} className="border-b">
                       <td className="py-1">{item.category_name}</td>
-                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount))}</td>
+                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -493,9 +493,9 @@ export default function MovimentacoesPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={processedExpenseData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
+                  <XAxis type="number" tickFormatter={(value) => isVisible('cashflow_all') ? value : '•••'} />
                   <YAxis dataKey="category_name" type="category" width={100} tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
+                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0), isVisible('cashflow_all'))} />
                   <Bar dataKey="total_amount" fill="#f43f5e" />
                 </BarChart>
               </ResponsiveContainer>
@@ -512,7 +512,7 @@ export default function MovimentacoesPage() {
                   {processedExpenseData.map((item: any, index: number) => (
                     <tr key={index} className="border-b">
                       <td className="py-1">{item.category_name}</td>
-                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount))}</td>
+                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
                     </tr>
                   ))}
                 </tbody>
