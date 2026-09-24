@@ -11,12 +11,16 @@ import {
   TrendingUp,
   TrendingDown,
   Search,
-  FileText
+  FileText,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { formatCurrency } from '@/lib/utils'
+import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
 
 interface Category {
@@ -26,6 +30,7 @@ interface Category {
 }
 
 export default function CategoriasFinanceirasPage() {
+  const { isVisible, toggleVisibility } = usePrivacy()
   const { user } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
@@ -158,7 +163,16 @@ export default function CategoriasFinanceirasPage() {
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Categorias Financeiras</h1>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+              Categorias Financeiras
+              <button 
+                onClick={() => toggleVisibility('cashflow_all')}
+                className="text-slate-400 hover:text-slate-600 transition-colors ml-2"
+                title={isVisible('cashflow_all') ? "Ocultar valores" : "Mostrar valores"}
+              >
+                {isVisible('cashflow_all') ? <Eye size={24} /> : <EyeOff size={24} />}
+              </button>
+            </h1>
             <p className="text-slate-500 mt-1">Classifique suas receitas e despesas para relatórios precisos.</p>
           </div>
         </div>
@@ -211,7 +225,7 @@ export default function CategoriasFinanceirasPage() {
                       <span className="font-medium text-slate-700">{category.name}</span>
                       {(startDate || endDate) && (
                         <span className="text-xs text-emerald-600 font-medium">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(categoryTotals[category.id] || 0)}
+                          {formatCurrency(categoryTotals[category.id] || 0, isVisible('cashflow_all'))}
                         </span>
                       )}
                     </div>
@@ -252,7 +266,7 @@ export default function CategoriasFinanceirasPage() {
                       <span className="font-medium text-slate-700">{category.name}</span>
                       {(startDate || endDate) && (
                         <span className="text-xs text-rose-600 font-medium">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(categoryTotals[category.id] || 0)}
+                          {formatCurrency(categoryTotals[category.id] || 0, isVisible('cashflow_all'))}
                         </span>
                       )}
                     </div>

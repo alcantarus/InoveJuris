@@ -420,11 +420,11 @@ export default function MovimentacoesPage() {
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
               Movimentações
               <button 
-                onClick={() => toggleVisibility('cashflow_transactions')}
+                onClick={() => toggleVisibility('cashflow_all')}
                 className="text-slate-400 hover:text-slate-600 transition-colors ml-2"
-                title={isVisible('cashflow_transactions') ? "Ocultar valores" : "Mostrar valores"}
+                title={isVisible('cashflow_all') ? "Ocultar valores" : "Mostrar valores"}
               >
-                {isVisible('cashflow_transactions') ? <Eye size={24} /> : <EyeOff size={24} />}
+                {isVisible('cashflow_all') ? <Eye size={24} /> : <EyeOff size={24} />}
               </button>
             </h1>
             <p className="text-slate-500 mt-1">Extrato detalhado de entradas, saídas e transferências.</p>
@@ -435,15 +435,15 @@ export default function MovimentacoesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-sm text-slate-500 font-medium">Entradas</h3>
-            <p className="text-2xl font-bold text-emerald-600">+{formatCurrency(totalIncome, isVisible('cashflow_total'))}</p>
+            <p className="text-2xl font-bold text-emerald-600">+{formatCurrency(totalIncome, isVisible('cashflow_all'))}</p>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-sm text-slate-500 font-medium">Saídas</h3>
-            <p className="text-2xl font-bold text-rose-600">-{formatCurrency(totalExpense, isVisible('cashflow_total'))}</p>
+            <p className="text-2xl font-bold text-rose-600">-{formatCurrency(totalExpense, isVisible('cashflow_all'))}</p>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-sm text-slate-500 font-medium">Saldo</h3>
-            <p className="text-2xl font-bold text-indigo-900">{formatCurrency(totalIncome - totalExpense, isVisible('cashflow_total'))}</p>
+            <p className="text-2xl font-bold text-indigo-900">{formatCurrency(totalIncome - totalExpense, isVisible('cashflow_all'))}</p>
           </div>
         </div>
 
@@ -652,7 +652,7 @@ export default function MovimentacoesPage() {
                       transaction.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
                     }`}>
                       {transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}
-                      {formatCurrency(transaction.amount, isVisible('cashflow_transactions'))}
+                      {formatCurrency(transaction.amount, isVisible('cashflow_all'))}
                     </td>
                     <td className="px-6 py-4 text-right md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-end gap-1 whitespace-nowrap">
                       <button 

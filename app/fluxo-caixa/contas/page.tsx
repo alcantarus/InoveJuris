@@ -229,11 +229,11 @@ export default function ContasBancariasPage() {
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
               Contas Bancárias
               <button 
-                onClick={() => toggleVisibility('cashflow_accounts')}
+                onClick={() => toggleVisibility('cashflow_all')}
                 className="text-slate-400 hover:text-slate-600 transition-colors ml-2"
-                title={isVisible('cashflow_accounts') ? "Ocultar valores" : "Mostrar valores"}
+                title={isVisible('cashflow_all') ? "Ocultar valores" : "Mostrar valores"}
               >
-                {isVisible('cashflow_accounts') ? <Eye size={24} /> : <EyeOff size={24} />}
+                {isVisible('cashflow_all') ? <Eye size={24} /> : <EyeOff size={24} />}
               </button>
             </h1>
             <p className="text-slate-500 mt-1">Gerencie suas contas, caixas e carteiras.</p>
@@ -320,26 +320,26 @@ export default function ContasBancariasPage() {
                    <>
                      <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Saldo Anterior:</span>
-                        <span className="font-medium">{formatCurrency(account.previous_balance || 0, isVisible('cashflow_accounts'))}</span>
+                        <span className="font-medium">{formatCurrency(account.previous_balance || 0, isVisible('cashflow_all'))}</span>
                      </div>
                      <div className="flex justify-between text-xs">
                         <span className="text-emerald-600">Entradas:</span>
-                        <span className="font-medium text-emerald-600">+{formatCurrency(account.period_income || 0, isVisible('cashflow_accounts'))}</span>
+                        <span className="font-medium text-emerald-600">+{formatCurrency(account.period_income || 0, isVisible('cashflow_all'))}</span>
                      </div>
                      <div className="flex justify-between text-xs">
                         <span className="text-rose-600">Saídas:</span>
-                        <span className="font-medium text-rose-600">-{formatCurrency(account.period_expense || 0, isVisible('cashflow_accounts'))}</span>
+                        <span className="font-medium text-rose-600">-{formatCurrency(account.period_expense || 0, isVisible('cashflow_all'))}</span>
                      </div>
                      <div className="pt-2 border-t border-slate-50 flex justify-between items-end">
                         <span className="text-xs text-slate-400 font-medium uppercase">Saldo Final</span>
-                        <span className="text-xl font-bold text-slate-900">{formatCurrency(account.current_balance, isVisible('cashflow_accounts'))}</span>
+                        <span className="text-xl font-bold text-slate-900">{formatCurrency(account.current_balance, isVisible('cashflow_all'))}</span>
                      </div>
                    </>
                 ) : (
                     <>
                         <p className="text-xs text-slate-400 font-medium uppercase">Saldo Atual</p>
                         <p className="text-2xl font-bold text-slate-900 mt-1">
-                        {formatCurrency(account.current_balance, isVisible('cashflow_accounts'))}
+                        {formatCurrency(account.current_balance, isVisible('cashflow_all'))}
                         </p>
                     </>
                 )}

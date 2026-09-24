@@ -86,16 +86,16 @@ const StatCard = ({ stat, isVisible, toggleVisibility }: { stat: any, isVisible:
         <div className="flex items-center gap-2">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
           <button 
-            onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_stat_' + stat.label); }} 
+            onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_all'); }} 
             className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-            title={isVisible('cashflow_stat_' + stat.label) ? "Ocultar valor" : "Mostrar valor"}
+            title={isVisible('cashflow_all') ? "Ocultar valor" : "Mostrar valor"}
           >
-            {isVisible('cashflow_stat_' + stat.label) ? <Eye size={14} /> : <EyeOff size={14} />}
+            {isVisible('cashflow_all') ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
         </div>
         <div className="text-3xl font-black text-slate-900 mt-2 tracking-tight overflow-hidden whitespace-nowrap" ref={textContainerRef}>
           <AutoResizeText 
-            text={formatCurrency(stat.value, isVisible('cashflow_stat_' + stat.label))}
+            text={formatCurrency(stat.value, isVisible('cashflow_all'))}
             className="text-3xl font-black text-slate-900 tracking-tight"
             containerRef={textContainerRef}
           />
@@ -314,7 +314,7 @@ export default function FluxoCaixaPage() {
                     }}
                     itemStyle={{ fontWeight: 'bold', fontSize: '13px' }}
                     labelStyle={{ marginBottom: '8px', color: '#64748b', fontWeight: 'bold' }}
-                    formatter={(value: any) => [formatCurrency(value, isVisible('cashflow_chart')), '']}
+                    formatter={(value: any) => [formatCurrency(value, isVisible('cashflow_all')), '']}
                   />
                   <Bar dataKey="Entradas" fill="#10b981" radius={[6, 6, 0, 0]} barSize={12} />
                   <Bar dataKey="Saídas" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={12} />
@@ -330,11 +330,11 @@ export default function FluxoCaixaPage() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Minhas Contas</h3>
                   <button 
-                    onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_accounts'); }} 
+                    onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_all'); }} 
                     className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                    title={isVisible('cashflow_accounts') ? "Ocultar valor" : "Mostrar valor"}
+                    title={isVisible('cashflow_all') ? "Ocultar valor" : "Mostrar valor"}
                   >
-                    {isVisible('cashflow_accounts') ? <Eye size={16} /> : <EyeOff size={16} />}
+                    {isVisible('cashflow_all') ? <Eye size={16} /> : <EyeOff size={16} />}
                   </button>
                 </div>
                 <p className="text-sm text-slate-400 font-medium">Saldos atuais por instituição</p>
@@ -384,7 +384,7 @@ export default function FluxoCaixaPage() {
                         "text-lg font-black tracking-tight",
                         selectedAccountId === account.id ? "text-white" : "text-slate-900"
                       )}>
-                        {formatCurrency(account.current_balance, isVisible('cashflow_accounts') && isVisible('cashflow_account_' + account.id))}
+                        {formatCurrency(account.current_balance, isVisible('cashflow_all'))}
                       </p>
                     </div>
                   </motion.button>
@@ -411,11 +411,11 @@ export default function FluxoCaixaPage() {
                   {selectedAccountId === 'all' ? 'Extrato Geral' : `Extrato: ${data.accounts.find(a => a.id === selectedAccountId)?.name}`}
                 </h3>
                 <button 
-                  onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_transactions'); }} 
+                  onClick={(e) => { e.preventDefault(); toggleVisibility('cashflow_all'); }} 
                   className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                  title={isVisible('cashflow_transactions') ? "Ocultar valor" : "Mostrar valor"}
+                  title={isVisible('cashflow_all') ? "Ocultar valor" : "Mostrar valor"}
                 >
-                  {isVisible('cashflow_transactions') ? <Eye size={16} /> : <EyeOff size={16} />}
+                  {isVisible('cashflow_all') ? <Eye size={16} /> : <EyeOff size={16} />}
                 </button>
               </div>
               <p className="text-sm text-slate-400 font-medium mt-2">
@@ -509,7 +509,7 @@ export default function FluxoCaixaPage() {
                       transaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600'
                     )}>
                       {transaction.type === 'expense' ? '-' : '+'}
-                      {formatCurrency(transaction.amount, isVisible('cashflow_transactions'))}
+                      {formatCurrency(transaction.amount, isVisible('cashflow_all'))}
                     </td>
                   </motion.tr>
                 ))}
