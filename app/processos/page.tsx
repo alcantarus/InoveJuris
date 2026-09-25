@@ -141,7 +141,10 @@ export default function ProcessosPage() {
       const client = contract ? (clientsData || []).find((cl: any) => cl.id === contract.client_id) : null;
       return {
         ...p,
-        client: client ? client.name : p.client
+        client: client ? client.name : p.client,
+        tags: Array.isArray(p.tags) 
+          ? p.tags 
+          : (typeof p.tags === 'string' && p.tags ? p.tags.split(',').map((t: string) => t.trim()) : [])
       };
     });
 
@@ -216,7 +219,9 @@ export default function ProcessosPage() {
         status: process.status || (mode === 'previdenciario' ? 'Em Análise' : 'Em Andamento'),
         priority: process.priority || 'Média',
         risk_assessment: process.risk_assessment || 'Possível',
-        tags: process.tags || [],
+        tags: Array.isArray(process.tags) 
+          ? process.tags 
+          : (typeof process.tags === 'string' && process.tags ? process.tags.split(',').map(t => t.trim()) : []),
         case_value: process.case_value || 0,
         internal_notes: process.internal_notes || '',
         lawyer_id: process.lawyer_id || null,
