@@ -47,7 +47,7 @@ interface Process {
   history?: any[]
   process_deadlines?: any[]
   risk_assessment?: string
-  tags?: string[]
+  tags?: any
   case_value?: number
   internal_notes?: string
 }
@@ -144,7 +144,7 @@ export default function ProcessosPage() {
         client: client ? client.name : p.client,
         tags: Array.isArray(p.tags) 
           ? p.tags 
-          : (typeof p.tags === 'string' && p.tags ? p.tags.split(',').map((t: string) => t.trim()) : [])
+          : (typeof p.tags === 'string' ? (p.tags as string).split(',').map(t => t.trim()) : [])
       };
     });
 
@@ -221,7 +221,7 @@ export default function ProcessosPage() {
         risk_assessment: process.risk_assessment || 'Possível',
         tags: Array.isArray(process.tags) 
           ? process.tags 
-          : (typeof process.tags === 'string' && process.tags ? process.tags.split(',').map(t => t.trim()) : []),
+          : (typeof process.tags === 'string' ? (process.tags as string).split(',').map(t => t.trim()) : []),
         case_value: process.case_value || 0,
         internal_notes: process.internal_notes || '',
         lawyer_id: process.lawyer_id || null,
