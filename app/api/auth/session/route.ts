@@ -199,7 +199,14 @@ export async function POST(request: Request) {
         // Don't fail the login if audit logging fails
       }
 
-      return NextResponse.json({ success: true, sessionId: data.id })
+      const response = NextResponse.json({ success: true, sessionId: data.id })
+      response.cookies.set('session_id', data.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/'
+      })
+      return response
     } 
     
     if (action === 'logout' && sessionId) {
@@ -214,7 +221,9 @@ export async function POST(request: Request) {
 
       if (error) throw error
 
-      return NextResponse.json({ success: true })
+      const response = NextResponse.json({ success: true })
+      response.cookies.delete('session_id')
+      return response
     }
 
     if (action === 'heartbeat' && sessionId) {
