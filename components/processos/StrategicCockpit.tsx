@@ -11,7 +11,7 @@ export function StrategicCockpit({ processes, isVisible }: { processes: any[], i
     return acc
   }, {} as any)
   
-  const urgentCount = processes.filter(p => Array.isArray(p.tags) ? p.tags.some(tag => tag.toLowerCase().includes('urgente')) : (typeof p.tags === 'string' && p.tags.toLowerCase().includes('urgente'))).length
+  const urgentCount = processes.filter(p => Array.isArray(p.tags) ? (p.tags as string[]).some((tag: string) => tag.toLowerCase().includes('urgente')) : (typeof p.tags === 'string' && (p.tags as string).toLowerCase().includes('urgente'))).length
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
