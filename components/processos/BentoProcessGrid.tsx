@@ -1,7 +1,7 @@
 import React from 'react'
 import { motion } from 'motion/react'
-import { cn, formatDate, getDeadlineStatus } from '@/lib/utils'
-import { Scale, FileText, User, Clock, AlertTriangle, Calendar, Edit2, Trash2, RefreshCw } from 'lucide-react'
+import { cn, formatDate, getDeadlineStatus, formatCurrency } from '@/lib/utils'
+import { Scale, FileText, User, Clock, AlertTriangle, Calendar, Edit2, Trash2, RefreshCw, DollarSign } from 'lucide-react'
 
 interface Process {
   id: number
@@ -15,6 +15,7 @@ interface Process {
   lawyer_id?: number | null
   history?: any[]
   process_deadlines?: any[]
+  case_value?: number
 }
 
 interface BentoProcessGridProps {
@@ -24,9 +25,10 @@ interface BentoProcessGridProps {
   onSync: (p: Process) => void
   syncingId: number | null
   lawyers: any[]
+  isVisible?: (key: string) => boolean
 }
 
-export function BentoProcessGrid({ processes, onEdit, onDelete, onSync, syncingId, lawyers }: BentoProcessGridProps) {
+export function BentoProcessGrid({ processes, onEdit, onDelete, onSync, syncingId, lawyers, isVisible }: BentoProcessGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {processes.map((process, index) => (
@@ -81,6 +83,16 @@ export function BentoProcessGrid({ processes, onEdit, onDelete, onSync, syncingI
               <Clock size={16} className="text-indigo-400" />
               <span>{process.status}</span>
             </div>
+
+            {process.case_value ? (
+              <div className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-2 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <DollarSign size={16} className="text-emerald-500" />
+                  <span className="text-xs text-slate-400 font-medium uppercase">Valor da Causa</span>
+                </div>
+                <span className="font-bold text-slate-900">{formatCurrency(process.case_value, isVisible ? isVisible('process_all') : true)}</span>
+              </div>
+            ) : null}
             
             {/* Next Deadline Highlight */}
             {(process.process_deadlines && process.process_deadlines.length > 0) && (

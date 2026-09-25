@@ -2,7 +2,7 @@ import React from 'react'
 import { DollarSign, ShieldAlert, AlertOctagon, TrendingUp } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
-export function StrategicCockpit({ processes }: { processes: any[] }) {
+export function StrategicCockpit({ processes, isVisible }: { processes: any[], isVisible?: (key: string) => boolean }) {
   const totalValue = processes.reduce((acc, p) => acc + (p.case_value || 0), 0)
   
   const riskMatrix = processes.reduce((acc, p) => {
@@ -19,7 +19,7 @@ export function StrategicCockpit({ processes }: { processes: any[] }) {
         <div className="p-3 bg-indigo-800 rounded-xl"><DollarSign className="text-indigo-300" /></div>
         <div>
           <p className="text-indigo-300 text-sm">Valor Total da Carteira</p>
-          <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
+          <p className="text-2xl font-bold">{formatCurrency(totalValue, isVisible ? isVisible('process_all') : true)}</p>
         </div>
       </div>
       

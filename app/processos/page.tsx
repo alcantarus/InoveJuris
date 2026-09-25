@@ -17,8 +17,11 @@ import {
   Edit2,
   AlertTriangle,
   History,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react'
+import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import SyncDashboard from '@/components/SyncDashboard'
 import { motion } from 'motion/react'
@@ -44,7 +47,7 @@ interface Process {
   history?: any[]
   process_deadlines?: any[]
   risk_assessment?: string
-  tags?: string
+  tags?: string[]
   case_value?: number
   internal_notes?: string
 }
@@ -56,6 +59,7 @@ const DEFAULT_PROCESSES: Process[] = [
 ]
 
 export default function ProcessosPage() {
+  const { isVisible, toggleVisibility } = usePrivacy()
   const { user } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -81,7 +85,7 @@ export default function ProcessosPage() {
     status: 'Em Andamento',
     priority: 'Média',
     risk_assessment: 'Possível',
-    tags: '',
+    tags: [] as string[],
     case_value: 0,
     internal_notes: '',
     lawyer_id: null as number | null,
@@ -212,7 +216,7 @@ export default function ProcessosPage() {
         status: process.status || (mode === 'previdenciario' ? 'Em Análise' : 'Em Andamento'),
         priority: process.priority || 'Média',
         risk_assessment: process.risk_assessment || 'Possível',
-        tags: process.tags || '',
+        tags: process.tags || [],
         case_value: process.case_value || 0,
         internal_notes: process.internal_notes || '',
         lawyer_id: process.lawyer_id || null,
@@ -233,7 +237,7 @@ export default function ProcessosPage() {
         status: mode === 'previdenciario' ? 'Em Análise' : 'Em Andamento',
         priority: 'Média',
         risk_assessment: 'Possível',
-        tags: '',
+        tags: [],
         case_value: 0,
         internal_notes: '',
         lawyer_id: null,
@@ -522,6 +526,14 @@ export default function ProcessosPage() {
             <span className="hidden sm:inline">Novo Previdenciário</span>
             <span className="inline sm:hidden">INSS</span>
           </button>
+          <button 
+            onClick={() => toggleVisibility('process_all')}
+            className="p-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-sm font-bold shadow-sm"
+            title={isVisible('process_all') ? "Ocultar valores" : "Mostrar valores"}
+          >
+            {isVisible('process_all') ? <Eye size={18} className="text-indigo-600" /> : <EyeOff size={18} className="text-slate-400" />}
+            <span className="hidden sm:inline">{isVisible('process_all') ? "Ocultar Valores" : "Mostrar Valores"}</span>
+          </button>
         </div>
 
         {/* Deadline Alerts Banner */}
@@ -593,7 +605,7 @@ export default function ProcessosPage() {
           </div>
         )}
 
-        <StrategicCockpit processes={filteredProcesses} />
+        <StrategicCockpit processes={filteredProcesses} isVisible={isVisible} />
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -614,6 +626,7 @@ export default function ProcessosPage() {
             onSync={handleSyncProcess}
             syncingId={syncingProcessId}
             lawyers={lawyers}
+            isVisible={isVisible}
           />
         ) : (
           <KanbanBoard processes={filteredProcesses} onProcessUpdate={fetchProcesses} onEditProcess={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)} />
@@ -841,8 +854,8 @@ export default function ProcessosPage() {
                 type="text"
                 className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 placeholder="Ex: Urgente, Alvará, Recurso"
-                value={formData.tags || ''}
-                onChange={e => setFormData({ ...formData, tags: e.target.value })}
+                value={formData.tags.join(', ')}
+                onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })}
               />
             </div>
 
