@@ -57,6 +57,7 @@ interface Contract {
   contractSigned: boolean
   proxySigned: boolean
   inssProtocol: string
+  inssNB?: string
   gpsGenerated: boolean
   gps_generated_status: boolean
   gpsPaid: boolean
@@ -344,6 +345,7 @@ export default function FinanceiroPage() {
     contractSigned: false,
     proxySigned: false,
     inssProtocol: '',
+    inssNB: '',
     gpsGenerated: false,
     gpsPaid: false,
     inssDeferred: false,
@@ -504,7 +506,8 @@ export default function FinanceiroPage() {
         ...contract,
         product: product?.name || '',
         lawArea: product?.law_areas?.name || '',
-        hasGpsControl: !!(contract.gps_forecast_date || contract.gpsGenerated || contract.gpsPaid || contract.gps_value)
+        hasGpsControl: !!(contract.gps_forecast_date || contract.gpsGenerated || contract.gpsPaid || contract.gps_value),
+        inssNB: contract.inssNB || ''
       })
       // Fetch installments for this contract
       if (isSupabaseConfigured) {
@@ -533,6 +536,7 @@ export default function FinanceiroPage() {
         contractSigned: false,
         proxySigned: false,
         inssProtocol: '',
+        inssNB: '',
         hasGpsControl: false,
         gpsGenerated: false,
         gps_generated_status: false,
@@ -634,6 +638,7 @@ export default function FinanceiroPage() {
       contractSigned: formData.contractSigned || false,
       proxySigned: formData.proxySigned || false,
       inssProtocol: formData.inssProtocol || null,
+      inssNB: formData.inssNB || null,
       gpsGenerated: formData.hasGpsControl ? (formData.gpsGenerated || false) : false,
       gps_generated_status: formData.hasGpsControl ? (formData.gps_generated_status || false) : false,
       gpsPaid: formData.hasGpsControl ? (formData.gpsPaid || false) : false,
@@ -2115,6 +2120,26 @@ export default function FinanceiroPage() {
                       <option key={l.id} value={l.id}>{l.users?.name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Número do Benefício/NB</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                    value={formData.inssNB || ''}
+                    onChange={e => {
+                      let v = e.target.value.replace(/\D/g, '');
+                      if (v.length > 10) v = v.slice(0, 10);
+                      
+                      let maskedValue = v;
+                      if (v.length > 3 && v.length <= 6) maskedValue = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+                      else if (v.length > 6 && v.length <= 9) maskedValue = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+                      else if (v.length > 9) maskedValue = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1})/, '$1.$2.$3-$4');
+                      
+                      setFormData({ ...formData, inssNB: maskedValue });
+                    }}
+                    placeholder="Ex: 123.456.789-0"
+                  />
                 </div>
               </div>
             </div>
