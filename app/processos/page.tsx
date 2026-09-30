@@ -33,6 +33,7 @@ import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
 import { useAuth } from '@/lib/auth'
 import KanbanBoard from '@/components/KanbanBoard'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
+import CurrencyInput from '@/components/CurrencyInput'
 
 interface Process {
   id: number
@@ -845,11 +846,10 @@ export default function ProcessosPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Valor da Causa (R$)</label>
-              <input 
-                type="number"
+              <CurrencyInput 
                 className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                value={formData.case_value || ''}
-                onChange={e => setFormData({ ...formData, case_value: parseFloat(e.target.value) || 0 })}
+                value={formData.case_value || 0}
+                onChange={(val: number) => setFormData({ ...formData, case_value: val })}
               />
             </div>
             
