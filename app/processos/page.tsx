@@ -33,7 +33,7 @@ import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
 import { useAuth } from '@/lib/auth'
 import KanbanBoard from '@/components/KanbanBoard'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
-import CurrencyInput from '@/components/CurrencyInput'
+import { CurrencyInput } from '@/components/CurrencyInput'
 
 interface Process {
   id: number
