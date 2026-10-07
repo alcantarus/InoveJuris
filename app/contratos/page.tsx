@@ -1576,6 +1576,12 @@ export default function FinanceiroPage() {
                           {lawyers.find(l => l.id === contract.lawyer_id)?.users?.name || 'Advogado'}
                         </div>
                       )}
+                      {contract.inssNB && (
+                        <div className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 uppercase tracking-wider">
+                          <FileText size={10} />
+                          NB: {contract.inssNB}
+                        </div>
+                      )}
                     </td>
                     <td className="p-4">
                       <div className="text-sm text-slate-900">{formatDate(contract.contractDate)}</div>
@@ -1763,6 +1769,11 @@ export default function FinanceiroPage() {
                     <div className="text-sm text-slate-600">
                       <span className="font-medium text-slate-500">Data:</span> {formatDate(contract.launchDate)}
                     </div>
+                    {contract.inssNB && (
+                      <div className="text-sm text-indigo-600 font-bold">
+                        <span className="font-medium text-slate-500">NB:</span> {contract.inssNB}
+                      </div>
+                    )}
                     <div className="text-sm text-slate-700 font-medium">
                       <span className="font-medium text-slate-500">Valor:</span> {isVisible('finance_table_value') ? formatCurrency(contract.contractValue) : 'R$ •••••'}
                     </div>
