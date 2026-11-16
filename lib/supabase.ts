@@ -162,6 +162,19 @@ export async function processContractCancellation(contractId: number, reason: st
 async function performFallbackCancellation(contractId: number, reason: string, userId: number | null, contract: any) {
   console.log('[processContractCancellation] Starting fallback for contractId:', contractId);
 
+  const normalizedStatus = (contract.status || '').toString().trim().toLowerCase();
+
+  // Defensiva: se o contrato já estiver cancelado, não tenta atualizar novamente
+  if (normalizedStatus === 'cancelado' || normalizedStatus === 'cancelada') {
+    console.log('[processContractCancellation] Contract already canceled');
+    return { success: true };
+  }
+
+  // Evita transições inválidas que disparam proteção no banco (ex.: quitado -> outro status)
+  if (normalizedStatus === 'quitado') {
+    throw new Error('Não é possível cancelar um contrato já quitado.');
+  }
+
   const { data: insts, error: fetchError } = await supabase
     .from('installments')
     .select('*')
@@ -174,21 +187,15 @@ async function performFallbackCancellation(contractId: number, reason: string, u
 
   console.log('[processContractCancellation] Fetched installments:', insts);
 
-  const hasPayments = insts?.some((i: any) => (i.amountPaid || 0) > 0);
+  const hasPayments = insts?.some((i: any) => (Number(i.amountPaid) || 0) > 0);
   if (hasPayments) {
     console.warn('[processContractCancellation] Blocked due to payments');
     throw new Error('Não é possível cancelar um contrato com parcelas recebidas.');
   }
 
-  // Defensiva: Se o contrato já estiver cancelado, não fazemos nada e retornamos sucesso
-  if (contract.status === 'Cancelado') {
-    console.log('[processContractCancellation] Contract already canceled');
-    return { success: true };
-  }
-
   const oldObs = contract.observations || '';
-  const updatedObs = oldObs 
-    ? `${oldObs}\n\n[CANCELAMENTO]: ${reason}` 
+  const updatedObs = oldObs
+    ? `${oldObs}\n\n[CANCELAMENTO]: ${reason}`
     : `[CANCELAMENTO]: ${reason}`;
 
   const { error: contractUpdateError } = await supabase
@@ -202,7 +209,15 @@ async function performFallbackCancellation(contractId: number, reason: string, u
     })
     .eq('id', contractId);
 
-  if (contractUpdateError) throw contractUpdateError;
+  if (contractUpdateError) {
+    const msg = contractUpdateError.message || JSON.stringify(contractUpdateError);
+    // Se o banco indicar que já está cancelado (condição de corrida/estado inconsistente), trata como sucesso
+    if (/cancelad/i.test(msg)) {
+      console.warn('[processContractCancellation] Contract appears already canceled in DB, treating as success:', contractUpdateError);
+      return { success: true };
+    }
+    throw contractUpdateError;
+  }
 
   const { error: installmentsUpdateError } = await supabase
     .from('installments')
