@@ -26,7 +26,7 @@ import {
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
-import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPIS, cn, formatCEP, formatPhone, removeAccents } from '@/lib/utils'
+import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPIS, cn, formatCEP, formatPhone, removeAccents, normalizeSearchText } from '@/lib/utils'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
