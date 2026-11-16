@@ -16,7 +16,7 @@ import {
   Users
 } from 'lucide-react'
 import { motion } from 'motion/react'
-import { validateCPF, validateCNPJ, validatePIS, formatCPF, formatCNPJ, formatCEP, formatPhone, removeAccents, cn } from '@/lib/utils'
+import { validateCPF, validateCNPJ, validatePIS, formatCPF, formatCNPJ, formatCEP, formatPhone, removeAccents, normalizeSearchText, cn } from '@/lib/utils'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
@@ -254,10 +254,11 @@ export default function ClientesPageV2() {
     }
   }
 
-  const filteredClients = clients.filter(c => 
-    removeAccents(c.name.toLowerCase()).includes(removeAccents(searchTerm.toLowerCase())) ||
-    (c.document && c.document.includes(searchTerm))
-  )
+  const normalizedSearch = normalizeSearchText(searchTerm)
+  const filteredClients = clients.filter(c => {
+    if (!normalizedSearch) return true
+    return [c.name, c.document].some(v => normalizeSearchText(v).includes(normalizedSearch))
+  })
 
   // Pagination
   const itemsPerPage = 10

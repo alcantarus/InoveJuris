@@ -9,7 +9,7 @@ import Docxtemplater from 'docxtemplater'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { VariablesDictionary } from '@/components/documents/VariablesDictionary'
-import { removeAccents } from '@/lib/utils'
+import { removeAccents, normalizeSearchText } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 
 // Função de Limpeza de Tags (String-based State Machine)
@@ -896,7 +896,7 @@ export default function DocumentosPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                   {templates
                     .filter(t => selectedCategory === 'Todos' || (t.category || 'Geral') === selectedCategory)
-                    .filter(t => removeAccents(t.name.toLowerCase()).includes(removeAccents(templateSearch).toLowerCase()))
+                    .filter(t => !normalizeSearchText(templateSearch) || normalizeSearchText(t.name).includes(normalizeSearchText(templateSearch)))
                     .map(t => (
                     <button 
                       key={t.id} 
@@ -945,7 +945,7 @@ export default function DocumentosPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {clients.filter(c => removeAccents(c.name.toLowerCase()).includes(removeAccents(clientSearch).toLowerCase())).map(c => (
+                  {clients.filter(c => !normalizeSearchText(clientSearch) || normalizeSearchText(c.name).includes(normalizeSearchText(clientSearch))).map(c => (
                     <button 
                       key={c.id} 
                       onClick={() => setSelectedClientId(c.id)}
@@ -1006,7 +1006,7 @@ export default function DocumentosPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {clients.filter(c => c.id !== selectedClientId && removeAccents(c.name.toLowerCase()).includes(removeAccents(client2Search).toLowerCase())).map(c => (
+                  {clients.filter(c => c.id !== selectedClientId && (!normalizeSearchText(client2Search) || normalizeSearchText(c.name).includes(normalizeSearchText(client2Search)))).map(c => (
                     <button 
                       key={c.id} 
                       onClick={() => setSelectedClient2Id(c.id)}

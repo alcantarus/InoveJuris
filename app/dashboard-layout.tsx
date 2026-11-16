@@ -89,8 +89,8 @@ export default function DashboardLayout({
       <GPSNotificationChecker />
       <BirthdayChecker />
       <Sidebar />
-      <main className="flex-1 lg:ml-64 p-4 md:p-6 lg:p-8 transition-all duration-300 mt-24 lg:mt-6">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 lg:ml-64 p-3 sm:p-4 md:p-6 lg:p-8 transition-all duration-300 mt-24 lg:mt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="max-w-7xl mx-auto w-full min-w-0">
           {children}
         </div>
       </main>

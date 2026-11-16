@@ -17,13 +17,19 @@ export function CashFlowForecastCard() {
       const { data, error } = await supabase
         .from('vw_cash_flow_forecast')
         .select('expected_amount')
-      
+
       if (error) {
-        console.error('Erro ao buscar previsão:', error)
+        console.warn('Erro ao buscar previsão de fluxo de caixa (vw_cash_flow_forecast):', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        setForecast(0)
         return
       }
 
-      const totalForecast = (data || []).reduce((acc: number, curr: any) => acc + (curr.expected_amount || 0), 0)
+      const totalForecast = (data || []).reduce((acc: number, curr: any) => acc + (Number(curr.expected_amount) || 0), 0)
       setForecast(totalForecast)
     }
     fetchForecast()
@@ -35,8 +41,18 @@ export function CashFlowForecastCard() {
       .from('vw_cash_flow_forecast')
       .select('installment_id, contract_id, due_date, amount, paid_amount, status, expected_amount')
       .limit(10)
-    
-    if (!error) setDetails(data || [])
+
+    if (error) {
+      console.warn('Erro ao buscar detalhes da previsão de fluxo de caixa (vw_cash_flow_forecast):', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
+      setDetails([])
+    } else {
+      setDetails(data || [])
+    }
     setLoading(false)
   }
 
@@ -69,10 +85,15 @@ export function CashFlowForecastCard() {
             <div className="max-h-[300px] overflow-y-auto space-y-2">
               {details.map((item, index) => (
                 <div key={index} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg text-sm">
-                  <span className="font-medium text-slate-900">{item.description || 'Receita Prevista'}</span>
-                  <span className="font-bold text-green-600">{formatCurrency(item.expected_amount)}</span>
+                  <span className="font-medium text-slate-900">
+                    {item.description || (item.due_date ? `Vencimento: ${new Date(item.due_date).toLocaleDateString('pt-BR')}` : 'Receita Prevista')}
+                  </span>
+                  <span className="font-bold text-green-600">{formatCurrency(Number(item.expected_amount) || 0)}</span>
                 </div>
               ))}
+              {details.length === 0 && (
+                <div className="text-sm text-slate-500 text-center py-4">Nenhum dado disponível.</div>
+              )}
             </div>
           </div>
         )}

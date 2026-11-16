@@ -483,33 +483,28 @@ export default function ClientesPage() {
 
   const checkConflictOfInterest = async (name: string, document: string) => {
     if (!name) return null;
-    
+    const normalizedName = normalizeSearchText(name)
+    if (!normalizedName) return null;
+
     try {
-      // Check for similar names in clients (excluding current if editing)
-      let query = supabase
-        .from('clients')
-        .select('name, document')
-        .ilike('name', `%${name}%`)
-      
+      // Check for similar names in clients (accent-insensitive, excluding current if editing)
+      let clientsQuery = supabase.from('clients').select('id, name, document')
       if (editingClient) {
-        query = query.neq('id', editingClient.id)
+        clientsQuery = clientsQuery.neq('id', editingClient.id)
       }
-      
-      const { data: similarClients } = await query;
-      
-      if (similarClients && similarClients.length > 0) {
-        return `Atenção: Já existe um cliente com nome similar (${similarClients[0].name}). Verifique se não é a mesma pessoa.`
+      const { data: clientsData } = await clientsQuery
+      const similarClient = (clientsData || []).find((c: any) => normalizeSearchText(c.name).includes(normalizedName))
+      if (similarClient) {
+        return `Atenção: Já existe um cliente com nome similar (${similarClient.name}). Verifique se não é a mesma pessoa.`
       }
 
-      // Check for similar names in processes (as opposing party or client)
-      const { data: similarProcesses } = await supabase
+      // Check for similar names in processes (accent-insensitive)
+      const { data: processesData } = await supabase
         .from('processes')
         .select('number, client')
-        .ilike('client', `%${name}%`)
-        .limit(1)
-
-      if (similarProcesses && similarProcesses.length > 0) {
-        return `Atenção: O nome ${name} aparece no processo ${similarProcesses[0].number}. Verifique se há conflito de interesses.`
+      const similarProcess = (processesData || []).find((p: any) => normalizeSearchText(p.client).includes(normalizedName))
+      if (similarProcess) {
+        return `Atenção: O nome ${name} aparece no processo ${similarProcess.number}. Verifique se há conflito de interesses.`
       }
 
       return null;

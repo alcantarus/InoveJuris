@@ -24,7 +24,7 @@ import {
 
 import { SettingsSkeleton } from '@/components/settings/SettingsSkeleton';
 import { useAuth } from '@/lib/auth';
-import { removeAccents } from '@/lib/utils';
+import { normalizeSearchText } from '@/lib/utils';
 
 const GeneralTab = lazy(() => import('@/components/settings/GeneralTab').then(m => ({ default: m.GeneralTab })));
 const AppearanceTab = lazy(() => import('@/components/settings/AppearanceTab').then(m => ({ default: m.AppearanceTab })));
@@ -86,9 +86,11 @@ export default function SettingsPage() {
     );
   }
 
-  const filteredTabs = tabs.filter(tab => 
-    removeAccents(tab.name.toLowerCase()).includes(removeAccents(searchQuery).toLowerCase())
-  );
+  const normalizedSearchQuery = normalizeSearchText(searchQuery)
+  const filteredTabs = tabs.filter(tab => {
+    if (!normalizedSearchQuery) return true
+    return normalizeSearchText(tab.name).includes(normalizedSearchQuery)
+  });
 
   const ActiveComponent = tabs.find(t => t.id === activeTab)?.component || GeneralTab;
 

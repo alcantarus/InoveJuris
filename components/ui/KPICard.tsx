@@ -30,13 +30,13 @@ export function KPICard({
   };
 
   return (
-    <div className={cn("bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 relative group", className)}>
-      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", colorClasses[color])}>
-        <Icon size={24} />
+    <div className={cn("bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3 sm:gap-4 relative group", className)}>
+      <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0", colorClasses[color])}>
+        <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate">{title}</p>
+          <p className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">{title}</p>
           {onToggleVisibility && (
             <button 
               onClick={(e) => { e.preventDefault(); onToggleVisibility(); }}
@@ -48,7 +48,7 @@ export function KPICard({
           )}
         </div>
         <p className={cn(
-          "text-2xl font-bold text-slate-900 truncate transition-all duration-300",
+          "text-xl sm:text-2xl font-bold text-slate-900 break-words leading-tight transition-all duration-300",
           !isVisible && "blur-md select-none"
         )}>
           {isVisible ? value : '••••••'}

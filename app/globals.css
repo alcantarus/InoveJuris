@@ -87,6 +87,23 @@ body {
   @apply bg-slate-50 text-slate-900;
 }
 
+html, body {
+  min-height: 100dvh;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Evita zoom automático no iOS ao focar campos pequenos */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }

@@ -16,9 +16,15 @@ export function AreaEfficiencyCard() {
     const { data, error } = await supabase
       .from('vw_area_efficiency')
       .select('law_area, average_ticket')
-    
+
     if (error) {
-      console.error('Erro ao buscar eficiência:', error)
+      console.warn('Erro ao buscar eficiência por área (vw_area_efficiency):', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
+      setEfficiency([])
     } else {
       setEfficiency(data || [])
     }
@@ -59,9 +65,12 @@ export function AreaEfficiencyCard() {
           {efficiency.slice(0, 3).map((area, index) => (
             <div key={index} className="flex justify-between text-sm">
               <span className="text-slate-600">{area.law_area}</span>
-              <span className="font-bold text-slate-900">{formatCurrency(area.average_ticket)}</span>
+              <span className="font-bold text-slate-900">{formatCurrency(Number(area.average_ticket) || 0)}</span>
             </div>
           ))}
+          {efficiency.length === 0 && !loading && (
+            <div className="text-sm text-slate-500">Sem dados disponíveis.</div>
+          )}
         </div>
       </div>
 
@@ -79,9 +88,12 @@ export function AreaEfficiencyCard() {
               {efficiency.map((area, index) => (
                 <div key={index} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg text-sm">
                   <span className="font-medium text-slate-900">{area.law_area}</span>
-                  <span className="font-bold text-purple-600">{formatCurrency(area.average_ticket)}</span>
+                  <span className="font-bold text-purple-600">{formatCurrency(Number(area.average_ticket) || 0)}</span>
                 </div>
               ))}
+              {efficiency.length === 0 && (
+                <div className="text-sm text-slate-500 text-center py-4">Nenhum dado disponível.</div>
+              )}
             </div>
           </div>
         )}

@@ -20,15 +20,23 @@ export function GPSNotificationChecker() {
       
       const { data: contracts, error: contractsError } = await supabase
         .from('contracts')
-        .select('id, gps_forecast_date, gpsPaid, clients(name)')
+        .select('id, status, gps_forecast_date, gpsPaid, clients(name)')
         .eq('gpsPaid', false)
         .eq('gps_forecast_date', today)
-      
+
       if (contractsError) throw contractsError
       if (!contracts || contracts.length === 0) return
 
-      // 2. Para cada contrato, verifica se já existe notificação para hoje
-      for (const contract of contracts) {
+      const inactiveStatuses = ['cancelado', 'cancelada', 'quitado', 'arquivado']
+      const activeContracts = contracts.filter((contract: any) => {
+        const status = String(contract.status || '').toLowerCase().trim()
+        return !inactiveStatuses.includes(status)
+      })
+
+      if (activeContracts.length === 0) return
+
+      // 2. Para cada contrato ativo, verifica se já existe notificação para hoje
+      for (const contract of activeContracts) {
         const clientName = contract.clients?.name || 'Cliente Desconhecido'
         const title = 'Vencimento de GPS'
         const message = `Hoje está previsto o pagamento da GPS de ${clientName}.`

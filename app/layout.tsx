@@ -28,6 +28,13 @@ export const metadata = {
   description: 'Sistema completo para gestão de escritórios de advocacia, processos e financeiro.',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+}
+
 export const dynamic = 'force-dynamic';
 
 export default async function RootLayout({
@@ -49,7 +56,7 @@ export default async function RootLayout({
           __html: `window.GEMINI_API_KEY = ${JSON.stringify(geminiKey)};`
         }} />
       </head>
-      <body className="font-sans antialiased bg-slate-50 text-slate-900" suppressHydrationWarning>
+      <body className="font-sans antialiased bg-slate-50 text-slate-900 overflow-x-hidden" suppressHydrationWarning>
         <ResizeObserverFix />
         <SettingsProvider>
           <PrivacyProvider>

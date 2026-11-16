@@ -9,7 +9,7 @@ import { DollarSign, Search, Calendar, CheckCircle2, Clock, AlertCircle, Plus, R
 import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
 import { supabase, processContractCancellation } from '@/lib/supabase'
-import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado } from '@/lib/utils'
+import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado, normalizeSearchText } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
@@ -31,6 +31,7 @@ export default function ContasAReceberPage() {
   const [prorogueModalOpen, setProrogueModalOpen] = useState(false)
   const [reverseModalOpen, setReverseModalOpen] = useState(false)
   const [statementModalOpen, setStatementModalOpen] = useState(false)
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false)
   const [estornoReason, setEstornoReason] = useState('')
   const [estornoAccountId, setEstornoAccountId] = useState('')
   const [activeInstallment, setActiveInstallment] = useState<any>(null)
@@ -40,6 +41,9 @@ export default function ContasAReceberPage() {
   const [paymentCategory, setPaymentCategory] = useState('')
   const [paymentDescription, setPaymentDescription] = useState('')
   const [prorogueDate, setProrogueDate] = useState('')
+  const [adjustDate, setAdjustDate] = useState('')
+  const [adjustReason, setAdjustReason] = useState('')
+  const [adjustNotes, setAdjustNotes] = useState('')
   const [filterType, setFilterType] = useState('Todos') // 'Todos', 'Abertos', 'Quitados', 'Atrasados', 'Vence Hoje'
   const { user } = useAuth()
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'client_name', direction: 'asc' });
@@ -154,7 +158,7 @@ export default function ContasAReceberPage() {
       }
 
       await processContractCancellation(
-        Number(selectedContract.id),
+        Number(selectedContract?.id),
         reason,
         user.id
       );
@@ -211,7 +215,7 @@ export default function ContasAReceberPage() {
 
     setSelectedInstallments([]);
     if (selectedContract) {
-      fetchInstallmentsForContract(selectedContract.id);
+      if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id);
     }
     fetchContracts();
     setLoading(false);
@@ -234,7 +238,16 @@ export default function ContasAReceberPage() {
 
   const openProrogueModal = (inst: any) => {
     setActiveInstallment(inst)
+    setProrogueDate(inst.dueDate ? String(inst.dueDate).split('T')[0] : '')
     setProrogueModalOpen(true)
+  }
+
+  const openAdjustModal = (inst: any) => {
+    setActiveInstallment(inst)
+    setAdjustDate(inst.dueDate ? String(inst.dueDate).split('T')[0] : '')
+    setAdjustReason(inst.due_date_reason || '')
+    setAdjustNotes('')
+    setAdjustModalOpen(true)
   }
 
   const openReverseModal = (inst: any) => {
@@ -308,21 +321,30 @@ export default function ContasAReceberPage() {
       return
     }
 
-    const { data: contractsData, error: contractsError } = await supabase
-      .from('contracts')
-      .select('id, isProBono, isFinanced, contractNumber')
+    let contractsData: any[] | null = null
+    let contractsError: any = null
 
+    ;({ data: contractsData, error: contractsError } = await supabase
+      .from('contracts')
+      .select('id, isProBono, isFinanced, contractNumber'))
+
+    // Fallback: alguns ambientes podem não ter contractNumber ou ter nome diferente
     if (contractsError) {
-      console.error('Erro ao buscar detalhes dos contratos:', contractsError)
-      setContracts(summaryData || [])
-    } else {
-      const mergedData = summaryData?.map((s: any) => ({
-        ...s,
-        contracts: contractsData.find((c: any) => c.id === s.contract_id)
-      }))
-      console.log('Merged Data:', mergedData);
-      setContracts(mergedData || [])
+      const retry = await supabase
+        .from('contracts')
+        .select('id, isProBono, isFinanced')
+      contractsData = retry.data
+      contractsError = retry.error
+      if (contractsError) {
+        console.warn('Não foi possível carregar detalhes extras dos contratos:', contractsError?.message || contractsError)
+      }
     }
+
+    const mergedData = (summaryData || []).map((s: any) => ({
+      ...s,
+      contracts: contractsData?.find((c: any) => c.id === s.contract_id)
+    }))
+    setContracts(mergedData)
     setLoading(false)
   }, [])
 
@@ -351,7 +373,7 @@ export default function ContasAReceberPage() {
 
   useEffect(() => {
     if (selectedContract) {
-      fetchInstallmentsForContract(selectedContract.id)
+      if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
     }
   }, [selectedContract, fetchInstallmentsForContract])
 
@@ -577,7 +599,10 @@ export default function ContasAReceberPage() {
                 {loading ? (
                   <tr><td colSpan={7} className="p-4 text-center">Carregando...</td></tr>
                 ) : sortedContracts.filter(c => {
-                  const matchesSearch = c.processNumber?.toLowerCase().includes(searchTerm.toLowerCase()) || c.client_name?.toLowerCase().includes(searchTerm.toLowerCase());
+                  const normalizedSearch = normalizeSearchText(searchTerm);
+                  const matchesSearch = !normalizedSearch ||
+                    normalizeSearchText(c.processNumber).includes(normalizedSearch) ||
+                    normalizeSearchText(c.client_name).includes(normalizedSearch);
                   if (!matchesSearch) return false;
                   const today = getTodayBR();
                   if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
@@ -666,7 +691,7 @@ export default function ContasAReceberPage() {
           <div className="space-y-6">
             <button className="text-slate-500 hover:text-slate-700 flex items-center gap-1" onClick={() => setSelectedContract(null)}>&larr; Voltar para Contratos</button>
             <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-lg font-bold break-all">Contrato: {selectedContract.processNumber} - {selectedContract.clients?.name}</h2>
+              <h2 className="text-lg font-bold break-all">Contrato: {selectedContract?.processNumber} - {selectedContract?.clients?.name}</h2>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
                 {selectedInstallments.length > 0 && (
                   <button 
@@ -789,7 +814,16 @@ export default function ContasAReceberPage() {
                           )}
                         </div>
                       </td>
-                      <td className="p-4 text-slate-600">{formatDate(i.dueDate)}</td>
+                      <td className="p-4 text-slate-600">
+                        <div className="flex flex-col">
+                          <span>{formatDate(i.dueDate)}</span>
+                          {i.original_due_date && String(i.original_due_date).split('T')[0] !== String(i.dueDate).split('T')[0] && (
+                            <span className="text-[10px] text-amber-700" title={i.due_date_reason ? `Motivo: ${i.due_date_reason}` : 'Data prevista ajustada'}>
+                              Original: {formatDate(i.original_due_date)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-4 text-slate-900 font-medium">{formatCurrency(i.amount, isVisible('receivable_installment_value'))}</td>
                       <td className="p-4 text-slate-600">{formatCurrency(i.amountPaid || 0, isVisible('receivable_installment_paid'))}</td>
                       <td className="p-4 text-emerald-600 font-bold">{formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))}</td>
@@ -798,13 +832,20 @@ export default function ContasAReceberPage() {
                           {i.status}
                         </span>
                       </td>
-                      <td className="p-4 flex gap-3">
+                      <td className="p-4 flex flex-wrap gap-3">
                         <button 
                           className={cn("text-emerald-600 hover:text-emerald-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada') && "pointer-events-none")}
                           disabled={i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada'}
                           onClick={() => openReceiveModal(i)}
                         >
                           Receber
+                        </button>
+                        <button 
+                          className={cn("text-indigo-600 hover:text-indigo-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada') && "pointer-events-none")}
+                          disabled={i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada'}
+                          onClick={() => openAdjustModal(i)}
+                        >
+                          Ajustar previsão
                         </button>
                         <button 
                           className={cn("text-amber-600 hover:text-amber-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada') && "pointer-events-none")}
@@ -835,7 +876,7 @@ export default function ContasAReceberPage() {
             <div className="space-y-6">
               <div className="p-4 bg-slate-50 rounded-lg">
                 <p className="text-sm text-slate-500">Parcela: {activeInstallment.installmentNumber}</p>
-                <p className="font-bold text-lg">{selectedContract.clients?.name}</p>
+                <p className="font-bold text-lg">{selectedContract?.clients?.name}</p>
                 <div className="flex justify-between mt-2 text-sm">
                   <span>Valor Original: {formatCurrency(activeInstallment.amount, isVisible('receivable_installment_value'))}</span>
                   <span className="font-bold text-emerald-600">Saldo: {formatCurrency(activeInstallment.amount - (activeInstallment.amountPaid || 0), isVisible('receivable_installment_balance'))}</span>
@@ -897,7 +938,7 @@ export default function ContasAReceberPage() {
                   } else {
                     toast.success('Pagamento processado com sucesso!')
                     setReceiveModalOpen(false)
-                    fetchInstallmentsForContract(selectedContract.id)
+                    if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
                   }
                 }}>Confirmar Recebimento</button>
               </div>
@@ -908,23 +949,169 @@ export default function ContasAReceberPage() {
         <Modal isOpen={prorogueModalOpen} onClose={() => setProrogueModalOpen(false)} title="Prorrogar Parcela">
           {activeInstallment && (
             <div className="space-y-4">
-              <p>Parcela: {activeInstallment.installmentNumber} - {selectedContract.clients?.name}</p>
+              <p>Parcela: {activeInstallment.installmentNumber} - {selectedContract?.clients?.name}</p>
+              {activeInstallment.original_due_date && String(activeInstallment.original_due_date).split('T')[0] !== String(activeInstallment.dueDate || '').split('T')[0] && (
+                <p className="text-xs text-slate-500">Data original: {formatDate(activeInstallment.original_due_date)}</p>
+              )}
               <label className="block text-sm font-medium text-slate-700">Nova Data de Vencimento</label>
               <input type="date" value={prorogueDate} onChange={(e) => setProrogueDate(e.target.value)} className="w-full p-2 border rounded-lg" />
-              <button className="w-full bg-amber-600 text-white p-2 rounded-lg" onClick={async () => {
-                const { error } = await supabase
+              <button className="w-full bg-amber-600 text-white p-2 rounded-lg disabled:opacity-50" disabled={!prorogueDate} onClick={async () => {
+                const basePayload: any = {
+                  dueDate: prorogueDate,
+                  status: 'Prorrogada',
+                }
+                if (!activeInstallment.original_due_date) {
+                  basePayload.original_due_date = activeInstallment.dueDate
+                }
+                const fullPayload: any = {
+                  ...basePayload,
+                  due_date_adjusted_at: new Date().toISOString(),
+                  due_date_adjusted_by: user?.id ?? null,
+                  due_date_reason: 'Prorrogação de vencimento'
+                }
+                let { error } = await supabase
                   .from('installments')
-                  .update({ dueDate: prorogueDate, status: 'Prorrogada' })
+                  .update(fullPayload)
                   .eq('id', activeInstallment.id)
                 if (error) {
-                  toast.error('Erro ao prorrogar parcela')
-                  console.error(error)
+                  // Fallback se colunas de auditoria do ajuste ainda não existirem no banco
+                  ({ error } = await supabase
+                    .from('installments')
+                    .update(basePayload)
+                    .eq('id', activeInstallment.id))
+                }
+                if (error) {
+                  toast.error(error?.message || 'Erro ao prorrogar parcela')
+                  console.error('Erro ao prorrogar parcela:', error)
                 } else {
                   toast.success('Parcela prorrogada com sucesso!')
                   setProrogueModalOpen(false)
-                  fetchInstallmentsForContract(selectedContract.id)
+                  if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
+                  fetchContracts()
+                  fetchDashboardMetrics()
                 }
               }}>Confirmar Prorrogação</button>
+            </div>
+          )}
+        </Modal>
+
+        <Modal isOpen={adjustModalOpen} onClose={() => setAdjustModalOpen(false)} title="Ajustar previsão de recebimento">
+          {activeInstallment && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-700">Parcela: <span className="font-medium">{activeInstallment.installmentNumber}</span> - {selectedContract?.clients?.name}</p>
+              <div className="p-3 bg-slate-50 rounded-lg text-sm space-y-1">
+                <p><span className="text-slate-500">Data prevista atual:</span> {formatDate(activeInstallment.dueDate)}</p>
+                {activeInstallment.original_due_date && (
+                  <p><span className="text-slate-500">Data original:</span> {formatDate(activeInstallment.original_due_date)}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nova data prevista de recebimento *</label>
+                <input type="date" value={adjustDate} onChange={(e) => setAdjustDate(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Motivo do ajuste *</label>
+                <select value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg">
+                  <option value="">Selecione...</option>
+                  <option value="Decisão judicial sem data precisa">Decisão judicial sem data precisa</option>
+                  <option value="Aguardando deferimento/agenda do INSS">Aguardando deferimento/agenda do INSS</option>
+                  <option value="Data precisa informada em decisão/despacho">Data precisa informada em decisão/despacho</option>
+                  <option value="Acordo homologado">Acordo homologado</option>
+                  <option value="Previsão administrativa/financeira">Previsão administrativa/financeira</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Observação (opcional)</label>
+                <textarea value={adjustNotes} onChange={(e) => setAdjustNotes(e.target.value)} rows={3} className="w-full p-2 border border-slate-300 rounded-lg" placeholder="Detalhes do ajuste, nº do despacho, informação do INSS etc." />
+              </div>
+
+              <div className="flex gap-2">
+                {activeInstallment.original_due_date && String(activeInstallment.original_due_date).split('T')[0] !== String(activeInstallment.dueDate || '').split('T')[0] && (
+                  <button
+                    type="button"
+                    className="flex-1 bg-slate-100 text-slate-700 p-2 rounded-lg hover:bg-slate-200 transition"
+                    onClick={async () => {
+                      const basePayload: any = {
+                        dueDate: String(activeInstallment.original_due_date).split('T')[0],
+                      }
+                      const fullPayload: any = {
+                        ...basePayload,
+                        due_date_adjusted_at: new Date().toISOString(),
+                        due_date_adjusted_by: user?.id ?? null,
+                        due_date_reason: 'Restaurada data original'
+                      }
+                      let { error } = await supabase
+                        .from('installments')
+                        .update(fullPayload)
+                        .eq('id', activeInstallment.id)
+                      if (error) {
+                        ({ error } = await supabase
+                          .from('installments')
+                          .update(basePayload)
+                          .eq('id', activeInstallment.id))
+                      }
+                      if (error) {
+                        toast.error(error?.message || 'Erro ao restaurar data original')
+                        console.error('Erro ao restaurar data original:', error)
+                      } else {
+                        toast.success('Data original restaurada')
+                        setAdjustModalOpen(false)
+                        if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
+                        fetchContracts()
+                        fetchDashboardMetrics()
+                      }
+                    }}
+                  >
+                    Restaurar original
+                  </button>
+                )}
+                <button
+                  className="flex-1 bg-indigo-600 text-white p-2 rounded-lg disabled:opacity-50"
+                  disabled={!adjustDate || !adjustReason}
+                  onClick={async () => {
+                    const reason = adjustNotes.trim() ? `${adjustReason} - ${adjustNotes.trim()}` : adjustReason
+                    const basePayload: any = {
+                      dueDate: adjustDate,
+                    }
+                    if (!activeInstallment.original_due_date) {
+                      basePayload.original_due_date = activeInstallment.dueDate
+                    }
+                    const fullPayload: any = {
+                      ...basePayload,
+                      due_date_adjusted_at: new Date().toISOString(),
+                      due_date_adjusted_by: user?.id ?? null,
+                      due_date_reason: reason
+                    }
+                    let { error } = await supabase
+                      .from('installments')
+                      .update(fullPayload)
+                      .eq('id', activeInstallment.id)
+                    if (error) {
+                      // Fallback se colunas de auditoria do ajuste ainda não existirem no banco
+                      ({ error } = await supabase
+                        .from('installments')
+                        .update(basePayload)
+                        .eq('id', activeInstallment.id))
+                    }
+                    if (error) {
+                      toast.error(error?.message || 'Erro ao ajustar previsão')
+                      console.error('Erro ao ajustar previsão:', error)
+                    } else {
+                      toast.success('Previsão de recebimento atualizada')
+                      setAdjustModalOpen(false)
+                      if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
+                      fetchContracts()
+                      fetchDashboardMetrics()
+                    }
+                  }}
+                >
+                  Salvar previsão
+                </button>
+              </div>
             </div>
           )}
         </Modal>
@@ -932,7 +1119,7 @@ export default function ContasAReceberPage() {
         <Modal isOpen={reverseModalOpen} onClose={() => setReverseModalOpen(false)} title="Estornar Parcela">
           {activeInstallment && (
             <div className="space-y-4">
-              <p>Parcela: {activeInstallment.installmentNumber} - {selectedContract.clients?.name}</p>
+              <p>Parcela: {activeInstallment.installmentNumber} - {selectedContract?.clients?.name}</p>
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Motivo do Estorno *</label>
@@ -975,7 +1162,7 @@ export default function ContasAReceberPage() {
                     setReverseModalOpen(false)
                     setEstornoReason('')
                     setEstornoAccountId('')
-                    fetchInstallmentsForContract(selectedContract.id)
+                    if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
                   }
               }}>Confirmar Estorno</button>
             </div>
@@ -992,4 +1179,6 @@ export default function ContasAReceberPage() {
     </DashboardLayout>
   )
 }
+
+
 

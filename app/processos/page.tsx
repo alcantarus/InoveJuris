@@ -27,7 +27,7 @@ import SyncDashboard from '@/components/SyncDashboard'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { cn, formatDate, formatDateTime, removeAccents, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
+import { cn, formatDate, formatDateTime, removeAccents, normalizeSearchText, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
 import { getAppEnv } from '@/lib/env'
 import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
 import { useAuth } from '@/lib/auth'
@@ -469,9 +469,11 @@ export default function ProcessosPage() {
     }
   }
 
+  const normalizedSearchTerm = normalizeSearchText(searchTerm)
   const filteredProcesses = processes.filter(p => {
-    const term = removeAccents(searchTerm).toLowerCase()
-    const matchesSearch = removeAccents(p.number || '').includes(term) || removeAccents(p.client?.toLowerCase() || '').includes(term)
+    const matchesSearch = !normalizedSearchTerm ||
+      normalizeSearchText(p.number).includes(normalizedSearchTerm) ||
+      normalizeSearchText(p.client).includes(normalizedSearchTerm)
     if (!matchesSearch) return false
     
     if (deadlineFilter === 'all') return true
@@ -699,26 +701,34 @@ export default function ProcessosPage() {
                       </div>
                     </div>
                     <div className="max-h-60 overflow-y-auto">
-                      {clients
-                        .filter(c => removeAccents(c.name.toLowerCase()).includes(removeAccents(clientSearch).toLowerCase()))
-                        .map(c => (
-                          <div 
-                            key={c.id}
-                            onClick={() => {
-                              setFormData({ ...formData, client: c.name })
-                              setIsClientDropdownOpen(false)
-                              setClientSearch('')
-                            }}
-                            className="px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer transition-colors"
-                          >
-                            {c.name}
-                          </div>
-                        ))}
-                      {clients.filter(c => removeAccents(c.name.toLowerCase()).includes(removeAccents(clientSearch).toLowerCase())).length === 0 && (
-                        <div className="px-4 py-3 text-sm text-slate-500 text-center italic">
-                          Nenhum cliente encontrado
-                        </div>
-                      )}
+                      {(() => {
+                        const normalizedClientSearch = normalizeSearchText(clientSearch)
+                        const filteredModalClients = clients.filter(c =>
+                          !normalizedClientSearch || normalizeSearchText(c.name).includes(normalizedClientSearch)
+                        )
+                        return (
+                          <>
+                            {filteredModalClients.map(c => (
+                              <div
+                                key={c.id}
+                                onClick={() => {
+                                  setFormData({ ...formData, client: c.name })
+                                  setIsClientDropdownOpen(false)
+                                  setClientSearch('')
+                                }}
+                                className="px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer transition-colors"
+                              >
+                                {c.name}
+                              </div>
+                            ))}
+                            {filteredModalClients.length === 0 && (
+                              <div className="px-4 py-3 text-sm text-slate-500 text-center italic">
+                                Nenhum cliente encontrado
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                 )}

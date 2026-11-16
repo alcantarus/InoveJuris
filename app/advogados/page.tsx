@@ -20,7 +20,7 @@ import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn, normalizeSearchText } from '@/lib/utils'
 import { ModuleHeader } from '@/components/ModuleHeader'
 
 interface Lawyer {
@@ -230,11 +230,11 @@ export default function LawyersPage() {
     }
   }
 
-  const filteredLawyers = lawyers.filter(l => 
-    (l.users?.name || l.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.oab_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.specialty?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const normalizedSearch = normalizeSearchText(searchTerm)
+  const filteredLawyers = lawyers.filter(l => {
+    if (!normalizedSearch) return true
+    return [l.users?.name, l.name, l.oab_number, l.specialty].some(v => normalizeSearchText(v).includes(normalizedSearch))
+  })
 
   if (!mounted) return null
 

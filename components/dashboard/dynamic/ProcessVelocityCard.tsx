@@ -14,13 +14,22 @@ export function ProcessVelocityCard() {
       const { data, error } = await supabase
         .from('vw_process_velocity')
         .select('days_since_last_movement')
-      
+
       if (error) {
-        console.error('Erro ao buscar velocidade:', error)
+        console.warn('Erro ao buscar velocidade processual (vw_process_velocity):', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        setVelocity(0)
         return
       }
 
-      const avgVelocity = (data || []).reduce((acc: number, curr: any) => acc + (curr.days_since_last_movement || 0), 0) / (data?.length || 1)
+      const rows = data || []
+      const avgVelocity = rows.length
+        ? rows.reduce((acc: number, curr: any) => acc + (Number(curr.days_since_last_movement) || 0), 0) / rows.length
+        : 0
       setVelocity(avgVelocity)
     }
     fetchVelocity()

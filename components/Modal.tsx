@@ -33,21 +33,22 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className={cn(
-              "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden",
+              "fixed inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 top-[max(0.75rem,env(safe-area-inset-top))] sm:top-1/2 sm:-translate-y-1/2 w-auto sm:w-[calc(100%-2rem)] max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[85dvh]",
               zIndexClass,
               className
             )}
           >
-            <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h3 className="text-xl font-bold text-slate-900">{title}</h3>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 shrink-0">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 pr-2 leading-tight">{title}</h3>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+                aria-label="Fechar"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 max-h-[80vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
               {children}
             </div>
           </motion.div>

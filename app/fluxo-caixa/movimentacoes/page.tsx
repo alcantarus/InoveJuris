@@ -20,7 +20,8 @@ import {
   Eye,
   EyeOff,
   PieChart as PieChartIcon,
-  RefreshCw
+  RefreshCw,
+  Pencil
 } from 'lucide-react'
 import {
   PieChart,
@@ -96,6 +97,9 @@ export default function MovimentacoesPage() {
   const [reclassifyingTx, setReclassifyingTx] = useState<Transaction | null>(null)
   const [reclassifyAccountId, setReclassifyAccountId] = useState('')
   const [reclassifyCategoryId, setReclassifyCategoryId] = useState('')
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [editDescription, setEditDescription] = useState('')
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
@@ -338,6 +342,12 @@ export default function MovimentacoesPage() {
     setIsReclassifyModalOpen(true)
   }
 
+  const openEditModal = (tx: Transaction) => {
+    setEditingTx(tx)
+    setEditDescription(tx.description || '')
+    setIsEditModalOpen(true)
+  }
+
   const handleReclassifySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!reclassifyingTx) return
@@ -374,6 +384,32 @@ export default function MovimentacoesPage() {
     } catch (err: any) {
       console.error('Erro ao reclassificar:', err)
       alert(`Erro ao reclassificar: ${err.message || err.details || JSON.stringify(err)}`)
+    }
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTx) return
+    const newDesc = editDescription.trim()
+    if (!newDesc) {
+      alert('A descrição é obrigatória.')
+      return
+    }
+    try {
+      const { error } = await supabase
+        .from('financial_transactions')
+        .update({ description: newDesc })
+        .eq('id', editingTx.id)
+
+      if (error) throw error
+
+      setTransactions(prev => prev.map(t => (t.id === editingTx.id ? { ...t, description: newDesc } : t)))
+      setIsEditModalOpen(false)
+      setEditingTx(null)
+      alert('Descrição atualizada com sucesso!')
+    } catch (err: any) {
+      console.error('Erro ao editar descrição:', err)
+      alert(`Erro ao editar descrição: ${err.message || err.details || JSON.stringify(err)}`)
     }
   }
 
@@ -465,19 +501,19 @@ export default function MovimentacoesPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="max-h-40 overflow-y-auto">
-              <table className="w-full text-xs">
+            <div className="max-h-40 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+              <table className="w-full text-xs table-fixed">
                 <thead>
                   <tr className="border-b text-slate-500">
-                    <th className="text-left py-1">Categoria</th>
-                    <th className="text-right py-1">Valor</th>
+                    <th className="text-left py-1 pr-2">Categoria</th>
+                    <th className="text-right py-1 pl-2 w-[110px] sm:w-[130px]">Valor</th>
                   </tr>
                 </thead>
                 <tbody>
                   {processedIncomeData.map((item: any, index: number) => (
-                    <tr key={index} className="border-b">
-                      <td className="py-1">{item.category_name}</td>
-                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
+                    <tr key={index} className="border-b border-slate-100 last:border-0">
+                      <td className="py-1.5 pr-2 truncate" title={item.category_name}>{item.category_name}</td>
+                      <td className="text-right py-1.5 pl-2 whitespace-nowrap tabular-nums">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -500,19 +536,19 @@ export default function MovimentacoesPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="max-h-40 overflow-y-auto">
-              <table className="w-full text-xs">
+            <div className="max-h-40 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+              <table className="w-full text-xs table-fixed">
                 <thead>
                   <tr className="border-b text-slate-500">
-                    <th className="text-left py-1">Categoria</th>
-                    <th className="text-right py-1">Valor</th>
+                    <th className="text-left py-1 pr-2">Categoria</th>
+                    <th className="text-right py-1 pl-2 w-[110px] sm:w-[130px]">Valor</th>
                   </tr>
                 </thead>
                 <tbody>
                   {processedExpenseData.map((item: any, index: number) => (
-                    <tr key={index} className="border-b">
-                      <td className="py-1">{item.category_name}</td>
-                      <td className="text-right py-1">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
+                    <tr key={index} className="border-b border-slate-100 last:border-0">
+                      <td className="py-1.5 pr-2 truncate" title={item.category_name}>{item.category_name}</td>
+                      <td className="text-right py-1.5 pl-2 whitespace-nowrap tabular-nums">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -615,8 +651,8 @@ export default function MovimentacoesPage() {
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Descrição</th>
                   <th className="w-[150px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Categoria</th>
                   <th className="w-[150px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap">Conta</th>
-                  <th className="w-[120px] px-6 py-4 text-sm font-semibold text-slate-600 text-right whitespace-nowrap">Valor</th>
-                  <th className="w-[100px] px-6 py-4 text-sm font-semibold text-slate-600 whitespace-nowrap"></th>
+                  <th className="w-[140px] px-6 py-4 text-sm font-semibold text-slate-600 text-right whitespace-nowrap">Valor</th>
+                  <th className="w-[168px] px-4 sm:px-6 py-4 text-sm font-semibold text-slate-600 text-center whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -647,28 +683,40 @@ export default function MovimentacoesPage() {
                     <td className="px-6 py-4 text-sm text-slate-500 truncate">
                       {transaction.bank_accounts?.name}
                     </td>
-                    <td className={`px-6 py-4 text-right font-bold whitespace-nowrap ${
+                    <td className={`px-6 pr-4 sm:pr-6 py-4 text-right font-bold whitespace-nowrap ${
                       transaction.type === 'income' ? 'text-emerald-600' : 
                       transaction.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
                     }`}>
                       {transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}
                       {formatCurrency(transaction.amount, isVisible('cashflow_all'))}
                     </td>
-                    <td className="px-6 py-4 text-right md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-end gap-1 whitespace-nowrap">
-                      <button 
-                        onClick={() => openReclassifyModal(transaction)}
-                        className="p-2 text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"
-                        title="Reclassificar Conta / Categoria"
-                      >
-                        <RefreshCw size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(transaction)}
-                        className="p-2 text-slate-600 md:text-slate-400 hover:text-rose-600 hover:bg-rose-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"
-                        title="Excluir Movimentação"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="flex items-center justify-end gap-2 sm:gap-2.5 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => openEditModal(transaction)}
+                          className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2 text-slate-700 md:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent rounded-xl transition-colors touch-manipulation"
+                          title="Editar descrição"
+                          aria-label="Editar descrição"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button 
+                          onClick={() => openReclassifyModal(transaction)}
+                          className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2 text-slate-700 md:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent rounded-xl transition-colors touch-manipulation"
+                          title="Reclassificar conta/categoria"
+                          aria-label="Reclassificar conta/categoria"
+                        >
+                          <RefreshCw size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(transaction)}
+                          className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2 text-slate-700 md:text-slate-500 hover:text-rose-600 hover:bg-rose-50 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent rounded-xl transition-colors touch-manipulation"
+                          title="Excluir movimentação"
+                          aria-label="Excluir movimentação"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -928,6 +976,45 @@ export default function MovimentacoesPage() {
                 className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-md"
               >
                 Salvar Reclassificação
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Editar descrição do lançamento"
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-5">
+            <div>
+              <p className="text-sm text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                Lançamento: <strong className="text-slate-900">{formatDate(editingTx?.date || '')} • {formatCurrency(editingTx?.amount || 0)}</strong>
+              </p>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+              <input
+                required
+                type="text"
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+                placeholder="Ex: Presente Aniversário Janaina"
+              />
+              <p className="text-xs text-slate-500 mt-2">Apenas a descrição será alterada. Valor, data, tipo, conta e categoria permanecem inalterados.</p>
+            </div>
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-md"
+              >
+                Salvar descrição
               </button>
             </div>
           </form>

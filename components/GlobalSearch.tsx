@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, FileText, User, Briefcase, DollarSign, Loader2, Scale } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '@/lib/supabase'
+import { getAppEnv } from '@/lib/env'
 
 export function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false)
@@ -36,7 +37,7 @@ export function GlobalSearch() {
         // Buscar todos os resultados usando o RPC accent-insensitive
         const { data, error } = await supabase.rpc('search_all', { 
           p_term: query,
-          p_environment: process.env.NEXT_PUBLIC_ENVIRONMENT || 'production'
+          p_environment: getAppEnv()
         })
         
         if (error) throw error
