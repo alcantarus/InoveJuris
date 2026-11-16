@@ -29,7 +29,6 @@ export function CurrencyInput({ value, onChange, disabled, className, placeholde
     <input
       type="text"
       inputMode="decimal"
-      pattern="[0-9]*"
       className={className}
       value={displayValue}
       onChange={handleChange}
