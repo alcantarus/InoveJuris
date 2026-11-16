@@ -66,7 +66,18 @@ export function formatDateTime(dateStr: string): string {
 }
 
 export function removeAccents(str: string): string {
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+export function normalizeSearchText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return removeAccents(String(value)).toLowerCase().trim()
+}
+
+export function matchesSearch(term: string, ...values: unknown[]): boolean {
+  const normalizedTerm = normalizeSearchText(term)
+  if (!normalizedTerm) return true
+  return values.some((value) => normalizeSearchText(value).includes(normalizedTerm))
 }
 
 export function validateCPF(cpf: string): boolean {
