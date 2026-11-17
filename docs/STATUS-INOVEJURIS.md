@@ -145,6 +145,7 @@
 - Testes empiricamente repetidos com os OABs cadastrados no período `2026-11-01` a `2026-11-17`: `84503/BA → count 2` e `12542/BA → count 0`, ambos HTTP 200. Nenhuma captura ampla é mais necessária.
 - **Limpeza controlada:** os 100 registros DJEN da validação ampla anterior foram removidos porque estavam todos `A triar`, sem leitura, decisão, justificativa, responsável ou prazo. A fila de Publicações ficou com **0 registros**; nenhum prazo foi criado.
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas; `/publicacoes` e `/api/djen-sync` listados).
+- Commit `5a0106f` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_8CVKdyv4RojDCJQsCim6gXQt5VTx`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/publicacoes` e `/advogados` retornou o redirecionamento esperado para `/login` (sem cookie de sessão no CLI). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
