@@ -132,7 +132,7 @@
 - `npm run build`: **OK** (`/publicacoes` e `/api/djen-sync` listados; 21 páginas estáticas geradas).
 - **Validação com dados reais (2026-11-17/18):** duas sincronizações DJEN com 100 comunicações cada, ambas `Sincronizado`; a segunda confirmou idempotência (`inserted=0`, `updated=100`) e preservou `status='A triar'`. A correção de entidades HTML case-sensitive gravou corretamente `DESPACHO/DECISÃO` no teor.
 - **UI validada em navegador:** `/publicacoes` com 100 registros, KPIs **100 / 0 / 0 / 100**, abas, filtros, busca, colunas CNJ/Tribunal/Data/Processo/Advogado/Situação e detalhe com **Ler o texto** exibindo o teor completo. Nenhum prazo foi criado na validação (`process_deadlines` sem registros para a data consultada). Uma decisão de teste (`Ignorada` / “Teste”) registrada durante a sessão foi revertida para `A triar`.
-- Commit `fdc2376` enviado para `trabalho-com-claude` em 2026-11-17. Deploy de produção pendente de autenticação válida da Vercel; o token antigo deve ser revogado.
+- Commit `fdc2376` enviado para `trabalho-com-claude` em 2026-11-17 (complemento documental `d61cde3`). **Deploy de produção concluído:** `dpl_4uLoPWGo2mpGXKjb31Vbp5F15N6P`, alias `https://inove-juris.vercel.app`; rota `/publicacoes` respondeu **HTTP 200** em produção. O token antigo da Vercel deve ser revogado definitivamente.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
