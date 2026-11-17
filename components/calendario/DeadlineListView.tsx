@@ -2,16 +2,17 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { ArrowUpRight, CalendarClock } from 'lucide-react'
+import { ArrowUpRight, CalendarClock, Pencil } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { BUCKET_LABELS, type DeadlineItem } from '@/lib/deadlines'
 import { bucketClasses } from './CalendarGrid'
 
 interface DeadlineListViewProps {
   items: DeadlineItem[]
+  onEdit?: (item: DeadlineItem) => void
 }
 
-export function DeadlineListView({ items }: DeadlineListViewProps) {
+export function DeadlineListView({ items, onEdit }: DeadlineListViewProps) {
   if (items.length === 0) {
     return (
       <div className="py-14 text-center">
@@ -62,17 +63,30 @@ export function DeadlineListView({ items }: DeadlineListViewProps) {
                   {BUCKET_LABELS[item.bucket]}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right">
-                {item.process_id != null ? (
-                  <Link
-                    href={`/processos/${item.process_id}`}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-colors"
-                  >
-                    Abrir <ArrowUpRight size={13} />
-                  </Link>
-                ) : (
-                  <span className="text-xs text-slate-400">—</span>
-                )}
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-end gap-1">
+                  {onEdit && (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(item)}
+                      title="Editar prazo"
+                      className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  {item.process_id != null ? (
+                    <Link
+                      href={`/processos/${item.process_id}`}
+                      title="Abrir processo"
+                      className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    >
+                      <ArrowUpRight size={14} />
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

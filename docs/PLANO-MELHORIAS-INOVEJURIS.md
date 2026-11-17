@@ -85,6 +85,11 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 ### Fase 4 — Calendário (P2, ~2-3 dias, risco baixo)
 - `/calendario` mensal reaproveitando os dados de `/prazos`; toggle Calendário/Lista; vencidos destacados; CSV. `date-fns` já está no projeto.
 
+### Fase 4.1 — Prazos editáveis e módulos sincronizados — ENTREGUE em 2026-11-17
+- `process_deadlines` é a fonte única da verdade para Processos, Prazos e Calendário; Realtime recarrega as três telas quando um prazo muda.
+- Edição de data/hora, descrição, situação e responsável a partir de `/prazos`, `/processos/[id]` e `/calendario`, com justificativa obrigatória para reagendamento e reabertura da confirmação do advogado.
+- Histórico imutável por prazo (`process_deadline_history`) e RPCs transacionais de criar/editar/confirmar/excluir; a edição de processos parou de recriar prazos (preserva IDs, vínculos e auditoria).
+
 ### Fase 5 — Confiança e diagnóstico (P2, ~4-6 dias, risco baixo)
 - `/diagnostico` com 16 perguntas e score (pode ser 100% front, sem banco — ótima primeira entrega segura).
 - Consolidação "Equipe & segurança": status real de MFA TOTP/passkey, dispositivos confiáveis, verificação de hash da trilha de auditoria, backup RPO/RTO e LGPD.

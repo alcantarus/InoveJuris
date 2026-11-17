@@ -27,8 +27,14 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, normalizeSearchText } from '@/lib/utils'
-import { getAppEnv } from '@/lib/env'
 import { daysUntilDate, getNextDeadline, normalizeParties } from '@/lib/processes'
+import {
+  combineDeadlineDateTime,
+  createDeadlineRecord,
+  deleteDeadlineRecord,
+  splitDeadlineDateTime,
+  updateDeadlineRecord,
+} from '@/lib/deadline-mutations'
 import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
 import { ProcessTable } from '@/components/processos/ProcessTable'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
@@ -108,7 +114,7 @@ export default function ProcessosPage() {
     parties: '',
     secret_justice: false,
     history: [] as any[],
-    deadlines: [] as {id?: string, deadline_date: string, deadline_time?: string, description: string, status: string}[]
+    deadlines: [] as any[]
   })
 
   const fetchProcesses = async () => {
@@ -216,6 +222,15 @@ export default function ProcessosPage() {
 
   useEffect(() => {
     fetchProcesses()
+  }, [])
+
+  // "Próximo prazo" na carteira acompanha edições feitas em /prazos ou no detalhe.
+  useEffect(() => {
+    const channel = supabase
+      .channel('processos-deadlines-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, () => { fetchProcesses() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   if (!mounted) return null
@@ -401,30 +416,77 @@ export default function ProcessosPage() {
         console.error('Error updating process:', error)
         alert(`Erro ao atualizar processo: ${error.message || 'Erro desconhecido'}`)
       } else {
-        // Sync deadlines: Delete all existing and insert new ones
-        console.log('Deleting deadlines for process_id:', editingProcess.id);
-        const { data: deleteData, error: deleteError } = await supabase.from('process_deadlines').delete().eq('process_id', editingProcess.id);
-        console.log('Delete result:', { deleteData, deleteError });
+        // Sincronização não destrutiva: preserva id, vínculos, memória de
+        // cálculo e histórico dos prazos que já existem.
+        try {
+          const original = Array.isArray(editingProcess.process_deadlines) ? editingProcess.process_deadlines : []
+          const keptIds = new Set(formData.deadlines.filter(d => d.id != null).map(d => Number(d.id)))
 
-        const deadlinesToInsert = formData.deadlines.map(d => ({
-          process_id: editingProcess.id,
-          deadline_date: d.deadline_time ? `${d.deadline_date} ${d.deadline_time}:00` : d.deadline_date,
-          description: d.description,
-          status: d.status || 'Pendente',
-          environment: getAppEnv()
-        }));
-        
-        console.log('Inserting deadlines:', deadlinesToInsert);
+          for (const previous of original) {
+            if (keptIds.has(Number(previous.id))) continue
+            const result = await deleteDeadlineRecord(
+              previous.id,
+              'Prazo removido na edição do processo.',
+              user?.id ?? null,
+              'processos'
+            )
+            if (result.error) throw new Error(result.error)
+          }
 
-        if (deadlinesToInsert.length > 0) {
-          const { data: insertData, error: insertError } = await supabase.from('process_deadlines').insert(deadlinesToInsert);
-          console.log('Insert result:', { insertData, insertError });
+          for (const d of formData.deadlines) {
+            const deadlineAt = combineDeadlineDateTime(d.deadline_date, d.deadline_time)
+
+            if (d.id != null) {
+              const previous = original.find((o: any) => Number(o.id) === Number(d.id))
+              const before = splitDeadlineDateTime(previous?.deadline_date)
+              const after = splitDeadlineDateTime(deadlineAt)
+              const changed = !previous
+                || before.date !== after.date
+                || before.time !== after.time
+                || String(previous.description || '') !== String(d.description || '')
+                || String(previous.status || 'Pendente') !== String(d.status || 'Pendente')
+
+              if (!changed) continue
+
+              const result = await updateDeadlineRecord({
+                deadline: {
+                  ...previous,
+                  id: d.id,
+                  deadlineDate: previous?.deadline_date || deadlineAt,
+                  processNumber: formData.number,
+                  clientName: formData.client,
+                },
+                deadlineDate: deadlineAt,
+                description: d.description,
+                status: d.status || 'Pendente',
+                responsibleId: previous?.responsible_id ?? null,
+                justification: d.justification || 'Alteração realizada na edição do processo.',
+                userId: user?.id ?? null,
+                source: 'processos',
+              })
+              if (result.error) throw new Error(result.error)
+            } else {
+              const result = await createDeadlineRecord({
+                processId: editingProcess.id,
+                deadlineDate: deadlineAt,
+                description: d.description,
+                responsibleId: d.responsible_id ?? null,
+                businessDays: d.business_days ?? null,
+                calculationMemory: d.calculation_memory ?? null,
+                userId: user?.id ?? null,
+                source: 'processos',
+              })
+              if (result.error) throw new Error(result.error)
+            }
+          }
+
+          const updated = processes.map(p => p.id === editingProcess.id ? { ...p, ...processData } : p)
+          setProcesses(updated)
+          setIsModalOpen(false)
+          fetchProcesses()
+        } catch (deadlineError: any) {
+          alert(`Erro ao sincronizar os prazos: ${deadlineError?.message || 'Erro desconhecido'}`)
         }
-
-        const updated = processes.map(p => p.id === editingProcess.id ? { ...p, ...processData } : p)
-        setProcesses(updated)
-        setIsModalOpen(false)
-        fetchProcesses() // Refresh to get new deadlines
       }
     } else {
       (processData as any).created_by = user?.id || null
@@ -444,26 +506,27 @@ export default function ProcessosPage() {
         if (data && data.length > 0) {
           const newProcessId = data[0].id
           
-          // Insert deadlines
+          // Insert deadlines using the same transactional path as the other modules.
           if (formData.deadlines.length > 0) {
-            const deadlinesToInsert = formData.deadlines.map(d => ({
-              process_id: newProcessId,
-              deadline_date: d.deadline_time ? `${d.deadline_date} ${d.deadline_time}:00` : d.deadline_date,
-              description: d.description,
-              status: d.status || 'Pendente',
-              environment: getAppEnv()
-            }))
-            const { error: insertError } = await supabase.from('process_deadlines').insert(deadlinesToInsert)
-            
-            if (!insertError) {
-              for (let i = 0; i < deadlinesToInsert.length; i++) {
-                const d = deadlinesToInsert[i];
-                const originalD = formData.deadlines[i];
+            for (const d of formData.deadlines) {
+              const deadlineAt = combineDeadlineDateTime(d.deadline_date, d.deadline_time)
+              const result = await createDeadlineRecord({
+                processId: newProcessId,
+                deadlineDate: deadlineAt,
+                description: d.description,
+                responsibleId: d.responsible_id ?? null,
+                businessDays: d.business_days ?? null,
+                calculationMemory: d.calculation_memory ?? null,
+                userId: user?.id ?? null,
+                source: 'processos',
+              })
+
+              if (!result.error) {
                 await createNotification(
                   'Novo Prazo Cadastrado',
-                  `Um novo prazo "${d.description}" foi cadastrado para o processo ${formData.number} para o dia ${formatDate(d.deadline_date)}${originalD.deadline_time ? ` às ${originalD.deadline_time}` : ''}.`,
+                  `Um novo prazo "${d.description}" foi cadastrado para o processo ${formData.number} para o dia ${formatDate(d.deadline_date)}${d.deadline_time ? ` às ${d.deadline_time}` : ''}.`,
                   'warning'
-                );
+                )
               }
             }
           }

@@ -156,6 +156,15 @@
 - **Validação em produção:** período curto → `inserted: 2`, `failedLawyers: []`; período informado pelo usuário (`2026-01-16..2026-11-17`) → `fetched: 56`, `inserted: 54`, `updated: 2`, `matchedProcesses: 33`, sem falhas. Fila com **56 publicações**, todas `A triar`, **0 prazos**, **0 decisões**.
 - `npx tsc --noEmit` e `npm run build`: **OK**. Deploy final: `dpl_GtArPaEhj25bAupCTgLtc6WDTS8X` (`https://inove-juris.vercel.app`). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
+## Prazos editáveis e sincronia Processos ↔ Prazos ↔ Calendário (2026-11-17)
+- Migration `supabase/migrations/20261117190000_editable_deadlines.sql` aplicada em produção: colunas `created_by`/`updated_by` em `process_deadlines`, tabela `process_deadline_history`, índices, RPCs transacionais `create_process_deadline`, `update_process_deadline`, `confirm_process_deadline` e `delete_process_deadline`, e inclusão de `process_deadlines` na publicação Realtime do Supabase.
+- **Fonte única da verdade:** a tabela `process_deadlines`. Processos (carteira e detalhe), Prazos e Calendário não guardam cópias locais persistentes; todos recarregam a partir dela e assinam `postgres_changes` para refletir alterações em abas abertas.
+- Edição disponível em `/prazos` (ação na linha), `/processos/[id]` (botões “Editar” no próximo prazo e na lista) e `/calendario` (data selecionada e lista). O mesmo modal altera data/hora, descrição, situação e responsável.
+- Reagendar exige **justificativa**; a RPC reabre a confirmação (`confirmed_at`/`confirmed_by` zerados, situação volta a `Pendente`) e grava `old_data`, `new_data`, `changed_fields`, motivo, origem e usuário no histórico. A data antiga deixa de ser considerada em qualquer módulo.
+- A edição de processos deixou de fazer `DELETE` + `INSERT` de todos os prazos: agora atualiza/insere/exclui apenas o que mudou, preservando `id`, vínculo com `publications.deadline_id`, memória de cálculo e auditoria.
+- `getNextDeadline()` e os buckets de Prazos/Calendário usam a mesma regra de situações encerradas; `Confirmado` continua significando ciência do advogado, não baixa do prazo.
+- RPCs testadas em produção no ambiente `test`: criar → reagendar sem justificativa (rejeitado com 400) → reagendar com justificativa (confirmação reaberta) → confirmar → excluir; 4 registros no histórico. `npx tsc --noEmit` e `npm run build`: **OK**.
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v

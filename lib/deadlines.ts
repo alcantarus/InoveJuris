@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { getTodayBR, normalizeSearchText } from '@/lib/utils'
+import { getTodayBR } from '@/lib/utils'
+import { isConcludedDeadlineStatus } from '@/lib/deadline-status'
 
 export type DeadlineBucket = 'vencidos' | 'hoje' | '7dias' | '30dias' | 'aberto' | 'concluido'
 
@@ -24,6 +25,9 @@ export interface DeadlineItem {
   notificationDate?: string | null
   publicationDate?: string | null
   countStartDate?: string | null
+  responsibleId?: number | null
+  justification?: string | null
+  updatedAt?: string | null
 }
 
 export interface ProcessOption {
@@ -39,8 +43,6 @@ export interface DeadlinesPayload {
   error: string | null
 }
 
-const CONCLUDED_STATUSES = ['concluido', 'concluído', 'finalizado', 'baixado', 'cancelado', 'done', 'quitado']
-
 export function daysUntil(date: string | null | undefined): number {
   if (!date) return 0
   const today = new Date(`${getTodayBR()}T00:00:00`)
@@ -50,7 +52,7 @@ export function daysUntil(date: string | null | undefined): number {
 }
 
 export function toBucket(daysRemaining: number, status: string | null | undefined): DeadlineBucket {
-  if (CONCLUDED_STATUSES.includes(normalizeSearchText(status))) return 'concluido'
+  if (isConcludedDeadlineStatus(status)) return 'concluido'
   if (daysRemaining < 0) return 'vencidos'
   if (daysRemaining === 0) return 'hoje'
   if (daysRemaining <= 7) return '7dias'
@@ -129,6 +131,9 @@ export async function fetchDeadlines(): Promise<DeadlinesPayload> {
       notificationDate: d.notification_date ?? null,
       publicationDate: d.publication_date ?? null,
       countStartDate: d.count_start_date ?? null,
+      responsibleId: d.responsible_id ?? null,
+      justification: d.justification ?? null,
+      updatedAt: d.updated_at ?? null,
     }
   }).sort((a, b) => a.deadlineDate.localeCompare(b.deadlineDate))
 

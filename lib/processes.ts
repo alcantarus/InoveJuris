@@ -1,4 +1,5 @@
 import { getTodayBR, normalizeSearchText } from '@/lib/utils'
+import { isConcludedDeadlineStatus } from '@/lib/deadline-status'
 
 export const INACTIVE_PROCESS_STATUSES = ['arquivado', 'concluído', 'concluido', 'baixado', 'encerrado', 'cancelado']
 
@@ -10,7 +11,7 @@ export function getNextDeadline(process: any): any | null {
   const deadlines = Array.isArray(process?.process_deadlines) ? process.process_deadlines : []
   if (deadlines.length === 0) return null
   return deadlines
-    .filter((d: any) => Boolean(d?.deadline_date))
+    .filter((d: any) => Boolean(d?.deadline_date) && !isConcludedDeadlineStatus(d?.status))
     .slice()
     .sort((a: any, b: any) => String(a.deadline_date).localeCompare(String(b.deadline_date)))[0] || null
 }

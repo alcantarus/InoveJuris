@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'motion/react'
 import { toast } from 'sonner'
@@ -12,6 +12,7 @@ import {
   Clock3,
   Download,
   FolderOpen,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -21,8 +22,10 @@ import { ModuleHeader } from '@/components/ModuleHeader'
 import { KPICard } from '@/components/ui/KPICard'
 import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
-import { getAppEnv } from '@/lib/env'
+import { useAuth } from '@/lib/auth'
 import { cn, formatDate, getTodayBR, matchesSearch } from '@/lib/utils'
+import { createDeadlineRecord } from '@/lib/deadline-mutations'
+import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
 import {
   BUCKET_LABELS,
   countBuckets,
@@ -60,8 +63,10 @@ function daysLabel(item: DeadlineItem): string {
 }
 
 export default function PrazosPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<DeadlineItem[]>([])
   const [processOptions, setProcessOptions] = useState<ProcessOption[]>([])
+  const [lawyers, setLawyers] = useState<any[]>([])
   const [filter, setFilter] = useState<Filter>('aberto')
   const [search, setSearch] = useState('')
   const [responsible, setResponsible] = useState('')
@@ -69,21 +74,33 @@ export default function PrazosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ process_id: '', deadline_date: getTodayBR(), description: '' })
+  const [editingDeadline, setEditingDeadline] = useState<DeadlineItem | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     const payload = await fetchDeadlines()
     setItems(payload.items)
     setProcessOptions(payload.processOptions)
+    setLawyers(payload.lawyers || [])
     if (payload.error) {
       toast.error('Não foi possível carregar os prazos.', { description: payload.error })
     }
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
+
+  // Qualquer mudança na tabela de prazos recarrega esta tela (Processos e
+  // Calendário assinam o mesmo canal), evitando visões divergentes.
+  useEffect(() => {
+    const channel = supabase
+      .channel('prazos-deadlines-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, () => { load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [load])
 
   const counts = useMemo(() => countBuckets(items), [items])
   const responsibleOptions = useMemo(
@@ -111,16 +128,16 @@ export default function PrazosPage() {
       return
     }
     setSaving(true)
-    const { error } = await supabase.from('process_deadlines').insert([{
-      process_id: Number(form.process_id),
-      deadline_date: form.deadline_date,
-      description: form.description.trim(),
-      status: 'Pendente',
-      environment: getAppEnv(),
-    }])
+    const result = await createDeadlineRecord({
+      processId: Number(form.process_id),
+      deadlineDate: form.deadline_date,
+      description: form.description,
+      userId: user?.id ?? null,
+      source: 'prazos',
+    })
     setSaving(false)
-    if (error) {
-      toast.error('Erro ao criar prazo.', { description: error.message })
+    if (result.error) {
+      toast.error('Erro ao criar prazo.', { description: result.error })
       return
     }
     toast.success('Prazo criado com sucesso.')
@@ -254,14 +271,15 @@ export default function PrazosPage() {
                   <th className="px-4 py-3 font-bold">Responsável</th>
                   <th className="px-4 py-3 font-bold">Vencimento</th>
                   <th className="px-4 py-3 font-bold text-right">Prazo</th>
+                  <th className="px-4 py-3 font-bold text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500">Carregando prazos...</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-500">Carregando prazos...</td></tr>
                 )}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500">Nenhum prazo encontrado para os filtros selecionados.</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-500">Nenhum prazo encontrado para os filtros selecionados.</td></tr>
                 )}
                 {!loading && filtered.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
@@ -283,6 +301,27 @@ export default function PrazosPage() {
                       <span className={cn('inline-block px-2 py-1 rounded-md border text-[10px] font-bold whitespace-nowrap', bucketBadgeClass(item))}>
                         {daysLabel(item)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingDeadline(item)}
+                          title="Editar prazo"
+                          className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        {item.process_id != null && (
+                          <Link
+                            href={`/processos/${item.process_id}`}
+                            title="Abrir processo"
+                            className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          >
+                            <FolderOpen size={14} />
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -346,6 +385,15 @@ export default function PrazosPage() {
           </div>
         </div>
       </Modal>
+
+      <DeadlineEditModal
+        deadline={editingDeadline}
+        lawyers={lawyers}
+        userId={user?.id ?? null}
+        source="prazos"
+        onClose={() => setEditingDeadline(null)}
+        onSaved={load}
+      />
     </DashboardLayout>
   )
 }

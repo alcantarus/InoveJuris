@@ -17,6 +17,7 @@ import {
   History,
   type LucideIcon,
   LockKeyhole,
+  Pencil,
   RefreshCw,
   Scale,
   Save,
@@ -28,6 +29,8 @@ import { cn, formatCurrency, formatDate, formatDateTime, getTodayBR } from '@/li
 import { daysUntilDate, getNextDeadline, getResponsibleName, normalizeParties } from '@/lib/processes'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { confirmDeadlineRecord } from '@/lib/deadline-mutations'
+import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
 
 function DataField({ label, value, icon: Icon }: { label: string; value: React.ReactNode; icon?: LucideIcon }) {
   return (
@@ -49,6 +52,7 @@ export default function ProcessoDetalhePage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [editingDeadline, setEditingDeadline] = useState<any | null>(null)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
 
@@ -94,6 +98,15 @@ export default function ProcessoDetalhePage() {
     load()
   }, [load])
 
+  // Mantém o detalhe do processo alinhado a Prazos e Calendário sem recarregar a página.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`processo-${params.id}-deadlines`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, () => { load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [load, params.id])
+
   const responsible = useMemo(() => getResponsibleName(process, lawyers), [process, lawyers])
   const nextDeadline = useMemo(() => getNextDeadline(process), [process])
   const parties = useMemo(() => normalizeParties(process?.parties), [process])
@@ -124,18 +137,11 @@ export default function ProcessoDetalhePage() {
 
   const handleConfirm = async (deadline: any) => {
     setConfirmingId(deadline.id)
-    const { error } = await supabase
-      .from('process_deadlines')
-      .update({
-        confirmed_at: new Date().toISOString(),
-        confirmed_by: user?.id || null,
-        status: 'Confirmado',
-      })
-      .eq('id', deadline.id)
+    const { error } = await confirmDeadlineRecord(deadline.id, user?.id ?? null)
 
     setConfirmingId(null)
     if (error) {
-      toast.error('Não foi possível confirmar o prazo.', { description: error.message })
+      toast.error('Não foi possível confirmar o prazo.', { description: error })
       return
     }
     toast.success('Prazo confirmado pelo advogado responsável.')
@@ -300,6 +306,14 @@ export default function ProcessoDetalhePage() {
                   )}
                 </div>
                 <button
+                  type="button"
+                  onClick={() => setEditingDeadline({ ...nextDeadline, processNumber: process.number, clientName: process.client })}
+                  title="Editar data ou descrição do prazo"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                >
+                  <Pencil size={15} /> Editar
+                </button>
+                <button
                   onClick={() => handleConfirm(nextDeadline)}
                   disabled={confirmingId === nextDeadline.id || confirmed}
                   className={cn(
@@ -371,6 +385,14 @@ export default function ProcessoDetalhePage() {
                       )}>
                         {isConfirmed ? 'Confirmado' : 'A confirmar'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDeadline({ ...deadline, processNumber: process.number, clientName: process.client })}
+                        title="Editar prazo"
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      >
+                        <Pencil size={13} />
+                      </button>
                       {!isConfirmed && (
                         <button
                           onClick={() => handleConfirm(deadline)}
@@ -453,6 +475,15 @@ export default function ProcessoDetalhePage() {
           Registro atualizado em {getTodayBR()} · Fonte: {process.source || 'Manual'}
         </p>
       </div>
+
+      <DeadlineEditModal
+        deadline={editingDeadline}
+        lawyers={lawyers}
+        userId={user?.id ?? null}
+        source="processo"
+        onClose={() => setEditingDeadline(null)}
+        onSaved={load}
+      />
     </DashboardLayout>
   )
 }

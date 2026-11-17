@@ -17,6 +17,7 @@ import {
   Clock3,
   Download,
   List,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -26,6 +27,9 @@ import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { KPICard } from '@/components/ui/KPICard'
 import { cn, formatDate, getTodayBR, matchesSearch } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
 import {
   BUCKET_LABELS,
   countBuckets,
@@ -43,7 +47,10 @@ type ListFilter = DeadlineBucket | 'todos'
 const FILTERS: ListFilter[] = ['todos', 'vencidos', 'hoje', '7dias', '30dias', 'aberto', 'concluido']
 
 export default function CalendarioPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<DeadlineItem[]>([])
+  const [lawyers, setLawyers] = useState<any[]>([])
+  const [editingDeadline, setEditingDeadline] = useState<DeadlineItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(() => new Date(`${getTodayBR()}T12:00:00`))
   const [selectedDate, setSelectedDate] = useState<string | null>(getTodayBR())
@@ -56,6 +63,7 @@ export default function CalendarioPage() {
     setLoading(true)
     const payload = await fetchDeadlines()
     setItems(payload.items)
+    setLawyers(payload.lawyers || [])
     if (payload.error) {
       toast.error('Não foi possível carregar os prazos.', { description: payload.error })
     }
@@ -64,6 +72,14 @@ export default function CalendarioPage() {
 
   useEffect(() => {
     load()
+  }, [load])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('calendario-deadlines-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, () => { load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [load])
 
   const counts = useMemo(() => countBuckets(items), [items])
@@ -301,7 +317,7 @@ export default function CalendarioPage() {
             </div>
           )}
 
-          {view === 'list' && <DeadlineListView items={filteredList} />}
+          {view === 'list' && <DeadlineListView items={filteredList} onEdit={setEditingDeadline} />}
         </div>
 
         {view === 'calendar' && (
@@ -334,9 +350,19 @@ export default function CalendarioPage() {
                     <div key={item.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50/60">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-semibold text-slate-800">{item.description}</p>
-                        <span className={cn('shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold', bucketClasses[item.bucket])}>
-                          {BUCKET_LABELS[item.bucket]}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={cn('px-2 py-1 rounded-md border text-[10px] font-bold', bucketClasses[item.bucket])}>
+                            {BUCKET_LABELS[item.bucket]}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingDeadline(item)}
+                            title="Editar prazo"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">{item.clientName} · {item.processNumber}</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">{item.responsible} · {item.area}</p>
@@ -429,6 +455,15 @@ export default function CalendarioPage() {
           </div>
         )}
       </div>
+
+      <DeadlineEditModal
+        deadline={editingDeadline}
+        lawyers={lawyers}
+        userId={user?.id ?? null}
+        source="calendario"
+        onClose={() => setEditingDeadline(null)}
+        onSaved={load}
+      />
     </DashboardLayout>
   )
 }
