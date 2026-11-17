@@ -249,6 +249,8 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - Validação E2E em `/prazos` com prazo temporário no ambiente `test`: criação (id `61`), abertura do modal, chamada `POST /rest/v1/rpc/delete_process_deadline` com HTTP `200` e resposta `true`, lista atualizada de 3 para 2 prazos. Histórico confirmado por SQL: id `11` (`criar`) e id `12` (`excluir`, `justification: "Validacao automatizada da exclusao"`, `source: "prazos"`).
 - Conferência visual em `/processos/39` (dois botões, modal abre e cancela) e em `/calendario` (botão na lista após navegar para dezembro/2026, modal abre e cancela).
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Atenção: `fetchDeadlines()` não filtra por ambiente; como `getAppEnv()` vem de `document.documentElement.dataset.env`, excluir um prazo de ambiente divergente falha com `P0002` ("Prazo não encontrado neste ambiente.") — comportamento já existente, não alterado aqui.
+- Commit `ed47f32` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_6RQzU9K8xCBVx8Xyadvk9gKgHt1c`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/prazos`, `/processos` e `/calendario` retornou `Redirecting...` para `/login` (esperado sem sessão no CLI). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
+- O servidor local `npm run dev` da porta 3000 foi encerrado ao final da validação.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
