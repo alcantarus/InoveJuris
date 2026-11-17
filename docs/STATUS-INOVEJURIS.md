@@ -88,7 +88,9 @@
 - Removidas: `/api/datajud-proxy` e as duplicatas `route-1.ts`.
 - Migration `supabase/migrations/20261117150000_fix_datajud_sync.sql`: adiciona `environment` em `process_sync_status` e corrige registros com `last_update = 'Agora'`.
 - `npm run build`: **OK** (rota `/api/process-sync` listada).
-- **Pendência de configuração:** definir `DATAJUD_API_KEY` no Vercel com chave própria (a chave compartilhada embutida no código foi removida). `SUPABASE_SERVICE_ROLE_KEY` é recomendada; sem ela a rota usa anon key + RPC `set_app_environment`.
+- **Publicado em produção:** push em `main` (`cf1f97a`) com deploy automático confirmado. `/prazos` e `/calendario` respondem HTTP 200; `/api/process-sync` responde `500 - DATAJUD_API_KEY não configurada no servidor` (fail-fast esperado).
+- **Pendência de configuração:** definir `DATAJUD_API_KEY` no Vercel com chave própria (a chave compartilhada embutida no código foi removida; era a causa do 429). `SUPABASE_SERVICE_ROLE_KEY` é recomendada; sem ela a rota usa anon key + RPC `set_app_environment`.
+- **Pendência de banco:** aplicar `supabase/migrations/20261117150000_fix_datajud_sync.sql`. A rota e o dashboard já funcionam sem ela (fallback), mas a coluna `environment` e a limpeza de `last_update='Agora'` só entram com a migration.
 - **Ainda não implementado:** cálculo de dias úteis com feriados/recesso, baixa justificada de vencidos, Publicações, Triagem, `/processos/[id]`, agendamento automático de sincronização e os achados P0 anteriores.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
