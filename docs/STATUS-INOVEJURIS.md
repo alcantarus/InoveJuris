@@ -116,6 +116,7 @@
 - `lib/deadlines.ts`: `DeadlineItem` ganha campos opcionais da migration anterior (`businessDays`, `calculationMemory`, `confirmedAt`, datas de DJEN/publicação/contagem); responsável do prazo passa a preferir `responsible_id` quando existir. Extração compartilhada `exportDeadlinesCsv` usada por `/calendario` e `/prazos`.
 - `npm run build`: **OK**. Validação local (porta 3002): KPIs, alternância Listar/Calendário, grade DOM–SÁB, navegação de mês, filtro de vencidos e tabela renderizando corretamente.
 - **Ainda não implementado:** cálculo determinístico de dias úteis com feriados nacionais/recessos forenses (o modelo cita, mas a base ainda não tem essa rotina); exibição depende da migration de prazos já versionada.
+- **Publicado (2026-11-17):** commit `c758490` em `trabalho-com-claude` (push feito) e deploy `dpl_3mU8rYmJZ4ethrY57zsaCSLT543e` em https://inove-juris.vercel.app.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
