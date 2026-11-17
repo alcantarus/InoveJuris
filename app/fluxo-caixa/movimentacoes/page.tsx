@@ -58,6 +58,64 @@ interface Transaction {
   financial_categories?: { name: string }
 }
 
+/** Labeled row shared by all mobile record cards in this page. */
+const CardField = ({ label, children }: { label: string, children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="min-w-0 mt-1 break-words text-sm text-slate-900">{children}</div>
+  </div>
+)
+
+const TransactionTypeIcon = ({ type }: { type: string }) => (
+  <>
+    {type === 'income' && <TrendingUp size={14} className="text-emerald-500 shrink-0" />}
+    {type === 'expense' && <TrendingDown size={14} className="text-rose-500 shrink-0" />}
+    {type === 'transfer' && <ArrowRightLeft size={14} className="text-indigo-500 shrink-0" />}
+  </>
+)
+
+const getTransactionCategoryName = (transaction: Transaction) =>
+  transaction.financial_categories?.name || (transaction.type === 'transfer' ? 'Transferência' : 'Sem categoria')
+
+const formatTransactionAmount = (transaction: Transaction, isVisible: (key: string) => boolean) =>
+  `${transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}${formatCurrency(transaction.amount, isVisible('cashflow_all'))}`
+
+const getTransactionAmountColor = (transaction: Transaction) =>
+  transaction.type === 'income' ? 'text-emerald-600' :
+  transaction.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
+
+/** Same touch-friendly actions used by the desktop table and the mobile cards. */
+const TransactionActions = ({
+  transaction, onEdit, onReclassify, onDelete, className = '', touchOptimized = false
+}: {
+  transaction: Transaction
+  onEdit: (t: Transaction) => void
+  onReclassify: (t: Transaction) => void
+  onDelete: (t: Transaction) => void
+  className?: string
+  touchOptimized?: boolean
+}) => {
+  const buttonClass = cn(
+    "inline-flex items-center justify-center touch-manipulation rounded-xl transition-colors",
+    touchOptimized ? "min-h-[40px] min-w-[40px] p-2.5" : "min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2",
+    "text-slate-700 md:text-slate-500 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent"
+  )
+
+  return (
+    <div className={cn("flex items-center gap-2 sm:gap-2.5", className)}>
+      <button onClick={() => onEdit(transaction)} className={cn(buttonClass, "hover:text-indigo-600 hover:bg-indigo-50")} title="Editar descrição" aria-label="Editar descrição">
+        <Pencil size={16} />
+      </button>
+      <button onClick={() => onReclassify(transaction)} className={cn(buttonClass, "hover:text-indigo-600 hover:bg-indigo-50")} title="Reclassificar conta/categoria" aria-label="Reclassificar conta/categoria">
+        <RefreshCw size={16} />
+      </button>
+      <button onClick={() => onDelete(transaction)} className={cn(buttonClass, "hover:text-rose-600 hover:bg-rose-50")} title="Excluir movimentação" aria-label="Excluir movimentação">
+        <Trash2 size={16} />
+      </button>
+    </div>
+  )
+}
+
 export default function MovimentacoesPage() {
   const { isVisible, toggleVisibility } = usePrivacy()
   const { user } = useAuth()
@@ -643,7 +701,7 @@ export default function MovimentacoesPage() {
 
         {/* Transactions Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto w-full">
+          <div className="hidden md:block overflow-x-auto w-full">
             <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -669,54 +727,29 @@ export default function MovimentacoesPage() {
                     </td>
                     <td className="px-6 py-4 truncate">
                       <div className="flex items-center gap-2">
-                        {transaction.type === 'income' && <TrendingUp size={14} className="text-emerald-500" />}
-                        {transaction.type === 'expense' && <TrendingDown size={14} className="text-rose-500" />}
-                        {transaction.type === 'transfer' && <ArrowRightLeft size={14} className="text-indigo-500" />}
+                        <TransactionTypeIcon type={transaction.type} />
                         <span className="font-medium text-slate-900 truncate">{transaction.description}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 truncate">
                       <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium truncate inline-block max-w-full">
-                        {transaction.financial_categories?.name || (transaction.type === 'transfer' ? 'Transferência' : 'Sem categoria')}
+                        {getTransactionCategoryName(transaction)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500 truncate">
                       {transaction.bank_accounts?.name}
                     </td>
-                    <td className={`px-6 pr-4 sm:pr-6 py-4 text-right font-bold whitespace-nowrap ${
-                      transaction.type === 'income' ? 'text-emerald-600' : 
-                      transaction.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
-                    }`}>
-                      {transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}
-                      {formatCurrency(transaction.amount, isVisible('cashflow_all'))}
+                    <td className={cn("px-6 pr-4 sm:pr-6 py-4 text-right font-bold whitespace-nowrap", getTransactionAmountColor(transaction))}>
+                      {formatTransactionAmount(transaction, isVisible)}
                     </td>
                     <td className="px-3 sm:px-4 py-3">
-                      <div className="flex items-center justify-end gap-2 sm:gap-2.5 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => openEditModal(transaction)}
-                          className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2 text-slate-700 md:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent rounded-xl transition-colors touch-manipulation"
-                          title="Editar descrição"
-                          aria-label="Editar descrição"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={() => openReclassifyModal(transaction)}
-                          className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2 text-slate-700 md:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent rounded-xl transition-colors touch-manipulation"
-                          title="Reclassificar conta/categoria"
-                          aria-label="Reclassificar conta/categoria"
-                        >
-                          <RefreshCw size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(transaction)}
-                          className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] p-2.5 sm:p-2 text-slate-700 md:text-slate-500 hover:text-rose-600 hover:bg-rose-50 bg-slate-100 md:bg-transparent border border-slate-200 md:border-transparent rounded-xl transition-colors touch-manipulation"
-                          title="Excluir movimentação"
-                          aria-label="Excluir movimentação"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      <TransactionActions
+                        transaction={transaction}
+                        onEdit={openEditModal}
+                        onReclassify={openReclassifyModal}
+                        onDelete={handleDelete}
+                        className="justify-end md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity"
+                      />
                     </td>
                   </tr>
                 ))}
@@ -729,6 +762,51 @@ export default function MovimentacoesPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">Nenhuma movimentação encontrada.</div>
+            ) : (
+              filteredTransactions.map((transaction) => (
+                <div key={transaction.id} className="p-4 space-y-3">
+                  <CardField label="Data">{formatDate(transaction.date)}</CardField>
+                  <CardField label="Descrição">
+                    <div className="flex items-start gap-2">
+                      <TransactionTypeIcon type={transaction.type} />
+                      <span className="font-medium">{transaction.description}</span>
+                    </div>
+                  </CardField>
+                  <CardField label="Categoria">
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
+                      {getTransactionCategoryName(transaction)}
+                    </span>
+                  </CardField>
+                  <CardField label="Conta">
+                    <span className="text-slate-600">{transaction.bank_accounts?.name}</span>
+                  </CardField>
+                  <CardField label="Valor">
+                    <span className={cn("text-base font-bold", getTransactionAmountColor(transaction))}>
+                      {formatTransactionAmount(transaction, isVisible)}
+                    </span>
+                  </CardField>
+                  <CardField label="Ações">
+                    <TransactionActions
+                      transaction={transaction}
+                      onEdit={openEditModal}
+                      onReclassify={openReclassifyModal}
+                      onDelete={handleDelete}
+                      touchOptimized
+                    />
+                  </CardField>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

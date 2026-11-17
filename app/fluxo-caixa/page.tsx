@@ -45,6 +45,29 @@ import { AutoResizeText } from '@/components/ui/AutoResizeText'
 
 const COLORS = ['#4f46e5', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
+/** Labeled row shared by all mobile record cards in this page. */
+const CardField = ({ label, children }: { label: string, children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="min-w-0 mt-1 break-words text-sm text-slate-900">{children}</div>
+  </div>
+)
+
+const TransactionTypeIcon = ({ type }: { type: string }) => (
+  <div className={cn(
+    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+    type === 'income' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+  )}>
+    {type === 'income' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
+  </div>
+)
+
+const formatTransactionAmount = (transaction: any, isVisible: (key: string) => boolean) =>
+  `${transaction.type === 'expense' ? '-' : '+'}${formatCurrency(transaction.amount, isVisible('cashflow_all'))}`
+
+const getTransactionAmountColor = (transaction: any) =>
+  transaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600'
+
 const StatCard = ({ stat, isVisible, toggleVisibility }: { stat: any, isVisible: (key: string) => boolean, toggleVisibility: (key: string) => void }) => {
   const textContainerRef = useRef<HTMLDivElement>(null);
   return (
@@ -209,6 +232,11 @@ export default function FluxoCaixaPage() {
     { label: 'Maior Saída', value: maiorSaida, icon: AlertTriangle, color: 'bg-rose-600', trend: 'neutral' },
     { label: 'Resultado Líquido', value: monthlyIncome - monthlyExpense, icon: ArrowRightLeft, color: 'bg-amber-500', trend: monthlyIncome - monthlyExpense >= 0 ? 'up' : 'down' },
   ]
+
+  // Single source for both the desktop table and the mobile cards.
+  const statementTransactions = data.transactions
+    .filter(t => selectedAccountId === 'all' || t.account_id === selectedAccountId)
+    .slice(0, 15)
 
   return (
     <DashboardLayout>
@@ -451,7 +479,7 @@ export default function FluxoCaixaPage() {
             </div>
           </div>
           
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-50">
@@ -463,10 +491,7 @@ export default function FluxoCaixaPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data.transactions
-                  .filter(t => selectedAccountId === 'all' || t.account_id === selectedAccountId)
-                  .slice(0, 15)
-                  .map((transaction, idx) => (
+                {statementTransactions.map((transaction, idx) => (
                   <motion.tr 
                     key={transaction.id} 
                     initial={{ opacity: 0, y: 10 }}
@@ -482,12 +507,7 @@ export default function FluxoCaixaPage() {
                     </td>
                     <td className="px-8 py-5 truncate">
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                          transaction.type === 'income' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                        )}>
-                          {transaction.type === 'income' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
-                        </div>
+                        <TransactionTypeIcon type={transaction.type} />
                         <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">{transaction.description}</span>
                       </div>
                     </td>
@@ -506,14 +526,13 @@ export default function FluxoCaixaPage() {
                     )}
                     <td className={cn(
                       "px-8 py-5 text-right text-base font-black tracking-tight whitespace-nowrap",
-                      transaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600'
+                      getTransactionAmountColor(transaction)
                     )}>
-                      {transaction.type === 'expense' ? '-' : '+'}
-                      {formatCurrency(transaction.amount, isVisible('cashflow_all'))}
+                      {formatTransactionAmount(transaction, isVisible)}
                     </td>
                   </motion.tr>
                 ))}
-                {(data.transactions.filter(t => selectedAccountId === 'all' || t.account_id === selectedAccountId).length === 0) && (
+                {statementTransactions.length === 0 && (
                   <tr>
                     <td colSpan={selectedAccountId === 'all' ? 5 : 4} className="px-8 py-20 text-center">
                       <div className="flex flex-col items-center justify-center text-slate-300">
@@ -528,6 +547,42 @@ export default function FluxoCaixaPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {statementTransactions.map((transaction) => (
+              <div key={transaction.id} className="p-4 space-y-3">
+                <CardField label="Descrição">
+                  <div className="flex items-center gap-3">
+                    <TransactionTypeIcon type={transaction.type} />
+                    <span className="font-semibold">{transaction.description}</span>
+                  </div>
+                </CardField>
+                <CardField label="Data">{formatDate(transaction.date)}</CardField>
+                <CardField label="Categoria">
+                  <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    {transaction.financial_categories?.name || 'Sem categoria'}
+                  </span>
+                </CardField>
+                {selectedAccountId === 'all' && (
+                  <CardField label="Conta">
+                    <span className="text-slate-600">{transaction.bank_accounts?.name}</span>
+                  </CardField>
+                )}
+                <CardField label="Valor">
+                  <span className={cn("text-base font-black tracking-tight", getTransactionAmountColor(transaction))}>
+                    {formatTransactionAmount(transaction, isVisible)}
+                  </span>
+                </CardField>
+              </div>
+            ))}
+            {statementTransactions.length === 0 && (
+              <div className="p-12 text-center text-slate-400">
+                <p className="text-sm font-bold">Nenhuma movimentação registrada</p>
+                <p className="text-sm font-medium mt-1">Comece adicionando uma nova entrada ou saída.</p>
+              </div>
+            )}
           </div>
           
           <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex items-center justify-center">

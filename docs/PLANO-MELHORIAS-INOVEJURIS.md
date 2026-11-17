@@ -94,6 +94,10 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Cards de ação imediata no topo (prazos, Foco de Hoje, liquidez, gargalos, inadimplência, compromissos), análises e auditoria ao final.
 - Aviso de aniversariantes deixou de ser um badge flutuante e passou a ser um chip discreto no cabeçalho da dashboard, sem sobrepor **Gerar Insights**.
 
+### Fase 4.3 — Responsividade das listas — ENTREGUE em 2026-11-17
+- Padrão único de tabela desktop + cards mobile (`hidden md:table` / `md:hidden divide-y divide-slate-100`) aplicado a Contas a Receber, Prazos, Calendário, Processos, Publicações, Leads, Indicadores, Fluxo de Caixa, Produtos, Doenças, Relatórios, Auditoria, Extrato, Configurações e SyncDashboard.
+- Sem rolagem horizontal no celular; campos rotulados, quebras de linha e alvos de toque de 40 px. A lógica de filtro/ordenação/ações é compartilhada entre as duas visões.
+
 ### Fase 5 — Confiança e diagnóstico (P2, ~4-6 dias, risco baixo)
 - `/diagnostico` com 16 perguntas e score (pode ser 100% front, sem banco — ótima primeira entrega segura).
 - Consolidação "Equipe & segurança": status real de MFA TOTP/passkey, dispositivos confiáveis, verificação de hash da trilha de auditoria, backup RPO/RTO e LGPD.

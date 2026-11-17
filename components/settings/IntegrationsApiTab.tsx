@@ -1,10 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Card } from '../ui/Card';
 import { Switch } from '../ui/Switch';
 import { Mail, Webhook, Key, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useSettings } from '@/components/providers/SettingsProvider';
+
+// Fonte única das linhas da matriz, usada pela tabela desktop e pelos cards mobile.
+const notificationEvents = [
+  { event: 'Novo Usuário Cadastrado', email: true, sistema: true, sms: false },
+  { event: 'Erro no Backup', email: true, sistema: true, sms: true },
+  { event: 'Relatório Gerado', email: false, sistema: true, sms: false }
+];
+
+const NotificationCardField = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+)
 
 export function IntegrationsApiTab() {
   const { settings, updateSetting } = useSettings();
@@ -181,8 +195,8 @@ export function IntegrationsApiTab() {
         title="Matriz de Notificações"
         description="Escolha como o sistema deve alertar sobre eventos importantes."
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 hidden md:table">
             <thead className="bg-slate-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Evento</th>
@@ -192,26 +206,40 @@ export function IntegrationsApiTab() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Novo Usuário Cadastrado</td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" /></td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Erro no Backup</td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked /></td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Relatório Gerado</td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked /></td>
-                <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" /></td>
-              </tr>
+              {notificationEvents.map((item) => (
+                <tr key={item.event}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{item.event}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked={item.email} /></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked={item.sistema} /></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center"><input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked={item.sms} /></td>
+                </tr>
+              ))}
             </tbody>
           </table>
+        </div>
+        <div className="md:hidden divide-y divide-slate-100">
+          {notificationEvents.map((item) => (
+            <div key={item.event} className="p-4 space-y-3">
+              <NotificationCardField label="Evento">
+                <span className="font-medium text-slate-900">{item.event}</span>
+              </NotificationCardField>
+              <NotificationCardField label="E-mail">
+                <label className="flex items-center min-h-[40px]">
+                  <input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked={item.email} />
+                </label>
+              </NotificationCardField>
+              <NotificationCardField label="Sistema">
+                <label className="flex items-center min-h-[40px]">
+                  <input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked={item.sistema} />
+                </label>
+              </NotificationCardField>
+              <NotificationCardField label="SMS">
+                <label className="flex items-center min-h-[40px]">
+                  <input type="checkbox" className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded" defaultChecked={item.sms} />
+                </label>
+              </NotificationCardField>
+            </div>
+          ))}
         </div>
       </Card>
     </div>

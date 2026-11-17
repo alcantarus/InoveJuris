@@ -12,6 +12,7 @@ import {
   Clock3,
   Download,
   FolderOpen,
+  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -60,6 +61,63 @@ function daysLabel(item: DeadlineItem): string {
   if (item.daysRemaining < 0) return `Venceu há ${Math.abs(item.daysRemaining)} ${Math.abs(item.daysRemaining) === 1 ? 'dia' : 'dias'}`
   if (item.daysRemaining === 0) return 'Vence hoje'
   return `Faltam ${item.daysRemaining} ${item.daysRemaining === 1 ? 'dia' : 'dias'}`
+}
+
+// Helpers compartilhados entre a tabela (desktop) e os cards (mobile), para que
+// prioridade, situação e ações tenham sempre o mesmo comportamento.
+function PriorityBadge({ priority }: { priority: string }) {
+  return (
+    <span className={cn('inline-block px-2 py-1 rounded-md border text-[10px] font-bold', priorityClasses[priority] || priorityClasses.Média)}>
+      {priority}
+    </span>
+  )
+}
+
+function StatusBadge({ item }: { item: DeadlineItem }) {
+  return (
+    <span className={cn('inline-block px-2 py-1 rounded-md border text-[10px] font-bold whitespace-nowrap', bucketBadgeClass(item))}>
+      {daysLabel(item)}
+    </span>
+  )
+}
+
+function DeadlineActions({ item, onEdit, mobile = false }: { item: DeadlineItem; onEdit: (item: DeadlineItem) => void; mobile?: boolean }) {
+  const actionClass = cn(
+    'inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors',
+    mobile ? 'min-h-[40px] px-3 bg-slate-50 text-xs font-bold' : 'p-2'
+  )
+  return (
+    <div className={cn('flex items-center gap-1', mobile && 'flex-wrap gap-2')}>
+      <button
+        type="button"
+        onClick={() => onEdit(item)}
+        title="Editar prazo"
+        className={actionClass}
+      >
+        <Pencil size={14} />
+        {mobile && 'Editar prazo'}
+      </button>
+      {item.process_id != null && (
+        <Link
+          href={`/processos/${item.process_id}`}
+          title="Abrir processo"
+          className={actionClass}
+        >
+          <FolderOpen size={14} />
+          {mobile && 'Abrir processo'}
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function MobileField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-0', className)}>
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
+      <div className="mt-0.5 text-sm text-slate-700 break-words">{children}</div>
+    </div>
+  )
 }
 
 export default function PrazosPage() {
@@ -260,7 +318,7 @@ export default function PrazosPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm min-w-[900px]">
+            <table className="w-full text-left text-sm min-w-[900px] hidden md:table">
               <thead>
                 <tr className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                   <th className="px-4 py-3 font-bold">Tipo / Descrição</th>
@@ -288,9 +346,7 @@ export default function PrazosPage() {
                       <p className="text-[11px] text-slate-400 line-clamp-1">{item.court}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cn('inline-block px-2 py-1 rounded-md border text-[10px] font-bold', priorityClasses[item.priority] || priorityClasses.Média)}>
-                        {item.priority}
-                      </span>
+                      <PriorityBadge priority={item.priority} />
                     </td>
                     <td className="px-4 py-3 text-slate-700 line-clamp-1">{item.clientName}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-600">{item.processNumber}</td>
@@ -298,35 +354,57 @@ export default function PrazosPage() {
                     <td className="px-4 py-3 text-slate-600 line-clamp-1">{item.responsible}</td>
                     <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{formatDate(item.deadlineDate)}</td>
                     <td className="px-4 py-3 text-right">
-                      <span className={cn('inline-block px-2 py-1 rounded-md border text-[10px] font-bold whitespace-nowrap', bucketBadgeClass(item))}>
-                        {daysLabel(item)}
-                      </span>
+                      <StatusBadge item={item} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setEditingDeadline(item)}
-                          title="Editar prazo"
-                          className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        {item.process_id != null && (
-                          <Link
-                            href={`/processos/${item.process_id}`}
-                            title="Abrir processo"
-                            className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                          >
-                            <FolderOpen size={14} />
-                          </Link>
-                        )}
-                      </div>
+                      <DeadlineActions item={item} onEdit={setEditingDeadline} />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {loading && (
+                <div className="p-10 text-center text-slate-500">
+                  <Loader2 className="animate-spin text-indigo-600 mx-auto" size={24} />
+                  <p className="mt-2 text-sm">Carregando prazos...</p>
+                </div>
+              )}
+              {!loading && filtered.length === 0 && (
+                <div className="p-10 text-center text-sm text-slate-500">
+                  Nenhum prazo encontrado para os filtros selecionados.
+                </div>
+              )}
+              {!loading && filtered.map(item => (
+                <div key={item.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tipo / Descrição</p>
+                      <p className="mt-0.5 text-sm font-semibold text-slate-800 break-words">{item.description}</p>
+                      {item.court && <p className="mt-0.5 text-xs text-slate-500 break-words">{item.court}</p>}
+                    </div>
+                    <div className="shrink-0">
+                      <PriorityBadge priority={item.priority} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <MobileField label="Cliente" className="col-span-2">{item.clientName}</MobileField>
+                    <MobileField label="CNJ" className="col-span-2">
+                      <span className="font-mono text-xs break-all">{item.processNumber}</span>
+                    </MobileField>
+                    <MobileField label="Área">{item.area}</MobileField>
+                    <MobileField label="Responsável">{item.responsible}</MobileField>
+                    <MobileField label="Vencimento">{formatDate(item.deadlineDate)}</MobileField>
+                    <MobileField label="Prazo"><StatusBadge item={item} /></MobileField>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <DeadlineActions item={item} onEdit={setEditingDeadline} mobile />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-500">

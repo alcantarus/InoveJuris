@@ -39,6 +39,50 @@ interface Product {
   created_at: string
 }
 
+/** Labeled row shared by all mobile record cards in this page. */
+const CardField = ({ label, children }: { label: string, children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="min-w-0 mt-1 break-words text-sm text-slate-900">{children}</div>
+  </div>
+)
+
+const getProductAreaName = (product: Product) => product.law_areas?.name || 'Não definida'
+
+/** Same actions used by the desktop table and the mobile cards. */
+const ProductActions = ({
+  product, onEdit, onDelete, touchOptimized = false, className = ''
+}: {
+  product: Product
+  onEdit: (p: Product) => void
+  onDelete: (e: React.MouseEvent, id: number) => void
+  touchOptimized?: boolean
+  className?: string
+}) => (
+  <div className={`flex items-center gap-2 ${className}`}>
+    <button
+      onClick={() => onEdit(product)}
+      className={touchOptimized
+        ? "inline-flex items-center justify-center min-h-[40px] min-w-[40px] p-2.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 rounded-lg transition-colors"
+        : "p-2 text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"}
+      title="Editar Produto"
+      aria-label="Editar Produto"
+    >
+      <Edit2 size={18} />
+    </button>
+    <button
+      onClick={(e) => onDelete(e, product.id)}
+      className={touchOptimized
+        ? "inline-flex items-center justify-center min-h-[40px] min-w-[40px] p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+        : "p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"}
+      title="Excluir Produto"
+      aria-label="Excluir Produto"
+    >
+      <Trash2 size={18} />
+    </button>
+  </div>
+)
+
 export default function ProdutosPage() {
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
@@ -292,7 +336,7 @@ export default function ProdutosPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-sm text-slate-500">
@@ -316,7 +360,7 @@ export default function ProdutosPage() {
                     </td>
                     <td className="p-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
-                        {product.law_areas?.name || 'Não definida'}
+                        {getProductAreaName(product)}
                       </span>
                     </td>
                     <td className="p-4">
@@ -325,28 +369,46 @@ export default function ProdutosPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleOpenModal(product)}
-                          className="p-2 text-slate-600 md:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 bg-slate-50 md:bg-transparent rounded-lg transition-colors"
-                          title="Editar Produto"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button 
-                          onClick={(e) => handleDelete(e, product.id)}
-                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Excluir Produto"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                      <ProductActions
+                        product={product}
+                        onEdit={handleOpenModal}
+                        onDelete={handleDelete}
+                        className="justify-end md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                      />
                     </td>
                   </motion.tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredProducts.map((product) => (
+              <div key={product.id} className="p-4 space-y-3">
+                <CardField label="Produto">
+                  <span className="font-medium">{product.name}</span>
+                </CardField>
+                <CardField label="Área do Direito">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                    {getProductAreaName(product)}
+                  </span>
+                </CardField>
+                <CardField label="Data de Cadastro">
+                  <span className="text-slate-600">{formatDate(product.created_at)}</span>
+                </CardField>
+                <CardField label="Ações">
+                  <ProductActions
+                    product={product}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDelete}
+                    touchOptimized
+                  />
+                </CardField>
+              </div>
+            ))}
+          </div>
+
           {filteredProducts.length === 0 && (
             <div className="p-12 text-center">
               <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

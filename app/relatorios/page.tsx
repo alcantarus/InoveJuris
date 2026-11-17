@@ -78,6 +78,22 @@ interface CommissionReportItem {
   contractDate: string
 }
 
+// Uma coluna serve tanto para a tabela (desktop) quanto para o card (mobile),
+// evitando duplicar a regra de negócio de cada relatório.
+interface ReportColumn {
+  key: string
+  label: string
+  cellClassName: string
+  value: React.ReactNode
+}
+
+const ReportCardField = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{value}</div>
+  </div>
+)
+
 interface RecebimentoItem {
   id: number
   date: string
@@ -461,6 +477,358 @@ function RelatoriosPageContent() {
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
     });
   };
+
+  // Filtro compartilhado pela tabela desktop e pelos cards mobile.
+  const getReportRows = (): any[] => {
+    if (activeReport === 'deadlines') return deadlineData
+    if (activeReport === 'childbirth') {
+      return childbirthData.filter(item => {
+        if (childbirthFilter === 'all') return true;
+        if (childbirthFilter === 'probono') return item.isProBono;
+        if (childbirthFilter === 'financed') return item.isFinanced;
+        return true;
+      })
+    }
+    if (activeReport === 'birthdays') return birthdayData
+    if (activeReport === 'gps') {
+      return gpsData.filter(item => {
+        if (gpsFilter === 'all') return true;
+        if (gpsFilter === 'paid') return item.gpsPaid;
+        if (gpsFilter === 'unpaid') return !item.gpsPaid;
+        if (gpsFilter === 'financed') return item.isFinanced;
+        if (gpsFilter === 'normal') return !item.isFinanced;
+        if (gpsFilter === 'divergence') return item.gps_value !== (item.gps_paid_value || 0);
+        return true;
+      })
+    }
+    if (activeReport === 'recebimentos') return recebimentosData
+    if (activeReport === 'a-receber') return getFilteredAReceberData()
+    return commissionData
+  }
+
+  // Colunas compartilhadas: a mesma célula alimenta o <td> e o card mobile.
+  const getReportColumns = (item: any): ReportColumn[] => {
+    if (activeReport === 'recebimentos') {
+      return [
+        { key: 'date', label: 'Data do Recebimento', cellClassName: 'font-medium text-slate-900', value: formatDate(item.date) },
+        { key: 'client', label: 'Cliente / Parte', cellClassName: 'font-semibold text-slate-900', value: item.clientName },
+        { key: 'description', label: 'Descrição / Título', cellClassName: 'text-slate-600', value: item.description },
+        {
+          key: 'account',
+          label: 'Conta Creditada',
+          cellClassName: 'text-slate-600 font-medium',
+          value: <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 text-slate-700">{item.accountName}</span>
+        },
+        {
+          key: 'category',
+          label: 'Categoria',
+          cellClassName: 'text-slate-600',
+          value: <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-indigo-50 text-indigo-700">{item.categoryName}</span>
+        },
+        {
+          key: 'amount',
+          label: 'Valor Recebido',
+          cellClassName: 'text-right font-bold text-emerald-600',
+          value: formatCurrency(item.amount, isVisible('reports_recebimentos'))
+        }
+      ]
+    }
+
+    if (activeReport === 'a-receber') {
+      const isOverdue = new Date(item.dueDate) < new Date()
+      return [
+        { key: 'dueDate', label: 'Data Venc.', cellClassName: 'font-medium text-slate-900', value: formatDate(item.dueDate) },
+        { key: 'client', label: 'Cliente / Contrato', cellClassName: 'font-semibold text-slate-900', value: item.contracts?.clients?.name || 'Cliente Avulso' },
+        { key: 'process', label: 'Processo', cellClassName: 'text-slate-600', value: item.contracts?.processNumber || '-' },
+        {
+          key: 'tags',
+          label: 'TAGs',
+          cellClassName: '',
+          value: (
+            <div className="flex gap-1 flex-wrap">
+              {(item.contracts?.clients?.tags || []).map((tag: string) => (
+                <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]">{tag}</span>
+              ))}
+            </div>
+          )
+        },
+        {
+          key: 'amount',
+          label: 'Valor',
+          cellClassName: 'text-right font-bold text-slate-900',
+          value: formatCurrency(Number(item.amount || 0) - Number(item.amountPaid || 0))
+        },
+        {
+          key: 'status',
+          label: 'Status',
+          cellClassName: '',
+          value: (
+            <span className={cn(
+              "px-2 py-1 rounded-full text-[10px] font-medium",
+              isOverdue ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"
+            )}>
+              {isOverdue ? 'Atrasado' : 'Pendente'}
+            </span>
+          )
+        },
+        {
+          key: 'actions',
+          label: 'Ações',
+          cellClassName: 'text-right',
+          value: (
+            <button
+              onClick={() => handleQuitarAReceberItem(item)}
+              className="px-3 py-1 min-h-[40px] md:min-h-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+              title="Quitar saldo restante"
+            >
+              Quitar
+            </button>
+          )
+        }
+      ]
+    }
+
+    if (activeReport === 'deadlines') {
+      return [
+        { key: 'process', label: 'Processo', cellClassName: 'font-medium text-slate-900', value: item.processNumber },
+        { key: 'client', label: 'Cliente', cellClassName: 'text-slate-600', value: item.clientName },
+        { key: 'description', label: 'Descrição', cellClassName: 'text-slate-600', value: item.description || '-' },
+        { key: 'deadlineDate', label: 'Data do Prazo', cellClassName: 'text-slate-900 font-medium', value: formatDate(item.deadlineDate) },
+        {
+          key: 'daysRemaining',
+          label: 'Dias Restantes',
+          cellClassName: 'text-right',
+          value: (
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+              item.daysRemaining < 0
+                ? 'bg-slate-100 text-slate-600'
+                : item.daysRemaining <= 5
+                  ? 'bg-rose-100 text-rose-700'
+                  : item.daysRemaining <= 15
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-emerald-100 text-emerald-700'
+            }`}>
+              {item.daysRemaining < 0
+                ? `Venceu há ${Math.abs(item.daysRemaining)} dias`
+                : item.daysRemaining === 0
+                  ? 'Vence hoje!'
+                  : `Faltam ${item.daysRemaining} dias`}
+            </span>
+          )
+        }
+      ]
+    }
+
+    if (activeReport === 'childbirth') {
+      const canceledClass = item.status === 'Cancelado' ? 'line-through text-slate-400 opacity-60' : ''
+      const badgeCanceledClass = item.status === 'Cancelado' ? 'line-through opacity-60' : ''
+      return [
+        { key: 'client', label: 'Cliente', cellClassName: cn('p-4 font-medium text-slate-900', canceledClass), value: item.clientName },
+        {
+          key: 'modality',
+          label: 'Modalidade',
+          cellClassName: '',
+          value: item.isProBono ? (
+            <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700", badgeCanceledClass)}>Pro Bono</span>
+          ) : item.isFinanced ? (
+            <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700", badgeCanceledClass)}>Financiado</span>
+          ) : (
+            <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600", badgeCanceledClass)}>Normal</span>
+          )
+        },
+        { key: 'document', label: 'CPF', cellClassName: cn('p-4 text-slate-600', canceledClass), value: item.document },
+        { key: 'phone', label: 'WhatsApp', cellClassName: cn('p-4 text-slate-600', canceledClass), value: item.phone },
+        { key: 'forecast', label: 'Previsão Parto', cellClassName: cn('p-4 text-slate-900 font-medium', canceledClass), value: formatDate(item.childbirthDate) },
+        { key: 'birthDate', label: 'Data Parto', cellClassName: cn('p-4 text-slate-900 font-medium', canceledClass), value: item.rn_birth_date ? formatDate(item.rn_birth_date) : '-' },
+        {
+          key: 'daysRemaining',
+          label: 'Dias Faltantes',
+          cellClassName: 'text-right',
+          value: (
+            <span className={cn(`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold`,
+              item.status === 'Cancelado'
+                ? 'bg-[#ea9999]/10 text-slate-400 line-through'
+                : item.daysRemaining < 0
+                  ? 'bg-slate-100 text-slate-600'
+                  : item.daysRemaining <= 30
+                    ? 'bg-rose-100 text-rose-700'
+                    : item.daysRemaining <= 90
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-emerald-100 text-emerald-700'
+            )}>
+              {item.status === 'Cancelado'
+                ? 'CANCELADO'
+                : item.daysRemaining < 0
+                  ? `Ocorreu há ${Math.abs(item.daysRemaining)} dias`
+                  : item.daysRemaining === 0
+                    ? 'É hoje!'
+                    : `Faltam ${item.daysRemaining} dias`}
+            </span>
+          )
+        }
+      ]
+    }
+
+    if (activeReport === 'birthdays') {
+      return [
+        {
+          key: 'client',
+          label: 'Cliente',
+          cellClassName: 'font-medium text-slate-900',
+          value: (
+            <div className="flex items-center gap-2 break-words">
+              <span className="min-w-0 break-words">{item.clientName}</span>
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0",
+                item.type === 'cliente' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+              )}>
+                {item.type}
+              </span>
+            </div>
+          )
+        },
+        { key: 'document', label: 'CPF', cellClassName: 'text-slate-600', value: item.document },
+        { key: 'phone', label: 'WhatsApp', cellClassName: 'text-slate-600', value: item.phone },
+        { key: 'birthDate', label: 'Data de Nasc.', cellClassName: 'text-slate-900 font-medium', value: formatDate(item.birthDate) },
+        { key: 'age', label: 'Idade', cellClassName: 'text-right text-slate-600 font-medium', value: `${item.age} anos` },
+        {
+          key: 'daysRemaining',
+          label: 'Dias Faltantes',
+          cellClassName: 'text-right',
+          value: (
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+              item.daysRemaining === 0
+                ? 'bg-emerald-100 text-emerald-700'
+                : item.daysRemaining <= 7
+                  ? 'bg-rose-100 text-rose-700'
+                  : item.daysRemaining <= 30
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-slate-100 text-slate-700'
+            }`}>
+              {item.daysRemaining === 0 ? 'É hoje! 🎉' : `Faltam ${item.daysRemaining} dias`}
+            </span>
+          )
+        }
+      ]
+    }
+
+    if (activeReport === 'gps') {
+      const isCanceled = item.status?.toLowerCase().trim() === 'cancelado'
+      return [
+        {
+          key: 'client',
+          label: 'Cliente',
+          cellClassName: '',
+          value: (
+            <div className="min-w-0">
+              <div className="font-medium text-slate-900 break-words">{item.clientName}</div>
+              {item.isFinanced ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700 mt-1">Financiado</span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600 mt-1">Normal</span>
+              )}
+            </div>
+          )
+        },
+        { key: 'birthDate', label: 'Data Parto', cellClassName: 'text-slate-600 font-medium', value: formatDate(item.childbirthDate) },
+        { key: 'protocol', label: 'Req. INSS', cellClassName: '', value: <StatusBadge protocolNumber={item.protocolNumber} /> },
+        {
+          key: 'status',
+          label: 'Status',
+          cellClassName: '',
+          value: (
+            <span className={cn(
+              "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+              isCanceled ? "bg-rose-100 text-rose-700" : item.gpsPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+            )}>
+              {isCanceled ? 'Cancelado' : (item.gpsPaid ? 'Pago' : 'Pendente')}
+            </span>
+          )
+        },
+        {
+          key: 'forecast',
+          label: 'Previsão',
+          cellClassName: '',
+          value: <div className="flex items-center gap-2 font-medium text-slate-900 break-words">{formatDate(item.gps_forecast_date)}</div>
+        },
+        {
+          key: 'payment',
+          label: 'Pagto',
+          cellClassName: '',
+          value: isCanceled ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700">Cancelado</span>
+          ) : item.gpsPaid ? (
+            <span className="text-slate-600 font-medium">{formatDate(item.gps_payment_date)}</span>
+          ) : (
+            <button
+              onClick={() => {
+                setSelectedGps(item)
+                setIsPaymentModalOpen(true)
+              }}
+              className="inline-flex items-center px-3 py-1.5 min-h-[40px] md:min-h-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors"
+            >
+              Registrar
+            </button>
+          )
+        },
+        {
+          key: 'expectedValue',
+          label: 'Valor Previsto',
+          cellClassName: 'text-right font-medium text-slate-900',
+          value: formatCurrency(item.gps_value, isVisible('reports_gps'))
+        },
+        {
+          key: 'paidValue',
+          label: 'Valor Pago',
+          cellClassName: 'text-right font-medium text-emerald-600',
+          value: formatCurrency(item.gps_paid_value, isVisible('reports_gps'))
+        },
+        {
+          key: 'difference',
+          label: 'Diferença',
+          cellClassName: 'text-right font-bold text-slate-900',
+          value: formatCurrency(item.gps_value - (item.gps_paid_value || 0), isVisible('reports_gps'))
+        }
+      ]
+    }
+
+    return [
+      { key: 'indicator', label: 'Indicador', cellClassName: 'font-bold text-slate-900', value: item.indicatorName },
+
+      {
+        key: 'clientProduct',
+        label: 'Cliente / Produto',
+        cellClassName: '',
+        value: (
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-slate-900 break-words">{item.clientName}</div>
+            <div className="text-xs text-slate-500 break-words">{item.productName}</div>
+          </div>
+        )
+      },
+      { key: 'contractValue', label: 'Valor Contrato', cellClassName: 'text-slate-600', value: formatCurrency(item.contractValue, isVisible('reports_commissions')) },
+      { key: 'base', label: 'Base Comissão', cellClassName: 'text-slate-600', value: formatCurrency(item.base_comissao, isVisible('reports_commissions')) },
+      { key: 'percent', label: '%', cellClassName: 'text-slate-600 font-medium', value: `${item.commissionPercent}%` },
+      { key: 'commission', label: 'Comissão', cellClassName: 'text-indigo-600 font-bold', value: formatCurrency(item.commissionValue, isVisible('reports_commissions')) },
+      {
+        key: 'status',
+        label: 'Status',
+        cellClassName: 'text-right',
+        value: (
+          <span className={cn(
+            "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+            item.status === 'Quitado' ? "bg-emerald-100 text-emerald-700" :
+            item.status === 'Cancelado' ? "bg-rose-100 text-rose-700" :
+            "bg-amber-100 text-amber-700"
+          )}>
+            {item.status}
+          </span>
+        )
+      }
+    ]
+  }
+
+  const reportRows = getReportRows()
 
   // Re-sort when sortOrder changes
   useEffect(() => {
@@ -1575,7 +1943,7 @@ function RelatoriosPageContent() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse hidden md:table">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
                   {activeReport === 'gps' ? (
@@ -1657,324 +2025,59 @@ function RelatoriosPageContent() {
                       <p className="text-sm text-slate-500 mt-2">Carregando relatório...</p>
                     </td>
                   </tr>
-                ) : (
-                  activeReport === 'deadlines' ? deadlineData : 
-                  activeReport === 'childbirth' ? childbirthData.filter(item => {
-                    if (childbirthFilter === 'all') return true;
-                    if (childbirthFilter === 'probono') return item.isProBono;
-                    if (childbirthFilter === 'financed') return item.isFinanced;
-                    return true;
-                  }) : 
-                  activeReport === 'birthdays' ? birthdayData : 
-                  activeReport === 'gps' ? gpsData.filter(item => {
-                    if (gpsFilter === 'all') return true;
-                    if (gpsFilter === 'paid') return item.gpsPaid;
-                    if (gpsFilter === 'unpaid') return !item.gpsPaid;
-                    if (gpsFilter === 'financed') return item.isFinanced;
-                    if (gpsFilter === 'normal') return !item.isFinanced;
-                    if (gpsFilter === 'divergence') return item.gps_value !== (item.gps_paid_value || 0);
-                    return true;
-                  }) : 
-                  activeReport === 'recebimentos' ? recebimentosData :
-                  activeReport === 'a-receber' ? getFilteredAReceberData() :
-                  commissionData
-                ).length === 0 ? (
+                ) : reportRows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500">
                       Nenhum registro encontrado para este relatório.
                     </td>
                   </tr>
                 ) : (
-                  (
-                    activeReport === 'deadlines' ? deadlineData : 
-                    activeReport === 'childbirth' ? childbirthData.filter(item => {
-                      if (childbirthFilter === 'all') return true;
-                      if (childbirthFilter === 'probono') return item.isProBono;
-                      if (childbirthFilter === 'financed') return item.isFinanced;
-                      return true;
-                    }) : 
-                    activeReport === 'birthdays' ? birthdayData : 
-                    activeReport === 'gps' ? gpsData.filter(item => {
-                      if (gpsFilter === 'all') return true;
-                      if (gpsFilter === 'paid') return item.gpsPaid;
-                      if (gpsFilter === 'unpaid') return !item.gpsPaid;
-                      if (gpsFilter === 'financed') return item.isFinanced;
-                      if (gpsFilter === 'normal') return !item.isFinanced;
-                      return true;
-                    }) :
-                    activeReport === 'recebimentos' ? recebimentosData :
-                    activeReport === 'a-receber' ? getFilteredAReceberData() :
-                    commissionData
-                  ).map((item: any, index) => (
-                    <motion.tr 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      key={item.id} 
-                      className={cn(
-                        "hover:bg-slate-50/50 transition-colors",
-                        (activeReport === 'childbirth' && item.status?.toLowerCase().trim() === 'cancelado') ||
-                        (activeReport === 'gps' && item.status?.toLowerCase().trim() === 'cancelado') || 
-                        (activeReport === 'commissions' && item.status?.toLowerCase().trim() === 'cancelado') 
-                          ? "opacity-60 line-through text-slate-400" : ""
-                      )}
-                    >
-                      {activeReport === 'recebimentos' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">{formatDate(item.date)}</td>
-                          <td className="p-4 font-semibold text-slate-900">{item.clientName}</td>
-                          <td className="p-4 text-slate-600">{item.description}</td>
-                          <td className="p-4 text-slate-600 font-medium">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 text-slate-700">
-                              {item.accountName}
-                            </span>
-                          </td>
-                          <td className="p-4 text-slate-600">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-indigo-50 text-indigo-700">
-                              {item.categoryName}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right font-bold text-emerald-600">
-                            {formatCurrency(item.amount, isVisible('reports_recebimentos'))}
-                          </td>
-                        </>
-                      ) : activeReport === 'a-receber' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">{formatDate(item.dueDate)}</td>
-                          <td className="p-4 font-semibold text-slate-900">{item.contracts?.clients?.name || 'Cliente Avulso'}</td>
-                          <td className="p-4 text-slate-600">{item.contracts?.processNumber || '-'}</td>
-                          <td className="p-4">
-                            <div className="flex gap-1 flex-wrap">
-                              {(item.contracts?.clients?.tags || []).map((tag: string) => (
-                                <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]">{tag}</span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="p-4 text-right font-bold text-slate-900">{formatCurrency(Number(item.amount || 0) - Number(item.amountPaid || 0))}</td>
-                          <td className="p-4">
-                            <span className={cn(
-                              "px-2 py-1 rounded-full text-[10px] font-medium",
-                              new Date(item.dueDate) < new Date() ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"
-                            )}>
-                              {new Date(item.dueDate) < new Date() ? 'Atrasado' : 'Pendente'}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <button
-                              onClick={() => handleQuitarAReceberItem(item)}
-                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
-                              title="Quitar saldo restante"
-                            >
-                              Quitar
-                            </button>
-                          </td>
-                        </>
-                      ) : activeReport === 'deadlines' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">{item.processNumber}</td>
-                          <td className="p-4 text-slate-600">{item.clientName}</td>
-                          <td className="p-4 text-slate-600">{item.description || '-'}</td>
-                          <td className="p-4 text-slate-900 font-medium">
-                            {formatDate(item.deadlineDate)}
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                              item.daysRemaining < 0 
-                                ? 'bg-slate-100 text-slate-600' // Vencido
-                                : item.daysRemaining <= 5
-                                  ? 'bg-rose-100 text-rose-700' // Crítico (menos de 5 dias)
-                                  : item.daysRemaining <= 15
-                                    ? 'bg-amber-100 text-amber-700' // Atenção (5 a 15 dias)
-                                    : 'bg-emerald-100 text-emerald-700' // Seguro
-                            }`}>
-                              {item.daysRemaining < 0 
-                                ? `Venceu há ${Math.abs(item.daysRemaining)} dias` 
-                                : item.daysRemaining === 0
-                                  ? 'Vence hoje!'
-                                  : `Faltam ${item.daysRemaining} dias`}
-                            </span>
-                          </td>
-                        </>
-                      ) : activeReport === 'childbirth' ? (
-                        <>
-                          <td className={cn("p-4 font-medium text-slate-900", item.status === 'Cancelado' && "line-through text-slate-400 opacity-60")}>{item.clientName}</td>
-                          <td className="p-4">
-                            {item.isProBono ? (
-                              <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700", item.status === 'Cancelado' && "line-through opacity-60")}>
-                                Pro Bono
-                              </span>
-                            ) : item.isFinanced ? (
-                              <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700", item.status === 'Cancelado' && "line-through opacity-60")}>
-                                Financiado
-                              </span>
-                            ) : (
-                              <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600", item.status === 'Cancelado' && "line-through opacity-60")}>
-                                Normal
-                              </span>
-                            )}
-                          </td>
-                          <td className={cn("p-4 text-slate-600", item.status === 'Cancelado' && "line-through opacity-60")}>{item.document}</td>
-                          <td className={cn("p-4 text-slate-600", item.status === 'Cancelado' && "line-through opacity-60")}>{item.phone}</td>
-                          <td className={cn("p-4 text-slate-900 font-medium", item.status === 'Cancelado' && "line-through opacity-60")}>
-                            {formatDate(item.childbirthDate)}
-                          </td>
-                          <td className={cn("p-4 text-slate-900 font-medium", item.status === 'Cancelado' && "line-through opacity-60")}>
-                            {item.rn_birth_date ? formatDate(item.rn_birth_date) : '-'}
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={cn(`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold`,
-                              item.status === 'Cancelado' 
-                                ? 'bg-[#ea9999]/10 text-slate-400 line-through'
-                                : item.daysRemaining < 0 
-                                  ? 'bg-slate-100 text-slate-600' 
-                                  : item.daysRemaining <= 30
-                                    ? 'bg-rose-100 text-rose-700' 
-                                    : item.daysRemaining <= 90
-                                      ? 'bg-amber-100 text-amber-700' 
-                                      : 'bg-emerald-100 text-emerald-700' 
-                            )}>
-                              {item.status === 'Cancelado' 
-                                ? 'CANCELADO'
-                                : item.daysRemaining < 0 
-                                  ? `Ocorreu há ${Math.abs(item.daysRemaining)} dias` 
-                                  : item.daysRemaining === 0
-                                    ? 'É hoje!'
-                                    : `Faltam ${item.daysRemaining} dias`}
-                            </span>
-                          </td>
-                        </>
-                      ) : activeReport === 'birthdays' ? (
-                        <>
-                          <td className="p-4 font-medium text-slate-900">
-                            <div className="flex items-center gap-2">
-                              {item.clientName}
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase",
-                                item.type === 'cliente' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                              )}>
-                                {item.type}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-slate-600">{item.document}</td>
-                          <td className="p-4 text-slate-600">{item.phone}</td>
-                          <td className="p-4 text-slate-900 font-medium">
-                            {formatDate(item.birthDate)}
-                          </td>
-                          <td className="p-4 text-right text-slate-600 font-medium">
-                            {item.age} anos
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                              item.daysRemaining === 0
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : item.daysRemaining <= 7
-                                  ? 'bg-rose-100 text-rose-700' 
-                                  : item.daysRemaining <= 30
-                                    ? 'bg-amber-100 text-amber-700' 
-                                    : 'bg-slate-100 text-slate-700' 
-                            }`}>
-                              {item.daysRemaining === 0
-                                ? 'É hoje! 🎉'
-                                : `Faltam ${item.daysRemaining} dias`}
-                            </span>
-                          </td>
-                        </>
-                      ) : activeReport === 'gps' ? (
-                        <>
-                          <td className="p-4">
-                            <div className="font-medium text-slate-900">{item.clientName}</div>
-                            {item.isFinanced ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700 mt-1">
-                                Financiado
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600 mt-1">
-                                Normal
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4 text-slate-600 font-medium">{formatDate(item.childbirthDate)}</td>
-                          <td className="p-4">
-                            <StatusBadge protocolNumber={item.protocolNumber} />
-                          </td>
-                          <td className="p-4">
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                              item.status?.toLowerCase().trim() === 'cancelado' ? "bg-rose-100 text-rose-700" :
-                              item.gpsPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                            )}>
-                              {item.status?.toLowerCase().trim() === 'cancelado' ? 'Cancelado' : (item.gpsPaid ? 'Pago' : 'Pendente')}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2 font-medium text-slate-900">
-                              {formatDate(item.gps_forecast_date)}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {item.status?.toLowerCase().trim() === 'cancelado' ? (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700">
-                                Cancelado
-                              </span>
-                            ) : item.gpsPaid ? (
-                              <span className="text-slate-600 font-medium">{formatDate(item.gps_payment_date)}</span>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setSelectedGps(item)
-                                  setIsPaymentModalOpen(true)
-                                }}
-                                className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors"
-                              >
-                                Registrar
-                              </button>
-                            )}
-                          </td>
-                          <td className="p-4 text-right font-medium text-slate-900">
-                            {formatCurrency(item.gps_value, isVisible('reports_gps'))}
-                          </td>
-                          <td className="p-4 text-right font-medium text-emerald-600">
-                            {formatCurrency(item.gps_paid_value, isVisible('reports_gps'))}
-                          </td>
-                          <td className="p-4 text-right font-bold text-slate-900">
-                            {formatCurrency(item.gps_value - (item.gps_paid_value || 0), isVisible('reports_gps'))}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="p-4 font-bold text-slate-900">{item.indicatorName}</td>
-                          <td className="p-4">
-                            <div className="text-sm font-medium text-slate-900">{item.clientName}</div>
-                            <div className="text-xs text-slate-500">{item.productName}</div>
-                          </td>
-                          <td className="p-4 text-slate-600">
-                            {formatCurrency(item.contractValue, isVisible('reports_commissions'))}
-                          </td>
-                          <td className="p-4 text-slate-600">
-                            {formatCurrency(item.base_comissao, isVisible('reports_commissions'))}
-                          </td>
-                          <td className="p-4 text-slate-600 font-medium">{item.commissionPercent}%</td>
-                          <td className="p-4 text-indigo-600 font-bold">
-                            {formatCurrency(item.commissionValue, isVisible('reports_commissions'))}
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                              item.status === 'Quitado' ? "bg-emerald-100 text-emerald-700" :
-                              item.status === 'Cancelado' ? "bg-rose-100 text-rose-700" :
-                              "bg-amber-100 text-amber-700"
-                            )}>
-                              {item.status}
-                            </span>
-                          </td>
-                        </>
-                      )}
-                    </motion.tr>
-                  ))
+                  reportRows.map((item: any, index) => {
+                    const columns = getReportColumns(item)
+                    return (
+                      <motion.tr
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        key={item.id}
+                        className={cn(
+                          "hover:bg-slate-50/50 transition-colors",
+                          (activeReport === 'childbirth' && item.status?.toLowerCase().trim() === 'cancelado') ||
+                          (activeReport === 'gps' && item.status?.toLowerCase().trim() === 'cancelado') ||
+                          (activeReport === 'commissions' && item.status?.toLowerCase().trim() === 'cancelado')
+                            ? "opacity-60 line-through text-slate-400" : ""
+                        )}
+                      >
+                        {columns.map((column) => (
+                          <td key={column.key} className={cn("p-4", column.cellClassName)}>{column.value}</td>
+                        ))}
+                      </motion.tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
+          </div>
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {loading ? (
+              <div className="p-8 text-center">
+                <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm text-slate-500 mt-2">Carregando relatório...</p>
+              </div>
+            ) : reportRows.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">
+                Nenhum registro encontrado para este relatório.
+              </div>
+            ) : (
+              reportRows.map((item: any) => (
+                <div key={item.id} className="p-4 space-y-3">
+                  {getReportColumns(item).map((column) => (
+                    <ReportCardField key={column.key} label={column.label} value={column.value} />
+                  ))}
+                </div>
+              ))
+            )}
           </div>
         </div>
         {/* Modal para Registro de Pagamento */}

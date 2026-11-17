@@ -61,6 +61,14 @@ interface FailedAttempt {
   attempted_at: string
 }
 
+// Linha de card mobile: mesma hierarquia de rótulo/valor usada em todas as abas.
+const AuditCardField = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+)
+
 export function AuditAccessLogs() {
   const [activeTab, setActiveTab] = useState<'sessions' | 'failed' | 'analytics'>('sessions')
   const [logs, setLogs] = useState<AccessLog[]>([])
@@ -565,7 +573,8 @@ export function AuditAccessLogs() {
               <p>Nenhum registro de acesso encontrado.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
@@ -651,6 +660,77 @@ export function AuditAccessLogs() {
                 </tbody>
               </table>
             </div>
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredLogs.map((log) => {
+                const status = getSessionStatus(log)
+                return (
+                  <div key={log.id} className="p-4 space-y-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900 break-words">{log.user?.name || 'Desconhecido'}</div>
+                        <div className="text-xs text-slate-500 break-all">{log.user?.email}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          log.environment === 'production' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {log.environment === 'production' ? 'Produção' : 'Teste'}
+                        </span>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${status.color}`}>
+                          {status.icon}
+                          {status.label}
+                        </span>
+                      </div>
+                    </div>
+                    <AuditCardField label="Login / Último Acesso">
+                      <div className="flex items-start gap-1.5 text-slate-700 break-words">
+                        <Clock size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                        {new Date(log.login_at).toLocaleString('pt-BR')}
+                      </div>
+                      <div className="text-xs text-slate-500 break-words mt-1">
+                        Visto: {new Date(log.last_seen_at).toLocaleString('pt-BR')}
+                      </div>
+                    </AuditCardField>
+                    <AuditCardField label="IP / Local / Dispositivo">
+                      <div className="flex items-start gap-1.5 text-slate-700 break-all">
+                        <Globe size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                        {log.ip_address}
+                      </div>
+                      {log.location && (
+                        <div className="flex items-start gap-1.5 text-xs text-slate-600 break-words mt-1">
+                          <MapPin size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                          {log.location}
+                        </div>
+                      )}
+                      <div className="flex items-start gap-1.5 text-xs text-slate-500 break-all mt-1" title={log.user_agent}>
+                        <span className="shrink-0 mt-0.5">{getDeviceIcon(log.user_agent)}</span>
+                        <span className="break-all min-w-0">{log.user_agent}</span>
+                      </div>
+                    </AuditCardField>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <button
+                        onClick={() => handleTrustDevice(log)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-lg text-xs font-medium transition-colors"
+                        title="Marcar como Confiável"
+                      >
+                        <ShieldCheck size={14} />
+                        Confiável
+                      </button>
+                      {status.label === 'Ativa' && (
+                        <button
+                          onClick={() => handleTerminateSession(log.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <XCircle size={14} />
+                          Derrubar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            </>
           )
         ) : (
           filteredFailed.length === 0 ? (
@@ -659,7 +739,8 @@ export function AuditAccessLogs() {
               <p>Nenhuma tentativa falha registrada.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
@@ -701,6 +782,37 @@ export function AuditAccessLogs() {
                 </tbody>
               </table>
             </div>
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredFailed.map((attempt) => (
+                <div key={attempt.id} className="p-4 space-y-3">
+                  <AuditCardField label="E-mail Tentado">
+                    <span className="font-medium text-slate-900 break-all">{attempt.email}</span>
+                  </AuditCardField>
+                  <AuditCardField label="Data / Hora">
+                    <div className="flex items-start gap-1.5 text-slate-700 break-words">
+                      <Clock size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                      {new Date(attempt.attempted_at).toLocaleString('pt-BR')}
+                    </div>
+                  </AuditCardField>
+                  <AuditCardField label="Motivo">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700">
+                      {attempt.reason}
+                    </span>
+                  </AuditCardField>
+                  <AuditCardField label="IP / Dispositivo">
+                    <div className="flex items-start gap-1.5 text-slate-700 break-all">
+                      <Globe size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                      {attempt.ip_address}
+                    </div>
+                    <div className="flex items-start gap-1.5 text-xs text-slate-500 break-all mt-1" title={attempt.user_agent}>
+                      <span className="shrink-0 mt-0.5">{getDeviceIcon(attempt.user_agent)}</span>
+                      <span className="break-all min-w-0">{attempt.user_agent}</span>
+                    </div>
+                  </AuditCardField>
+                </div>
+              ))}
+            </div>
+            </>
           )
         )}
       </div>

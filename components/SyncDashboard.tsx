@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
 import { getAppEnv } from '@/lib/env';
@@ -8,6 +8,23 @@ import { getAppEnv } from '@/lib/env';
 const supabase = createClient(
   defaultUrlProd,
   defaultKeyProd
+);
+
+const SyncCardField = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+);
+
+const SyncStatusBadge = ({ status }: { status: string }) => (
+  <span className={`px-2 py-1 rounded-full text-xs ${
+    status === 'Sincronizado' ? 'bg-green-100 text-green-800' :
+    status === 'Erro' ? 'bg-red-100 text-red-800' :
+    'bg-yellow-100 text-yellow-800'
+  }`}>
+    {status === 'Sincronizado' ? '🟢' : status === 'Erro' ? '🔴' : '🟡'} {status}
+  </span>
 );
 
 async function syncProcess(process_id: number, process_number: string) {
@@ -72,41 +89,56 @@ export default function SyncDashboard() {
           Não foi possível carregar o status: {loadError}
         </div>
       )}
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left border-b">
-            <th className="p-2">Processo</th>
-            <th className="p-2">Status</th>
-            <th className="p-2">Última Sincronização</th>
-            <th className="p-2">Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((item) => (
-            <tr key={item.process_id} className="border-b">
-              <td className="p-2">{item.process_number}</td>
-              <td className="p-2">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  item.sync_status === 'Sincronizado' ? 'bg-green-100 text-green-800' :
-                  item.sync_status === 'Erro' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {item.sync_status === 'Sincronizado' ? '🟢' : item.sync_status === 'Erro' ? '🔴' : '🟡'} {item.sync_status}
-                </span>
-              </td>
-              <td className="p-2">{item.last_sync ? new Date(item.last_sync).toLocaleString() : 'Nunca'}</td>
-              <td className="p-2">
-                <button 
-                  onClick={() => syncProcess(item.process_id, item.process_number)}
-                  className="px-3 py-1 bg-indigo-600 text-white rounded-md text-xs hover:bg-indigo-700"
-                >
-                  Sincronizar Agora
-                </button>
-              </td>
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b">
+              <th className="p-2">Processo</th>
+              <th className="p-2">Status</th>
+              <th className="p-2">Última Sincronização</th>
+              <th className="p-2">Ação</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr key={item.process_id} className="border-b">
+                <td className="p-2">{item.process_number}</td>
+                <td className="p-2"><SyncStatusBadge status={item.sync_status} /></td>
+                <td className="p-2">{item.last_sync ? new Date(item.last_sync).toLocaleString() : 'Nunca'}</td>
+                <td className="p-2">
+                  <button 
+                    onClick={() => syncProcess(item.process_id, item.process_number)}
+                    className="px-3 py-1 bg-indigo-600 text-white rounded-md text-xs hover:bg-indigo-700"
+                  >
+                    Sincronizar Agora
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="md:hidden divide-y divide-slate-100">
+        {data.map((item) => (
+          <div key={item.process_id} className="p-4 space-y-3">
+            <SyncCardField label="Processo">
+              <span className="font-medium text-slate-900 break-all">{item.process_number}</span>
+            </SyncCardField>
+            <SyncCardField label="Status"><SyncStatusBadge status={item.sync_status} /></SyncCardField>
+            <SyncCardField label="Última Sincronização">
+              <span className="break-words">{item.last_sync ? new Date(item.last_sync).toLocaleString() : 'Nunca'}</span>
+            </SyncCardField>
+            <SyncCardField label="Ação">
+              <button
+                onClick={() => syncProcess(item.process_id, item.process_number)}
+                className="px-3 py-2 min-h-[40px] bg-indigo-600 text-white rounded-md text-xs hover:bg-indigo-700"
+              >
+                Sincronizar Agora
+              </button>
+            </SyncCardField>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

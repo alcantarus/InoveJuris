@@ -40,6 +40,184 @@ const whatsappTemplates = [
     { label: "3. Follow-up", text: "Olá {name}, conseguiu avaliar nossa proposta? Qualquer dúvida estou à disposição!" }
 ];
 
+const FUNNEL_STAGES = ['Contato', 'Qualificado', 'Proposta', 'Fechamento'];
+
+// Shared row helpers (used by both the desktop table and the mobile cards)
+const getFunnelIndex = (stage?: string) => {
+  const idx = FUNNEL_STAGES.indexOf(stage || 'Contato');
+  return idx === -1 ? 0 : idx;
+}
+
+const getNextActionInfo = (lead: Lead) => {
+  const isOverdue = !lead.next_action_date || new Date(lead.next_action_date) <= new Date();
+  return {
+    isOverdue,
+    label: !lead.next_action_date
+      ? 'Sem Próxima Ação'
+      : isOverdue ? 'Atrasado (Atenção)' : new Date(lead.next_action_date).toLocaleDateString(),
+    type: lead.next_action_type || 'Agendar Reunião'
+  };
+}
+
+const getLeadRowTone = (lead: Lead, expanded: boolean) => cn(
+  'transition',
+  expanded ? 'bg-indigo-50/50' : 'hover:bg-slate-50',
+  lead.score === '🔥' && !expanded ? 'bg-orange-50/30' : '',
+  !expanded && lead.status === 'Em Atendimento' && getNextActionInfo(lead).isOverdue ? 'bg-rose-50/30' : ''
+)
+
+const MobileField = ({ label, children, className }: { label: string, children: React.ReactNode, className?: string }) => (
+  <div className={cn('min-w-0', className)}>
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-700 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+)
+
+function FunnelStage({ lead, onAdvance, mobile = false }: { lead: Lead, onAdvance: (lead: Lead, stage: string) => void, mobile?: boolean }) {
+  const index = getFunnelIndex(lead.funnel_stage)
+  return (
+    <div className="text-sm text-slate-700">
+      <div className="font-medium text-slate-900 text-xs uppercase flex items-center justify-between gap-2">
+        <span className="min-w-0 break-words">{lead.funnel_stage || 'Contato'}</span>
+        {index < FUNNEL_STAGES.length - 1 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdvance(lead, FUNNEL_STAGES[index + 1]) }}
+            className={cn(
+              "text-indigo-600 bg-indigo-50 rounded-full flex items-center shrink-0 hover:text-indigo-800 hover:bg-indigo-100 transition-colors",
+              mobile ? "min-h-[40px] px-3 py-2 text-xs" : "text-[10px] px-2 py-0.5"
+            )}
+            title="Avançar Funil Rapidamente"
+          >
+            Avançar <ChevronRight size={12} className="ml-0.5" />
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 mt-2">
+        {FUNNEL_STAGES.map((stage, idx) => (
+          <div key={stage} className={cn("h-1.5 w-8 rounded-full", idx <= index ? "bg-indigo-600" : "bg-slate-200")} title={stage} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WhatsappTemplatesMenu({ onClose, onSelect, mobile = false }: { onClose: () => void, onSelect: (template: typeof whatsappTemplates[0]) => void, mobile?: boolean }) {
+  return (
+    <div className={cn(
+      "z-50 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left",
+      mobile ? "absolute left-4 right-4 top-16 z-50 w-auto" : "absolute top-11 right-0 w-64 sm:w-72 max-w-[calc(100vw-2rem)]"
+    )}>
+      <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center gap-2">
+        <span>Templates de Abordagem</span>
+        <button onClick={(e) => { e.stopPropagation(); onClose() }} className="text-slate-400 hover:text-slate-600 min-w-[24px] min-h-[24px]">×</button>
+      </div>
+      {whatsappTemplates.map(t => (
+        <button
+          key={t.label}
+          className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b last:border-0 text-slate-700 hover:text-indigo-700 transition"
+          onClick={(e) => { e.stopPropagation(); onSelect(t) }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function AgendaMenu({ onClose, onSelect, mobile = false }: { onClose: () => void, onSelect: (days: number, label: string) => void, mobile?: boolean }) {
+  return (
+    <div className={cn(
+      "z-50 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left",
+      mobile ? "absolute left-4 right-4 top-16 z-50 w-auto" : "absolute top-11 right-0 w-48 max-w-[calc(100vw-2rem)]"
+    )}>
+      <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center gap-2">
+        <span>Agendar</span>
+        <button onClick={(e) => { e.stopPropagation(); onClose() }} className="text-slate-400 hover:text-slate-600 min-w-[24px] min-h-[24px]">×</button>
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); onSelect(0, 'Reunião Hoje') }} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b text-slate-700">Para Hoje</button>
+      <button onClick={(e) => { e.stopPropagation(); onSelect(1, 'Ligar Amanhã') }} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b text-slate-700">Ligar Amanhã</button>
+      <button onClick={(e) => { e.stopPropagation(); onSelect(2, 'Mandar Mensagem') }} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 text-slate-700">Em 2 dias</button>
+    </div>
+  )
+}
+
+function LeadExpandedDetails({ lead, isAnalyzing, onEdit, onDiscard, onGenerateAi, onAdvanceFunnel }: {
+  lead: Lead,
+  isAnalyzing: boolean,
+  onEdit: (lead: Lead) => void,
+  onDiscard: (id: string, status: Lead['status']) => void,
+  onGenerateAi: (lead: Lead) => void,
+  onAdvanceFunnel: (lead: Lead, stage: string) => void
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div>
+        <h4 className="text-sm font-semibold text-slate-900 mb-2">Assunto & Descrição</h4>
+        <div className="text-sm text-slate-900 font-medium mb-1 break-words">{lead.subject}</div>
+        <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed break-words">{lead.description}</p>
+      </div>
+      {lead.ai_notes ? (
+        <div className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+          <h4 className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
+            <span className="text-lg">🤖</span> Análise da IA
+          </h4>
+          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed break-words">{lead.ai_notes}</p>
+        </div>
+      ) : (
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-slate-400 text-sm">
+          <span className="mb-3">Nenhuma análise de IA disponível.</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onGenerateAi(lead) }}
+            disabled={isAnalyzing}
+            className="min-h-[40px] px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors flex items-center gap-2"
+          >
+            <span className="text-lg">🤖</span> {isAnalyzing ? 'Analisando...' : 'Gerar Análise agora'}
+          </button>
+        </div>
+      )}
+      <div>
+        <h4 className="text-sm font-semibold text-slate-900 mb-2">Linha do Tempo</h4>
+        <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
+          {lead.history && lead.history.length > 0 ? lead.history.map((h, i) => (
+            <div key={i} className="flex gap-3 text-sm">
+              <div className="text-slate-400 text-xs mt-0.5 whitespace-nowrap">
+                {new Date(h.date).toLocaleDateString()} {new Date(h.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </div>
+              <div className="text-slate-700 break-words min-w-0">{h.action}</div>
+            </div>
+          )) : (
+            <div className="text-slate-400 text-sm">Nenhum histórico registrado.</div>
+          )}
+        </div>
+      </div>
+      <div className="md:col-span-2 lg:col-span-3 mt-2 flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-slate-100">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(lead) }} className="min-h-[40px] px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100 transition shadow-sm inline-flex items-center gap-2"><Edit2 size={14} /> Editar Lead</button>
+          <button onClick={(e) => { e.stopPropagation(); onDiscard(lead.id, 'Descartado') }} className="min-h-[40px] px-4 py-2 bg-white border border-slate-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50 transition shadow-sm inline-flex items-center gap-2"><Trash2 size={14} /> Descartar</button>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center mt-2 md:mt-0">
+          <span className="text-xs text-slate-500 font-medium mr-2 block w-full md:w-auto">Avançar Funil:</span>
+          <div className="flex flex-wrap gap-2">
+            {FUNNEL_STAGES.map((stage) => (
+              <button
+                key={stage}
+                onClick={(e) => { e.stopPropagation(); onAdvanceFunnel(lead, stage) }}
+                className={cn(
+                  "min-h-[40px] px-3 py-1 rounded-full text-xs font-semibold border transition",
+                  (lead.funnel_stage || 'Contato') === stage ? "border-indigo-600 text-indigo-700 bg-indigo-50" : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
+                )}
+              >
+                {stage}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -415,12 +593,6 @@ export default function LeadsPage() {
 
   const inputClass = "w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
 
-  const getFunnelIndex = (stage?: string) => {
-    const stages = ['Contato', 'Qualificado', 'Proposta', 'Fechamento'];
-    const idx = stages.indexOf(stage || 'Contato');
-    return idx === -1 ? 0 : idx;
-  }
-
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-20">
@@ -509,8 +681,8 @@ export default function LeadsPage() {
         </Drawer>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[900px]">
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left min-w-[900px] hidden md:table">
               <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="p-4 text-sm font-medium text-slate-500 w-16">Score</th>
@@ -525,12 +697,7 @@ export default function LeadsPage() {
                 <React.Fragment key={lead.id}>
                 <tr 
                   onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
-                  className={cn(
-                      "cursor-pointer transition",
-                      expandedLeadId === lead.id ? "bg-indigo-50/50" : "hover:bg-slate-50",
-                      lead.score === '🔥' && expandedLeadId !== lead.id ? "bg-orange-50/30" : "",
-                      lead.status === 'Em Atendimento' && (!lead.next_action_date || new Date(lead.next_action_date) <= new Date()) && expandedLeadId !== lead.id ? "bg-rose-50/30" : ""
-                  )}
+                  className={cn("cursor-pointer", getLeadRowTone(lead, expandedLeadId === lead.id))}
                 >
                   <td className="p-4">
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-lg" title={lead.score === '🔥' ? 'Lead Quente / Urgente' : ''} >
@@ -542,58 +709,25 @@ export default function LeadsPage() {
                     <div className="text-xs text-slate-500">{lead.whatsapp}</div>
                   </td>
                   <td className="p-4 text-sm text-slate-700">
-                    <div className="font-medium text-slate-900 text-xs mb-2 uppercase flex items-center justify-between">
-                        {lead.funnel_stage || 'Contato'}
-                        {getFunnelIndex(lead.funnel_stage) < 3 && (
-                            <button 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    const stages = ['Contato', 'Qualificado', 'Proposta', 'Fechamento'];
-                                    const nextStage = stages[getFunnelIndex(lead.funnel_stage) + 1];
-                                    updateFunnelStage(lead, nextStage); 
-                                }} 
-                                className="text-indigo-600 hover:text-indigo-800 text-[10px] bg-indigo-50 px-2 py-0.5 rounded-full flex items-center"
-                                title="Avançar Funil Rapidamente"
-                            >
-                                Avançar <ChevronRight size={12} className="ml-0.5" />
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        {['Contato', 'Qualificado', 'Proposta', 'Fechamento'].map((stage, idx) => {
-                            const isPast = idx <= getFunnelIndex(lead.funnel_stage);
-                            return (
-                                <div key={stage} className={cn("h-1.5 w-8 rounded-full", isPast ? "bg-indigo-600" : "bg-slate-200")} title={stage} />
-                            )
-                        })}
-                    </div>
+                    <FunnelStage lead={lead} onAdvance={updateFunnelStage} />
                   </td>
                   <td className="p-4">
-                     <div className="text-sm font-medium text-slate-900">{lead.next_action_type || "Agendar Reunião"}</div>
-                     <div className={cn("text-xs font-semibold", (!lead.next_action_date || new Date(lead.next_action_date) <= new Date()) ? "text-rose-500" : "text-emerald-600")}>
-                         {!lead.next_action_date ? "Sem Próxima Ação" : (new Date(lead.next_action_date) <= new Date() ? "Atrasado (Atenção)" : new Date(lead.next_action_date).toLocaleDateString())}
+                     <div className="text-sm font-medium text-slate-900 break-words">{getNextActionInfo(lead).type}</div>
+                     <div className={cn("text-xs font-semibold break-words", getNextActionInfo(lead).isOverdue ? "text-rose-500" : "text-emerald-600")}>
+                         {getNextActionInfo(lead).label}
                      </div>
                   </td>
                   <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1 justify-center relative">
-                        <button onClick={() => { setActiveAgendaMenu(null); setActiveWhatsappMenu(activeWhatsappMenu === lead.id ? null : lead.id); }} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg" title="WhatsApp Rápido"><Zap size={16} /></button>
-                        {activeWhatsappMenu === lead.id && (
-                            <div className="absolute top-10 right-0 z-50 w-72 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left">
-                                <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
-                                    <span>Templates de Abordagem</span>
-                                    <button onClick={() => setActiveWhatsappMenu(null)} className="text-slate-400 hover:text-slate-600">×</button>
-                                </div>
-                                {whatsappTemplates.map(t => (
-                                    <button 
-                                        key={t.label} 
-                                        className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b last:border-0 text-slate-700 hover:text-indigo-700 transition"
-                                        onClick={(e) => { e.stopPropagation(); handleWhatsappClick(lead, t); }}
-                                    >
-                                        {t.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <div className="relative">
+                            <button onClick={() => { setActiveAgendaMenu(null); setActiveWhatsappMenu(activeWhatsappMenu === lead.id ? null : lead.id); }} className="text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg" title="WhatsApp Rápido"><Zap size={16} /></button>
+                            {activeWhatsappMenu === lead.id && (
+                                <WhatsappTemplatesMenu
+                                    onClose={() => setActiveWhatsappMenu(null)}
+                                    onSelect={(t) => handleWhatsappClick(lead, t)}
+                                />
+                            )}
+                        </div>
                         <button 
                             onClick={() => { 
                                 window.open(`tel:${lead.whatsapp}`, '_self');
@@ -609,15 +743,10 @@ export default function LeadsPage() {
                                 <Calendar size={16} />
                             </button>
                             {activeAgendaMenu === lead.id && (
-                                <div className="absolute top-10 right-0 z-50 w-48 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left">
-                                     <div className="p-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
-                                        <span>Agendar</span>
-                                        <button onClick={() => setActiveAgendaMenu(null)} className="text-slate-400 hover:text-slate-600">×</button>
-                                     </div>
-                                     <button onClick={() => handleSchedule(lead, 0, 'Reunião Hoje')} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b text-slate-700">Para Hoje</button>
-                                     <button onClick={() => handleSchedule(lead, 1, 'Ligar Amanhã')} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 border-b text-slate-700">Ligar Amanhã</button>
-                                     <button onClick={() => handleSchedule(lead, 2, 'Mandar Mensagem')} className="w-full text-left block p-3 text-sm hover:bg-indigo-50 text-slate-700">Em 2 dias</button>
-                                </div>
+                                <AgendaMenu
+                                    onClose={() => setActiveAgendaMenu(null)}
+                                    onSelect={(days, label) => handleSchedule(lead, days, label)}
+                                />
                             )}
                         </div>
 
@@ -628,71 +757,14 @@ export default function LeadsPage() {
                 {expandedLeadId === lead.id && (
                     <tr className="bg-slate-50/80 border-b border-t shadow-inner">
                         <td colSpan={5} className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div>
-                                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Assunto & Descrição</h4>
-                                    <div className="text-sm text-slate-900 font-medium mb-1">{lead.subject}</div>
-                                    <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{lead.description}</p>
-                                </div>
-                                {lead.ai_notes ? (
-                                    <div className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
-                                        <h4 className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
-                                            <span className="text-lg">🤖</span> Análise da IA
-                                        </h4>
-                                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{lead.ai_notes}</p>
-                                    </div>
-                                ) : (
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-slate-400 text-sm">
-                                        <span className="mb-3">Nenhuma análise de IA disponível.</span>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); generateAiAnalysisForLead(lead); }}
-                                            disabled={isAnalyzingId === lead.id}
-                                            className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors flex items-center gap-2"
-                                        >
-                                            <span className="text-lg">🤖</span> {isAnalyzingId === lead.id ? 'Analisando...' : 'Gerar Análise agora'}
-                                        </button>
-                                    </div>
-                                )}
-                                <div>
-                                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Linha do Tempo</h4>
-                                    <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
-                                        {lead.history && lead.history.length > 0 ? lead.history.map((h, i) => (
-                                            <div key={i} className="flex gap-3 text-sm">
-                                                <div className="text-slate-400 text-xs mt-0.5 whitespace-nowrap">
-                                                    {new Date(h.date).toLocaleDateString()} {new Date(h.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                </div>
-                                                <div className="text-slate-700">{h.action}</div>
-                                            </div>
-                                        )) : (
-                                            <div className="text-slate-400 text-sm">Nenhum histórico registrado.</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-6 flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-slate-100">
-                                <div className="flex gap-2">
-                                    <button onClick={() => editLead(lead)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100 transition shadow-sm">Editar Lead</button>
-                                    <button onClick={() => updateStatus(lead.id, 'Descartado')} className="px-4 py-2 bg-white border border-slate-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50 transition shadow-sm">Descartar</button>
-                                </div>
-                                <div className="flex flex-wrap gap-2 items-center mt-4 md:mt-0">
-                                    <span className="text-xs text-slate-500 font-medium mr-2 block w-full md:w-auto">Avançar Funil:</span>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Contato', 'Qualificado', 'Proposta', 'Fechamento'].map((stage) => (
-                                            <button 
-                                                key={stage}
-                                                onClick={() => updateFunnelStage(lead, stage)}
-                                                className={cn(
-                                                    "px-3 py-1 rounded-full text-xs font-semibold border transition",
-                                                    (lead.funnel_stage || 'Contato') === stage ? "border-indigo-600 text-indigo-700 bg-indigo-50" : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
-                                                )}
-                                            >
-                                                {stage}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                            <LeadExpandedDetails
+                                lead={lead}
+                                isAnalyzing={isAnalyzingId === lead.id}
+                                onEdit={editLead}
+                                onDiscard={updateStatus}
+                                onGenerateAi={generateAiAnalysisForLead}
+                                onAdvanceFunnel={updateFunnelStage}
+                            />
                         </td>
                     </tr>
                 )}
@@ -700,6 +772,125 @@ export default function LeadsPage() {
               ))}
             </tbody>
           </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {isLoading ? (
+              <div className="p-8 text-center text-sm text-slate-500">
+                <div className="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3" />
+                Buscando leads...
+              </div>
+            ) : filteredLeads.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500">Nenhum lead encontrado com este filtro.</div>
+            ) : (
+              filteredLeads.map(lead => {
+                const nextAction = getNextActionInfo(lead)
+                const expanded = expandedLeadId === lead.id
+                return (
+                  <div key={lead.id} className={cn("relative p-4 space-y-3", getLeadRowTone(lead, expanded))}>
+                    <div className="flex items-start justify-between gap-2">
+                      <MobileField label="Lead" className="flex-1">
+                        <span className="font-semibold text-slate-900 break-words">{lead.name}</span>
+                        <div className="text-xs text-slate-500 break-words">{lead.whatsapp}</div>
+                        <span className={cn(
+                          "mt-1 inline-flex px-2 py-0.5 rounded-full border text-[10px] font-medium",
+                          statusColors[lead.status] || 'bg-slate-100 text-slate-600 border-slate-200'
+                        )}>
+                          {lead.status}
+                        </span>
+                      </MobileField>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedLeadId(expanded ? null : lead.id)}
+                        className="min-h-[40px] px-3 flex items-center gap-1 shrink-0 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                      >
+                        {expanded ? 'Ocultar' : 'Detalhes'}
+                        <ChevronRight size={14} className={cn("transition-transform", expanded && "rotate-90")} />
+                      </button>
+                    </div>
+
+                    <MobileField label="Score">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-full bg-slate-100 text-lg flex items-center justify-center shrink-0" title={lead.score === '🔥' ? 'Lead Quente / Urgente' : ''}>
+                          {lead.score || '❄️'}
+                        </span>
+                        <span className="text-sm text-slate-500">
+                          {lead.score?.includes('🔥') ? 'Quente / Urgente' : lead.score?.includes('🌤') ? 'Morno' : 'Frio'}
+                        </span>
+                      </div>
+                    </MobileField>
+
+                    <MobileField label="Funil">
+                      <FunnelStage lead={lead} onAdvance={updateFunnelStage} mobile />
+                    </MobileField>
+
+                    <MobileField label="Próxima Ação">
+                      <div className="font-medium text-slate-900 break-words">{nextAction.type}</div>
+                      <div className={cn("text-xs font-semibold break-words", nextAction.isOverdue ? "text-rose-500" : "text-emerald-600")}>
+                        {nextAction.label}
+                      </div>
+                    </MobileField>
+
+                    <MobileField label="Ações">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => { setActiveAgendaMenu(null); setActiveWhatsappMenu(activeWhatsappMenu === lead.id ? null : lead.id) }}
+                          className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                        >
+                          <Zap size={16} className="shrink-0" /> WhatsApp
+                        </button>
+                        <button
+                          onClick={() => { window.open(`tel:${lead.whatsapp}`, '_self'); setCallPromptLead(lead) }}
+                          className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                          <Phone size={16} className="shrink-0" /> Ligar
+                        </button>
+                        <button
+                          onClick={() => { setActiveWhatsappMenu(null); setActiveAgendaMenu(activeAgendaMenu === lead.id ? null : lead.id) }}
+                          className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                          <Calendar size={16} className="shrink-0" /> Agendar
+                        </button>
+                        <button
+                          onClick={() => convertToClient(lead)}
+                          className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                        >
+                          <UserPlus size={16} className="shrink-0" /> Contrato
+                        </button>
+                      </div>
+                    </MobileField>
+                    {activeWhatsappMenu === lead.id && (
+                      <WhatsappTemplatesMenu
+                        mobile
+                        onClose={() => setActiveWhatsappMenu(null)}
+                        onSelect={(t) => handleWhatsappClick(lead, t)}
+                      />
+                    )}
+                    {activeAgendaMenu === lead.id && (
+                      <AgendaMenu
+                        mobile
+                        onClose={() => setActiveAgendaMenu(null)}
+                        onSelect={(days, label) => handleSchedule(lead, days, label)}
+                      />
+                    )}
+
+                    {expanded && (
+                      <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 shadow-inner">
+                        <LeadExpandedDetails
+                          lead={lead}
+                          isAnalyzing={isAnalyzingId === lead.id}
+                          onEdit={editLead}
+                          onDiscard={updateStatus}
+                          onGenerateAi={generateAiAnalysisForLead}
+                          onAdvanceFunnel={updateFunnelStage}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       </div>

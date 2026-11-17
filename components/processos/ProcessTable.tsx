@@ -53,12 +53,73 @@ function deadlineLabel(process: Process): { text: string; className: string } {
   return { text: formatDate(next.deadline_date), className: 'text-slate-600' }
 }
 
+const EMPTY_MESSAGE = 'Nenhum processo encontrado para os filtros selecionados.'
+
+interface ProcessRowData {
+  deadline: { text: string; className: string }
+  responsible: string
+  active: boolean
+}
+
+/** Dados derivados usados tanto na tabela quanto nos cards. */
+function getRowData(process: Process, lawyers: any[]): ProcessRowData {
+  return {
+    deadline: deadlineLabel(process),
+    responsible: getResponsibleName(process, lawyers),
+    active: isActiveProcess(process.status),
+  }
+}
+
+function StatusBadge({ active, status }: { active: boolean; status: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-block px-2 py-1 rounded-md border text-[10px] font-bold',
+        active
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-slate-100 text-slate-600 border-slate-200'
+      )}
+    >
+      {active ? 'Ativo' : status}
+    </span>
+  )
+}
+
+function DeadlineInfo({ deadline, className }: { deadline: ProcessRowData['deadline']; className?: string }) {
+  return (
+    <div className={cn('flex items-center gap-1.5 font-semibold text-xs', className, deadline.className)}>
+      <CalendarClock size={13} /> {deadline.text}
+    </div>
+  )
+}
+
+function ResponsibleInfo({ responsible, clamp = true }: { responsible: string; clamp?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-700">
+        {initials(responsible)}
+      </span>
+      <span className={cn('text-slate-700', clamp && 'line-clamp-1')}>{responsible}</span>
+    </div>
+  )
+}
+
+function MobileField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
+      <div className="mt-0.5 min-w-0 break-words text-sm text-slate-700">{children}</div>
+    </div>
+  )
+}
+
 export function ProcessTable({ processes, lawyers, isVisible, syncingId, onEdit, onDelete, onSync }: ProcessTableProps) {
   const showValues = isVisible ? isVisible('process_all') : true
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Visão desktop */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-sm min-w-[980px]">
           <thead>
             <tr className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
@@ -75,14 +136,12 @@ export function ProcessTable({ processes, lawyers, isVisible, syncingId, onEdit,
             {processes.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                  Nenhum processo encontrado para os filtros selecionados.
+                  {EMPTY_MESSAGE}
                 </td>
               </tr>
             )}
             {processes.map(process => {
-              const deadline = deadlineLabel(process)
-              const responsible = getResponsibleName(process, lawyers)
-              const active = isActiveProcess(process.status)
+              const row = getRowData(process, lawyers)
 
               return (
                 <tr key={process.id} className="hover:bg-slate-50/70 transition-colors">
@@ -109,32 +168,16 @@ export function ProcessTable({ processes, lawyers, isVisible, syncingId, onEdit,
                     <p className="text-[11px] text-slate-500 line-clamp-1">{process.phase || process.court || '—'}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-700">
-                        {initials(responsible)}
-                      </span>
-                      <span className="text-slate-700 line-clamp-1">{responsible}</span>
-                    </div>
+                    <ResponsibleInfo responsible={row.responsible} />
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <div className={cn('flex items-center gap-1.5 text-xs font-semibold', deadline.className)}>
-                      <CalendarClock size={13} /> {deadline.text}
-                    </div>
+                    <DeadlineInfo deadline={row.deadline} />
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-700">
                     {process.case_value ? formatCurrency(Number(process.case_value), showValues) : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        'inline-block px-2 py-1 rounded-md border text-[10px] font-bold',
-                        active
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
-                      )}
-                    >
-                      {active ? 'Ativo' : process.status}
-                    </span>
+                    <StatusBadge active={row.active} status={process.status} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
@@ -162,6 +205,89 @@ export function ProcessTable({ processes, lawyers, isVisible, syncingId, onEdit,
           </tbody>
         </table>
       </div>
+
+      {/* Visão mobile: cards empilhados, sem rolagem horizontal */}
+      <div className="md:hidden divide-y divide-slate-100">
+        {processes.length === 0 ? (
+          <div className="p-8 text-center text-sm text-slate-500">{EMPTY_MESSAGE}</div>
+        ) : (
+          processes.map(process => {
+            const row = getRowData(process, lawyers)
+
+            return (
+              <div key={process.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente / CNJ</p>
+                    <Link
+                      href={`/processos/${process.id}`}
+                      className="mt-0.5 block break-words text-sm font-semibold text-slate-900 hover:text-indigo-600 hover:underline"
+                    >
+                      {process.client || 'Cliente não informado'}
+                    </Link>
+                    <p className="mt-0.5 break-all font-mono text-[11px] text-slate-500">{process.number}</p>
+                  </div>
+                  {process.secret_justice && (
+                    <span title="Segredo de justiça" className="shrink-0 p-1 rounded-md bg-rose-50 text-rose-600">
+                      <LockKeyhole size={14} />
+                    </span>
+                  )}
+                </div>
+                <MobileField label="Área / Vara">
+                  <p className="break-words font-medium text-slate-700">{process.type || '—'}</p>
+                  <p className="break-words text-xs text-slate-500">{process.phase || process.court || '—'}</p>
+                </MobileField>
+                <MobileField label="Responsável">
+                  <ResponsibleInfo responsible={row.responsible} clamp={false} />
+                </MobileField>
+                <MobileField label="Próximo prazo">
+                  <DeadlineInfo deadline={row.deadline} className="text-sm" />
+                </MobileField>
+                <MobileField label="Valor da causa">
+                  <span className="text-slate-700">
+                    {process.case_value ? formatCurrency(Number(process.case_value), showValues) : '—'}
+                  </span>
+                </MobileField>
+                <MobileField label="Situação">
+                  <StatusBadge active={row.active} status={process.status} />
+                </MobileField>
+                <div className="min-w-0 pt-1">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Ações</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Link
+                      href={`/processos/${process.id}`}
+                      className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg bg-indigo-50 px-3 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
+                    >
+                      Abrir <ArrowUpRight size={14} />
+                    </Link>
+                    <button
+                      onClick={() => onSync(process)}
+                      disabled={syncingId === process.id}
+                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      <RefreshCw size={15} className={syncingId === process.id ? 'animate-spin' : ''} />
+                      {syncingId === process.id ? 'Sincronizando' : 'Sincronizar'}
+                    </button>
+                    <button
+                      onClick={() => onEdit(process)}
+                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-indigo-50"
+                    >
+                      <Edit2 size={15} /> Editar
+                    </button>
+                    <button
+                      onClick={() => onDelete(process.id)}
+                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-100"
+                    >
+                      <Trash2 size={15} /> Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
       <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
         <span>
           {processes.length} {processes.length === 1 ? 'processo exibido' : 'processos exibidos'}

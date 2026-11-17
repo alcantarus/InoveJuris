@@ -261,6 +261,52 @@ export default function ContasAReceberPage() {
     )
   }
 
+  // Regras compartilhadas entre a tabela (desktop) e os cards (mobile).
+  const getContractRowStatus = (c: any) => {
+    let rowStatus = c.contract_status || 'Normal'
+    if (rowStatus === 'Aberto') rowStatus = 'Normal'
+
+    if (rowStatus !== 'Cancelado' && rowStatus !== 'Estornado' && rowStatus !== 'Prorrogado') {
+      if (c.contracts?.isProBono) rowStatus = 'Pro Bono'
+      else if (rowStatus === 'Quitado') rowStatus = 'Quitado'
+      else if (c.contracts?.isFinanced) rowStatus = 'Financiado'
+      else rowStatus = 'Normal'
+    }
+    return rowStatus
+  }
+
+  const filteredContracts = React.useMemo(() => {
+    const normalizedSearch = normalizeSearchText(searchTerm)
+    return sortedContracts.filter(c => {
+      const matchesSearch = !normalizedSearch ||
+        normalizeSearchText(c.processNumber).includes(normalizedSearch) ||
+        normalizeSearchText(c.client_name).includes(normalizedSearch)
+      if (!matchesSearch) return false
+      const today = getTodayBR()
+      if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
+      if (filterType === 'Quitados') return c.contract_status === 'Quitado'
+      if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
+      if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
+      return true
+    })
+  }, [sortedContracts, searchTerm, filterType])
+
+  const getInstallmentFlags = (i: any) => {
+    const today = getTodayBR()
+    const isLate = i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada'
+    const daysLate = isLate ? Math.floor((new Date(today).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0
+    return { isLate, daysLate }
+  }
+
+  const openContract = (c: any) => setSelectedContract({
+    id: c.contract_id,
+    processNumber: c.processNumber,
+    clients: { name: c.client_name },
+    status: c.contract_status,
+    contractValue: c.contract_value,
+    amountReceived: c.amount_received
+  })
+
   const fetchLookups = React.useCallback(async () => {
     const [accountsRes, categoriesRes] = await Promise.all([
       supabase.from('bank_accounts').select('id, name'),
@@ -549,7 +595,8 @@ export default function ContasAReceberPage() {
         </div>
         
         {!selectedContract ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm text-left min-w-[800px]">
               <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-xs">
                 <tr>
@@ -598,29 +645,9 @@ export default function ContasAReceberPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr><td colSpan={7} className="p-4 text-center">Carregando...</td></tr>
-                ) : sortedContracts.filter(c => {
-                  const normalizedSearch = normalizeSearchText(searchTerm);
-                  const matchesSearch = !normalizedSearch ||
-                    normalizeSearchText(c.processNumber).includes(normalizedSearch) ||
-                    normalizeSearchText(c.client_name).includes(normalizedSearch);
-                  if (!matchesSearch) return false;
-                  const today = getTodayBR();
-                  if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
-                  if (filterType === 'Quitados') return c.contract_status === 'Quitado';
-                  if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
-                  if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado';
-                  return true;
-                }).map((c, index) => {
-                  let rowStatus = c.contract_status || 'Normal';
-                  if (rowStatus === 'Aberto') rowStatus = 'Normal';
-                  
-                  if (rowStatus !== 'Cancelado' && rowStatus !== 'Estornado' && rowStatus !== 'Prorrogado') {
-                    if (c.contracts?.isProBono) rowStatus = 'Pro Bono';
-                    else if (rowStatus === 'Quitado') rowStatus = 'Quitado';
-                    else if (c.contracts?.isFinanced) rowStatus = 'Financiado';
-                    else rowStatus = 'Normal';
-                  }
-                  
+                ) : filteredContracts.map((c, index) => {
+                  const rowStatus = getContractRowStatus(c)
+
                   return (
                   <motion.tr 
                     initial={{ opacity: 0, y: 10 }}
@@ -676,7 +703,7 @@ export default function ContasAReceberPage() {
                             ? "text-slate-400 cursor-not-allowed" 
                             : "text-indigo-600 hover:text-indigo-800"
                         )} 
-                        onClick={() => setSelectedContract({ id: c.contract_id, processNumber: c.processNumber, clients: { name: c.client_name }, status: c.contract_status, contractValue: c.contract_value, amountReceived: c.amount_received })}
+                        onClick={() => openContract(c)}
                         disabled={rowStatus === 'Cancelado' || rowStatus === 'Pro Bono'}
                       >
                         Ver Parcelas
@@ -686,6 +713,104 @@ export default function ContasAReceberPage() {
                 )})}
               </tbody>
             </table>
+            </div>
+
+            {/* Cards mobile: mesma disposição de Clientes/Contratos, sem rolagem horizontal */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {loading ? (
+                <div className="p-4 text-center text-sm text-slate-500">Carregando...</div>
+              ) : filteredContracts.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-500">Nenhum contrato encontrado.</div>
+              ) : filteredContracts.map((c, index) => {
+                const rowStatus = getContractRowStatus(c)
+                const actionDisabled = rowStatus === 'Cancelado' || rowStatus === 'Pro Bono'
+
+                return (
+                  <motion.div
+                    key={c.contract_id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={cn("p-4 space-y-3", getRowColor(rowStatus))}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-900 break-words flex flex-wrap items-center gap-1.5">
+                          {c.client_name}
+                          {c.contracts?.isProBono && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">Pro Bono</span>
+                          )}
+                          {c.contracts?.isFinanced && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-100 text-cyan-800 border border-cyan-200">Financiado</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 break-all mt-0.5">
+                          {c.processNumber}
+                          {c.contracts?.contractNumber && ` - Contrato: ${c.contracts.contractNumber}`}
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-semibold shrink-0",
+                        getStatusColor(rowStatus),
+                        c.contract_status?.toLowerCase() === 'cancelado' && "line-through opacity-60"
+                      )}>
+                        {rowStatus}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          Valor Contrato
+                          <button onClick={() => toggleVisibility('receivable_table_value')} className="text-slate-400 hover:text-indigo-600" title={isVisible('receivable_table_value') ? "Ocultar valor" : "Mostrar valor"}>
+                            {isVisible('receivable_table_value') ? <Eye size={11} /> : <EyeOff size={11} />}
+                          </button>
+                        </div>
+                        <div className="text-slate-900 break-words">{formatCurrency(c.contract_value, isVisible('receivable_table_value'))}</div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          Recebido
+                          <button onClick={() => toggleVisibility('receivable_table_received')} className="text-slate-400 hover:text-indigo-600" title={isVisible('receivable_table_received') ? "Ocultar valor" : "Mostrar valor"}>
+                            {isVisible('receivable_table_received') ? <Eye size={11} /> : <EyeOff size={11} />}
+                          </button>
+                        </div>
+                        <div className="font-bold text-emerald-600 break-words">{formatCurrency(c.amount_received, isVisible('receivable_table_received'))}</div>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
+                          <div className="h-full bg-emerald-500" style={{ width: `${Math.min((c.amount_received / (c.contract_value || 1)) * 100, 100)}%` }}></div>
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          A Receber
+                          <button onClick={() => toggleVisibility('receivable_table_to_receive')} className="text-slate-400 hover:text-indigo-600" title={isVisible('receivable_table_to_receive') ? "Ocultar valor" : "Mostrar valor"}>
+                            {isVisible('receivable_table_to_receive') ? <Eye size={11} /> : <EyeOff size={11} />}
+                          </button>
+                        </div>
+                        <div className="text-slate-600 break-words">{formatCurrency(c.amount_to_receive, isVisible('receivable_table_to_receive'))}</div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Próx. Vencimento</div>
+                        <div className="text-slate-600 break-words">{c.next_due_date ? formatDate(c.next_due_date) : '-'}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        className={cn(
+                          "min-h-[40px] px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider",
+                          actionDisabled ? "bg-slate-100 text-slate-400" : "bg-indigo-50 text-indigo-700"
+                        )}
+                        onClick={() => openContract(c)}
+                        disabled={actionDisabled}
+                      >
+                        Ver Parcelas
+                      </button>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -719,7 +844,8 @@ export default function ContasAReceberPage() {
                 </button>
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm text-left min-w-[800px]">
               <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-xs">
                   <tr>
@@ -783,10 +909,8 @@ export default function ContasAReceberPage() {
                   {loading ? (
                     <tr><td colSpan={8} className="p-4 text-center">Carregando...</td></tr>
                   ) : installments.map((i, index) => {
-                    const today = getTodayBR();
-                    const isLate = i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada';
-                    const daysLate = isLate ? Math.floor((new Date(today).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                    
+                    const { isLate, daysLate } = getInstallmentFlags(i)
+
                     return (
                     <motion.tr 
                       initial={{ opacity: 0, y: 10 }}
@@ -867,6 +991,115 @@ export default function ContasAReceberPage() {
                   })}
                 </tbody>
               </table>
+              </div>
+
+              {/* Cards mobile das parcelas: sem rolagem horizontal */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {loading ? (
+                  <div className="p-4 text-center text-sm text-slate-500">Carregando...</div>
+                ) : installments.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-slate-500">Nenhuma parcela encontrada.</div>
+                ) : installments.map((i, index) => {
+                  const { isLate, daysLate } = getInstallmentFlags(i)
+                  const isClosed = i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada'
+                  const canReverse = (i.status === 'Quitado' || i.status === 'Parcial') && Number(i.amountPaid || 0) > 0
+                  const contractCancelled = selectedContract.status?.toLowerCase() === 'cancelado'
+
+                  return (
+                    <motion.div
+                      key={i.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={cn("p-4 space-y-3", (contractCancelled || isClosed) && "bg-rose-50 line-through text-slate-400")}
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <label className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 h-5 w-5 shrink-0"
+                            checked={selectedInstallments.includes(i.id)}
+                            disabled={isClosed}
+                            onChange={() => toggleSelection(i.id)}
+                          />
+                          <span className="font-semibold text-slate-900">Parcela {i.installmentNumber}</span>
+                        </label>
+                        <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold shrink-0", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
+                          {i.status}
+                        </span>
+                      </div>
+
+                      <div className="text-sm text-slate-600">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vencimento: </span>
+                        <span className="break-words">{formatDate(i.dueDate)}</span>
+                        {isLate && (
+                          <span className={cn("ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase", daysLate > 30 ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-700")}>
+                            {daysLate} dias atraso
+                          </span>
+                        )}
+                        {i.original_due_date && String(i.original_due_date).split('T')[0] !== String(i.dueDate).split('T')[0] && (
+                          <div className="text-[10px] text-amber-700 mt-1" title={i.due_date_reason ? `Motivo: ${i.due_date_reason}` : 'Data prevista ajustada'}>
+                            Original: {formatDate(i.original_due_date)}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            Valor
+                            <button onClick={() => toggleVisibility('receivable_installment_value')} className="text-slate-400 hover:text-indigo-600" title={isVisible('receivable_installment_value') ? "Ocultar valor" : "Mostrar valor"}>
+                              {isVisible('receivable_installment_value') ? <Eye size={11} /> : <EyeOff size={11} />}
+                            </button>
+                          </div>
+                          <div className="text-slate-900 break-words">{formatCurrency(i.amount, isVisible('receivable_installment_value'))}</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            Pago
+                            <button onClick={() => toggleVisibility('receivable_installment_paid')} className="text-slate-400 hover:text-indigo-600" title={isVisible('receivable_installment_paid') ? "Ocultar valor" : "Mostrar valor"}>
+                              {isVisible('receivable_installment_paid') ? <Eye size={11} /> : <EyeOff size={11} />}
+                            </button>
+                          </div>
+                          <div className="text-slate-600 break-words">{formatCurrency(i.amountPaid || 0, isVisible('receivable_installment_paid'))}</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            A Receber
+                            <button onClick={() => toggleVisibility('receivable_installment_balance')} className="text-slate-400 hover:text-indigo-600" title={isVisible('receivable_installment_balance') ? "Ocultar valor" : "Mostrar valor"}>
+                              {isVisible('receivable_installment_balance') ? <Eye size={11} /> : <EyeOff size={11} />}
+                            </button>
+                          </div>
+                          <div className="font-bold text-emerald-600 break-words">{formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold", isClosed && "pointer-events-none opacity-40")}
+                          disabled={isClosed}
+                          onClick={() => openReceiveModal(i)}
+                        >Receber</button>
+                        <button
+                          className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold", isClosed && "pointer-events-none opacity-40")}
+                          disabled={isClosed}
+                          onClick={() => openAdjustModal(i)}
+                        >Ajustar previsão</button>
+                        <button
+                          className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold", isClosed && "pointer-events-none opacity-40")}
+                          disabled={isClosed}
+                          onClick={() => openProrogueModal(i)}
+                        >Prorrogar</button>
+                        <button
+                          className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-semibold", !canReverse && "pointer-events-none opacity-40")}
+                          disabled={!canReverse}
+                          onClick={() => openReverseModal(i)}
+                        >Estornar</button>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}

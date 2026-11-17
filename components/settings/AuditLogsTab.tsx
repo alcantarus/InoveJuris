@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Card } from '../ui/Card';
 import { Search, Filter, Download, User, Settings, Database, ShieldAlert, Clock, ArrowRight } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -18,6 +18,13 @@ interface AuditLog {
   performed_at: string;
   performer_name?: string;
 }
+
+const AuditLogCardField = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+)
 
 export function AuditLogsTab() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -124,7 +131,8 @@ export function AuditLogsTab() {
               <p>Nenhum registro de auditoria encontrado.</p>
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-slate-300">
+            <>
+            <table className="min-w-full divide-y divide-slate-300 hidden md:table">
               <thead className="bg-slate-50">
                 <tr>
                   <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-slate-900 sm:pl-6">Ação</th>
@@ -164,6 +172,37 @@ export function AuditLogsTab() {
                 ))}
               </tbody>
             </table>
+            <div className="md:hidden divide-y divide-slate-100 bg-white">
+              {filteredLogs.map((log) => (
+                <div key={log.id} className="p-4 space-y-3">
+                  <AuditLogCardField label="Ação">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold ${
+                      log.action === 'INSERT' ? 'bg-emerald-100 text-emerald-700' :
+                      log.action === 'UPDATE' ? 'bg-amber-100 text-amber-700' :
+                      'bg-rose-100 text-rose-700'
+                    }`}>
+                      {actionTranslations[log.action] || log.action}
+                    </span>
+                  </AuditLogCardField>
+                  <AuditLogCardField label="Tabela">
+                    <span className="font-medium text-slate-900">{tableTranslations[log.table_name] || log.table_name}</span>
+                  </AuditLogCardField>
+                  <AuditLogCardField label="Usuário">
+                    <div className="flex items-start gap-2">
+                      <User size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                      <span className="break-all min-w-0">{log.performer_name}</span>
+                    </div>
+                  </AuditLogCardField>
+                  <AuditLogCardField label="Data/Hora">
+                    <div className="flex items-start gap-2">
+                      <Clock size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                      <span className="break-words min-w-0">{new Date(log.performed_at).toLocaleString('pt-BR')}</span>
+                    </div>
+                  </AuditLogCardField>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </div>
         

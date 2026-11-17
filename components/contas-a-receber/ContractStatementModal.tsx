@@ -14,6 +14,13 @@ interface ContractStatementModalProps {
   contractTitle: string
 }
 
+const StatementCardField = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+)
+
 export function ContractStatementModal({ isOpen, onClose, contractId, contractTitle }: ContractStatementModalProps) {
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -129,7 +136,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
           <p className="text-center p-4 text-slate-500">Carregando histórico...</p>
         ) : (
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
                   <tr>
@@ -155,6 +162,22 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="md:hidden divide-y divide-slate-100">
+              {payments.length === 0 ? (
+                <div className="p-4 text-center text-sm text-slate-500">Nenhum pagamento registrado.</div>
+              ) : (
+                payments.map((p) => (
+                  <div key={p.id} className="p-4 space-y-3">
+                    <StatementCardField label="Data">{formatDate(p.payment_date)}</StatementCardField>
+                    <StatementCardField label="Parcela">{p.installments?.installmentNumber || '-'}</StatementCardField>
+                    <StatementCardField label="Categoria">{p.financial_categories?.name || '-'}</StatementCardField>
+                    <StatementCardField label="Valor">
+                      <span className="font-bold text-emerald-600">{formatCurrency(p.amount)}</span>
+                    </StatementCardField>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

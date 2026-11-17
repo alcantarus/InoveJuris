@@ -699,6 +699,13 @@ END;
 $func$;
 `;
 
+const IntegrityCardField = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-600 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+);
+
 export function SystemTab() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
@@ -887,6 +894,8 @@ export function SystemTab() {
     }
   };
 
+  const orphanResults = integrityCheckResults?.filter(r => r.orphan_count > 0) ?? [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -1010,7 +1019,7 @@ export function SystemTab() {
             {integrityCheckResults && (
                 <div className="mt-6 border-t border-slate-100 pt-4">
                     <h4 className="text-sm font-medium text-slate-900 mb-3">Resultados do Diagnóstico de Órfãos</h4>
-                    {integrityCheckResults.length === 0 || integrityCheckResults.every(r => r.orphan_count === 0) ? (
+                    {orphanResults.length === 0 ? (
                         <div className="rounded-md bg-emerald-50 p-4">
                             <div className="flex">
                                 <div className="flex-shrink-0">
@@ -1025,8 +1034,9 @@ export function SystemTab() {
                             </div>
                         </div>
                     ) : (
+                        <>
                         <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-                            <table className="min-w-full divide-y divide-slate-300">
+                            <table className="min-w-full divide-y divide-slate-300 hidden md:table">
                                 <thead className="bg-slate-50">
                                     <tr>
                                         <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-slate-900 sm:pl-6">Tabela</th>
@@ -1039,7 +1049,7 @@ export function SystemTab() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200 bg-white">
-                                    {integrityCheckResults.filter(r => r.orphan_count > 0).map((result, idx) => (
+                                    {orphanResults.map((result, idx) => (
                                         <tr key={idx}>
                                             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900 sm:pl-6">
                                                 {result.table_name}
@@ -1057,6 +1067,30 @@ export function SystemTab() {
                                 </tbody>
                             </table>
                         </div>
+                        <div className="md:hidden divide-y divide-slate-100 bg-white shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+                            {orphanResults.map((result, idx) => (
+                                <div key={idx} className="p-4 space-y-3">
+                                    <IntegrityCardField label="Tabela">
+                                        <span className="font-medium text-slate-900 break-all">{result.table_name}</span>
+                                    </IntegrityCardField>
+                                    <IntegrityCardField label="Relação (FK)">
+                                        <span className="break-all">{result.foreign_key}</span>
+                                    </IntegrityCardField>
+                                    <IntegrityCardField label="Tabela Pai">
+                                        <span className="break-all">{result.parent_table}</span>
+                                    </IntegrityCardField>
+                                    <IntegrityCardField label="Órfãos">
+                                        <span className="font-bold text-rose-600">{result.orphan_count}</span>
+                                    </IntegrityCardField>
+                                    <IntegrityCardField label="Status">
+                                        <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">
+                                            Crítico
+                                        </span>
+                                    </IntegrityCardField>
+                                </div>
+                            ))}
+                        </div>
+                        </>
                     )}
                 </div>
             )}

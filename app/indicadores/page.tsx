@@ -55,6 +55,40 @@ interface Contract {
   status: string
 }
 
+const MobileField = ({ label, children, className }: { label: string, children: React.ReactNode, className?: string }) => (
+  <div className={cn('min-w-0', className)}>
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm text-slate-700 break-words min-w-0 mt-0.5">{children}</div>
+  </div>
+)
+
+// Shared row helpers (used by both the desktop tables and the mobile cards)
+const getCommissionRowState = (contract: Contract, status: any) => {
+  const isCancelado = contract.status === 'Cancelado'
+  const balance = Number(status?.remaining_balance || 0)
+  return {
+    isCancelado,
+    hasBalance: balance > 0,
+    totalCommission: isCancelado ? 0 : Number(status?.total_commission || 0),
+    totalPaid: Number(status?.total_paid || 0),
+    balance: isCancelado ? 0 : balance,
+    rowClass: isCancelado
+      ? 'bg-red-50/50 opacity-75'
+      : balance <= 0 ? 'bg-emerald-50' : '',
+    hoverClass: isCancelado ? '' : balance <= 0 ? 'hover:bg-emerald-100/50' : 'hover:bg-slate-50/50',
+    valueClass: isCancelado ? 'line-through text-slate-500' : 'text-slate-900',
+    balanceClass: isCancelado ? 'text-slate-500 line-through' : 'text-emerald-600'
+  }
+}
+
+const getTokenStatus = (token: any) => {
+  const isExpired = token.type === 'temporary' && token.expires_at && new Date() > new Date(token.expires_at)
+  return {
+    label: !token.is_active ? 'Revogado' : isExpired ? 'Expirado' : 'Ativo',
+    colorClass: !token.is_active ? 'bg-red-100 text-red-700' : isExpired ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+  }
+}
+
 export default function IndicadoresPage() {
   const { isVisible } = usePrivacy()
   const { user } = useAuth()
@@ -469,8 +503,8 @@ export default function IndicadoresPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+          <div className="hidden md:block overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-left border-collapse min-w-[800px] hidden md:table">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-sm text-slate-500">
                   <th className="p-4 font-medium">Nome</th>
@@ -549,6 +583,64 @@ export default function IndicadoresPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredIndicators.map((indicator) => (
+              <div key={indicator.id} className="p-4 space-y-3">
+                <MobileField label="Nome">
+                  <span className="font-semibold text-slate-900">{indicator.name}</span>
+                </MobileField>
+                <MobileField label="CPF">
+                  <span className="text-slate-600">{indicator.cpf || '-'}</span>
+                </MobileField>
+                <MobileField label="Contato">
+                  <div className="text-slate-900 break-words">{indicator.phone}</div>
+                  <div className="text-xs text-slate-500 break-words">{indicator.email}</div>
+                </MobileField>
+                <MobileField label="Chave PIX">
+                  <span className="text-slate-600 break-words">{indicator.pixKey}</span>
+                </MobileField>
+                <MobileField label="Portal">
+                  <button
+                    onClick={() => handleOpenAccessModal(indicator)}
+                    className="min-h-[40px] inline-flex items-center gap-1 text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    <LinkIcon size={14} /> Acessos
+                  </button>
+                </MobileField>
+                <MobileField label="Ações">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSelectedBirthdayIndicator(indicator)}
+                      className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-pink-50 hover:text-pink-600 rounded-lg transition-colors"
+                    >
+                      <Gift size={16} className="shrink-0" /> Aniversário
+                    </button>
+                    <button
+                      onClick={() => handleOpenCommissions(indicator)}
+                      className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg transition-colors"
+                    >
+                      <DollarSign size={16} className="shrink-0" /> Comissões
+                    </button>
+                    <button
+                      onClick={() => handleOpenModal(indicator)}
+                      className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
+                    >
+                      <Edit2 size={16} className="shrink-0" /> Editar
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, indicator.id)}
+                      className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} className="shrink-0" /> Excluir
+                    </button>
+                  </div>
+                </MobileField>
+              </div>
+            ))}
+          </div>
+
           {filteredIndicators.length === 0 && (
             <div className="p-12 text-center">
               <h3 className="text-lg font-semibold text-slate-900">Nenhum indicador encontrado</h3>
@@ -716,8 +808,8 @@ export default function IndicadoresPage() {
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <table className="w-full text-left border-collapse min-w-[800px]">
+              <div className="hidden md:block overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full text-left border-collapse min-w-[800px] hidden md:table">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       <th className="p-4">Contrato</th>
@@ -738,35 +830,32 @@ export default function IndicadoresPage() {
                     ) : (
                       indicatorContracts.map((contract) => {
                         const status = commissionStatus.find(s => s.contract_id === contract.id)
-                        const isCancelado = contract.status === 'Cancelado';
-                        
+                        const row = getCommissionRowState(contract, status)
+
                         return (
-                          <tr key={contract.id} className={cn(
-                            "transition-colors", 
-                            isCancelado ? "bg-red-50/50 opacity-75" : (status?.remaining_balance || 0) <= 0 ? "bg-emerald-50 hover:bg-emerald-100/50" : "hover:bg-slate-50/50"
-                          )}>
-                            <td className={cn("p-4", isCancelado && "line-through text-slate-500")}>
+                          <tr key={contract.id} className={cn("transition-colors", row.rowClass, row.hoverClass)}>
+                            <td className={cn("p-4", row.isCancelado && "line-through text-slate-500")}>
                               <div className="font-medium text-slate-900">{contract.clients?.name || 'Cliente Removido'}</div>
                               <div className="text-xs text-slate-400">ID: {contract.id}</div>
                             </td>
-                            <td className={cn("p-4 text-right font-medium text-slate-900", isCancelado && "line-through text-slate-500")}>
+                            <td className={cn("p-4 text-right font-medium", row.valueClass)}>
                               {formatCurrency(contract.base_comissao, isVisible('indicators_commissions'))}
                             </td>
-                            <td className={cn("p-4 text-right font-medium text-slate-900", isCancelado && "line-through text-slate-500")}>
-                              {formatCurrency(isCancelado ? 0 : Number(status?.total_commission || 0), isVisible('indicators_commissions'))}
+                            <td className={cn("p-4 text-right font-medium", row.valueClass)}>
+                              {formatCurrency(row.totalCommission, isVisible('indicators_commissions'))}
                             </td>
-                            <td className={cn("p-4 text-right font-medium text-slate-900", isCancelado && "line-through text-slate-500")}>
-                              {formatCurrency(Number(status?.total_paid || 0), isVisible('indicators_commissions'))}
+                            <td className={cn("p-4 text-right font-medium", row.valueClass)}>
+                              {formatCurrency(row.totalPaid, isVisible('indicators_commissions'))}
                             </td>
-                            <td className={cn("p-4 text-right font-bold", isCancelado ? "text-slate-500 line-through" : "text-emerald-600")}>
-                              {formatCurrency(isCancelado ? 0 : Number(status?.remaining_balance || 0), isVisible('indicators_commissions'))}
+                            <td className={cn("p-4 text-right font-bold", row.balanceClass)}>
+                              {formatCurrency(row.balance, isVisible('indicators_commissions'))}
                             </td>
                             <td className="p-4 text-center">
-                              {isCancelado ? (
+                              {row.isCancelado ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200 no-underline">
                                   Cancelado
                                 </span>
-                              ) : Number(status?.remaining_balance || 0) > 0 ? (
+                              ) : row.hasBalance ? (
                                 <div className="flex flex-col gap-2">
                                   <input 
                                     type="text" 
@@ -799,6 +888,78 @@ export default function IndicadoresPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {indicatorContracts.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-slate-500">
+                    Nenhum contrato encontrado para este indicador.
+                  </div>
+                ) : (
+                  indicatorContracts.map((contract) => {
+                    const status = commissionStatus.find(s => s.contract_id === contract.id)
+                    const row = getCommissionRowState(contract, status)
+                    const canSeeValues = isVisible('indicators_commissions')
+
+                    return (
+                      <div key={contract.id} className={cn("p-4 space-y-3", row.rowClass, row.hoverClass)}>
+                        <MobileField label="Contrato">
+                          <div className={cn("font-semibold text-slate-900 break-words", row.isCancelado && "line-through text-slate-500")}>
+                            {contract.clients?.name || 'Cliente Removido'}
+                          </div>
+                          <div className="text-xs text-slate-400">ID: {contract.id}</div>
+                        </MobileField>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                          <MobileField label="Base Comissão">
+                            <span className={cn("font-medium", row.valueClass)}>{formatCurrency(contract.base_comissao, canSeeValues)}</span>
+                          </MobileField>
+                          <MobileField label="Total Comissão">
+                            <span className={cn("font-medium", row.valueClass)}>{formatCurrency(row.totalCommission, canSeeValues)}</span>
+                          </MobileField>
+                          <MobileField label="Total Pago">
+                            <span className={cn("font-medium", row.valueClass)}>{formatCurrency(row.totalPaid, canSeeValues)}</span>
+                          </MobileField>
+                          <MobileField label="Saldo Devedor">
+                            <span className={cn("font-bold", row.balanceClass)}>{formatCurrency(row.balance, canSeeValues)}</span>
+                          </MobileField>
+                        </div>
+                        <MobileField label="Ação">
+                          {row.isCancelado ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200 no-underline">
+                              Cancelado
+                            </span>
+                          ) : row.hasBalance ? (
+                            <div className="flex flex-col gap-2">
+                              <input
+                                type="text"
+                                placeholder="R$ 0,00"
+                                className="w-full min-h-[40px] px-2 py-2 border rounded text-sm"
+                                value={paymentValues[contract.id] || ''}
+                                onChange={e => setPaymentValues(prev => ({ ...prev, [contract.id]: formatCurrencyMask(e.target.value) }))}
+                              />
+                              <input
+                                type="text"
+                                placeholder="Descrição"
+                                className="w-full min-h-[40px] px-2 py-2 border rounded text-xs"
+                                value={paymentDescriptions[contract.id] || ''}
+                                onChange={e => setPaymentDescriptions(prev => ({ ...prev, [contract.id]: e.target.value }))}
+                              />
+                              <button
+                                className="w-full min-h-[40px] px-3 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                                onClick={() => handleAddPayment(contract.id)}
+                              >
+                                Pagar
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-emerald-700 font-semibold text-sm">Quitado</span>
+                          )}
+                        </MobileField>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -861,7 +1022,8 @@ export default function IndicadoresPage() {
             <div>
               <h3 className="font-semibold text-slate-800 mb-3">Links Gerados</h3>
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-left border-collapse">
+                <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse hidden md:table">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
                       <th className="p-3 font-medium">Tipo</th>
@@ -880,9 +1042,7 @@ export default function IndicadoresPage() {
                       </tr>
                     ) : (
                       indicatorTokens.map((token) => {
-                        const isExpired = token.type === 'temporary' && token.expires_at && new Date() > new Date(token.expires_at);
-                        const statusColor = !token.is_active ? 'bg-red-100 text-red-700' : isExpired ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
-                        const statusText = !token.is_active ? 'Revogado' : isExpired ? 'Expirado' : 'Ativo';
+                        const tokenStatus = getTokenStatus(token)
 
                         return (
                           <tr key={token.id} className="hover:bg-slate-50 transition-colors">
@@ -898,8 +1058,8 @@ export default function IndicadoresPage() {
                               {token.expires_at ? formatDate(token.expires_at) : '-'}
                             </td>
                             <td className="p-3">
-                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusColor}`}>
-                                {statusText}
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${tokenStatus.colorClass}`}>
+                                {tokenStatus.label}
                               </span>
                             </td>
                             <td className="p-3 text-right">
@@ -929,6 +1089,63 @@ export default function IndicadoresPage() {
                     )}
                   </tbody>
                 </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {indicatorTokens.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-slate-500">
+                      Nenhum link gerado para este indicador.
+                    </div>
+                  ) : (
+                    indicatorTokens.map((token) => {
+                      const tokenStatus = getTokenStatus(token)
+
+                      return (
+                        <div key={token.id} className="p-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <MobileField label="Tipo" className="flex-1">
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${token.type === 'fixed' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'}`}>
+                                {token.type === 'fixed' ? 'Fixo' : 'Temporário'}
+                              </span>
+                            </MobileField>
+                            <MobileField label="Status">
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${tokenStatus.colorClass}`}>
+                                {tokenStatus.label}
+                              </span>
+                            </MobileField>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                            <MobileField label="Gerado em">{formatDate(token.created_at)}</MobileField>
+                            <MobileField label="Expira em">{token.expires_at ? formatDate(token.expires_at) : '-'}</MobileField>
+                          </div>
+                          <MobileField label="Ações">
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${token.token}`)
+                                  toast.success('Link copiado!')
+                                }}
+                                className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
+                                title="Copiar Link"
+                              >
+                                <Copy size={16} className="shrink-0" /> Copiar Link
+                              </button>
+                              <button
+                                onClick={() => toggleTokenStatus(token.id, token.is_active)}
+                                className={`min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium bg-slate-50 rounded-lg transition-colors ${token.is_active ? 'text-slate-600 hover:bg-red-50 hover:text-red-600' : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-600'}`}
+                                title={token.is_active ? 'Revogar Acesso' : 'Reativar Acesso'}
+                              >
+                                {token.is_active ? <PowerOff size={16} className="shrink-0" /> : <Power size={16} className="shrink-0" />}
+                                {token.is_active ? 'Revogar' : 'Reativar'}
+                              </button>
+                            </div>
+                          </MobileField>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             </div>
           </div>

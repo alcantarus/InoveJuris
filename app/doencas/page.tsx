@@ -17,6 +17,50 @@ interface Disease {
   accessory_cids: string[]
 }
 
+/** Labeled row shared by all mobile record cards in this page. */
+const CardField = ({ label, children }: { label: string, children: React.ReactNode }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="min-w-0 mt-1 break-words text-sm text-slate-900">{children}</div>
+  </div>
+)
+
+const getAccessoryCids = (disease: Disease) => disease.accessory_cids?.join(', ') || '-'
+
+/** Same actions used by the desktop table and the mobile cards. */
+const DiseaseActions = ({
+  disease, onEdit, onDelete, touchOptimized = false, className = ''
+}: {
+  disease: Disease
+  onEdit: (d: Disease) => void
+  onDelete: (e: React.MouseEvent, id: string) => void
+  touchOptimized?: boolean
+  className?: string
+}) => (
+  <div className={`flex items-center gap-2 ${className}`}>
+    <button
+      onClick={() => onEdit(disease)}
+      className={touchOptimized
+        ? "inline-flex items-center justify-center min-h-[40px] min-w-[40px] p-2.5 text-slate-400 hover:text-indigo-600"
+        : "p-2 text-slate-400 hover:text-indigo-600"}
+      title="Editar Doença"
+      aria-label="Editar Doença"
+    >
+      <Edit2 size={18} />
+    </button>
+    <button
+      onClick={(e) => onDelete(e, disease.id)}
+      className={touchOptimized
+        ? "inline-flex items-center justify-center min-h-[40px] min-w-[40px] p-2.5 text-slate-400 hover:text-rose-600"
+        : "p-2 text-slate-400 hover:text-rose-600"}
+      title="Excluir Doença"
+      aria-label="Excluir Doença"
+    >
+      <Trash2 size={18} />
+    </button>
+  </div>
+)
+
 export default function DoencasPage() {
   const { user } = useAuth()
   const [diseases, setDiseases] = useState<Disease[]>([])
@@ -145,7 +189,7 @@ export default function DoencasPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse hidden md:table">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-200 text-sm text-slate-500">
                 <th className="p-4 font-medium">CID</th>
@@ -159,17 +203,47 @@ export default function DoencasPage() {
                 <tr key={disease.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-4 font-medium text-slate-900">{disease.cid_code}</td>
                   <td className="p-4 text-slate-600">{disease.description}</td>
-                  <td className="p-4 text-slate-600">{disease.accessory_cids?.join(', ') || '-'}</td>
+                  <td className="p-4 text-slate-600">{getAccessoryCids(disease)}</td>
                   <td className="p-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => handleOpenModal(disease)} className="p-2 text-slate-400 hover:text-indigo-600"><Edit2 size={18} /></button>
-                      <button onClick={(e) => handleDelete(e, disease.id)} className="p-2 text-slate-400 hover:text-rose-600"><Trash2 size={18} /></button>
-                    </div>
+                    <DiseaseActions
+                      disease={disease}
+                      onEdit={handleOpenModal}
+                      onDelete={handleDelete}
+                      className="justify-end"
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredDiseases.map((disease) => (
+              <div key={disease.id} className="p-4 space-y-3">
+                <CardField label="CID">
+                  <span className="font-medium">{disease.cid_code}</span>
+                </CardField>
+                <CardField label="Descrição">
+                  <span className="text-slate-600">{disease.description}</span>
+                </CardField>
+                <CardField label="CIDs Acessórios">
+                  <span className="text-slate-600">{getAccessoryCids(disease)}</span>
+                </CardField>
+                <CardField label="Ações">
+                  <DiseaseActions
+                    disease={disease}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDelete}
+                    touchOptimized
+                  />
+                </CardField>
+              </div>
+            ))}
+            {filteredDiseases.length === 0 && (
+              <div className="p-12 text-center text-slate-400">Nenhuma doença encontrada.</div>
+            )}
+          </div>
         </div>
 
         <Modal 
