@@ -6,7 +6,7 @@
 ## 0. Progresso (atualizado em 2026-11-17)
 - Por decisão do usuário, a ordem foi alterada: **começar pelas telas novas**, sem fase de estabilização prévia.
 - **Entregue e versionado:** Fase 1 parcial — `/prazos` e `/calendario` com camada de dados compartilhada (`lib/deadlines.ts`). Build OK.
-- **Correção DataJud entregue:** unificação em `lib/datajud.ts` + `/api/process-sync`, persistência de andamentos, remoção de chave hardcoded/Apify e da migration de `process_sync_status.environment`. Build OK.
+- **Correção DataJud entregue:** unificação em `lib/datajud.ts` + `/api/process-sync`, persistência de andamentos, remoção de chave hardcoded/Apify e criação da tabela `process_sync_log` (a antiga `process_sync_status` é uma VIEW e não serve para gravar status). Build OK.
 - Ainda pendente das telas novas: Publicações, Triagem e `/processos/[id]`; cálculo de dias úteis com feriados/recesso; baixa justificada; sincronização automática.
 
 ## 1. Metodologia e limits

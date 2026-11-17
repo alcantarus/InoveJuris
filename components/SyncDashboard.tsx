@@ -39,13 +39,13 @@ export default function SyncDashboard() {
   useEffect(() => {
     async function fetchData() {
       let result = await supabase
-        .from('process_sync_status')
+        .from('process_sync_log')
         .select('*')
         .eq('environment', currentEnv);
 
       // Bancos que ainda não receberam a migration não têm a coluna environment.
       if (result.error && String(result.error.message).includes('environment')) {
-        result = await supabase.from('process_sync_status').select('*');
+        result = await supabase.from('process_sync_log').select('*');
       }
 
       const { data, error } = result;

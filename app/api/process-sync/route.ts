@@ -17,7 +17,7 @@ interface SyncRow {
 
 function isMissingEnvironment(error: any): boolean {
   const message = String(error?.message || error || '')
-  return message.includes('42703') || message.includes('process_sync_status.environment')
+  return message.includes('42703') || message.includes('process_sync_log.environment')
 }
 
 async function getClient(): Promise<SupabaseClient> {
@@ -39,7 +39,7 @@ async function getClient(): Promise<SupabaseClient> {
 async function saveSyncStatus(client: SupabaseClient, row: SyncRow): Promise<void> {
   const persist = async (payload: SyncRow) => {
     const { data, error } = await client
-      .from('process_sync_status')
+      .from('process_sync_log')
       .update(payload)
       .eq('process_id', payload.process_id)
       .select()
@@ -47,7 +47,7 @@ async function saveSyncStatus(client: SupabaseClient, row: SyncRow): Promise<voi
     if (error) throw error
 
     if (!data || data.length === 0) {
-      const { error: insertError } = await client.from('process_sync_status').insert(payload)
+      const { error: insertError } = await client.from('process_sync_log').insert(payload)
       if (insertError) throw insertError
     }
   }
