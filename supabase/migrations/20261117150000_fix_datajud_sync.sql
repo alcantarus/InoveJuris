@@ -30,7 +30,7 @@ GRANT ALL ON public.process_sync_log TO anon, authenticated, service_role;
 -- que quebrava o cast para TIMESTAMPTZ em vw_process_velocity.
 UPDATE public.processes
   SET last_update = CASE
-    WHEN updated_at IS NOT NULL THEN updated_at::TEXT
+    WHEN created_at IS NOT NULL THEN created_at::TEXT
     ELSE NULL
   END
   WHERE last_update = 'Agora';
