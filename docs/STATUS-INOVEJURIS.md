@@ -93,7 +93,18 @@
 - **Banco concluído:** migration corrigida aplicada no Supabase; `process_sync_log` existe e responde 200 via REST.
 - **Validação final:** `/api/process-consultation` com CNJ real retornou `429 - O DataJud limitou a consulta`; `/api/process-sync` gravou em `process_sync_log` um registro `sync_status=Erro` com `error_message` e `last_sync`. Ou seja, consulta, tratamento de erro e persistência estão funcionando.
 - **Único impedimento restante:** a chave disponível é a compartilhada, já limitada pelo CNJ (429 / "processo não encontrado" inconsistente). Para acompanhar andamentos de verdade é necessário obter uma chave de API própria do DataJud e atualizar `DATAJUD_API_KEY` no Vercel.
-- **Ainda não implementado:** cálculo de dias úteis com feriados/recesso, baixa justificada de vencidos, Publicações, Triagem, `/processos/[id]`, agendamento automático de sincronização e os achados P0 anteriores.
+- **Ainda não implementado:** cálculo de dias úteis com feriados/recesso, baixa justificada de vencidos, Publicações, Triagem, agendamento automático de sincronização e os achados P0 anteriores.
+
+## Entrega — Módulo de Processos unificado (2026-11-17)
+- Decisão do usuário: **foco apenas no módulo de Processos**; remover o Kanban (que não agradou) e unir o que já funciona no InoveJuris com os modelos `05-processos.md` (carteira/lista) e `06-processo.md` (detalhe). Kanban de **tarefas** do dashboard (`TaskKanban`, `TodayFocusWidget`) permanece — é outro módulo.
+- **Kanban de Processos removido:** exclusão de `components/KanbanBoard.tsx`; remoção do import, do estado `viewMode`, dos botões Lista/Kanban e da renderização condicional em `app/processos/page.tsx`.
+- **Lista (`/processos`):** mantidos `SyncDashboard`, cadastro/edição (judicial e previdenciário), consulta DataJud, exclusão, Sinc e privacy. Novo padrão é a **tabela** (`components/processos/ProcessTable.tsx`) com colunas Cliente/CNJ, Área/Vara, Responsável, Próximo prazo, Valor da causa, Situação, Ações (Abrir/Sinc/Editar/Excluir). A visão em **cards** (`BentoProcessGrid`) foi preservada e enriquecida; o seletor agora é **Lista / Cards** (sem Kanban).
+- Busca ampliada para cliente, CNJ, vara e parte adversa; filtros dinâmicos por área, situação e responsável; contadores de vencidos/prazo em 7 dias agora usam cálculo real (o antigo `getNearestDeadlineStatus` era um stub que sempre retornava `Normal`).
+- `components/processos/StrategicCockpit.tsx`: KPIs do modelo 05 (Ativos, Com prazo em 7 dias, Segredo de justiça, Valor da carteira) + linha secundária preservando matriz de risco e radar de urgência.
+- **Detalhe (`/processos/[id]`) novo:** breadcrumb, dados do processo (área/fase, vara/comarca, tribunal, valor, distribuição, última movimentação, responsável, fonte), segredo de justiça, anotações editáveis, próximo prazo com timeline (DJEN → Publicação → Contagem → Vencimento), confirmação expressa do advogado, lista de prazos, partes e andamentos reais do DataJud.
+- Helpers compartilhados em `lib/processes.ts` (`getNextDeadline`, `daysUntilDate`, `getResponsibleName`, `normalizeParties`, `isActiveProcess`).
+- **Migration nova:** `supabase/migrations/20261117180000_enhance_processes_detail.sql` — campos em `processes` (`phase`, `comarca`, `tribunal`, `distribution_date`, `source`, `parties`, `secret_justice`) e em `process_deadlines` (`notification_date`, `publication_date`, `count_start_date`, `business_days`, `calculation_memory`, `responsible_id`, `confirmed_at`, `confirmed_by`, `justification`). Idempotente. **Pendente de aplicação no Supabase**: sem ela, o detalhe funciona em modo leitura, mas salvar anotações/confirmação e exibir a timeline completa podem falhar.
+- `npm run build`: **OK** (21 rotas, incluindo `/processos/[id]`). **Ainda não publicado**: aguardando autorização para commit/deploy.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell

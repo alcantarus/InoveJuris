@@ -1,24 +1,24 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import DashboardLayout from '../dashboard-layout'
-import { 
-  Search, 
-  Plus, 
-  MoreVertical, 
-  FileText, 
-  Calendar, 
-  User,
-  Scale,
-  Clock,
-  ExternalLink,
-  Trash2,
-  Edit2,
+import {
   AlertTriangle,
-  History,
-  RefreshCw,
+  CalendarClock,
+  Clock,
   Eye,
-  EyeOff
+  EyeOff,
+  FileText,
+  LayoutGrid,
+  List,
+  LockKeyhole,
+  Plus,
+  RefreshCw,
+  Scale,
+  Search,
+  Trash2,
+  User,
 } from 'lucide-react'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ModuleHeader } from '@/components/ModuleHeader'
@@ -26,12 +26,13 @@ import SyncDashboard from '@/components/SyncDashboard'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { cn, formatDate, formatDateTime, removeAccents, normalizeSearchText, getDeadlineStatus, getNearestDeadlineStatus } from '@/lib/utils'
+import { cn, formatDate, normalizeSearchText } from '@/lib/utils'
 import { getAppEnv } from '@/lib/env'
+import { daysUntilDate, getNextDeadline, normalizeParties } from '@/lib/processes'
 import { StrategicCockpit } from '@/components/processos/StrategicCockpit'
-import { useAuth } from '@/lib/auth'
-import KanbanBoard from '@/components/KanbanBoard'
+import { ProcessTable } from '@/components/processos/ProcessTable'
 import { BentoProcessGrid } from '@/components/processos/BentoProcessGrid'
+import { useAuth } from '@/lib/auth'
 import { CurrencyInput } from '@/components/CurrencyInput'
 
 interface Process {
@@ -41,7 +42,7 @@ interface Process {
   court: string
   type: string
   status: string
-  last_update: string
+  last_update?: string
   priority: string
   lawyer_id?: number | null
   history?: any[]
@@ -50,6 +51,13 @@ interface Process {
   tags?: any
   case_value?: number
   internal_notes?: string
+  phase?: string | null
+  comarca?: string | null
+  tribunal?: string | null
+  distribution_date?: string | null
+  source?: string | null
+  parties?: any
+  secret_justice?: boolean
 }
 
 const DEFAULT_PROCESSES: Process[] = [
@@ -75,8 +83,11 @@ export default function ProcessosPage() {
   const [syncingProcessId, setSyncingProcessId] = useState<number | null>(null)
   const [clientSearch, setClientSearch] = useState('')
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
-  const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'critical' | 'warning' | 'safe' | 'expired'>('all')
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
+  const [displayMode, setDisplayMode] = useState<'table' | 'cards'>('table')
+  const [areaFilter, setAreaFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [responsibleFilter, setResponsibleFilter] = useState('')
+  const [urgencyFilter, setUrgencyFilter] = useState<'all' | 'expired' | '7d'>('all')
   const [formData, setFormData] = useState({
     number: '',
     client: '',
@@ -89,6 +100,13 @@ export default function ProcessosPage() {
     case_value: 0,
     internal_notes: '',
     lawyer_id: null as number | null,
+    phase: '',
+    comarca: '',
+    tribunal: '',
+    distribution_date: '',
+    source: 'Manual',
+    parties: '',
+    secret_justice: false,
     history: [] as any[],
     deadlines: [] as {id?: string, deadline_date: string, deadline_time?: string, description: string, status: string}[]
   })
@@ -225,6 +243,13 @@ export default function ProcessosPage() {
         case_value: process.case_value || 0,
         internal_notes: process.internal_notes || '',
         lawyer_id: process.lawyer_id || null,
+        phase: process.phase || '',
+        comarca: process.comarca || '',
+        tribunal: process.tribunal || '',
+        distribution_date: process.distribution_date ? String(process.distribution_date).slice(0, 10) : '',
+        source: process.source || 'Manual',
+        parties: normalizeParties(process.parties).map(p => [p.name, p.role, p.type].filter(Boolean).join(' | ')).join('\n'),
+        secret_justice: process.secret_justice === true,
         history: process.history || [],
         deadlines: process.process_deadlines?.map(d => ({
           ...d,
@@ -246,6 +271,13 @@ export default function ProcessosPage() {
         case_value: 0,
         internal_notes: '',
         lawyer_id: null,
+        phase: '',
+        comarca: '',
+        tribunal: '',
+        distribution_date: '',
+        source: 'Manual',
+        parties: '',
+        secret_justice: false,
         history: [],
         deadlines: []
       })
@@ -340,6 +372,20 @@ export default function ProcessosPage() {
       case_value: formData.case_value,
       internal_notes: formData.internal_notes,
       lawyer_id: formData.lawyer_id || null,
+      phase: formData.phase || null,
+      comarca: formData.comarca || null,
+      tribunal: formData.tribunal || null,
+      distribution_date: formData.distribution_date || null,
+      source: formData.source || 'Manual',
+      secret_justice: formData.secret_justice,
+      parties: formData.parties
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          const [name, role, type] = line.split('|').map(part => part?.trim() || '')
+          return { name, role: role || 'Parte', type }
+        }),
       history: historyToSave.length > 0 ? historyToSave : (editingProcess?.history || []),
       last_update: new Date().toISOString(),
       updated_by: user?.id || null
@@ -448,21 +494,50 @@ export default function ProcessosPage() {
   }
 
   const normalizedSearchTerm = normalizeSearchText(searchTerm)
+  const areaOptions = Array.from(new Set(processes.map(p => p.type).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))
+  const statusOptions = Array.from(new Set(processes.map(p => p.status).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))
+  const responsibleOptions = Array.from(new Set(processes.map(p => {
+    if (p.lawyer_id == null) return ''
+    const lawyer = lawyers.find(l => Number(l.id) === Number(p.lawyer_id))
+    return lawyer?.name || lawyer?.users?.name || ''
+  }).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))
+
   const filteredProcesses = processes.filter(p => {
+    const partyNames = normalizeParties(p.parties).map(part => part.name).join(' ')
+    const lawyer = p.lawyer_id != null ? lawyers.find(l => Number(l.id) === Number(p.lawyer_id)) : null
+    const responsible = lawyer?.name || lawyer?.users?.name || ''
     const matchesSearch = !normalizedSearchTerm ||
       normalizeSearchText(p.number).includes(normalizedSearchTerm) ||
-      normalizeSearchText(p.client).includes(normalizedSearchTerm)
+      normalizeSearchText(p.client).includes(normalizedSearchTerm) ||
+      normalizeSearchText(p.court).includes(normalizedSearchTerm) ||
+      normalizeSearchText(partyNames).includes(normalizedSearchTerm) ||
+      normalizeSearchText(responsible).includes(normalizedSearchTerm)
     if (!matchesSearch) return false
-    
-    if (deadlineFilter === 'all') return true
-    const status = getNearestDeadlineStatus(p.process_deadlines)
-    return status === deadlineFilter
+    if (areaFilter && p.type !== areaFilter) return false
+    if (statusFilter && p.status !== statusFilter) return false
+    if (responsibleFilter && responsible !== responsibleFilter) return false
+
+    if (urgencyFilter !== 'all') {
+      const next = getNextDeadline(p)
+      if (!next) return false
+      const days = daysUntilDate(next.deadline_date)
+      if (urgencyFilter === 'expired' && days >= 0) return false
+      if (urgencyFilter === '7d' && (days < 0 || days > 7)) return false
+    }
+    return true
   })
 
-  // Calculate stats for the banner
-  const criticalCount = processes.filter(p => getNearestDeadlineStatus(p.process_deadlines) === 'critical').length
-  const warningCount = processes.filter(p => getNearestDeadlineStatus(p.process_deadlines) === 'warning').length
-  const expiredCount = processes.filter(p => getNearestDeadlineStatus(p.process_deadlines) === 'expired').length
+  // Contagens reais de prazos (a antiga getNearestDeadlineStatus era um stub).
+  const expiredCount = processes.filter(p => {
+    const next = getNextDeadline(p)
+    return next ? daysUntilDate(next.deadline_date) < 0 : false
+  }).length
+  const criticalCount = processes.filter(p => {
+    const next = getNextDeadline(p)
+    if (!next) return false
+    const days = daysUntilDate(next.deadline_date)
+    return days >= 0 && days <= 7
+  }).length
 
   return (
     <DashboardLayout>
@@ -475,25 +550,27 @@ export default function ProcessosPage() {
         
         <SyncDashboard />
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <div className="bg-white border border-slate-200 rounded-xl p-1 flex items-center shadow-sm mr-2">
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => setDisplayMode('table')}
+              title="Visão em tabela"
               className={cn(
-                "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                viewMode === 'list' ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                displayMode === 'table' ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
             >
-              Lista
+              <List size={15} /> Lista
             </button>
             <button
-              onClick={() => setViewMode('kanban')}
+              onClick={() => setDisplayMode('cards')}
+              title="Visão em cards"
               className={cn(
-                "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                viewMode === 'kanban' ? "bg-indigo-50 text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                displayMode === 'cards' ? "bg-indigo-50 text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
             >
-              Kanban
+              <LayoutGrid size={15} /> Cards
             </button>
           </div>
           <button 
@@ -523,58 +600,43 @@ export default function ProcessosPage() {
         </div>
 
         {/* Deadline Alerts Banner */}
-        {(criticalCount > 0 || warningCount > 0 || expiredCount > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(criticalCount > 0 || expiredCount > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {expiredCount > 0 && (
-              <div 
-                onClick={() => setDeadlineFilter(deadlineFilter === 'expired' ? 'all' : 'expired')}
+              <button
+                type="button"
+                onClick={() => setUrgencyFilter(urgencyFilter === 'expired' ? 'all' : 'expired')}
                 className={cn(
-                  "p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all",
-                  deadlineFilter === 'expired' ? "bg-red-50 border-red-300 shadow-sm" : "bg-white border-red-100 hover:bg-red-50/50"
+                  "p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all text-left",
+                  urgencyFilter === 'expired' ? "bg-red-50 border-red-300 shadow-sm" : "bg-white border-red-100 hover:bg-red-50/50"
                 )}
               >
                 <div className="p-3 bg-red-100 text-red-600 rounded-lg">
                   <AlertTriangle size={24} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-red-600">Prazos Expirados</p>
+                  <p className="text-sm font-medium text-red-600">Prazos vencidos</p>
                   <p className="text-2xl font-bold text-red-700">{expiredCount}</p>
                 </div>
-              </div>
+              </button>
             )}
             {criticalCount > 0 && (
-              <div 
-                onClick={() => setDeadlineFilter(deadlineFilter === 'critical' ? 'all' : 'critical')}
+              <button
+                type="button"
+                onClick={() => setUrgencyFilter(urgencyFilter === '7d' ? 'all' : '7d')}
                 className={cn(
-                  "p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all",
-                  deadlineFilter === 'critical' ? "bg-orange-50 border-orange-300 shadow-sm" : "bg-white border-orange-100 hover:bg-orange-50/50"
+                  "p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all text-left",
+                  urgencyFilter === '7d' ? "bg-orange-50 border-orange-300 shadow-sm" : "bg-white border-orange-100 hover:bg-orange-50/50"
                 )}
               >
                 <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
-                  <Clock size={24} />
+                  <CalendarClock size={24} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-orange-600">Vencem em até 7 dias</p>
                   <p className="text-2xl font-bold text-orange-700">{criticalCount}</p>
                 </div>
-              </div>
-            )}
-            {warningCount > 0 && (
-              <div 
-                onClick={() => setDeadlineFilter(deadlineFilter === 'warning' ? 'all' : 'warning')}
-                className={cn(
-                  "p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all",
-                  deadlineFilter === 'warning' ? "bg-amber-50 border-amber-300 shadow-sm" : "bg-white border-amber-100 hover:bg-amber-50/50"
-                )}
-              >
-                <div className="p-3 bg-amber-100 text-amber-600 rounded-lg">
-                  <Calendar size={24} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-600">Vencem em até 15 dias</p>
-                  <p className="text-2xl font-bold text-amber-700">{warningCount}</p>
-                </div>
-              </div>
+              </button>
             )}
           </div>
         )}
@@ -593,18 +655,74 @@ export default function ProcessosPage() {
 
         <StrategicCockpit processes={filteredProcesses} isVisible={isVisible} />
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Buscar por número do processo ou cliente..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Buscar por cliente, CNJ, vara ou parte adversa..."
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={areaFilter}
+              onChange={(e) => setAreaFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:border-indigo-400"
+            >
+              <option value="">Todas as áreas</option>
+              {areaOptions.map(area => <option key={area} value={area}>{area}</option>)}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:border-indigo-400"
+            >
+              <option value="">Todas as situações</option>
+              {statusOptions.map(status => <option key={status} value={status}>{status}</option>)}
+            </select>
+            <select
+              value={responsibleFilter}
+              onChange={(e) => setResponsibleFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:border-indigo-400"
+            >
+              <option value="">Todos os responsáveis</option>
+              {responsibleOptions.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <span className="ml-auto text-xs font-semibold text-slate-500">
+              {filteredProcesses.length} {filteredProcesses.length === 1 ? 'processo' : 'processos'}
+            </span>
+            {(searchTerm || areaFilter || statusFilter || responsibleFilter || urgencyFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('')
+                  setAreaFilter('')
+                  setStatusFilter('')
+                  setResponsibleFilter('')
+                  setUrgencyFilter('all')
+                }}
+                className="px-3 py-2 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
         </div>
 
-        {viewMode === 'list' ? (
+        {displayMode === 'table' ? (
+          <ProcessTable
+            processes={filteredProcesses}
+            lawyers={lawyers}
+            isVisible={isVisible}
+            syncingId={syncingProcessId}
+            onEdit={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)}
+            onDelete={handleDelete}
+            onSync={handleSyncProcess}
+          />
+        ) : (
           <BentoProcessGrid
             processes={filteredProcesses}
             onEdit={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)}
@@ -614,8 +732,6 @@ export default function ProcessosPage() {
             lawyers={lawyers}
             isVisible={isVisible}
           />
-        ) : (
-          <KanbanBoard processes={filteredProcesses} onProcessUpdate={fetchProcesses} onEditProcess={(p) => handleOpenModal(p.court === 'INSS' ? 'previdenciario' : 'judicial', p)} />
         )}
 
         <Modal 
@@ -724,6 +840,48 @@ export default function ProcessosPage() {
                 />
               </div>
             )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fase</label>
+                <input
+                  type="text"
+                  placeholder="Ex.: Instrução"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={formData.phase}
+                  onChange={e => setFormData({ ...formData, phase: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Comarca</label>
+                <input
+                  type="text"
+                  placeholder="Ex.: São Paulo/SP"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={formData.comarca}
+                  onChange={e => setFormData({ ...formData, comarca: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tribunal</label>
+                <input
+                  type="text"
+                  placeholder="Ex.: TJSP"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={formData.tribunal}
+                  onChange={e => setFormData({ ...formData, tribunal: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Distribuição</label>
+                <input
+                  type="date"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={formData.distribution_date}
+                  onChange={e => setFormData({ ...formData, distribution_date: e.target.value })}
+                />
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Advogado Responsável</label>
@@ -849,6 +1007,45 @@ export default function ProcessosPage() {
                 placeholder="Ex: Urgente, Alvará, Recurso"
                 value={formData.tags.join(', ')}
                 onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fonte de Cadastro</label>
+                <select
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                  value={formData.source}
+                  onChange={e => setFormData({ ...formData, source: e.target.value })}
+                >
+                  <option>Manual</option>
+                  <option>DataJud</option>
+                  <option>DJEN</option>
+                  <option>Comunica PJe</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 self-end px-4 py-2.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
+                <LockKeyhole size={16} className="text-rose-500" />
+                <input
+                  type="checkbox"
+                  checked={formData.secret_justice}
+                  onChange={e => setFormData({ ...formData, secret_justice: e.target.checked })}
+                  className="accent-indigo-600"
+                />
+                <span className="text-sm font-medium text-slate-700">Segredo de justiça</span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Partes <span className="text-xs font-normal text-slate-400">(uma por linha: Nome | Papel | Tipo)</span>
+              </label>
+              <textarea
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono text-xs"
+                rows={3}
+                placeholder={'Construtora Aurora Ltda | Cliente | PJ\nBanco Meridional S.A. | Parte adversa | PJ'}
+                value={formData.parties}
+                onChange={e => setFormData({ ...formData, parties: e.target.value })}
               />
             </div>
 
