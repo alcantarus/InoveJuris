@@ -1,64 +1,73 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'motion/react'
-import {
-  addMonths,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
-  format,
-  isSameDay,
-  isSameMonth,
-  startOfMonth,
-  startOfWeek,
-  subMonths,
-} from 'date-fns'
+import { addMonths, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { motion } from 'motion/react'
+import { toast } from 'sonner'
 import {
   AlertTriangle,
+  CalendarCheck2,
   CalendarClock,
+  CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock3,
+  Download,
   List,
   Plus,
   RefreshCw,
+  Search,
+  X,
 } from 'lucide-react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
-import { cn, formatDate, getTodayBR } from '@/lib/utils'
-import { BUCKET_LABELS, countBuckets, fetchDeadlines, type DeadlineBucket, type DeadlineItem } from '@/lib/deadlines'
+import { KPICard } from '@/components/ui/KPICard'
+import { cn, formatDate, getTodayBR, matchesSearch } from '@/lib/utils'
+import {
+  BUCKET_LABELS,
+  countBuckets,
+  exportDeadlinesCsv,
+  fetchDeadlines,
+  type DeadlineBucket,
+  type DeadlineItem,
+} from '@/lib/deadlines'
+import { CalendarGrid, bucketClasses } from '@/components/calendario/CalendarGrid'
+import { DeadlineListView } from '@/components/calendario/DeadlineListView'
 
-const WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
+type ViewMode = 'calendar' | 'list'
+type ListFilter = DeadlineBucket | 'todos'
 
-const eventClasses: Record<DeadlineBucket, string> = {
-  vencidos: 'bg-rose-100 text-rose-800 border-rose-200',
-  hoje: 'bg-amber-100 text-amber-800 border-amber-200',
-  '7dias': 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  '30dias': 'bg-sky-50 text-sky-700 border-sky-100',
-  aberto: 'bg-slate-100 text-slate-700 border-slate-200',
-  concluido: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-}
+const FILTERS: ListFilter[] = ['todos', 'vencidos', 'hoje', '7dias', '30dias', 'aberto', 'concluido']
 
 export default function CalendarioPage() {
   const [items, setItems] = useState<DeadlineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(() => new Date(`${getTodayBR()}T12:00:00`))
   const [selectedDate, setSelectedDate] = useState<string | null>(getTodayBR())
+  const [view, setView] = useState<ViewMode>('calendar')
+  const [listDate, setListDate] = useState<string | null>(null)
+  const [filter, setFilter] = useState<ListFilter>('todos')
+  const [search, setSearch] = useState('')
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     const payload = await fetchDeadlines()
     setItems(payload.items)
+    if (payload.error) {
+      toast.error('Não foi possível carregar os prazos.', { description: payload.error })
+    }
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const counts = useMemo(() => countBuckets(items), [items])
+
   const byDate = useMemo(() => {
     const map = new Map<string, DeadlineItem[]>()
     items.forEach(item => {
@@ -70,35 +79,96 @@ export default function CalendarioPage() {
     return map
   }, [items])
 
-  const days = useMemo(() => {
-    const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
-    const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
-    return eachDayOfInterval({ start, end })
-  }, [month])
+  const monthItems = useMemo(
+    () => items.filter(item => isSameMonth(new Date(`${String(item.deadlineDate).slice(0, 10)}T12:00:00`), month)),
+    [items, month]
+  )
+
+  const filteredList = useMemo(() => {
+    return monthItems.filter(item => {
+      if (filter !== 'todos' && item.bucket !== filter) return false
+      if (listDate && String(item.deadlineDate).slice(0, 10) !== listDate) return false
+      if (!matchesSearch(search, item.description, item.clientName, item.processNumber, item.responsible, item.area)) return false
+      return true
+    })
+  }, [monthItems, filter, listDate, search])
+
+  const visibleItems = view === 'list' ? filteredList : monthItems
+  const overdue = useMemo(() => items.filter(item => item.bucket === 'vencidos'), [items])
+  const selectedItems = selectedDate ? (byDate.get(selectedDate) || []) : []
+  const upcoming = useMemo(
+    () => monthItems.filter(item => item.bucket !== 'concluido' && item.daysRemaining >= 0).slice(0, 6),
+    [monthItems]
+  )
 
   const todayKey = getTodayBR()
-  const selectedItems = selectedDate ? (byDate.get(selectedDate) || []) : []
-  const overdue = items.filter(item => item.bucket === 'vencidos')
+  const monthKey = format(month, 'yyyy-MM')
+  const rawTitle = format(month, "MMMM 'de' yyyy", { locale: ptBR })
+  const title = rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1)
 
-  const monthTitle = format(month, "MMMM 'de' yyyy", { locale: ptBR })
-  const title = monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1)
+  const goToMonth = (delta: number) => {
+    const next = delta > 0 ? addMonths(month, 1) : subMonths(month, 1)
+    setMonth(next)
+    if (selectedDate && !isSameMonth(new Date(`${selectedDate}T12:00:00`), next)) {
+      setSelectedDate(format(startOfMonth(next), 'yyyy-MM-dd'))
+    }
+  }
+
+  const goToday = () => {
+    setMonth(new Date(`${todayKey}T12:00:00`))
+    setSelectedDate(todayKey)
+  }
+
+  const showList = (bucket: ListFilter = 'todos') => {
+    setView('list')
+    setFilter(bucket)
+    setListDate(null)
+  }
+
+  const exportCsv = () => {
+    exportDeadlinesCsv(visibleItems, `prazos-${monthKey}.csv`)
+    toast.success(`${visibleItems.length} ${visibleItems.length === 1 ? 'prazo exportado' : 'prazos exportados'} em CSV.`)
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <ModuleHeader
-            title="Calendário"
-            description="Agenda de prazos do escritório. Prazos vencidos permanecem destacados até a baixa."
+            title="Prazos"
+            description="Controle de prazos com dias úteis, responsável, memória de cálculo e confirmação do advogado."
             icon={CalendarClock}
           />
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Link
-              href="/prazos"
+            <div className="bg-white border border-slate-200 rounded-xl p-1 flex items-center shadow-sm">
+              <button
+                type="button"
+                onClick={() => setView('calendar')}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors',
+                  view === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                )}
+              >
+                <CalendarDays size={15} /> Calendário
+              </button>
+              <button
+                type="button"
+                onClick={() => showList()}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors',
+                  view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                )}
+              >
+                <List size={15} /> Listar
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={exportCsv}
               className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
             >
-              <List size={16} /> Ver lista
-            </Link>
+              <Download size={16} /> Exportar CSV
+            </button>
             <Link
               href="/prazos"
               className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
@@ -108,21 +178,37 @@ export default function CalendarioPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+          <KPICard title="Hoje" value={counts.hoje} icon={Clock3} color="amber" />
+          <KPICard title="Vencidos" value={counts.vencidos} icon={AlertTriangle} color="rose" />
+          <KPICard title="7 dias" value={counts['7dias']} icon={CalendarClock} color="indigo" />
+          <KPICard title="Neste mês" value={monthItems.length} icon={CalendarCheck2} color="emerald" />
+        </div>
+
         {counts.vencidos > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-3 p-4 rounded-2xl border border-rose-200 bg-rose-50"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-rose-200 bg-rose-50"
           >
-            <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={20} />
-            <div>
-              <p className="text-sm font-bold text-rose-900">
-                {counts.vencidos} {counts.vencidos === 1 ? 'prazo vencido' : 'prazos vencidos'}
-              </p>
-              <p className="text-xs text-rose-700 mt-0.5">
-                Prazos vencidos continuam destacados na agenda até que a providência seja registrada.
-              </p>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="text-sm font-bold text-rose-900">
+                  {counts.vencidos} {counts.vencidos === 1 ? 'prazo vencido' : 'prazos vencidos'}
+                </p>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  Prazos vencidos continuam destacados na agenda até que a providência seja registrada.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => showList('vencidos')}
+              className="self-start sm:self-auto px-3 py-2 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition-colors"
+            >
+              Ver lista
+            </button>
           </motion.div>
         )}
 
@@ -132,20 +218,23 @@ export default function CalendarioPage() {
               <h2 className="text-base font-bold text-slate-900 min-w-[190px]">{title}</h2>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setMonth(prev => subMonths(prev, 1))}
+                  type="button"
+                  onClick={() => goToMonth(-1)}
                   className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                   aria-label="Mês anterior"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <button
-                  onClick={() => { setMonth(new Date(`${todayKey}T12:00:00`)); setSelectedDate(todayKey) }}
+                  type="button"
+                  onClick={goToday}
                   className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
                 >
                   Hoje
                 </button>
                 <button
-                  onClick={() => setMonth(prev => addMonths(prev, 1))}
+                  type="button"
+                  onClick={() => goToMonth(1)}
                   className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                   aria-label="Próximo mês"
                 >
@@ -155,9 +244,10 @@ export default function CalendarioPage() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500">
-                {items.filter(i => isSameMonth(new Date(`${i.deadlineDate}T12:00:00`), month)).length} prazos no mês
+                <strong className="text-slate-700">{monthItems.length}</strong> {monthItems.length === 1 ? 'prazo no mês' : 'prazos no mês'}
               </span>
               <button
+                type="button"
                 onClick={load}
                 title="Atualizar"
                 className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -167,115 +257,177 @@ export default function CalendarioPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
-            {WEEKDAYS.map(day => (
-              <div key={day} className="py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7">
-            {days.map(day => {
-              const key = format(day, 'yyyy-MM-dd')
-              const dayItems = byDate.get(key) || []
-              const isToday = key === todayKey
-              const isCurrentMonth = isSameMonth(day, month)
-              const isSelected = key === selectedDate
-
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedDate(key)}
-                  className={cn(
-                    'min-h-[92px] sm:min-h-[110px] p-1.5 sm:p-2 text-left border-b border-r border-slate-100 transition-colors',
-                    !isCurrentMonth && 'bg-slate-50/60 opacity-50',
-                    isSelected ? 'bg-indigo-50/70 ring-1 ring-inset ring-indigo-200' : 'hover:bg-slate-50'
-                  )}
+          {view === 'calendar' ? (
+            <CalendarGrid
+              month={month}
+              byDate={byDate}
+              selectedDate={selectedDate}
+              todayKey={todayKey}
+              onSelectDate={setSelectedDate}
+            />
+          ) : (
+            <div className="p-4 space-y-3 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Buscar por prazo, cliente, CNJ ou responsável..."
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  />
+                </div>
+                <select
+                  value={filter}
+                  onChange={e => setFilter(e.target.value as ListFilter)}
+                  className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:border-indigo-400"
                 >
-                  <span className={cn(
-                    'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold',
-                    isToday ? 'bg-indigo-600 text-white' : 'text-slate-600'
-                  )}>
-                    {format(day, 'd')}
-                  </span>
-                  <div className="mt-1 space-y-1">
-                    {dayItems.slice(0, 3).map(item => (
-                      <div
-                        key={item.id}
-                        className={cn('px-1.5 py-0.5 rounded border text-[10px] font-semibold truncate', eventClasses[item.bucket])}
-                        title={`${item.description} — ${item.clientName}`}
-                      >
-                        {item.description}
-                      </div>
-                    ))}
-                    {dayItems.length > 3 && (
-                      <div className="text-[10px] text-slate-500 pl-1">+{dayItems.length - 3} prazos</div>
-                    )}
-                  </div>
+                  {FILTERS.map(option => (
+                    <option key={option} value={option}>
+                      {option === 'todos' ? 'Todas as situações' : BUCKET_LABELS[option]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {listDate && (
+                <button
+                  type="button"
+                  onClick={() => setListDate(null)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100"
+                >
+                  Data: {formatDate(listDate)} <X size={12} />
                 </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-900">
-                {selectedDate ? `Prazos em ${format(new Date(`${selectedDate}T12:00:00`), "d 'de' MMMM", { locale: ptBR })}` : 'Selecione uma data'}
-              </h3>
-              {selectedDate && (
-                <Link href={`/prazos?data=${selectedDate}`} className="text-xs font-bold text-indigo-600 hover:underline">
-                  Ver na lista
-                </Link>
               )}
             </div>
-            {selectedItems.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">Nenhum prazo nesta data.</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedItems.map(item => (
-                  <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/60">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{item.description}</p>
-                      <p className="text-xs text-slate-500 truncate">{item.clientName} · {item.processNumber}</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{item.responsible} · {item.area}</p>
-                    </div>
-                    <span className={cn('shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold', eventClasses[item.bucket])}>
-                      {BUCKET_LABELS[item.bucket]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-900">Prazos vencidos pendentes de baixa</h3>
-              <span className="text-xs font-bold text-rose-600">{overdue.length}</span>
+          {view === 'list' && <DeadlineListView items={filteredList} />}
+        </div>
+
+        {view === 'calendar' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900">
+                  {selectedDate
+                    ? `Prazos em ${format(new Date(`${selectedDate}T12:00:00`), "d 'de' MMMM", { locale: ptBR })}`
+                    : 'Selecione uma data'}
+                </h3>
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      showList()
+                      setListDate(selectedDate)
+                    }}
+                    className="text-xs font-bold text-indigo-600 hover:underline"
+                  >
+                    Ver na lista
+                  </button>
+                )}
+              </div>
+              {selectedItems.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">Nenhum prazo nesta data.</p>
+              ) : (
+                <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
+                  {selectedItems.map(item => (
+                    <div key={item.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50/60">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                        <span className={cn('shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold', bucketClasses[item.bucket])}>
+                          {BUCKET_LABELS[item.bucket]}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">{item.clientName} · {item.processNumber}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{item.responsible} · {item.area}</p>
+                      {item.businessDays != null && (
+                        <p className="text-[11px] font-bold text-indigo-600 mt-1">{item.businessDays} dias úteis</p>
+                      )}
+                      {item.confirmedAt && (
+                        <p className="text-[11px] font-bold text-emerald-700 mt-1 flex items-center gap-1">
+                          <CheckCircle2 size={12} /> Confirmado pelo advogado
+                        </p>
+                      )}
+                      {item.calculationMemory && (
+                        <p className="text-[11px] text-slate-500 mt-2 whitespace-pre-wrap border-t border-slate-200 pt-2">
+                          {item.calculationMemory}
+                        </p>
+                      )}
+                      {item.process_id != null && (
+                        <Link
+                          href={`/processos/${item.process_id}`}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline"
+                        >
+                          Abrir processo <CalendarClock size={12} />
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            {overdue.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">Nenhum prazo vencido.</p>
-            ) : (
-              <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
-                {overdue.map(item => (
-                  <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-rose-100 bg-rose-50/60">
-                    <div className="min-w-0">
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900">Próximos prazos do mês</h3>
+                <button type="button" onClick={() => showList()} className="text-xs font-bold text-indigo-600 hover:underline">
+                  Ver todos
+                </button>
+              </div>
+              {upcoming.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">Nenhum prazo futuro neste mês.</p>
+              ) : (
+                <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
+                  {upcoming.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedDate(String(item.deadlineDate).slice(0, 10))}
+                      className="w-full flex items-start gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 text-left transition-colors"
+                    >
+                      <span className={cn('mt-0.5 h-2 w-2 rounded-full shrink-0', bucketClasses[item.bucket].split(' ')[0])} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-800 truncate">{item.description}</span>
+                        <span className="block text-[11px] text-slate-500 mt-0.5">
+                          {formatDate(item.deadlineDate)} · {item.clientName}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900">Prazos vencidos pendentes de baixa</h3>
+                <span className="text-xs font-bold text-rose-600">{overdue.length}</span>
+              </div>
+              {overdue.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">Nenhum prazo vencido.</p>
+              ) : (
+                <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
+                  {overdue.map(item => (
+                    <div key={item.id} className="p-3 rounded-xl border border-rose-100 bg-rose-50/60">
                       <p className="text-sm font-semibold text-rose-900 truncate">{item.description}</p>
                       <p className="text-xs text-rose-700 truncate">{item.clientName} · {item.processNumber}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{formatDate(item.deadlineDate)} · venceu há {Math.abs(item.daysRemaining)} dias</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {formatDate(item.deadlineDate)} · venceu há {Math.abs(item.daysRemaining)} dias
+                      </p>
                     </div>
-                    <Link href="/prazos" className="shrink-0 text-xs font-bold text-rose-700 hover:underline">
-                      Regularizar
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => showList('vencidos')}
+                    className="w-full mt-2 py-2 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition-colors"
+                  >
+                    Regularizar vencidos
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </DashboardLayout>
   )

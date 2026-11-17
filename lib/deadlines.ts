@@ -17,6 +17,13 @@ export interface DeadlineItem {
   responsible: string
   area: string
   court: string
+  /** Campos opcionais: disponíveis após a migration de detalhe de prazos. */
+  businessDays?: number | null
+  calculationMemory?: string | null
+  confirmedAt?: string | null
+  notificationDate?: string | null
+  publicationDate?: string | null
+  countStartDate?: string | null
 }
 
 export interface ProcessOption {
@@ -94,7 +101,8 @@ export async function fetchDeadlines(): Promise<DeadlinesPayload> {
     const process = d.process_id != null ? processById.get(Number(d.process_id)) : undefined
     const contract = process ? contractByNumber.get(String(process.number)) : undefined
     const client = contract ? clientById.get(Number(contract.client_id)) : undefined
-    const lawyer = process?.lawyer_id != null ? lawyerById.get(Number(process.lawyer_id)) : undefined
+    const lawyerId = d.responsible_id ?? process?.lawyer_id
+    const lawyer = lawyerId != null ? lawyerById.get(Number(lawyerId)) : undefined
     const days = daysUntil(d.deadline_date)
 
     const lawyerName = lawyer
@@ -115,6 +123,12 @@ export async function fetchDeadlines(): Promise<DeadlinesPayload> {
       responsible: lawyerName,
       area: process?.type || 'Não informada',
       court: process?.court || '—',
+      businessDays: d.business_days ?? null,
+      calculationMemory: d.calculation_memory ?? null,
+      confirmedAt: d.confirmed_at ?? null,
+      notificationDate: d.notification_date ?? null,
+      publicationDate: d.publication_date ?? null,
+      countStartDate: d.count_start_date ?? null,
     }
   }).sort((a, b) => a.deadlineDate.localeCompare(b.deadlineDate))
 
@@ -135,4 +149,36 @@ export function countBuckets(items: DeadlineItem[]): Record<DeadlineBucket, numb
     },
     { vencidos: 0, hoje: 0, '7dias': 0, '30dias': 0, aberto: 0, concluido: 0 } as Record<DeadlineBucket, number>
   )
+}
+
+/** Exporta a seleção atual de prazos em CSV (compatível com Excel pt-BR). */
+export function exportDeadlinesCsv(items: DeadlineItem[], filename?: string): void {
+  const header = ['Vencimento', 'Prazo', 'Processo', 'Cliente', 'Área', 'Responsável', 'Prioridade', 'Situação', 'Dias úteis', 'Confirmado em']
+  const rows = items.map(item => [
+    formatDateOnly(item.deadlineDate),
+    item.description,
+    item.processNumber,
+    item.clientName,
+    item.area,
+    item.responsible,
+    item.priority,
+    BUCKET_LABELS[item.bucket],
+    item.businessDays ?? '',
+    item.confirmedAt ? formatDateOnly(item.confirmedAt) : '',
+  ])
+  const content = [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';'))
+    .join('\r\n')
+  const blob = new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || `prazos-${getTodayBR()}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function formatDateOnly(value: string): string {
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`)
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('pt-BR')
 }

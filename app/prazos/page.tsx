@@ -26,6 +26,7 @@ import { cn, formatDate, getTodayBR, matchesSearch } from '@/lib/utils'
 import {
   BUCKET_LABELS,
   countBuckets,
+  exportDeadlinesCsv,
   fetchDeadlines,
   type DeadlineBucket,
   type DeadlineItem,
@@ -100,27 +101,7 @@ export default function PrazosPage() {
   }, [items, filter, responsible, search])
 
   const exportCsv = () => {
-    const header = ['Processo', 'Cliente', 'Descrição', 'Área', 'Responsável', 'Prioridade', 'Vencimento', 'Situação']
-    const rows = filtered.map(item => [
-      item.processNumber,
-      item.clientName,
-      item.description,
-      item.area,
-      item.responsible,
-      item.priority,
-      formatDate(item.deadlineDate),
-      BUCKET_LABELS[item.bucket],
-    ])
-    const content = [header, ...rows]
-      .map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';'))
-      .join('\r\n')
-    const blob = new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `prazos-${getTodayBR()}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+    exportDeadlinesCsv(filtered)
     toast.success('CSV exportado com sucesso.')
   }
 

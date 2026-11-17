@@ -107,6 +107,16 @@
 - `npm run build`: **OK** (21 rotas, incluindo `/processos/[id]`). Validação local (porta 3001): `/processos` com Lista/Cards, KPIs e sem Kanban; `/processos/38` com dados, anotações, prazos, partes e andamentos.
 - **Publicado (2026-11-17):** commit `72a21de` em `trabalho-com-claude` (push feito) e deploy de produção `dpl_3qyvx9iwnEhDoXeFXrtm1tcHz6Zh` em https://inove-juris.vercel.app. A migration `20261117180000_enhance_processes_detail.sql` foi versionada, mas **ainda precisa ser aplicada no Supabase** para salvar anotações/confirmar prazos e exibir a timeline completa.
 
+## Entrega — Calendário dinâmico (2026-11-17)
+- Referência: `04-calendario.md` (controle de prazos com KPIs, Listar/Calendário, prazos vencidos em destaque, grade mensal e exportação).
+- `/calendario` reescrito com alternância **Calendário / Listar** na própria página, KPIs **Hoje / Vencidos / 7 dias / Neste mês**, banner de vencidos com atalho para a lista, navegação mensal (anterior/próximo/Hoje), contagem de prazos no mês e **Exportar CSV** da seleção visível.
+- Grade mensal dinâmica em `components/calendario/CalendarGrid.tsx`: semana começa no **domingo** (DOM…SÁB, como o modelo), fins de semana com destaque, dia atual marcado, até 3 prazos por dia com cores por bucket (vencido/hoje/7 dias/30 dias/aberto/concluído), indicador de vencido e contador de excedentes.
+- Lista em `components/calendario/DeadlineListView.tsx`: busca por prazo/cliente/CNJ/responsável/área, filtro por situação, filtro opcional por data (via "Ver na lista" no painel do dia) e link **Abrir** para o detalhe do processo.
+- Painéis inferiores: prazos do dia selecionado (com dias úteis, confirmação do advogado e memória de cálculo quando disponíveis), próximos prazos do mês (clicáveis) e vencidos pendentes de baixa.
+- `lib/deadlines.ts`: `DeadlineItem` ganha campos opcionais da migration anterior (`businessDays`, `calculationMemory`, `confirmedAt`, datas de DJEN/publicação/contagem); responsável do prazo passa a preferir `responsible_id` quando existir. Extração compartilhada `exportDeadlinesCsv` usada por `/calendario` e `/prazos`.
+- `npm run build`: **OK**. Validação local (porta 3002): KPIs, alternância Listar/Calendário, grade DOM–SÁB, navegação de mês, filtro de vencidos e tabela renderizando corretamente.
+- **Ainda não implementado:** cálculo determinístico de dias úteis com feriados nacionais/recessos forenses (o modelo cita, mas a base ainda não tem essa rotina); exibição depende da migration de prazos já versionada.
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v
