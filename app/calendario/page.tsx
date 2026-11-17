@@ -21,6 +21,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   X,
 } from 'lucide-react'
 import DashboardLayout from '../dashboard-layout'
@@ -30,6 +31,7 @@ import { cn, formatDate, getTodayBR, matchesSearch } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
+import { DeleteDeadlineModal, type DeleteDeadlineTarget } from '@/components/prazos/DeleteDeadlineModal'
 import {
   BUCKET_LABELS,
   countBuckets,
@@ -51,6 +53,7 @@ export default function CalendarioPage() {
   const [items, setItems] = useState<DeadlineItem[]>([])
   const [lawyers, setLawyers] = useState<any[]>([])
   const [editingDeadline, setEditingDeadline] = useState<DeadlineItem | null>(null)
+  const [deletingDeadline, setDeletingDeadline] = useState<DeleteDeadlineTarget | null>(null)
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(() => new Date(`${getTodayBR()}T12:00:00`))
   const [selectedDate, setSelectedDate] = useState<string | null>(getTodayBR())
@@ -317,7 +320,9 @@ export default function CalendarioPage() {
             </div>
           )}
 
-          {view === 'list' && <DeadlineListView items={filteredList} onEdit={setEditingDeadline} />}
+          {view === 'list' && (
+            <DeadlineListView items={filteredList} onEdit={setEditingDeadline} onDelete={setDeletingDeadline} />
+          )}
         </div>
 
         {view === 'calendar' && (
@@ -358,9 +363,17 @@ export default function CalendarioPage() {
                             type="button"
                             onClick={() => setEditingDeadline(item)}
                             title="Editar prazo"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                           >
                             <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingDeadline(item)}
+                            title="Excluir prazo"
+                            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg p-2 text-rose-500 hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
@@ -463,6 +476,14 @@ export default function CalendarioPage() {
         source="calendario"
         onClose={() => setEditingDeadline(null)}
         onSaved={load}
+      />
+
+      <DeleteDeadlineModal
+        target={deletingDeadline}
+        userId={user?.id ?? null}
+        source="calendario"
+        onDeleted={load}
+        onClose={() => setDeletingDeadline(null)}
       />
     </DashboardLayout>
   )

@@ -22,6 +22,7 @@ import {
   Scale,
   Save,
   ShieldCheck,
+  Trash2,
   User,
 } from 'lucide-react'
 import DashboardLayout from '@/app/dashboard-layout'
@@ -31,6 +32,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { confirmDeadlineRecord } from '@/lib/deadline-mutations'
 import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
+import { DeleteDeadlineModal, type DeleteDeadlineTarget } from '@/components/prazos/DeleteDeadlineModal'
 
 function DataField({ label, value, icon: Icon }: { label: string; value: React.ReactNode; icon?: LucideIcon }) {
   return (
@@ -53,6 +55,7 @@ export default function ProcessoDetalhePage() {
   const [syncing, setSyncing] = useState(false)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [editingDeadline, setEditingDeadline] = useState<any | null>(null)
+  const [deletingDeadline, setDeletingDeadline] = useState<DeleteDeadlineTarget | null>(null)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
 
@@ -147,6 +150,14 @@ export default function ProcessoDetalhePage() {
     toast.success('Prazo confirmado pelo advogado responsável.')
     await load()
   }
+
+  const toDeleteTarget = (deadline: any): DeleteDeadlineTarget => ({
+    id: deadline.id,
+    description: deadline.description,
+    deadlineDate: deadline.deadline_date,
+    processNumber: process.number,
+    clientName: process.client,
+  })
 
   const handleSaveNotes = async () => {
     setSavingNotes(true)
@@ -314,6 +325,14 @@ export default function ProcessoDetalhePage() {
                   <Pencil size={15} /> Editar
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setDeletingDeadline(toDeleteTarget(nextDeadline))}
+                  title="Excluir prazo"
+                  className="inline-flex min-h-[40px] items-center gap-2 px-3 py-2 rounded-xl border border-rose-200 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  <Trash2 size={15} /> Excluir
+                </button>
+                <button
                   onClick={() => handleConfirm(nextDeadline)}
                   disabled={confirmingId === nextDeadline.id || confirmed}
                   className={cn(
@@ -389,9 +408,17 @@ export default function ProcessoDetalhePage() {
                         type="button"
                         onClick={() => setEditingDeadline({ ...deadline, processNumber: process.number, clientName: process.client })}
                         title="Editar prazo"
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                       >
                         <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingDeadline(toDeleteTarget(deadline))}
+                        title="Excluir prazo"
+                        className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg p-2 text-rose-500 hover:bg-rose-50 transition-colors"
+                      >
+                        <Trash2 size={13} />
                       </button>
                       {!isConfirmed && (
                         <button
@@ -483,6 +510,14 @@ export default function ProcessoDetalhePage() {
         source="processo"
         onClose={() => setEditingDeadline(null)}
         onSaved={load}
+      />
+
+      <DeleteDeadlineModal
+        target={deletingDeadline}
+        userId={user?.id ?? null}
+        source="processos"
+        onDeleted={load}
+        onClose={() => setDeletingDeadline(null)}
       />
     </DashboardLayout>
   )

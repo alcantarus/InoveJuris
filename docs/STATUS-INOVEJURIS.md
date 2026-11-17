@@ -238,6 +238,18 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - As imagens anexadas pelo usuário (`clientes.jpeg`, `contratos.jpeg`) não foram interpretadas visualmente por este modelo. O padrão de cards foi extraído diretamente do código de `/clientes` e `/contratos` e replicado nos demais módulos.
 - Para retomar em nova sessão: ler este arquivo e `docs/PLANO-MELHORIAS-INOVEJURIS.md` e seguir a partir do estado final acima.
 
+## Reativação da exclusão de prazos — 2026-11-17
+- O usuário relatou que, após as implementações de prazos editáveis e cards mobile, tinha deixado de existir a ação de **excluir um prazo, perícia, cumprimento etc.** em Prazos e Processos. A funcionalidade foi reativada e estendida ao Calendário (as três telas consomem `process_deadlines`).
+- Investigação: o backend já possuía a RPC transacional `delete_process_deadline(p_id, p_environment, p_edited_by, p_reason, p_source)` e o wrapper `deleteDeadlineRecord(...)` em `lib/deadline-mutations.ts`, mas nenhuma tela ligava um botão explícito a eles. O único botão de exclusão remanescente era o `Trash2` do modal de edição de processo (`app/processos/page.tsx`), que só removia a linha localmente até o "Salvar Alterações".
+- Implementação: novo modal reutilizável `components/prazos/DeleteDeadlineModal.tsx` (confirmação, resumo do prazo, **motivo opcional** gravado no histórico, toast e execução da RPC). Ações adicionadas em:
+  - `app/prazos/page.tsx`: botão "Excluir prazo" na tabela desktop e nos cards mobile.
+  - `app/processos/[id]/page.tsx`: botões em "Próximo prazo" e na lista "Prazos do processo".
+  - `components/calendario/DeadlineListView.tsx` + `app/calendario/page.tsx`: botão na lista e no painel do dia selecionado.
+- Nenhuma migration nova: a exclusão é **hard delete** pela RPC existente, registrando `action='excluir'` em `process_deadline_history`; `publications.deadline_id` usa `ON DELETE SET NULL`. O motivo não é obrigatório no banco.
+- Validação E2E em `/prazos` com prazo temporário no ambiente `test`: criação (id `61`), abertura do modal, chamada `POST /rest/v1/rpc/delete_process_deadline` com HTTP `200` e resposta `true`, lista atualizada de 3 para 2 prazos. Histórico confirmado por SQL: id `11` (`criar`) e id `12` (`excluir`, `justification: "Validacao automatizada da exclusao"`, `source: "prazos"`).
+- Conferência visual em `/processos/39` (dois botões, modal abre e cancela) e em `/calendario` (botão na lista após navegar para dezembro/2026, modal abre e cancela).
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Atenção: `fetchDeadlines()` não filtra por ambiente; como `getAppEnv()` vem de `document.documentElement.dataset.env`, excluir um prazo de ambiente divergente falha com `P0002` ("Prazo não encontrado neste ambiente.") — comportamento já existente, não alterado aqui.
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v

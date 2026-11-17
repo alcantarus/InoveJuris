@@ -17,6 +17,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
 } from 'lucide-react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
@@ -27,6 +28,7 @@ import { useAuth } from '@/lib/auth'
 import { cn, formatDate, getTodayBR, matchesSearch } from '@/lib/utils'
 import { createDeadlineRecord } from '@/lib/deadline-mutations'
 import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
+import { DeleteDeadlineModal, type DeleteDeadlineTarget } from '@/components/prazos/DeleteDeadlineModal'
 import {
   BUCKET_LABELS,
   countBuckets,
@@ -81,10 +83,19 @@ function StatusBadge({ item }: { item: DeadlineItem }) {
   )
 }
 
-function DeadlineActions({ item, onEdit, mobile = false }: { item: DeadlineItem; onEdit: (item: DeadlineItem) => void; mobile?: boolean }) {
+function DeadlineActions({ item, onEdit, onDelete, mobile = false }: {
+  item: DeadlineItem
+  onEdit: (item: DeadlineItem) => void
+  onDelete: (item: DeleteDeadlineTarget) => void
+  mobile?: boolean
+}) {
   const actionClass = cn(
     'inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors',
     mobile ? 'min-h-[40px] px-3 bg-slate-50 text-xs font-bold' : 'p-2'
+  )
+  const deleteClass = cn(
+    'inline-flex items-center justify-center gap-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors',
+    mobile ? 'min-h-[40px] px-3 bg-rose-50 text-xs font-bold' : 'p-2'
   )
   return (
     <div className={cn('flex items-center gap-1', mobile && 'flex-wrap gap-2')}>
@@ -107,6 +118,15 @@ function DeadlineActions({ item, onEdit, mobile = false }: { item: DeadlineItem;
           {mobile && 'Abrir processo'}
         </Link>
       )}
+      <button
+        type="button"
+        onClick={() => onDelete(item)}
+        title="Excluir prazo"
+        className={deleteClass}
+      >
+        <Trash2 size={14} />
+        {mobile && 'Excluir prazo'}
+      </button>
     </div>
   )
 }
@@ -133,6 +153,7 @@ export default function PrazosPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ process_id: '', deadline_date: getTodayBR(), description: '' })
   const [editingDeadline, setEditingDeadline] = useState<DeadlineItem | null>(null)
+  const [deletingDeadline, setDeletingDeadline] = useState<DeleteDeadlineTarget | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -357,7 +378,7 @@ export default function PrazosPage() {
                       <StatusBadge item={item} />
                     </td>
                     <td className="px-4 py-3">
-                      <DeadlineActions item={item} onEdit={setEditingDeadline} />
+                      <DeadlineActions item={item} onEdit={setEditingDeadline} onDelete={setDeletingDeadline} />
                     </td>
                   </tr>
                 ))}
@@ -400,7 +421,7 @@ export default function PrazosPage() {
                     <MobileField label="Prazo"><StatusBadge item={item} /></MobileField>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <DeadlineActions item={item} onEdit={setEditingDeadline} mobile />
+                    <DeadlineActions item={item} onEdit={setEditingDeadline} onDelete={setDeletingDeadline} mobile />
                   </div>
                 </div>
               ))}
@@ -471,6 +492,14 @@ export default function PrazosPage() {
         source="prazos"
         onClose={() => setEditingDeadline(null)}
         onSaved={load}
+      />
+
+      <DeleteDeadlineModal
+        target={deletingDeadline}
+        userId={user?.id ?? null}
+        source="prazos"
+        onDeleted={load}
+        onClose={() => setDeletingDeadline(null)}
       />
     </DashboardLayout>
   )

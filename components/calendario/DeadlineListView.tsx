@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { ArrowUpRight, CalendarClock, Pencil } from 'lucide-react'
+import { ArrowUpRight, CalendarClock, Pencil, Trash2 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { BUCKET_LABELS, type DeadlineItem } from '@/lib/deadlines'
 import { bucketClasses } from './CalendarGrid'
@@ -10,6 +10,7 @@ import { bucketClasses } from './CalendarGrid'
 interface DeadlineListViewProps {
   items: DeadlineItem[]
   onEdit?: (item: DeadlineItem) => void
+  onDelete?: (item: DeadlineItem) => void
 }
 
 // Compartilhado entre a tabela (desktop) e os cards (mobile) para evitar
@@ -33,9 +34,15 @@ function StatusBadge({ item }: { item: DeadlineItem }) {
   )
 }
 
-function DeadlineActions({ item, onEdit, mobile = false }: { item: DeadlineItem; onEdit?: (item: DeadlineItem) => void; mobile?: boolean }) {
+function DeadlineActions({ item, onEdit, onDelete, mobile = false }: {
+  item: DeadlineItem
+  onEdit?: (item: DeadlineItem) => void
+  onDelete?: (item: DeadlineItem) => void
+  mobile?: boolean
+}) {
   const baseClass = 'inline-flex items-center justify-center gap-1.5 rounded-lg transition-colors'
   const sizeClass = mobile ? 'min-h-[40px] px-3 bg-slate-50 text-xs font-bold' : 'p-2'
+  const deleteClass = mobile ? 'min-h-[40px] px-3 bg-rose-50 text-xs font-bold' : 'p-2'
   return (
     <div className={cn('flex items-center gap-1', mobile && 'flex-wrap gap-2')}>
       {onEdit && (
@@ -47,6 +54,17 @@ function DeadlineActions({ item, onEdit, mobile = false }: { item: DeadlineItem;
         >
           <Pencil size={14} />
           {mobile && 'Editar prazo'}
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(item)}
+          title="Excluir prazo"
+          className={cn(baseClass, deleteClass, 'text-rose-500 hover:text-rose-700 hover:bg-rose-50')}
+        >
+          <Trash2 size={14} />
+          {mobile && 'Excluir prazo'}
         </button>
       )}
       {item.process_id != null ? (
@@ -74,7 +92,7 @@ function MobileField({ label, children, className }: { label: string; children: 
   )
 }
 
-export function DeadlineListView({ items, onEdit }: DeadlineListViewProps) {
+export function DeadlineListView({ items, onEdit, onDelete }: DeadlineListViewProps) {
   if (items.length === 0) {
     return (
       <div className="py-14 text-center">
@@ -118,7 +136,7 @@ export function DeadlineListView({ items, onEdit }: DeadlineListViewProps) {
                 <StatusBadge item={item} />
               </td>
               <td className="px-4 py-3">
-                <DeadlineActions item={item} onEdit={onEdit} />
+                <DeadlineActions item={item} onEdit={onEdit} onDelete={onDelete} />
               </td>
             </tr>
           ))}
@@ -148,7 +166,7 @@ export function DeadlineListView({ items, onEdit }: DeadlineListViewProps) {
                 <StatusBadge item={item} />
               </MobileField>
               <MobileField label="Ação" className="col-span-2">
-                <DeadlineActions item={item} onEdit={onEdit} mobile />
+                <DeadlineActions item={item} onEdit={onEdit} onDelete={onDelete} mobile />
               </MobileField>
             </div>
           </div>
