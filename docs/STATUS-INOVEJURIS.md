@@ -147,6 +147,15 @@
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas; `/publicacoes` e `/api/djen-sync` listados).
 - Commit `5a0106f` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_8CVKdyv4RojDCJQsCim6gXQt5VTx`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/publicacoes` e `/advogados` retornou o redirecionamento esperado para `/login` (sem cookie de sessão no CLI). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
+## Diagnóstico e correção — fila vazia apesar de existirem publicações (2026-11-17)
+- Sintoma: `/publicacoes` vazia para `84503/BA`. O checkbox e o rótulo `Advogado #1 - 84503/BA` **não** bloqueavam a captura: o `publication_sync_log` registrava `Erro` com **HTTP 403** do CloudFront do DJEN (`ERROR: The request could not be satisfied`).
+- Parâmetros confirmados corretos: `numeroOab=84503`, `ufOab=BA`, período, `pagina` e `itensPorPagina`. O endpoint da Swagger é **GET** (`get_api_v1_comunicacao`); enviar o mesmo corpo por **POST** retorna **401 Unauthenticated** (a escrita é exclusiva dos tribunais). Com GET: `2026-11-10..2026-11-17 → count 2` e `2026-01-16..2026-11-17 → count 56`.
+- Causa raiz: bloqueio por IP/egress. O DJEN responde 200 à máquina local, mas 403 à Vercel. A Edge Function `djen-proxy` funciona em `sa-east-1`, porém é alocada em `us-east-1` quando invocada pela Vercel — região também bloqueada.
+- Correção: migration `supabase/migrations/20261117173000_djen_fetch_rpc.sql` criou a RPC `public.djen_fetch`, que consulta o DJEN pelo egress **sa-east-1 do Postgres** (extensão síncrona `http`), com host/caminho fixos e somente leitura. `lib/djen.ts` passou a chamar essa RPC pelo REST do Supabase com a chave anônima; a Edge Function permanece apenas como contingência (`DJEN_PROXY_URL`). `tsconfig.json` exclui `supabase/functions` (runtime Deno).
+- Apresentação: sem `Advogado #1` — o rótulo é `84503/BA`; com um único advogado válido, a tela mostra `Advogado considerado` + selo `Selecionado` e **nenhum checkbox**. O modal envia `environment` para alinhar cliente e servidor.
+- **Validação em produção:** período curto → `inserted: 2`, `failedLawyers: []`; período informado pelo usuário (`2026-01-16..2026-11-17`) → `fetched: 56`, `inserted: 54`, `updated: 2`, `matchedProcesses: 33`, sem falhas. Fila com **56 publicações**, todas `A triar`, **0 prazos**, **0 decisões**.
+- `npx tsc --noEmit` e `npm run build`: **OK**. Deploy final: `dpl_GtArPaEhj25bAupCTgLtc6WDTS8X` (`https://inove-juris.vercel.app`). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v

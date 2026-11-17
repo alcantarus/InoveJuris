@@ -67,7 +67,7 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
           name: row.name || '',
           oab_number: oabNumber,
           uf_oab: ufOab,
-          label: row.name ? `${row.name} · ${suffix}` : `Advogado #${row.id} · ${suffix}`,
+          label: row.name ? `${row.name} · ${suffix}` : suffix,
           valid,
         }
       })
@@ -121,6 +121,7 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
           tribunal: form.tribunal,
           processNumber: form.processNumber,
           lawyerIds: validSelectedLawyers.map(lawyer => lawyer.id),
+          environment: getAppEnv(),
           pageSize: 100,
           maxPages: Number(form.maxPages) || 5,
         }),
@@ -191,10 +192,12 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
               <p className="text-xs font-bold text-slate-700">Advogados cadastrados</p>
               <p className="text-[11px] text-slate-500">Um filtro OAB/UF por advogado selecionado.</p>
             </div>
-            <button type="button" onClick={toggleAll} disabled={loadingLawyers || validSelectedLawyers.length === 0}
-              className="text-[11px] font-semibold text-indigo-600 hover:underline disabled:opacity-50">
-              {allSelected ? 'Limpar seleção' : 'Selecionar todos'}
-            </button>
+            {lawyers.length > 1 && (
+              <button type="button" onClick={toggleAll} disabled={loadingLawyers || validSelectedLawyers.length === 0}
+                className="text-[11px] font-semibold text-indigo-600 hover:underline disabled:opacity-50">
+                {allSelected ? 'Limpar seleção' : 'Selecionar todos'}
+              </button>
+            )}
           </div>
           <div className="max-h-44 overflow-y-auto divide-y divide-slate-100">
             {loadingLawyers ? (
@@ -204,22 +207,39 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
                 Nenhum advogado cadastrado neste ambiente. Cadastre um no Módulo Advogados.
               </p>
             ) : (
-              lawyers.map(lawyer => (
-                <label key={lawyer.id}
-                  className={cn(
-                    'flex items-start gap-2 px-3 py-2 text-sm',
-                    lawyer.valid ? 'cursor-pointer hover:bg-slate-50' : 'opacity-60 cursor-not-allowed'
-                  )}>
-                  <input type="checkbox" className="mt-0.5 accent-indigo-600" checked={selectedLawyerIds.includes(lawyer.id)}
-                    disabled={!lawyer.valid} onChange={() => toggleLawyer(lawyer.id)} />
-                  <span>
-                    <span className="block text-slate-700">{lawyer.label}</span>
-                    {!lawyer.valid && (
-                      <span className="block text-[11px] text-rose-600">OAB/UF incompleta — revise o cadastro.</span>
+              lawyers.length === 1 ? (
+                <div className="px-3 py-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-slate-700">Advogado considerado</p>
+                    <p className="text-sm text-slate-600">{lawyers[0].label}</p>
+                    {!lawyers[0].valid && (
+                      <p className="text-[11px] text-rose-600">OAB/UF incompleta — revise o cadastro.</p>
                     )}
-                  </span>
-                </label>
-              ))
+                  </div>
+                  {lawyers[0].valid && (
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+                      Selecionado
+                    </span>
+                  )}
+                </div>
+              ) : (
+                lawyers.map(lawyer => (
+                  <label key={lawyer.id}
+                    className={cn(
+                      'flex items-start gap-2 px-3 py-2 text-sm',
+                      lawyer.valid ? 'cursor-pointer hover:bg-slate-50' : 'opacity-60 cursor-not-allowed'
+                    )}>
+                    <input type="checkbox" className="mt-0.5 accent-indigo-600" checked={selectedLawyerIds.includes(lawyer.id)}
+                      disabled={!lawyer.valid} onChange={() => toggleLawyer(lawyer.id)} />
+                    <span>
+                      <span className="block text-slate-700">{lawyer.label}</span>
+                      {!lawyer.valid && (
+                        <span className="block text-[11px] text-rose-600">OAB/UF incompleta — revise o cadastro.</span>
+                      )}
+                    </span>
+                  </label>
+                ))
+              )
             )}
           </div>
         </div>

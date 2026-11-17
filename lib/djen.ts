@@ -3,7 +3,51 @@
 // Endpoint consultado: GET https://comunicaapi.pje.jus.br/api/v1/comunicacao
 // Leitura pública, sem token. Escrita é exclusiva dos tribunais.
 
+import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
+
 export const DJEN_API_URL = 'https://comunicaapi.pje.jus.br/api/v1/comunicacao'
+
+/**
+ * O CloudFront do DJEN devolve 403 para o egress da Vercel (a mesma URL responde
+ * 200 localmente). A consulta passa pela RPC `djen_fetch`, executada no egress
+ * sa-east-1 do Postgres do Supabase. A Edge Function `djen-proxy` fica apenas
+ * como contingência e pode ser definida em DJEN_PROXY_URL (use "direct" para
+ * chamar o DJEN diretamente se o bloqueio cessar).
+ */
+function getDjenRequestBase(): string {
+  const configured = process.env.DJEN_PROXY_URL?.trim()
+  if (configured?.toLowerCase() === 'direct') return DJEN_API_URL
+  if (configured) return configured.replace(/\/$/, '')
+  return `${defaultUrlProd.replace(/\/$/, '')}/functions/v1/djen-proxy`
+}
+
+interface DjenFetchResponse {
+  status: number
+  content: string
+  headers?: Record<string, string>
+}
+
+/** Consulta via RPC no Supabase: o host de destino é fixo e somente leitura. */
+async function fetchViaSupabaseRpc(query: string): Promise<DjenFetchResponse> {
+  const rpcUrl = `${defaultUrlProd.replace(/\/$/, '')}/rest/v1/rpc/djen_fetch`
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: defaultKeyProd,
+      Authorization: `Bearer ${defaultKeyProd}`,
+    },
+    body: JSON.stringify({ p_query: query }),
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`Falha ao consultar o proxy DJEN no Supabase (${response.status}). ${detail.slice(0, 300)}`)
+  }
+
+  return (await response.json()) as DjenFetchResponse
+}
 
 export interface DjenSyncFilters {
   /** yyyy-mm-dd */
@@ -196,39 +240,70 @@ export async function fetchDjenPage(
   filters: DjenSyncFilters,
   page: number
 ): Promise<{ data: DjenResponse; rateLimitRemaining: number | null }> {
-  const url = `${DJEN_API_URL}?${buildSearchParams(filters, page).toString()}`
+  const query = buildSearchParams(filters, page).toString()
+  let status: number
+  let body: string
+  let responseHeaders: Record<string, string> = {}
+  let via = 'rpc'
 
-  let response: Response
   try {
-    response = await fetch(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    })
-  } catch (error: any) {
-    throw new Error(`Não foi possível conectar ao DJEN: ${error?.message || 'falha de rede'}`)
+    const rpc = await fetchViaSupabaseRpc(query)
+    status = Number(rpc.status)
+    body = String(rpc.content || '')
+    responseHeaders = rpc.headers || {}
+  } catch (rpcError: any) {
+    // Contingência: Edge Function ou chamada direta, conforme configuração.
+    via = 'proxy'
+    const requestBase = getDjenRequestBase()
+    let response: Response
+    try {
+      response = await fetch(`${requestBase}?${query}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+          Referer: 'https://comunicaapi.pje.jus.br/swagger/index.html',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        },
+        cache: 'no-store',
+      })
+    } catch (error: any) {
+      throw new Error(
+        `Não foi possível conectar ao DJEN (RPC: ${rpcError?.message || 'falha'} | proxy: ${error?.message || 'falha'}).`
+      )
+    }
+    status = response.status
+    body = await response.text()
+    response.headers.forEach((value, key) => { responseHeaders[key] = value })
   }
 
-  if (!response.ok) {
-    if (response.status === 429) {
+  if (status !== 200) {
+    if (status === 429) {
       throw new Error('O DJEN limitou as requisições (429). Aguarde cerca de 1 minuto antes de tentar novamente.')
     }
-    if (response.status === 422) {
+    if (status === 422) {
       throw new Error('O DJEN rejeitou os filtros informados (422). Informe ao menos um tribunal, processo ou OAB.')
     }
-    const detail = await response.text().catch(() => '')
-    throw new Error(`Erro na consulta ao DJEN (${response.status}). ${detail.slice(0, 160)}`.trim())
+    throw new Error(
+      `Erro na consulta ao DJEN (${status}, via ${via}). ${body.replace(/\s+/g, ' ').slice(0, 1200)}`.trim()
+    )
   }
 
-  const data = (await response.json()) as DjenResponse
+  let data: DjenResponse
+  try {
+    data = JSON.parse(body) as DjenResponse
+  } catch {
+    throw new Error('O DJEN retornou uma resposta inválida. Tente novamente em instantes.')
+  }
+
   if (data.status && data.status.toLowerCase() !== 'success') {
     throw new Error(data.message || 'O DJEN retornou um erro na consulta.')
   }
 
-  const remaining = response.headers.get('x-ratelimit-remaining')
+  const remaining = responseHeaders['x-djen-ratelimit-remaining'] || responseHeaders['x-ratelimit-remaining']
   return {
     data,
-    rateLimitRemaining: remaining != null ? Number(remaining) : null,
+    rateLimitRemaining: remaining != null && remaining !== '' ? Number(remaining) : null,
   }
 }
 

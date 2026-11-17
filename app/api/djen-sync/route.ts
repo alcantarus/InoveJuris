@@ -116,7 +116,9 @@ export async function POST(req: Request) {
     }
 
     const client = await getClient()
-    const environment = getAppEnv()
+    const environment = body.environment === 'test' || body.environment === 'production'
+      ? body.environment
+      : getAppEnv()
 
     const { data: lawyerRows, error: lawyerError } = await client
       .from('lawyers')
@@ -144,8 +146,8 @@ export async function POST(req: Request) {
       const oabNumber = String(row.oab_number || '').replace(/\D/g, '')
       const ufOab = String(row.uf_oab || '').trim().toUpperCase()
       const label = row.name
-        ? `${row.name} (${oabNumber}/${ufOab || '--'})`
-        : `Advogado #${id} (${oabNumber}/${ufOab || '--'})`
+        ? `${row.name} · ${oabNumber}/${ufOab || '--'}`
+        : `${oabNumber}/${ufOab || '--'}`
 
       if (!/^\d{1,10}$/.test(oabNumber) || !/^[A-Z]{2}$/.test(ufOab)) {
         invalidLawyers.push(label)
