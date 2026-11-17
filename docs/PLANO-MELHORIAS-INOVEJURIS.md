@@ -77,7 +77,7 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 ### Fase 3 — Publicações e triagem (P2, ~5-8 dias, risco médio) — ENTREGUE em 2026-11-18
 - Tabelas criadas: `publications` e `publication_sync_log` (fonte, CNJ, tribunal, órgão, teor, hash/id externo, status, quem leu/decidiu, motivo, prazo resultante e log de sincronização).
 - Rota `/publicacoes` com fila **A triar / Triadas / Ignoradas / Todas** e triagem com **Criar prazo / Classificar sem prazo / Ignorar (com motivo) / Reabrir**.
-- Sincronização DJEN **real** contra a API pública `GET https://comunicaapi.pje.jus.br/api/v1/comunicacao`, sem token, com paginação controlada e tratamento de `429`.
+- Sincronização DJEN **real** contra a API pública `GET https://comunicaapi.pje.jus.br/api/v1/comunicacao`, sem token, com paginação controlada e tratamento de `429`. Desde 2026-11-17, a captura usa **somente os advogados cadastrados** (`numeroOab` + `ufOab`), um request por advogado, com deduplicação; o Módulo Advogados passou a armazenar UF e número separadamente.
 - Nenhuma escrita em `process_deadlines` sem confirmação expressa do advogado responsável; a sugestão de dias úteis desconsidera apenas fins de semana.
 - Pendente desta fase: agendador automático de sincronização e cálculo determinístico com feriados/recessos forenses.
 

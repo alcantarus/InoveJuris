@@ -22,12 +22,15 @@ import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 import { cn, normalizeSearchText } from '@/lib/utils'
 import { ModuleHeader } from '@/components/ModuleHeader'
+import { getAppEnv } from '@/lib/env'
 
 interface Lawyer {
   id: number
   user_id?: string
   name?: string
   oab_number: string
+  uf_oab: string
+  environment?: string
   specialty: string
   color_code: string
   is_partner: boolean
@@ -44,6 +47,11 @@ interface User {
   email: string
 }
 
+const BRAZILIAN_STATES = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
+
 export default function LawyersPage() {
   const { user: currentUser } = useAuth()
   const [lawyers, setLawyers] = useState<Lawyer[]>([])
@@ -58,6 +66,7 @@ export default function LawyersPage() {
     name: '',
     is_manual: false,
     oab_number: '',
+    uf_oab: '',
     specialty: '',
     color_code: '#4F46E5',
     is_partner: false
@@ -108,11 +117,14 @@ export default function LawyersPage() {
   const handleOpenModal = (lawyer?: Lawyer) => {
     if (lawyer) {
       setEditingLawyer(lawyer)
+      // Registros antigos podem chegar com a UF embutida no número (ex.: 84503BA).
+      const legacyUf = (lawyer.oab_number || '').match(/([A-Za-z]{2})$/)?.[1]?.toUpperCase() || ''
       setFormData({
         user_id: lawyer.user_id,
         name: lawyer.name || '',
         is_manual: !lawyer.user_id,
-        oab_number: lawyer.oab_number || '',
+        oab_number: (lawyer.oab_number || '').replace(/[A-Za-z]{2}$/, ''),
+        uf_oab: lawyer.uf_oab || legacyUf,
         specialty: lawyer.specialty || '',
         color_code: lawyer.color_code || '#4F46E5',
         is_partner: lawyer.is_partner
@@ -124,6 +136,7 @@ export default function LawyersPage() {
         name: '',
         is_manual: false,
         oab_number: '',
+        uf_oab: '',
         specialty: '',
         color_code: '#4F46E5',
         is_partner: false
@@ -134,7 +147,7 @@ export default function LawyersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.is_manual && !formData.user_id) {
       toast.error('Selecione um usuário ou opte pelo cadastro manual')
       return
@@ -145,27 +158,46 @@ export default function LawyersPage() {
       return
     }
 
+    const oabNumber = formData.oab_number.replace(/\D/g, '')
+    const ufOab = formData.uf_oab.trim().toUpperCase()
+
+    if (!/^\d{1,10}$/.test(oabNumber)) {
+      toast.error('Informe um número de OAB válido (somente dígitos).')
+      return
+    }
+    if (!/^[A-Z]{2}$/.test(ufOab)) {
+      toast.error('Informe a UF da OAB com 2 letras.')
+      return
+    }
+
+    const targetEnvironment = editingLawyer?.environment || getAppEnv()
+
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         user_id: formData.is_manual ? null : formData.user_id,
         name: formData.is_manual ? formData.name : null,
-        oab_number: formData.oab_number,
+        oab_number: oabNumber,
+        uf_oab: ufOab,
         specialty: formData.specialty,
         color_code: formData.color_code,
         is_partner: formData.is_partner,
         updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
       }
 
-      if (editingLawyer) {
-        // Check if OAB is already in use by another lawyer
-        if (formData.oab_number) {
-          const isOabInUse = lawyers.some(l => l.oab_number === formData.oab_number && l.id !== editingLawyer.id)
-          if (isOabInUse) {
-            toast.error('Este número de OAB já está cadastrado para outro advogado.')
-            return
-          }
-        }
+      if (!editingLawyer) payload.environment = targetEnvironment
 
+      const isOabInUse = lawyers.some(l =>
+        l.id !== editingLawyer?.id &&
+        String(l.oab_number).replace(/\D/g, '') === oabNumber &&
+        String(l.uf_oab || '').toUpperCase() === ufOab &&
+        (l.environment || 'production') === targetEnvironment
+      )
+      if (isOabInUse) {
+        toast.error('Esta combinação de número de OAB e UF já está cadastrada neste ambiente.')
+        return
+      }
+
+      if (editingLawyer) {
         const { error } = await supabase
           .from('lawyers')
           .update(payload)
@@ -174,20 +206,10 @@ export default function LawyersPage() {
         if (error) throw error
         toast.success('Advogado atualizado com sucesso')
       } else {
-        // Check if user is already a lawyer
         if (!formData.is_manual) {
           const isAlreadyLawyer = lawyers.some(l => l.user_id === formData.user_id)
           if (isAlreadyLawyer) {
             toast.error('Este usuário já está cadastrado como advogado')
-            return
-          }
-        }
-        
-        // Check if OAB is already in use
-        if (formData.oab_number) {
-          const isOabInUse = lawyers.some(l => l.oab_number === formData.oab_number)
-          if (isOabInUse) {
-            toast.error('Este número de OAB já está cadastrado para outro advogado.')
             return
           }
         }
@@ -199,13 +221,13 @@ export default function LawyersPage() {
         if (error) throw error
         toast.success('Advogado cadastrado com sucesso')
       }
-      
+
       setIsModalOpen(false)
       fetchData()
     } catch (error: any) {
       console.error('Error saving lawyer:', error)
-      if (error.message?.includes('lawyers_oab_number_key')) {
-        toast.error('Este número de OAB já está cadastrado para outro advogado.')
+      if (/oab_number.*(?:key|unique)|lawyers_oab.*key/i.test(error?.message || '')) {
+        toast.error('Esta combinação de número de OAB e UF já está cadastrada neste ambiente.')
       } else {
         toast.error(error.message || 'Erro ao salvar advogado')
       }
@@ -233,7 +255,8 @@ export default function LawyersPage() {
   const normalizedSearch = normalizeSearchText(searchTerm)
   const filteredLawyers = lawyers.filter(l => {
     if (!normalizedSearch) return true
-    return [l.users?.name, l.name, l.oab_number, l.specialty].some(v => normalizeSearchText(v).includes(normalizedSearch))
+    return [l.users?.name, l.name, l.oab_number, l.uf_oab, `${l.oab_number}/${l.uf_oab}`, l.specialty]
+      .some(v => normalizeSearchText(v).includes(normalizedSearch))
   })
 
   if (!mounted) return null
@@ -244,7 +267,7 @@ export default function LawyersPage() {
         <div className="flex items-center justify-between">
           <ModuleHeader 
             title="Gestão de Advogados" 
-            description="Gerencie o corpo jurídico do escritório"
+            description="Gerencie o corpo jurídico e os filtros de OAB usados na captura do DJEN"
             icon={Scale}
           />
           <button 
@@ -262,7 +285,7 @@ export default function LawyersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar por nome, OAB ou especialidade..."
+              placeholder="Buscar por nome, OAB/UF ou especialidade..."
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -324,8 +347,10 @@ export default function LawyersPage() {
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">OAB</span>
-                      <span className="font-medium text-slate-700">{lawyer.oab_number || 'Não informado'}</span>
+                      <span className="text-slate-500">OAB/UF</span>
+                      <span className="font-medium text-slate-700">
+                        {lawyer.oab_number ? `${lawyer.oab_number}/${lawyer.uf_oab || '--'}` : 'Não informado'}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500">Especialidade</span>
@@ -462,15 +487,31 @@ export default function LawyersPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Número OAB</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">UF da OAB</label>
+                      <select
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all"
+                        value={formData.uf_oab}
+                        onChange={(e) => setFormData({...formData, uf_oab: e.target.value})}
+                        required
+                      >
+                        <option value="">UF</option>
+                        {BRAZILIAN_STATES.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Número da OAB</label>
                       <input 
                         type="text" 
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={10}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all"
-                        placeholder="Ex: 12345/BA"
+                        placeholder="Ex.: 84503"
                         value={formData.oab_number}
-                        onChange={(e) => setFormData({...formData, oab_number: e.target.value})}
+                        onChange={(e) => setFormData({...formData, oab_number: e.target.value.replace(/\D/g, '')})}
+                        required
                       />
                     </div>
                     <div>
@@ -484,6 +525,9 @@ export default function LawyersPage() {
                       />
                     </div>
                   </div>
+                  <p className="-mt-2 text-[11px] text-slate-500">
+                    UF e número são usados para capturar somente as publicações deste advogado no DJEN.
+                  </p>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">

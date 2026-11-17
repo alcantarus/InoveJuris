@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { RefreshCw, Save } from 'lucide-react'
 import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
-import { getTodayBR } from '@/lib/utils'
+import { cn, getTodayBR } from '@/lib/utils'
+import { getAppEnv } from '@/lib/env'
 
 const COMMON_TRIBUNALS = ['TJSP', 'TJMG', 'TJRJ', 'TJBA', 'TRF1', 'TRF3', 'TRF4', 'TRT1', 'TRT2', 'TRT15']
 
@@ -21,32 +22,91 @@ interface SyncModalProps {
   onSynced: () => void
 }
 
+interface LawyerOption {
+  id: number
+  name: string
+  oab_number: string
+  uf_oab: string
+  label: string
+  valid: boolean
+}
+
 export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
   const [form, setForm] = useState({
     startDate: daysAgo(7),
     endDate: getTodayBR(),
-    tribunal: 'TJSP',
+    tribunal: '',
     processNumber: '',
-    oab: '',
-    ufOab: '',
     maxPages: '5',
   })
+  const [lawyers, setLawyers] = useState<LawyerOption[]>([])
+  const [selectedLawyerIds, setSelectedLawyerIds] = useState<number[]>([])
+  const [loadingLawyers, setLoadingLawyers] = useState(false)
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<any>(null)
 
+  const loadLawyers = useCallback(async () => {
+    setLoadingLawyers(true)
+    try {
+      const { data, error } = await supabase
+        .from('lawyers')
+        .select('id, name, oab_number, uf_oab, environment')
+        .eq('environment', getAppEnv())
+        .order('name')
+
+      if (error) throw error
+
+      const options: LawyerOption[] = (data || []).map((row: any) => {
+        const oabNumber = String(row.oab_number || '').replace(/\D/g, '')
+        const ufOab = String(row.uf_oab || '').trim().toUpperCase()
+        const valid = /^\d{1,10}$/.test(oabNumber) && /^[A-Z]{2}$/.test(ufOab)
+        const suffix = `${oabNumber}/${ufOab || '--'}`
+
+        return {
+          id: Number(row.id),
+          name: row.name || '',
+          oab_number: oabNumber,
+          uf_oab: ufOab,
+          label: row.name ? `${row.name} · ${suffix}` : `Advogado #${row.id} · ${suffix}`,
+          valid,
+        }
+      })
+
+      setLawyers(options)
+      setSelectedLawyerIds(options.filter(lawyer => lawyer.valid).map(lawyer => lawyer.id))
+    } catch (error: any) {
+      toast.error('Não foi possível carregar os advogados cadastrados.', { description: error?.message })
+    } finally {
+      setLoadingLawyers(false)
+    }
+  }, [])
+
   useEffect(() => {
-    if (isOpen) setResult(null)
-  }, [isOpen])
+    if (!isOpen) return
+    setResult(null)
+    loadLawyers()
+  }, [isOpen, loadLawyers])
 
   const update = (key: keyof typeof form, value: string) => setForm(previous => ({ ...previous, [key]: value }))
+
+  const validSelectedLawyers = lawyers.filter(lawyer => lawyer.valid && selectedLawyerIds.includes(lawyer.id))
+  const allSelected = validSelectedLawyers.length > 0 && validSelectedLawyers.every(lawyer => selectedLawyerIds.includes(lawyer.id))
+
+  const toggleLawyer = (id: number) => {
+    setSelectedLawyerIds(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id])
+  }
+
+  const toggleAll = () => {
+    setSelectedLawyerIds(allSelected ? [] : validSelectedLawyers.map(lawyer => lawyer.id))
+  }
 
   const handleSync = async () => {
     if (!form.startDate || !form.endDate || form.startDate > form.endDate) {
       toast.error('Confira o período: a data inicial não pode ser maior que a final.')
       return
     }
-    if (!form.tribunal && !form.processNumber && !form.oab) {
-      toast.error('Informe ao menos um filtro: tribunal, processo ou OAB.')
+    if (validSelectedLawyers.length === 0) {
+      toast.error('Selecione ao menos um advogado cadastrado com OAB e UF válidas.')
       return
     }
 
@@ -60,8 +120,7 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
           endDate: form.endDate,
           tribunal: form.tribunal,
           processNumber: form.processNumber,
-          oab: form.oab,
-          ufOab: form.ufOab,
+          lawyerIds: validSelectedLawyers.map(lawyer => lawyer.id),
           pageSize: 100,
           maxPages: Number(form.maxPages) || 5,
         }),
@@ -71,8 +130,16 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
         throw new Error(data.error || 'Não foi possível sincronizar com o DJEN.')
       }
       setResult(data)
-      toast.success(`${data.inserted} novas publicações e ${data.updated} atualizações processadas.`)
+      toast.success(`${data.inserted} novas publicações e ${data.updated} atualizações processadas para ${data.lawyersProcessed?.length || 0} advogado(s).`)
       onSynced()
+
+      const warnings: string[] = []
+      if (data.invalidLawyers?.length) warnings.push(`${data.invalidLawyers.length} cadastro(s) com OAB/UF inválida`)
+      if (data.failedLawyers?.length) warnings.push(`${data.failedLawyers.length} advogado(s) falharam`)
+      if (data.rateLimited) warnings.push('limite de requisições atingido — aguarde cerca de 1 minuto')
+      if (warnings.length > 0) {
+        toast.warning('Sincronização parcial.', { description: warnings.join(' · ') })
+      }
     } catch (error: any) {
       toast.error('Falha na sincronização.', { description: error?.message })
     } finally {
@@ -85,7 +152,8 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
       <div className="space-y-4">
         <div className="p-3 rounded-xl border border-indigo-100 bg-indigo-50 text-xs text-indigo-800">
           A importação <strong>apenas alimenta a fila</strong>. Nenhum prazo é criado automaticamente: toda publicação
-          exige leitura, classificação e confirmação expressa do advogado responsável.
+          exige leitura, classificação e confirmação expressa do advogado responsável. O DJEN consultará a OAB/UF
+          <strong> somente dos advogados cadastrados</strong> neste ambiente.
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -103,9 +171,9 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-xs font-bold text-slate-600">Tribunal (sigla)</span>
+            <span className="text-xs font-bold text-slate-600">Tribunal (opcional)</span>
             <input list="djen-tribunais" value={form.tribunal} onChange={e => update('tribunal', e.target.value)}
-              placeholder="Ex.: TJSP" className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
+              placeholder="Todos" className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
             <datalist id="djen-tribunais">
               {COMMON_TRIBUNALS.map(tribunal => <option key={tribunal} value={tribunal} />)}
             </datalist>
@@ -117,30 +185,63 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
           </label>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <label className="block">
-            <span className="text-xs font-bold text-slate-600">OAB (opcional)</span>
-            <input value={form.oab} onChange={e => update('oab', e.target.value)} placeholder="Somente números"
-              className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-bold text-slate-600">UF da OAB</span>
-            <input value={form.ufOab} onChange={e => update('ufOab', e.target.value)} placeholder="SP" maxLength={2}
-              className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-bold text-slate-600">Páginas (máx. 20)</span>
-            <input type="number" min={1} max={20} value={form.maxPages} onChange={e => update('maxPages', e.target.value)}
-              className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
-          </label>
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200">
+            <div>
+              <p className="text-xs font-bold text-slate-700">Advogados cadastrados</p>
+              <p className="text-[11px] text-slate-500">Um filtro OAB/UF por advogado selecionado.</p>
+            </div>
+            <button type="button" onClick={toggleAll} disabled={loadingLawyers || validSelectedLawyers.length === 0}
+              className="text-[11px] font-semibold text-indigo-600 hover:underline disabled:opacity-50">
+              {allSelected ? 'Limpar seleção' : 'Selecionar todos'}
+            </button>
+          </div>
+          <div className="max-h-44 overflow-y-auto divide-y divide-slate-100">
+            {loadingLawyers ? (
+              <p className="px-3 py-4 text-center text-xs text-slate-500">Carregando advogados...</p>
+            ) : lawyers.length === 0 ? (
+              <p className="px-3 py-4 text-center text-xs text-slate-500">
+                Nenhum advogado cadastrado neste ambiente. Cadastre um no Módulo Advogados.
+              </p>
+            ) : (
+              lawyers.map(lawyer => (
+                <label key={lawyer.id}
+                  className={cn(
+                    'flex items-start gap-2 px-3 py-2 text-sm',
+                    lawyer.valid ? 'cursor-pointer hover:bg-slate-50' : 'opacity-60 cursor-not-allowed'
+                  )}>
+                  <input type="checkbox" className="mt-0.5 accent-indigo-600" checked={selectedLawyerIds.includes(lawyer.id)}
+                    disabled={!lawyer.valid} onChange={() => toggleLawyer(lawyer.id)} />
+                  <span>
+                    <span className="block text-slate-700">{lawyer.label}</span>
+                    {!lawyer.valid && (
+                      <span className="block text-[11px] text-rose-600">OAB/UF incompleta — revise o cadastro.</span>
+                    )}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
         </div>
+
+        <label className="block">
+          <span className="text-xs font-bold text-slate-600">Páginas por advogado (máx. 20)</span>
+          <input type="number" min={1} max={20} value={form.maxPages} onChange={e => update('maxPages', e.target.value)}
+            className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
+        </label>
 
         {result && (
           <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-xs text-emerald-800 space-y-1">
             <p className="font-bold">Sincronização concluída</p>
-            <p>{result.fetched} comunicações processadas em {result.pagesFetched} página(s).</p>
+            <p>{result.fetched} comunicações processadas em {result.pagesFetched} página(s) para {result.lawyersProcessed?.length || 0} advogado(s).</p>
             <p>{result.inserted} novas · {result.updated} atualizações · {result.skipped} duplicatas ignoradas.</p>
             <p>{result.matchedProcesses} vincularam-se a processos cadastrados.</p>
+            {result.failedLawyers?.length > 0 && (
+              <p className="text-amber-700">{result.failedLawyers.length} advogado(s) não foram processados nesta rodada.</p>
+            )}
+            {result.rateLimited && (
+              <p className="text-amber-700">Limite do DJEN atingido. Aguarde cerca de 1 minuto antes de tentar novamente.</p>
+            )}
             {result.rateLimitRemaining != null && <p className="text-emerald-700">Restam {result.rateLimitRemaining} requisições no limite do DJEN.</p>}
           </div>
         )}
@@ -150,7 +251,7 @@ export function SyncModal({ isOpen, onClose, onSynced }: SyncModalProps) {
             className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
             Fechar
           </button>
-          <button type="button" onClick={handleSync} disabled={saving}
+          <button type="button" onClick={handleSync} disabled={saving || loadingLawyers || validSelectedLawyers.length === 0}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60">
             <RefreshCw size={15} className={saving ? 'animate-spin' : ''} />
             {saving ? 'Sincronizando...' : 'Buscar no DJEN'}

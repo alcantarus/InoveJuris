@@ -134,6 +134,18 @@
 - **UI validada em navegador:** `/publicacoes` com 100 registros, KPIs **100 / 0 / 0 / 100**, abas, filtros, busca, colunas CNJ/Tribunal/Data/Processo/Advogado/Situação e detalhe com **Ler o texto** exibindo o teor completo. Nenhum prazo foi criado na validação (`process_deadlines` sem registros para a data consultada). Uma decisão de teste (`Ignorada` / “Teste”) registrada durante a sessão foi revertida para `A triar`.
 - Commit `fdc2376` enviado para `trabalho-com-claude` em 2026-11-17 (complemento documental `d61cde3`). **Deploy de produção concluído:** `dpl_4uLoPWGo2mpGXKjb31Vbp5F15N6P`, alias `https://inove-juris.vercel.app`; rota `/publicacoes` respondeu **HTTP 200** em produção. O token antigo da Vercel deve ser revogado definitivamente.
 
+## Readequação — captura DJEN somente pelos advogados cadastrados (2026-11-17)
+- Parecer técnico favorável emitido **antes** da implementação, conforme solicitado: confirmado que `numeroOab` é o filtro efetivo e `ufOab` é complemento obrigatório no envio; `ufOab` sozinho retorna **422**, e múltiplos OABs na mesma requisição não são combinados de forma confiável.
+- Swagger oficial consultado: buscas por OAB limitadas a **10.000 resultados**; pelo menos um filtro é obrigatório; rate limit de **20 requisições** por janela, com cabeçalhos `x-ratelimit-*` e orientação de aguardar ~1 minuto após `429`.
+- Migration `supabase/migrations/20261118130000_add_lawyer_oab_uf.sql` aplicada no Supabase: coluna `lawyers.uf_oab`, normalização de `oab_number` para somente dígitos, checks `^[0-9]{1,10}$` e `^[A-Z]{2}$`, e Unique `(oab_number, uf_oab, environment)` no lugar das duas constraints antigas duplicadas. `publication_sync_log` ganhou `lawyer_oabs` para rastreabilidade.
+- Backfill aplicado aos registros reais: `84503BA → 84503 / BA` (produção e teste) e `12542BA → 12542 / BA` (teste).
+- `app/advogados/page.tsx` refatorada: **UF da OAB** e **Número da OAB** agora são campos separados e obrigatórios; validação, busca e duplicidade consideram `(número, UF, ambiente)`. O cartão exibe `OAB/UF`.
+- `components/publicacoes/SyncModal.tsx` refatorado: seleção dos **advogados cadastrados no ambiente**, com OAB/UF vinda do cadastro. Os campos manuais de OAB/UF e o tribunal padrão `TJSP` foram removidos; tribunal e processo são refinamentos opcionais.
+- `POST /api/djen-sync` refatorado: exige `lawyerIds`, carrega somente advogados válidos do ambiente e executa **uma consulta por advogado** com `numeroOab` + `ufOab`. Inclui deduplicação por `external_id`, pausa curta entre advogados, retentativa limitada em `429`, registro de falhas por advogado e `lawyer_oabs` no log. Reimportações continuam sem sobrescrever decisão, leitura, responsável ou prazo.
+- Testes empiricamente repetidos com os OABs cadastrados no período `2026-11-01` a `2026-11-17`: `84503/BA → count 2` e `12542/BA → count 0`, ambos HTTP 200. Nenhuma captura ampla é mais necessária.
+- **Limpeza controlada:** os 100 registros DJEN da validação ampla anterior foram removidos porque estavam todos `A triar`, sem leitura, decisão, justificativa, responsável ou prazo. A fila de Publicações ficou com **0 registros**; nenhum prazo foi criado.
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas; `/publicacoes` e `/api/djen-sync` listados).
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v

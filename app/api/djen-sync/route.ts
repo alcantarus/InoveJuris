@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import {
   fetchDjenCommunications,
-  hasDjenFilter,
   normalizeDjenItem,
   type DjenSyncFilters,
 } from '@/lib/djen'
@@ -10,6 +9,14 @@ import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
 import { getAppEnv } from '@/lib/env'
 
 type SupabaseClient = any
+
+interface SelectedLawyer {
+  id: number
+  name: string
+  oab_number: string
+  uf_oab: string
+  label: string
+}
 
 function isIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
@@ -20,6 +27,14 @@ function isIsoDate(value: string): boolean {
 function isMissingTable(error: any): boolean {
   const message = String(error?.message || error || '')
   return message.includes('42P01') || message.includes('relation "public.publications" does not exist')
+}
+
+function isRateLimitError(message: string): boolean {
+  return message.includes('429') || /limiti/i.test(message)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 async function getClient(): Promise<SupabaseClient> {
@@ -43,6 +58,21 @@ function chunk<T>(values: T[], size: number): T[][] {
   return result
 }
 
+/** Retentativa curta e limitada; se o 429 persistir, a mensagem orienta aguardar ~1 minuto. */
+async function fetchWithRetry(filters: DjenSyncFilters) {
+  const waits = [0, 2000, 5000]
+  for (let attempt = 0; attempt < waits.length; attempt++) {
+    if (waits[attempt]) await sleep(waits[attempt] as number)
+    try {
+      return await fetchDjenCommunications(filters)
+    } catch (error: any) {
+      const message = String(error?.message || error)
+      if (!isRateLimitError(message) || attempt === waits.length - 1) throw error
+    }
+  }
+  throw new Error('Não foi possível consultar o DJEN.')
+}
+
 export async function POST(req: Request) {
   let logId: number | null = null
   const startedAt = new Date().toISOString()
@@ -59,17 +89,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'A data inicial não pode ser maior que a final.' }, { status: 400 })
     }
 
+    const rawIds: unknown[] = Array.isArray(body.lawyerIds) ? body.lawyerIds : []
+    const lawyerIds: number[] = Array.from(new Set<number>(rawIds.map(value => Number(value))))
+      .filter((id): id is number => Number.isInteger(id) && id > 0)
+      .slice(0, 200)
+
+    if (lawyerIds.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Selecione ao menos um advogado cadastrado para capturar as publicações.' },
+        { status: 400 }
+      )
+    }
+
     const pageSize = Number(body.pageSize) === 5 ? 5 : 100
     const requestedMaxPages = Number(body.maxPages)
-    const filters: DjenSyncFilters = {
+    const commonFilters: DjenSyncFilters = {
       startDate,
       endDate,
       tribunal: String(body.tribunal || '').trim() || undefined,
       processNumber: String(body.processNumber || '').trim() || undefined,
-      oab: String(body.oab || '').trim() || undefined,
-      ufOab: String(body.ufOab || '').trim() || undefined,
-      lawyerName: String(body.lawyerName || '').trim() || undefined,
-      partyName: String(body.partyName || '').trim() || undefined,
       page: 1,
       pageSize,
       maxPages: Number.isFinite(requestedMaxPages) && requestedMaxPages > 0
@@ -77,15 +115,56 @@ export async function POST(req: Request) {
         : 5,
     }
 
-    if (!hasDjenFilter(filters)) {
-      return NextResponse.json(
-        { success: false, error: 'Informe ao menos um filtro: tribunal, processo, OAB, advogado ou parte.' },
-        { status: 400 }
-      )
-    }
-
     const client = await getClient()
     const environment = getAppEnv()
+
+    const { data: lawyerRows, error: lawyerError } = await client
+      .from('lawyers')
+      .select('id, name, oab_number, uf_oab, environment')
+      .eq('environment', environment)
+      .in('id', lawyerIds)
+      .limit(200)
+
+    if (lawyerError) {
+      throw new Error(`Não foi possível consultar os advogados cadastrados: ${lawyerError.message}`)
+    }
+
+    const lawyerById = new Map<number, any>()
+    ;(lawyerRows || []).forEach((row: any) => lawyerById.set(Number(row.id), row))
+
+    const missingLawyers = lawyerIds.filter(id => !lawyerById.has(id))
+    const invalidLawyers: string[] = []
+    const validLawyers: SelectedLawyer[] = []
+
+    // Mantém a ordem em que o usuário selecionou os advogados.
+    lawyerIds.forEach(id => {
+      const row = lawyerById.get(id)
+      if (!row) return
+
+      const oabNumber = String(row.oab_number || '').replace(/\D/g, '')
+      const ufOab = String(row.uf_oab || '').trim().toUpperCase()
+      const label = row.name
+        ? `${row.name} (${oabNumber}/${ufOab || '--'})`
+        : `Advogado #${id} (${oabNumber}/${ufOab || '--'})`
+
+      if (!/^\d{1,10}$/.test(oabNumber) || !/^[A-Z]{2}$/.test(ufOab)) {
+        invalidLawyers.push(label)
+        return
+      }
+
+      validLawyers.push({ id, name: row.name || '', oab_number: oabNumber, uf_oab: ufOab, label })
+    })
+
+    if (validLawyers.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Nenhum advogado selecionado possui OAB e UF válidas. Revise o cadastro no Módulo Advogados.',
+        invalidLawyers,
+        missingLawyers,
+      }, { status: 400 })
+    }
+
+    const lawyerOabs = validLawyers.map(lawyer => `${lawyer.oab_number}/${lawyer.uf_oab}`).join(', ')
 
     // Registro da tentativa. Não impede a sincronização se a tabela de log não existir.
     const logInsert = await client.from('publication_sync_log').insert({
@@ -93,23 +172,57 @@ export async function POST(req: Request) {
       started_at: startedAt,
       date_start: startDate,
       date_end: endDate,
-      tribunal: filters.tribunal || null,
-      process_number: filters.processNumber || null,
+      tribunal: commonFilters.tribunal || null,
+      process_number: commonFilters.processNumber || null,
+      lawyer_oabs: lawyerOabs,
       environment,
     }).select('id').single()
     logId = logInsert.data?.id != null ? Number(logInsert.data.id) : null
 
-    const syncResult = await fetchDjenCommunications(filters)
+    const seenExternalIds = new Set<string>()
+    const normalized: any[] = []
+    const processedLawyers: SelectedLawyer[] = []
+    const failedLawyers: Array<{ id: number; label: string; error: string }> = []
+    let rawFetched = 0
+    let totalAvailable = 0
+    let pagesFetched = 0
+    let rateLimitRemaining: number | null = null
+    let rateLimited = false
 
-    // Remove duplicatas devolvidas em mais de uma página.
-    const seen = new Set<string>()
-    const normalized = syncResult.items
-      .map(normalizeDjenItem)
-      .filter(item => {
-        if (!item.external_id || seen.has(item.external_id)) return false
-        seen.add(item.external_id)
-        return true
-      })
+    // Um request por advogado: a API do DJEN não combina OABs diferentes de forma confiável.
+    for (const lawyer of validLawyers) {
+      try {
+        const syncResult = await fetchWithRetry({
+          ...commonFilters,
+          oab: lawyer.oab_number,
+          ufOab: lawyer.uf_oab,
+        })
+
+        rawFetched += syncResult.items.length
+        totalAvailable += syncResult.total
+        pagesFetched += syncResult.pagesFetched
+        rateLimitRemaining = syncResult.rateLimitRemaining ?? rateLimitRemaining
+
+        syncResult.items.forEach(item => {
+          const publication = normalizeDjenItem(item)
+          if (!publication.external_id || seenExternalIds.has(publication.external_id)) return
+          seenExternalIds.add(publication.external_id)
+          normalized.push(publication)
+        })
+
+        processedLawyers.push(lawyer)
+      } catch (error: any) {
+        const message = String(error?.message || error)
+        failedLawyers.push({ id: lawyer.id, label: lawyer.label, error: message.slice(0, 300) })
+        if (isRateLimitError(message)) {
+          rateLimited = true
+          break
+        }
+      }
+
+      // Pausa curta entre advogados para não abusar do limite por IP.
+      await sleep(400)
+    }
 
     const { data: processRows, error: processError } = await client
       .from('processes')
@@ -204,26 +317,35 @@ export async function POST(req: Request) {
     const result = {
       success: true,
       fetched: normalized.length,
-      totalAvailable: syncResult.total,
-      pagesFetched: syncResult.pagesFetched,
+      rawFetched,
+      totalAvailable,
+      pagesFetched,
       inserted: toInsert.length,
       updated: toUpdate.length,
-      skipped: syncResult.items.length - normalized.length,
+      skipped: rawFetched - normalized.length,
       matchedProcesses: normalized.filter(item => item.process_number && processByNumber.has(item.process_number)).length,
-      rateLimitRemaining: syncResult.rateLimitRemaining,
+      rateLimitRemaining,
+      lawyersSelected: lawyerIds.length,
+      lawyersProcessed: processedLawyers.map(lawyer => lawyer.label),
+      invalidLawyers,
+      missingLawyers,
+      failedLawyers,
+      rateLimited,
     }
 
     if (logId != null) {
       try {
         await client.from('publication_sync_log').update({
-          sync_status: 'Sincronizado',
+          sync_status: failedLawyers.length === validLawyers.length ? 'Erro' : 'Sincronizado',
           finished_at: new Date().toISOString(),
           fetched_count: result.fetched,
           inserted_count: result.inserted,
           updated_count: result.updated,
           skipped_count: result.skipped,
           pages_fetched: result.pagesFetched,
-          error_message: null,
+          error_message: failedLawyers.length > 0
+            ? failedLawyers.map(item => `${item.label}: ${item.error}`).join(' | ').slice(0, 1000)
+            : null,
         }).eq('id', logId)
       } catch (logError) {
         console.error('[djen-sync] erro ao registrar conclusão:', logError)
@@ -236,7 +358,7 @@ export async function POST(req: Request) {
     const message = isMissingTable(error)
       ? 'A tabela de Publicações ainda não existe. Aplique a migration 20261118120000_create_publications.sql no Supabase.'
       : (error?.message || 'Erro interno na sincronização com o DJEN.')
-    const status = message.includes('429') || message.includes('limiti') ? 502 : 500
+    const status = isRateLimitError(message) ? 502 : 500
 
     if (logId != null) {
       try {
