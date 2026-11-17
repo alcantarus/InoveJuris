@@ -1,13 +1,13 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-17 (contexto desta conversa).
+> Atualizado em: 2026-11-17 (contexto desta conversa, com consolidação integral do histórico no final do arquivo).
 
 ## Contexto do projeto
 - **Stack:** Next.js 15 + Supabase (Postgres), uso de um único escritório (não SaaS/multi-tenant).
 - **Ambiente local:** `C:\InoveTecnologia\InoveJuris` (git repo, Windows/PowerShell).
 - **Repositório GitHub:** https://github.com/alcantarus/InoveJuris
-- **Deploy:** Vercel (conectada ao repo/branch `main`, conforme uso do usuário). Variáveis sensíveis/`NEXT_PUBLIC_*` devem estar configuradas na Vercel; migrations devem ser aplicadas no Supabase do ambiente alvo.
+- **Deploy:** Vercel (conectada ao repo; branch de trabalho efetiva `trabalho-com-claude`, com push também em `main` conforme o histórico abaixo). Variáveis sensíveis/`NEXT_PUBLIC_*` devem estar configuradas na Vercel; migrations devem ser aplicadas no Supabase do ambiente alvo.
 
 ## Objetivos/temas trabalhados
 - Segurança/performance e recomendações priorizadas (P0/P1/P2) — análise entregue; refactors amplos não executados.
@@ -183,6 +183,60 @@
 - Nenhuma funcionalidade desktop foi removida; nenhuma dependência nova foi adicionada. Em Relatórios, o filtro de divergência GPS passou a ser aplicado de forma consistente às linhas e ao estado vazio.
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Validação em navegador com as visões mobile forçadas: Contas a Receber (106 contratos + parcelas), Prazos, Leads e Relatórios renderizaram cards com `scrollWidth == clientWidth` (sem rolagem horizontal).
 - Commit `f5c39d8` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_GPe7mkhhfq9NqryVihnhM9BY3bAT`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/contas-a-receber`, `/prazos` e `/relatorios` retornou **307** para `/login` (esperado sem sessão). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
+
+## Consolidação integral da sessão — checkpoint 2026-11-17
+Esta seção reúne as decisões, identificadores, detalhes de implementação e incidentes da sessão para garantir continuidade completa.
+
+### Regras de negócio e decisões consolidadas
+- Nome obrigatório **Publicações**, nunca "Intimações", em UI, menu, documentação e identificadores user-facing.
+- DJEN **não cria prazos automaticamente**: captura → leitura → classificação → **confirmação expressa** do advogado responsável (com justificativa obrigatório) antes de gravar em `process_deadlines`.
+- Captura DJEN somente pelos **advogados cadastrados**, usando `numeroOab` + `ufOab`, com **uma consulta por advogado**. `numeroOab` é o filtro efetivo; `ufOab` é complemento obrigatório.
+- Endpoint correto: **GET** `https://comunicaapi.pje.jus.br/api/v1/comunicacao` (POST retorna `401 Unauthenticated`). Consulta em produção via RPC `public.djen_fetch` pelo REST do Supabase (egress `sa-east-1`); a Edge Function `djen-proxy` ficou apenas como contingência (`DJEN_PROXY_URL`).
+- `process_deadlines` é a **fonte única da verdade** para Processos, Prazos e Calendário. Alterações passam pelas RPCs transacionais `create_process_deadline`, `update_process_deadline`, `confirm_process_deadline` e `delete_process_deadline`.
+- Reagendar exige **justificativa**; alterar a data reabre a confirmação (`confirmed_at`/`confirmed_by` zerados, situação volta a `Pendente`) e registra `old_data`, `new_data`, `changed_fields`, motivo, origem e usuário em `process_deadline_history`.
+- `Confirmado` significa ciência do advogado, **não** baixa do prazo; situações concluídas/canceladas não aparecem em “Próximo prazo”.
+- Dashboard reorganizada: Radar de Prazos e ações críticas em destaque; balão de aniversariantes substituído por chip inline discreto no header, sem sobrepor “Gerar Insights”.
+- No celular, os registros devem aparecer como **cards empilhados** (padrão Clientes/Contratos), sem rolagem horizontal.
+
+### Ambiente e identificadores
+- Vercel: projeto `inove-juris`, produção `https://inove-juris.vercel.app`; CLI autenticada como `alcantarus`.
+- Supabase: ref `jhlxzqsgmudkbjkynqdl`.
+- Git: branch `trabalho-com-claude`; último commit `afa61a4`; working tree limpa ao final da sessão.
+- Advogado de produção: `id=1`, `oab_number='84503'`, `uf_oab='BA'`, `name=null`.
+- Comandos usuais: `npx tsc --noEmit`, `npm run build`, `npx vercel --prod --yes`, `npx vercel curl <url>`.
+- **PowerShell não aceita `&&` neste ambiente** — usar `;`.
+- O token antigo da Vercel continua considerado comprometido e deve ser revogado definitivamente.
+
+### Detalhes da responsividade mobile (por arquivo)
+- `app/contas-a-receber/page.tsx`: helpers extraídos `getContractRowStatus`, `filteredContracts` (`useMemo`), `getInstallmentFlags` e `openContract`; tabela desktop oculta com `hidden md:block overflow-x-auto`; cards da carteira (106 contratos validados) e das parcelas, com Receber / Ajustar previsão / Prorrogar / Estornar em `min-h-[40px]`.
+- `app/prazos/page.tsx`: `Loader2`, `PriorityBadge`, `StatusBadge`, `DeadlineActions` (variante mobile) e `MobileField`; cards alimentados pela mesma lista filtrada da tabela.
+- `components/calendario/DeadlineListView.tsx`: `daysLabel`, `daysClass`, `StatusBadge`, `DeadlineActions` e `MobileField`; sete colunas convertidas em campos rotulados.
+- `components/processos/ProcessTable.tsx`: `getRowData`, `StatusBadge`, `DeadlineInfo`, `ResponsibleInfo` e `MobileField`; ações Abrir/Sinc/Editar/Excluir em grid de duas colunas. O seletor Lista/Cards da página permanece intacto.
+- `components/publicacoes/PublicationTable.tsx`: `StatusBadge`, `SourceBadge`, `DeadlineRef` e `MobileField`; card inteiro clicável e CTA “Ler e triar”. As ações de triagem continuam em `PublicationDetail`.
+- `app/leads/page.tsx`: `FUNNEL_STAGES`/`getFunnelIndex`, `getNextActionInfo`, `getLeadRowTone`, `MobileField`, `FunnelStage`, `WhatsappTemplatesMenu`, `AgendaMenu` e `LeadExpandedDetails`. Os popovers de ação rápida ficam no nível do card (`absolute left-4 right-4 top-16`) para não serem cortados pelo `overflow-hidden`.
+- `app/indicadores/page.tsx`: `MobileField`, `getCommissionRowState` e `getTokenStatus`; cards na lista principal, em Comissões e em Links Gerados (inclusive dentro dos modais).
+- `app/fluxo-caixa/page.tsx` e `app/fluxo-caixa/movimentacoes/page.tsx`: `CardField`, `TransactionTypeIcon` e `TransactionActions` (alvos de 40 px). As tabelas pequenas de Distribuição de Entradas/Despesas foram mantidas porque não estouram a largura no celular.
+- `app/produtos/page.tsx` e `app/doencas/page.tsx`: `CardField`, `getProductAreaName`, `ProductActions`, `getAccessoryCids` e `DiseaseActions`; descrições longas de CID quebram linha.
+- `app/relatorios/page.tsx`: `ReportCardField`, `getReportRows`, `getReportColumns` e `reportRows` — um único renderizador para os 7 tipos de relatório. Ajuste visual: `p-4` removido dos `cellClassName` (42 linhas) e aplicado no `<td>` via `cn("p-4", column.cellClassName)`, evitando padding duplicado nos cards. O filtro de divergência GPS passou a ser aplicado de forma consistente às linhas e ao estado vazio.
+- `components/AuditAccessLogs.tsx`, `components/contas-a-receber/ContractStatementModal.tsx`, `components/settings/AuditLogsTab.tsx`, `components/settings/IntegrationsApiTab.tsx`, `components/settings/SystemTab.tsx` e `components/SyncDashboard.tsx`: cards para sessões/tentativas falhas, extrato de recebimentos, auditoria, matriz de notificações, integridade do banco e status DataJUD. Em `SystemTab`, `orphanResults = integrityCheckResults?.filter(...) ?? []` corrigiu `TS18047: 'integrityCheckResults' is possibly 'null'`.
+- Os checkboxes da Matriz de Notificações continuam **não controlados** (comportamento original), portanto os estados desktop e mobile são independentes.
+
+### Sequência final: validação, commit e deploy
+1. `npx tsc --noEmit` acusou `TS18047` em `components/settings/SystemTab.tsx:897`; corrigido com optional chaining → **OK**.
+2. `npm run build`: **OK** (21 páginas).
+3. Validação em navegador com visões mobile forçadas por CSS injetado: `/contas-a-receber` (106 contratos; clique em “Ver Parcelas” abriu o card da parcela), `/prazos`, `/leads` (estado vazio também em card) e `/relatorios` — todos com `scrollWidth == clientWidth`, sem rolagem horizontal.
+4. Commit `f5c39d8` (`feat(mobile): cards responsivos substituem tabelas com scroll horizontal`) e commit `afa61a4` (`docs: registra deploy dos cards responsivos`), ambos enviados para `trabalho-com-claude`.
+5. Deploy `npx vercel --prod --yes` → `dpl_GPe7mkhhfq9NqryVihnhM9BY3bAT` → `https://inove-juris.vercel.app`. `vercel curl` em `/contas-a-receber`, `/prazos` e `/relatorios` retornou **307** para `/login` (esperado sem sessão no CLI).
+6. `tsconfig.tsbuildinfo` foi restaurado com `git checkout --` (artefato local não versionado). O servidor `npm run dev` na porta 3000 foi encerrado ao final.
+
+### Interrupção e retomada (registro do incidente)
+- Uma rotina de validação no navegador que navegava por 12 rotas em sequência foi **abortada por limite de execução da ferramenta**. Isso **não travou o sistema** e não afetou arquivos, build ou deploy.
+- A retomada foi feita com navegações curtas e medições pontuais. A aba antiga foi descartada (`browser.tab_unavailable`) e uma nova foi aberta. O log final do `npm run dev` confirmou `GET /contas-a-receber`, `/prazos`, `/leads` e `/relatorios` com `200`.
+
+### Observações finais / pendências leves
+- Durante a validação local apareceu no log: `SQL Error: { code: '42501', message: 'must be owner of table leads' }` em `GET /api/fix-db`. Não bloqueou rotas nem a entrega; investigar se esse endpoint voltar a ser usado.
+- As imagens anexadas pelo usuário (`clientes.jpeg`, `contratos.jpeg`) não foram interpretadas visualmente por este modelo. O padrão de cards foi extraído diretamente do código de `/clientes` e `/contratos` e replicado nos demais módulos.
+- Para retomar em nova sessão: ler este arquivo e `docs/PLANO-MELHORIAS-INOVEJURIS.md` e seguir a partir do estado final acima.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
