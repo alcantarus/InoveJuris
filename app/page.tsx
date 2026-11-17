@@ -64,6 +64,7 @@ import { AreaEfficiencyCard } from '@/components/dashboard/dynamic/AreaEfficienc
 import GlobalActionCenter from '@/components/tasks/GlobalActionCenter'
 import TodayFocusWidget from '@/components/tasks/TodayFocusWidget'
 import BirthdayWidget from '@/components/dashboard/BirthdayWidget'
+import { BirthdayChecker } from '@/components/BirthdayChecker'
 import TaskKanban from '@/components/tasks/TaskKanban'
 
 const COLORS = ['#4f46e5', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -729,6 +730,8 @@ export default function Page() {
               </select>
             </div>
 
+            <BirthdayChecker />
+
             <button 
               onClick={generateRuleBasedInsight}
               disabled={isGeneratingInsight}
@@ -778,10 +781,79 @@ export default function Page() {
           ))}
         </div>
 
+        {/* Deadline Radar */}
+        {user?.canAccessProcesses && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-900">Radar de Prazos</h3>
+              <div className="flex gap-2">
+                <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600 uppercase tracking-tighter">
+                  <div className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" /> Crítico
+                </span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-[1fr,auto] gap-4 px-4 mb-2">
+              <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50">Processo / Cliente</span>
+              <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50 text-right">Prazo</span>
+            </div>
+
+            <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+              {data.deadlines.length === 0 && <p className="text-sm text-slate-500 px-4">Nenhum prazo pendente.</p>}
+              {data.deadlines.slice(0, 10).sort((a: any, b: any) => {
+                  const dateA = new Date(a.deadline_date || a.dueDate || 0).getTime();
+                  const dateB = new Date(b.deadline_date || b.dueDate || 0).getTime();
+                  return dateA - dateB;
+                }).map((d: any) => {
+                const deadlineDate = new Date(d.deadline_date || d.dueDate || 0);
+                const today = new Date();
+                const diffTime = deadlineDate.getTime() - today.getTime();
+                const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const isCritical = daysRemaining <= 1;
+                const progress = Math.min(100, Math.max(0, (30 - daysRemaining) / 30 * 100));
+                
+                return (
+                  <div 
+                    key={d.id} 
+                    className={cn(
+                      "group cursor-pointer p-4 rounded-xl border transition-all hover:shadow-md",
+                      isCritical ? "bg-rose-50 border-rose-200 hover:border-rose-400" : "bg-white border-slate-100 hover:border-slate-300"
+                    )}
+                    onClick={() => window.location.href = `/processos/${d.process_id}`}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={cn("text-sm font-bold", isCritical ? "text-rose-900" : "text-slate-900")}>
+                        {d.process_number}
+                      </span>
+                      <span className={cn(
+                        "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter",
+                        isCritical ? "bg-rose-200 text-rose-800" : "bg-slate-100 text-slate-600"
+                      )}>
+                        {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-1 truncate">{d.client_name}</p>
+                    <p className="text-xs font-medium text-slate-700 mb-3 truncate">{d.description}</p>
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className={cn("h-full transition-all duration-500", isCritical ? "bg-rose-500" : "bg-indigo-500")} 
+                        style={{ width: `${progress}%` }} 
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
         {/* Actionable Insights */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <TodayFocusWidget />
-          <BirthdayWidget />
           <LiquidityGapCard gap={totalReceivable - overdueTotal} isVisible={isVisible('dashboard_liquidity')} toggleVisibility={() => toggleVisibility('dashboard_liquidity')} />
           <StuckProcessesCard count={stuckInProtocol + stuckInJudicial} onAction={() => window.location.href = '/processos'} />
           <DefaultRiskCard riskAmount={overdueTotal} count={overdueInstallmentsRaw.length} onAction={() => window.location.href = '/contas-a-receber'} />
@@ -795,6 +867,175 @@ export default function Page() {
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
           <h2 className="text-xl font-bold text-slate-900 mb-6">Fluxo de Compromissos</h2>
           <TaskKanban />
+        </div>
+
+        {/* Bottlenecks (Prioritized) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {user?.canAccessProcesses && (
+            <motion.a 
+              href="/processos"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-rose-300 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                  <Zap size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Gargalos INSS</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-rose-50 rounded-xl border border-rose-100">
+                  <div>
+                    <p className="text-xs font-bold text-rose-600 uppercase tracking-wider">Aguardando Impulso</p>
+                    <h4 className="text-2xl font-bold text-rose-700">{stuckInProtocol}</h4>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-rose-500 font-medium leading-tight">Contratos parados em<br/>&quot;Protocolo&quot; sem processo</p>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ação Recomendada</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Considere impetrar Mandado de Segurança para os protocolos com mais de 45 dias sem resposta.
+                  </p>
+                </div>
+              </div>
+            </motion.a>
+          )}
+
+          {user?.canAccessProcesses && (
+            <motion.a 
+              href="/processos"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <Scale size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Gargalos na Justiça</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                  <div>
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Aguardando Andamento</p>
+                    <h4 className="text-2xl font-bold text-indigo-700">{stuckInJudicial}</h4>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-indigo-500 font-medium leading-tight">Contratos com processo<br/>aberto sem conclusão</p>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ação Recomendada</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Verifique os processos parados há mais de 30 dias na mesma fase.
+                  </p>
+                </div>
+              </div>
+            </motion.a>
+          )}
+        </div>
+
+        {/* Lists Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Upcoming Deadlines */}
+          
+          {/* Overdue Installments */}
+          {user?.canAccessContracts && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-900">Parcelas em Atraso</h3>
+                  <button 
+                    onClick={(e) => { e.preventDefault(); toggleVisibility('dashboard_overdue'); }} 
+                    className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                    title={isVisible('dashboard_overdue') ? "Ocultar valor" : "Mostrar valor"}
+                  >
+                    {isVisible('dashboard_overdue') ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                </div>
+                <div className="p-2 bg-rose-50 rounded-lg text-rose-500">
+                  <AlertOctagon size={20} />
+                </div>
+              </div>
+              
+              <div className="flex-1 space-y-0">
+                <div className="grid grid-cols-[1fr,auto] gap-4 px-4 mb-2">
+                  <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50">Cliente / Parcela</span>
+                  <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50 text-right">Valor</span>
+                </div>
+                {overdueList.length > 0 ? (
+                  overdueList.map((i: any) => (
+                    <div key={i.id} className="grid grid-cols-[1fr,auto] gap-4 items-center px-4 py-3 border-b border-rose-100 hover:bg-rose-900 hover:text-rose-50 transition-colors cursor-pointer rounded-lg">
+                      <div>
+                        <p className="text-sm font-semibold">{i.clientName}</p>
+                        <p className="text-xs opacity-70">Parcela {i.installmentNumber} • Venceu em {formatDate(i.dueDate)}</p>
+                      </div>
+                      <div className="text-sm font-bold font-mono">
+                        {formatCurrency((Number(i.amount) || 0) - (Number(i.amountPaid) || 0), isVisible('dashboard_overdue'))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                    <CheckCircle2 size={32} className="text-emerald-400" />
+                    <p className="text-sm font-medium">Nenhuma parcela em atraso</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Upcoming Payments */}
+          {user?.canAccessContracts && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-900">Recebimentos Futuros</h3>
+                  <button 
+                    onClick={() => toggleVisibility('dashboard_upcoming')} 
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {isVisible('dashboard_upcoming') ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                </div>
+                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500">
+                  <DollarSign size={20} />
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Próximos 7 dias:</span>
+                  <span className="text-sm font-bold font-mono">{formatCurrency(receivables7Days, isVisible('dashboard_upcoming'))}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Próximos 15 dias:</span>
+                  <span className="text-sm font-bold font-mono">{formatCurrency(receivables15Days, isVisible('dashboard_upcoming'))}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Próximos 30 dias:</span>
+                  <span className="text-sm font-bold font-mono">{formatCurrency(receivables30Days, isVisible('dashboard_upcoming'))}</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Business Pulse */}
@@ -992,152 +1233,107 @@ export default function Page() {
           </motion.div>
         </div>
 
-        {/* Bottlenecks (Prioritized) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {user?.canAccessProcesses && (
-            <motion.a 
-              href="/processos"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-rose-300 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                  <Zap size={20} />
+        {/* AI Insights & Risk Analysis */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* AI Insight Card */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl border border-indigo-500 shadow-xl lg:col-span-2 text-white relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+              <Sparkles size={120} />
+            </div>
+            
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 backdrop-blur-md rounded-lg">
+                  <BrainCircuit size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Gargalos INSS</h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-rose-50 rounded-xl border border-rose-100">
-                  <div>
-                    <p className="text-xs font-bold text-rose-600 uppercase tracking-wider">Aguardando Impulso</p>
-                    <h4 className="text-2xl font-bold text-rose-700">{stuckInProtocol}</h4>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-rose-500 font-medium leading-tight">Contratos parados em<br/>&quot;Protocolo&quot; sem processo</p>
-                  </div>
-                </div>
-                
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ação Recomendada</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Considere impetrar Mandado de Segurança para os protocolos com mais de 45 dias sem resposta.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold">Parecer Estratégico</h3>
+                  <button 
+                    onClick={(e) => { e.preventDefault(); toggleVisibility('dashboard_insight'); }} 
+                    className="p-1 text-white/50 hover:text-white transition-colors"
+                    title={isVisible('dashboard_insight') ? "Ocultar valor" : "Mostrar valor"}
+                  >
+                    {isVisible('dashboard_insight') ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
                 </div>
               </div>
-            </motion.a>
-          )}
+              <button 
+                onClick={generateRuleBasedInsight}
+                disabled={isGeneratingInsight}
+                className="text-xs font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg backdrop-blur-md transition-all flex items-center gap-2"
+              >
+                {isGeneratingInsight ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RotateCcw size={14} />}
+                Recalcular
+              </button>
+            </div>
 
-          {user?.canAccessProcesses && (
-            <motion.a 
-              href="/processos"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                  <Scale size={20} />
+            <div className="relative z-10 min-h-[100px]">
+              {aiInsight ? (
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <p className="text-indigo-50 leading-relaxed whitespace-pre-wrap">{aiInsight}</p>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Gargalos na Justiça</h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <div>
-                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Aguardando Andamento</p>
-                    <h4 className="text-2xl font-bold text-indigo-700">{stuckInJudicial}</h4>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-indigo-500 font-medium leading-tight">Contratos com processo<br/>aberto sem conclusão</p>
-                  </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                  <p className="text-sm font-medium text-indigo-100">Gerando insights estratégicos...</p>
                 </div>
-                
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ação Recomendada</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Verifique os processos parados há mais de 30 dias na mesma fase.
-                  </p>
-                </div>
-              </div>
-            </motion.a>
-          )}
-        </div>
+              )}
+            </div>
+          </motion.div>
 
-        {/* Deadline Radar */}
-        {user?.canAccessProcesses && (
+          {/* Churn Risk Card */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-900">Radar de Prazos</h3>
-              <div className="flex gap-2">
-                <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600 uppercase tracking-tighter">
-                  <div className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" /> Crítico
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                  <ShieldAlert size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Risco de Abandono</h3>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-[1fr,auto] gap-4 px-4 mb-2">
-              <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50">Processo / Cliente</span>
-              <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50 text-right">Prazo</span>
+              <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg">
+                {churnRiskProcesses.length} Críticos
+              </span>
             </div>
 
-            <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-              {data.deadlines.length === 0 && <p className="text-sm text-slate-500 px-4">Nenhum prazo pendente.</p>}
-              {data.deadlines.slice(0, 10).sort((a: any, b: any) => {
-                  const dateA = new Date(a.deadline_date || a.dueDate || 0).getTime();
-                  const dateB = new Date(b.deadline_date || b.dueDate || 0).getTime();
-                  return dateA - dateB;
-                }).map((d: any) => {
-                const deadlineDate = new Date(d.deadline_date || d.dueDate || 0);
-                const today = new Date();
-                const diffTime = deadlineDate.getTime() - today.getTime();
-                const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const isCritical = daysRemaining <= 1;
-                const progress = Math.min(100, Math.max(0, (30 - daysRemaining) / 30 * 100));
-                
-                return (
-                  <div 
-                    key={d.id} 
-                    className={cn(
-                      "group cursor-pointer p-4 rounded-xl border transition-all hover:shadow-md",
-                      isCritical ? "bg-rose-50 border-rose-200 hover:border-rose-400" : "bg-white border-slate-100 hover:border-slate-300"
-                    )}
-                    onClick={() => window.location.href = `/processos/${d.process_id}`}
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className={cn("text-sm font-bold", isCritical ? "text-rose-900" : "text-slate-900")}>
-                        {d.process_number}
-                      </span>
-                      <span className={cn(
-                        "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter",
-                        isCritical ? "bg-rose-200 text-rose-800" : "bg-slate-100 text-slate-600"
-                      )}>
-                        {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
-                      </span>
+            <div className="space-y-3">
+              {churnRiskProcesses.length > 0 ? (
+                churnRiskProcesses.map((p: any) => (
+                  <div key={p.id} className="p-3 rounded-xl border border-slate-100 hover:border-rose-200 transition-colors group">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-bold text-slate-900 truncate flex-1">{p.number}</p>
+                      <span className="text-[10px] font-bold text-rose-50 uppercase">Sem Movimentação</span>
                     </div>
-                    <p className="text-xs text-slate-500 mb-1 truncate">{d.client_name}</p>
-                    <p className="text-xs font-medium text-slate-700 mb-3 truncate">{d.description}</p>
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                      <div 
-                        className={cn("h-full transition-all duration-500", isCritical ? "bg-rose-500" : "bg-indigo-500")} 
-                        style={{ width: `${progress}%` }} 
-                      />
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-slate-500 truncate">{p.client}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {p.last_update ? `${Math.floor((new Date().getTime() - new Date(p.last_update).getTime()) / (1000 * 60 * 60 * 24))} dias` : 'Nunca'}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                  <CheckCircle2 size={32} className="text-emerald-400" />
+                  <p className="text-sm font-medium">Todos os processos ativos</p>
+                </div>
+              )}
             </div>
+            
+            {churnRiskProcesses.length > 0 && (
+              <button className="w-full mt-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                Ver todos os riscos
+              </button>
+            )}
           </motion.div>
-        )}
-
-
-
-
+        </div>
 
         {/* Charts Row 1: Revenue & Mix */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1539,206 +1735,9 @@ export default function Page() {
           </motion.div>
         </div>
 
-        {/* AI Insights & Risk Analysis */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* AI Insight Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl border border-indigo-500 shadow-xl lg:col-span-2 text-white relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              <Sparkles size={120} />
-            </div>
-            
-            <div className="flex items-center justify-between mb-6 relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 backdrop-blur-md rounded-lg">
-                  <BrainCircuit size={20} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold">Parecer Estratégico</h3>
-                  <button 
-                    onClick={(e) => { e.preventDefault(); toggleVisibility('dashboard_insight'); }} 
-                    className="p-1 text-white/50 hover:text-white transition-colors"
-                    title={isVisible('dashboard_insight') ? "Ocultar valor" : "Mostrar valor"}
-                  >
-                    {isVisible('dashboard_insight') ? <Eye size={16} /> : <EyeOff size={16} />}
-                  </button>
-                </div>
-              </div>
-              <button 
-                onClick={generateRuleBasedInsight}
-                disabled={isGeneratingInsight}
-                className="text-xs font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg backdrop-blur-md transition-all flex items-center gap-2"
-              >
-                {isGeneratingInsight ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RotateCcw size={14} />}
-                Recalcular
-              </button>
-            </div>
+        {/* Aniversariantes (secundário) */}
+        <BirthdayWidget />
 
-            <div className="relative z-10 min-h-[100px]">
-              {aiInsight ? (
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <p className="text-indigo-50 leading-relaxed whitespace-pre-wrap">{aiInsight}</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 gap-3">
-                  <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-                  <p className="text-sm font-medium text-indigo-100">Gerando insights estratégicos...</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Churn Risk Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                  <ShieldAlert size={20} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Risco de Abandono</h3>
-              </div>
-              <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg">
-                {churnRiskProcesses.length} Críticos
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {churnRiskProcesses.length > 0 ? (
-                churnRiskProcesses.map((p: any) => (
-                  <div key={p.id} className="p-3 rounded-xl border border-slate-100 hover:border-rose-200 transition-colors group">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-bold text-slate-900 truncate flex-1">{p.number}</p>
-                      <span className="text-[10px] font-bold text-rose-50 uppercase">Sem Movimentação</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-slate-500 truncate">{p.client}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {p.last_update ? `${Math.floor((new Date().getTime() - new Date(p.last_update).getTime()) / (1000 * 60 * 60 * 24))} dias` : 'Nunca'}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-                  <CheckCircle2 size={32} className="text-emerald-400" />
-                  <p className="text-sm font-medium">Todos os processos ativos</p>
-                </div>
-              )}
-            </div>
-            
-            {churnRiskProcesses.length > 0 && (
-              <button className="w-full mt-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                Ver todos os riscos
-              </button>
-            )}
-          </motion.div>
-        </div>
-
-        {/* Lists Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Upcoming Deadlines */}
-          
-          {/* Overdue Installments */}
-          {user?.canAccessContracts && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-slate-900">Parcelas em Atraso</h3>
-                  <button 
-                    onClick={(e) => { e.preventDefault(); toggleVisibility('dashboard_overdue'); }} 
-                    className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
-                    title={isVisible('dashboard_overdue') ? "Ocultar valor" : "Mostrar valor"}
-                  >
-                    {isVisible('dashboard_overdue') ? <Eye size={16} /> : <EyeOff size={16} />}
-                  </button>
-                </div>
-                <div className="p-2 bg-rose-50 rounded-lg text-rose-500">
-                  <AlertOctagon size={20} />
-                </div>
-              </div>
-              
-              <div className="flex-1 space-y-0">
-                <div className="grid grid-cols-[1fr,auto] gap-4 px-4 mb-2">
-                  <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50">Cliente / Parcela</span>
-                  <span className="font-serif italic text-[11px] uppercase tracking-widest opacity-50 text-right">Valor</span>
-                </div>
-                {overdueList.length > 0 ? (
-                  overdueList.map((i: any) => (
-                    <div key={i.id} className="grid grid-cols-[1fr,auto] gap-4 items-center px-4 py-3 border-b border-rose-100 hover:bg-rose-900 hover:text-rose-50 transition-colors cursor-pointer rounded-lg">
-                      <div>
-                        <p className="text-sm font-semibold">{i.clientName}</p>
-                        <p className="text-xs opacity-70">Parcela {i.installmentNumber} • Venceu em {formatDate(i.dueDate)}</p>
-                      </div>
-                      <div className="text-sm font-bold font-mono">
-                        {formatCurrency((Number(i.amount) || 0) - (Number(i.amountPaid) || 0), isVisible('dashboard_overdue'))}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-                    <CheckCircle2 size={32} className="text-emerald-400" />
-                    <p className="text-sm font-medium">Nenhuma parcela em atraso</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Upcoming Payments */}
-          {user?.canAccessContracts && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-slate-900">Recebimentos Futuros</h3>
-                  <button 
-                    onClick={() => toggleVisibility('dashboard_upcoming')} 
-                    className="text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {isVisible('dashboard_upcoming') ? <Eye size={16} /> : <EyeOff size={16} />}
-                  </button>
-                </div>
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500">
-                  <DollarSign size={20} />
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Próximos 7 dias:</span>
-                  <span className="text-sm font-bold font-mono">{formatCurrency(receivables7Days, isVisible('dashboard_upcoming'))}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Próximos 15 dias:</span>
-                  <span className="text-sm font-bold font-mono">{formatCurrency(receivables15Days, isVisible('dashboard_upcoming'))}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Próximos 30 dias:</span>
-                  <span className="text-sm font-bold font-mono">{formatCurrency(receivables30Days, isVisible('dashboard_upcoming'))}</span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* New Row: Clients & Finance Summary */}
-        
         {/* Recent Activities Row */}
         {user?.canAccessAudit && (
           <motion.div 
@@ -1791,6 +1790,7 @@ export default function Page() {
             </div>
           </motion.div>
         )}
+
       </div>
       <GlobalActionCenter />
     </DashboardLayout>

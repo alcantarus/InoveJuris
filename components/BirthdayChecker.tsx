@@ -16,7 +16,7 @@ interface BirthdayPerson {
   type: 'client' | 'indicator' | 'maternity'
 }
 
-export function BirthdayChecker() {
+export function BirthdayChecker({ className = '' }: { className?: string }) {
   const { user } = useAuth()
   const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
   const [sentCards, setSentCards] = useState<string[]>([])
@@ -171,21 +171,6 @@ export function BirthdayChecker() {
     return () => window.removeEventListener('focus', handleFocus)
   }, [checkBirthdays])
 
-  // Confetti ao abrir
-  useEffect(() => {
-    if (isOpen && pendingBirthdays.length > 0) {
-      const timer = setTimeout(() => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#4f46e5', '#8b5cf6', '#ec4899']
-        })
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen, pendingBirthdays.length])
-
   const handleCardGenerated = async (clientId: string) => {
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -234,36 +219,25 @@ export function BirthdayChecker() {
 
   return (
     <>
-      {/* Floating Badge */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div 
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            className="fixed top-40 md:top-24 right-4 md:right-6 z-40"
-          >
-            <button
-              onClick={() => setIsOpen(true)}
-              className={`relative flex items-center justify-center rounded-full shadow-lg transition-all transform hover:scale-105 group ${
-                pendingBirthdays.length > 0 
-                  ? 'gap-3 px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-indigo-500/30 hover:shadow-indigo-500/50' 
-                  : 'w-12 h-12 bg-white text-slate-400 border border-slate-200 shadow-slate-200/50 hover:text-indigo-600'
-              }`}
-            >
-              {pendingBirthdays.length > 0 && (
-                <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
-                  {pendingBirthdays.length}
-                </div>
-              )}
-              <Gift className={`w-5 h-5 ${pendingBirthdays.length > 0 ? 'animate-pulse' : ''}`} />
-              {pendingBirthdays.length > 0 && (
-                <span className="font-medium text-sm pr-1">Aniversariantes Hoje!</span>
-              )}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Gatilho discreto no fluxo do documento: nunca sobrepõe as ações
+          do cabeçalho, como o botão "Gerar Insights". */}
+      {!isOpen && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          title="Ver aniversariantes de hoje"
+          aria-label={`Aniversariantes de hoje: ${pendingBirthdays.length} pendente(s)`}
+          className={`inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-500 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 ${className}`}
+        >
+          <Gift className="h-4 w-4" />
+          <span className="text-xs font-medium">Aniversariantes</span>
+          {pendingBirthdays.length > 0 && (
+            <span className="ml-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
+              {pendingBirthdays.length}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Modal de Lista */}
       <AnimatePresence>

@@ -90,6 +90,10 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Edição de data/hora, descrição, situação e responsável a partir de `/prazos`, `/processos/[id]` e `/calendario`, com justificativa obrigatória para reagendamento e reabertura da confirmação do advogado.
 - Histórico imutável por prazo (`process_deadline_history`) e RPCs transacionais de criar/editar/confirmar/excluir; a edição de processos parou de recriar prazos (preserva IDs, vínculos e auditoria).
 
+### Fase 4.2 — Dashboard orientada a prioridades — ENTREGUE em 2026-11-17
+- Cards de ação imediata no topo (prazos, Foco de Hoje, liquidez, gargalos, inadimplência, compromissos), análises e auditoria ao final.
+- Aviso de aniversariantes deixou de ser um badge flutuante e passou a ser um chip discreto no cabeçalho da dashboard, sem sobrepor **Gerar Insights**.
+
 ### Fase 5 — Confiança e diagnóstico (P2, ~4-6 dias, risco baixo)
 - `/diagnostico` com 16 perguntas e score (pode ser 100% front, sem banco — ótima primeira entrega segura).
 - Consolidação "Equipe & segurança": status real de MFA TOTP/passkey, dispositivos confiáveis, verificação de hash da trilha de auditoria, backup RPO/RTO e LGPD.

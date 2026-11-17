@@ -166,6 +166,14 @@
 - RPCs testadas em produção no ambiente `test`: criar → reagendar sem justificativa (rejeitado com 400) → reagendar com justificativa (confirmação reaberta) → confirmar → excluir; 4 registros no histórico. `npx tsc --noEmit` e `npm run build`: **OK**.
 - Commit `598b83e` enviado para `trabalho-com-claude`. Deploy: `dpl_DTQcjAWySHvG9vjU9SWzcXhnp4gU` (`https://inove-juris.vercel.app`). Rotas `/prazos`, `/processos`, `/processos/[id]`, `/calendario` e `/publicacoes` responderam **200** em produção. O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
+## Reorganização da dashboard e aviso de aniversariantes (2026-11-17)
+- Ordem dos cards em `app/page.tsx` revisada para priorizar decisões imediatas: **Radar de Prazos → ações críticas (Foco de Hoje, liquidez, gargalos, risco de inadimplência) → Fluxo de Compromissos → Gargalos INSS/Justiça → Parcelas em Atraso e Recebimentos Futuros → Meta Mensal/KPIs/Parecer Virtual → Pipeline de Receita → Risco de Abandono → gráficos analíticos**.
+- O card **Aniversariantes de Hoje** (`BirthdayWidget`) saiu do topo e foi para o final da página, logo antes de **Atividades Recentes**. Nenhum card foi removido; apenas reordenado.
+- O antigo badge flutuante `Aniversariantes Hoje!` (`fixed top-40 md:top-24 right-4 md:right-6 z-40`, com `animate-bounce`/`animate-pulse`) foi substituído por um **chip inline discreto** no cabeçalho da dashboard, ao lado dos filtros e antes de **Gerar Insights**.
+- `BirthdayChecker` passou a viver no fluxo do documento (`app/page.tsx`) em vez de ser global no `DashboardLayout`; por isso não há mais `position: fixed`, `z-index` ou sobreposição com o botão **Gerar Insights** em nenhum breakpoint. O confeti automático ao abrir foi removido (o botão manual “Celebrar!” do modal permanece).
+- O mesmo ajuste foi aplicado ao layout legado `app/dashboard-layout-1.tsx` para evitar duplicidade caso ele volte a ser usado.
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v
