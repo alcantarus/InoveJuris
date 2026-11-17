@@ -104,7 +104,8 @@
 - **Detalhe (`/processos/[id]`) novo:** breadcrumb, dados do processo (área/fase, vara/comarca, tribunal, valor, distribuição, última movimentação, responsável, fonte), segredo de justiça, anotações editáveis, próximo prazo com timeline (DJEN → Publicação → Contagem → Vencimento), confirmação expressa do advogado, lista de prazos, partes e andamentos reais do DataJud.
 - Helpers compartilhados em `lib/processes.ts` (`getNextDeadline`, `daysUntilDate`, `getResponsibleName`, `normalizeParties`, `isActiveProcess`).
 - **Migration nova:** `supabase/migrations/20261117180000_enhance_processes_detail.sql` — campos em `processes` (`phase`, `comarca`, `tribunal`, `distribution_date`, `source`, `parties`, `secret_justice`) e em `process_deadlines` (`notification_date`, `publication_date`, `count_start_date`, `business_days`, `calculation_memory`, `responsible_id`, `confirmed_at`, `confirmed_by`, `justification`). Idempotente. **Pendente de aplicação no Supabase**: sem ela, o detalhe funciona em modo leitura, mas salvar anotações/confirmação e exibir a timeline completa podem falhar.
-- `npm run build`: **OK** (21 rotas, incluindo `/processos/[id]`). **Ainda não publicado**: aguardando autorização para commit/deploy.
+- `npm run build`: **OK** (21 rotas, incluindo `/processos/[id]`). Validação local (porta 3001): `/processos` com Lista/Cards, KPIs e sem Kanban; `/processos/38` com dados, anotações, prazos, partes e andamentos.
+- **Publicado (2026-11-17):** commit `72a21de` em `trabalho-com-claude` (push feito) e deploy de produção `dpl_3qyvx9iwnEhDoXeFXrtm1tcHz6Zh` em https://inove-juris.vercel.app. A migration `20261117180000_enhance_processes_detail.sql` foi versionada, mas **ainda precisa ser aplicada no Supabase** para salvar anotações/confirmar prazos e exibir a timeline completa.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
