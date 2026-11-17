@@ -252,6 +252,16 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - Commit `ed47f32` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_6RQzU9K8xCBVx8Xyadvk9gKgHt1c`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/prazos`, `/processos` e `/calendario` retornou `Redirecting...` para `/login` (esperado sem sessão no CLI). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 - O servidor local `npm run dev` da porta 3000 foi encerrado ao final da validação.
 
+## AGENDADO para 2026-11-18 — filtrar prazos por ambiente
+- Solicitado pelo usuário após a entrega da exclusão: corrigir o comportamento preexistente em que `fetchDeadlines()` (`lib/deadlines.ts:72-147`) carrega registros de **todos os ambientes**, enquanto as RPCs de mutação usam `getAppEnv()`. Isso faz a lista misturar prazos `test`/`production` e pode gerar `P0002` na exclusão (e também na criação, porque o modal "Novo prazo" oferece processos do outro ambiente).
+- Plano de correção (não executado ainda):
+  1. Em `lib/deadlines.ts`, importar `getAppEnv` de `@/lib/env` e aceitar `fetchDeadlines(env: AppEnv = getAppEnv())`.
+  2. Aplicar `.eq('environment', env)` nas cinco consultas de `fetchDeadlines()`: `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers`. Todas essas tabelas possuem a coluna `environment` (confirmado por `information_schema.columns` em 2026-11-17).
+  3. Manter a chamada somente dentro dos efeitos cliente de `/prazos` e `/calendario` — no servidor, `getAppEnv()` cai em `production` (padrão da variável de ambiente), o que poderia filtrar errado se o cookie disser `test`.
+  4. Endurecimento secundário em `app/processos/[id]/page.tsx`: filtrar a consulta do processo e os `process_deadlines` embutidos pelo mesmo ambiente, para não abrir prazo de outro ambiente pela URL.
+  5. Validação: alternar entre PRODUÇÃO/TESTE pela Sidebar (a troca já recarrega a página e atualiza `data-env`), conferir que Prazos/Calendário mostram apenas prazos do ambiente ativo, que o seletor de processos do "Novo prazo" só oferece processos daquele ambiente e que criar/excluir retorna HTTP `200` sem `P0002`.
+- Esta tarefa fica registrada aqui e em `docs/PLANO-MELHORIAS-INOVEJURIS.md` como próximo passo. Não há automatização que dispare a correção nem envio de lembrete; ao retomar amanhã, seguir este plano.
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v

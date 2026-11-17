@@ -103,6 +103,11 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Modal de confirmação reutilizável (`components/prazos/DeleteDeadlineModal.tsx`) com resumo do prazo e **motivo opcional**, registrado na auditoria pela RPC existente `delete_process_deadline` — sem migration nova.
 - Validação E2E em ambiente de teste: RPC HTTP `200`, remoção do prazo temporário e histórico `criar` + `excluir` confirmados por SQL.
 
+### Próximo passo — AGENDADO para 2026-11-18: filtrar prazos por ambiente
+- Corrigir `fetchDeadlines()` em `lib/deadlines.ts` para aceitar `env = getAppEnv()` e aplicar `.eq('environment', env)` em `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers` (todas possuem a coluna).
+- Objetivo: eliminar a mistura de prazos `production`/`test` em Prazos/Calendário e o `P0002` na exclusão/criação quando o seletor de processos oferecia registros do outro ambiente.
+- Endurecer também `app/processos/[id]/page.tsx` com o mesmo filtro e validar a troca PRODUÇÃO/TESTE pela Sidebar. Plano completo em `docs/STATUS-INOVEJURIS.md`.
+
 ### Fase 5 — Confiança e diagnóstico (P2, ~4-6 dias, risco baixo)
 - `/diagnostico` com 16 perguntas e score (pode ser 100% front, sem banco — ótima primeira entrega segura).
 - Consolidação "Equipe & segurança": status real de MFA TOTP/passkey, dispositivos confiáveis, verificação de hash da trilha de auditoria, backup RPO/RTO e LGPD.
