@@ -164,6 +164,7 @@
 - A edição de processos deixou de fazer `DELETE` + `INSERT` de todos os prazos: agora atualiza/insere/exclui apenas o que mudou, preservando `id`, vínculo com `publications.deadline_id`, memória de cálculo e auditoria.
 - `getNextDeadline()` e os buckets de Prazos/Calendário usam a mesma regra de situações encerradas; `Confirmado` continua significando ciência do advogado, não baixa do prazo.
 - RPCs testadas em produção no ambiente `test`: criar → reagendar sem justificativa (rejeitado com 400) → reagendar com justificativa (confirmação reaberta) → confirmar → excluir; 4 registros no histórico. `npx tsc --noEmit` e `npm run build`: **OK**.
+- Commit `598b83e` enviado para `trabalho-com-claude`. Deploy: `dpl_DTQcjAWySHvG9vjU9SWzcXhnp4gU` (`https://inove-juris.vercel.app`). Rotas `/prazos`, `/processos`, `/processos/[id]`, `/calendario` e `/publicacoes` responderam **200** em produção. O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
