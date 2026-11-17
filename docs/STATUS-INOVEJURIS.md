@@ -173,6 +173,7 @@
 - `BirthdayChecker` passou a viver no fluxo do documento (`app/page.tsx`) em vez de ser global no `DashboardLayout`; por isso não há mais `position: fixed`, `z-index` ou sobreposição com o botão **Gerar Insights** em nenhum breakpoint. O confeti automático ao abrir foi removido (o botão manual “Celebrar!” do modal permanece).
 - O mesmo ajuste foi aplicado ao layout legado `app/dashboard-layout-1.tsx` para evitar duplicidade caso ele volte a ser usado.
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+- Commit `e73767f` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_HHaT9kq8RNCLqQkMJkhTSmteJKk9`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/`, `/prazos` e `/publicacoes` retornou **307** com `Location: /login` (redirecionamento esperado sem cookie de sessão). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
