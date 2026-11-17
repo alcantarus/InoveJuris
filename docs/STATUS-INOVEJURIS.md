@@ -1,7 +1,13 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-17 (contexto desta conversa, com consolidação integral do histórico no final do arquivo).
+> Atualizado em: 2026-11-17 (contexto desta conversa, com consolidação integral do histórico no final do arquivo e tarefa agendada para 2026-11-18).
+
+## Índice da entrega mais recente (2026-11-17)
+- `ed47f32` — `fix(prazos): reativa exclusao de prazos em Prazos, Processos e Calendario`. Detalhes, validação E2E e deploy `dpl_6RQzU9K8xCBVx8Xyadvk9gKgHt1c`: ver seção **"Reativação da exclusão de prazos"**.
+- `aa675ff` — `docs: registra deploy da exclusao de prazos reativada` (alias de produção e encerramento do servidor local).
+- `ec6d462` — `docs: agenda correcao do filtro por ambiente em prazos`. Plano completo: ver seção **"AGENDADO para 2026-11-18 — filtrar prazos por ambiente"**.
+- Todos os três commits estão enviados para `trabalho-com-claude`; árvore de trabalho limpa ao final. Não executar a correção agendada antes de 2026-11-18 salvo pedido expresso.
 
 ## Contexto do projeto
 - **Stack:** Next.js 15 + Supabase (Postgres), uso de um único escritório (não SaaS/multi-tenant).
