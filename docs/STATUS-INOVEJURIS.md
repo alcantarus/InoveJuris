@@ -89,8 +89,10 @@
 - Migration `supabase/migrations/20261117150000_fix_datajud_sync.sql`: **corrigida** — `process_sync_status` é uma VIEW (não aceita `ALTER TABLE ADD COLUMN`, erro `42809`), então a migration cria a tabela `process_sync_log` para gravar o status real e corrige registros com `last_update = 'Agora'`.
 - `npm run build`: **OK** (rota `/api/process-sync` listada).
 - **Publicado em produção:** push em `main` (`cf1f97a`) com deploy automático confirmado. `/prazos` e `/calendario` respondem HTTP 200; `/api/process-sync` responde `500 - DATAJUD_API_KEY não configurada no servidor` (fail-fast esperado).
-- **Pendência de configuração:** definir `DATAJUD_API_KEY` no Vercel com chave própria (a chave compartilhada embutida no código foi removida; era a causa do 429). `SUPABASE_SERVICE_ROLE_KEY` é recomendada; sem ela a rota usa anon key + RPC `set_app_environment`.
-- **Pendência de banco:** aplicar a versão corrigida de `supabase/migrations/20261117150000_fix_datajud_sync.sql` (cria `process_sync_log`). Sem ela, a rota e o dashboard falham ao gravar/ler status (`relation does not exist`).
+- **Configuração concluída (2026-11-17):** `DATAJUD_API_KEY` adicionada no Vercel via CLI (ambiente Production) e deploy de produção executado (`dpl_93Fb8dU3TioJUTcBUnKrjVYcwaLV`). Antes disso, o projeto só tinha `DATAJUD_API_TOKEN`/`SCRAPER_API_KEY`, da integração antiga — daí o fail-fast. `SUPABASE_SERVICE_ROLE_KEY` não está configurada; a rota usa anon key + RPC `set_app_environment`.
+- **Banco concluído:** migration corrigida aplicada no Supabase; `process_sync_log` existe e responde 200 via REST.
+- **Validação final:** `/api/process-consultation` com CNJ real retornou `429 - O DataJud limitou a consulta`; `/api/process-sync` gravou em `process_sync_log` um registro `sync_status=Erro` com `error_message` e `last_sync`. Ou seja, consulta, tratamento de erro e persistência estão funcionando.
+- **Único impedimento restante:** a chave disponível é a compartilhada, já limitada pelo CNJ (429 / "processo não encontrado" inconsistente). Para acompanhar andamentos de verdade é necessário obter uma chave de API própria do DataJud e atualizar `DATAJUD_API_KEY` no Vercel.
 - **Ainda não implementado:** cálculo de dias úteis com feriados/recesso, baixa justificada de vencidos, Publicações, Triagem, `/processos/[id]`, agendamento automático de sincronização e os achados P0 anteriores.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
