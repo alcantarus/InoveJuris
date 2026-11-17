@@ -22,6 +22,7 @@ const PERMISSION_MAP: Record<string, keyof User> = {
   '/indicadores': 'canAccessIndicators',
   '/prazos': 'canAccessProcesses',
   '/calendario': 'canAccessProcesses',
+  '/publicacoes': 'canAccessProcesses',
   '/relatorios': 'canAccessReports',
   '/auditoria': 'canAccessAudit',
   '/usuarios': 'canAccessUsers',

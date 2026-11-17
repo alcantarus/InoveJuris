@@ -7,14 +7,15 @@
 - Por decisão do usuário, a ordem foi alterada: **começar pelas telas novas**, sem fase de estabilização prévia.
 - **Entregue e versionado:** Fase 1 parcial — `/prazos` e `/calendario` com camada de dados compartilhada (`lib/deadlines.ts`). Build OK.
 - **Correção DataJud entregue:** unificação em `lib/datajud.ts` + `/api/process-sync`, persistência de andamentos, remoção de chave hardcoded/Apify e criação da tabela `process_sync_log` (a antiga `process_sync_status` é uma VIEW e não serve para gravar status). Build OK.
-- Ainda pendente das telas novas: Publicações, Triagem e `/processos/[id]`; cálculo de dias úteis com feriados/recesso; baixa justificada; sincronização automática.
+- **Publicações/Triagem entregue em 2026-11-18** (`/publicacoes`, integração real com o DJEN e criação de prazo mediante confirmação expressa). `/processos/[id]` também entregue em 2026-11-17.
+- Ainda pendente das telas novas: cálculo de dias úteis com feriados/recesso; baixa justificada; sincronização automática (agendador).
 
 ## 1. Metodologia e limits
 
 - Texto dos 12 PNGs extraído via `Windows.Media.Ocr` (pt-BR) → `ocr_resultado.txt` (temporário).
 - Deploy inspecionado com sessão autenticada já existente no navegador: dashboard real, `/processos`, `/relatorios`, `/configuracoes`.
 - Código local mapeado: 26 páginas, 18 route handlers, ~95 SQL soltos, 37 migrations.
-- Rotas testadas: `/publicacoes`, `/prazos`, `/calendario`, `/processos/<id>` → **404 confirmado**.
+- Rotas testadas em 2026-11-17: `/publicacoes`, `/prazos`, `/calendario`, `/processos/<id>` → 404 confirmado. Em 2026-11-18: `/prazos`, `/calendario` e `/processos/<id>` entregues; `/publicacoes` entregue com a Fase 3.
 
 ## 2. Achados críticos no ambiente atual (P0)
 
@@ -34,17 +35,17 @@
 | Tela sugerida | Situação hoje | Principal gap | Prioridade |
 |---|---|---|---|
 | 01 Hoje | Dashboard existe (1.685 linhas, 30+ cards) | Foco: 3 alertas + fila de triagem + agenda da semana; cards vazios poluem | P1 |
-| 02 Publicações | **Inexistente** (só string de mock em `process-consultation/route.ts:173`) | Fila única DJEN/Comunica PJe/e-mail, triagem humana | P3 |
+| 02 Publicações | **Implementado** em 2026-11-18 (`/publicacoes`) | Fila única DJEN/Comunica PJe/e-mail, triagem humana e integração real com o DJEN | P3 — entregue |
 | 03 Prazos | Parcial: `process_deadlines`, Radar, Relatório de Prazos | Rota `/prazos`, dias úteis determinísticos, memória de cálculo, baixa justificada | P1 |
 | 04 Calendário | **Inexistente** | Visão mensal + alternância lista/calendário | P4 |
 | 05 Processos | Existe (`/processos`, 937 linhas) | Filtros, "próximo prazo", segredo de justiça por permissão | P2 |
-| 06 Processo | Modal dentro de `/processos`; rota 404 | `/processos/[id]` com abas (Resumo/Prazos/Intimações/Documentos/Financeiro/Auditoria/Partes) e timeline | P2 |
+| 06 Processo | **Implementado** em 2026-11-17 (`/processos/[id]`) | Detalhe com timeline DJEN → Publicação → Contagem → Vencimento; abas do mockup (Documentos/Financeiro/Auditoria/Partes) ainda não separadas | P2 — entregue parcialmente |
 | 07 Clientes | Maduro (`/clientes`, paginação, portal de indicador) | Documentos mascarados, consentimento LGPD, portal do cliente | P6 |
 | 08 Financeiro | Maduro (contas a receber, fluxo, movimentações) | Aging visual, maiores saldos, KPIs, baixa auditada | P6 |
 | 09 Equipe & segurança | Parcial: 13 abas em `/configuracoes`, `/usuarios`, `/auditoria` | Consolidação + status honesto de MFA/passkey/RLS/hash chain/backup | P5 |
 | 10 Diagnóstico | Parcial: `/setup` e APIs `check-db`/`diagnose-db` | Questionário de 16 perguntas + score 0-100 + exportar/imprimir | P5 |
 | 11 Busca | `GlobalSearch` (Ctrl+K, `search_all` acento-insensível) | Command palette com "Ações rápidas" e "Ir para"; links de processo corrigidos | P2 |
-| 12 Triagem | **Inexistente** | Modal de triagem com confirmação expressa; **nenhum prazo criado automaticamente** | P3 |
+| 12 Triagem | **Implementada** em 2026-11-18 dentro de `/publicacoes` | Modal de triagem com confirmação expressa; **nenhum prazo criado automaticamente** | P3 — entregue |
 
 ## 4. Decisões de produto a preservar
 
@@ -73,11 +74,12 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Melhorar `/processos`: filtros e coluna "Próximo prazo"; segredo de justiça por permissão.
 - `GlobalSearch` → command palette com ações rápidas e links de processo apontando para `/processos/[id]`.
 
-### Fase 3 — Intimações e triagem (P2, ~5-8 dias, risco médio)
-- Tabelas novas: `intakes` e `intake_reviews` (fonte, CNJ, tribunal, vara, teor, hash, status, quem leu/decidiu, motivo).
-- Rotas `/publicacoes` (fila: A triar/Triadas/Ignoradas/Todas) e triagem comCalcular / Confirmar / Ignorar (com motivo) / Cancelar.
-- Sincronização DJEN **simulada/CSV primeiro**; integração real depois. Flag `modules.intakes.enabled`, começar em TESTE.
-- Nenhuma escrita em `process_deadlines` sem confirmação expressa.
+### Fase 3 — Publicações e triagem (P2, ~5-8 dias, risco médio) — ENTREGUE em 2026-11-18
+- Tabelas criadas: `publications` e `publication_sync_log` (fonte, CNJ, tribunal, órgão, teor, hash/id externo, status, quem leu/decidiu, motivo, prazo resultante e log de sincronização).
+- Rota `/publicacoes` com fila **A triar / Triadas / Ignoradas / Todas** e triagem com **Criar prazo / Classificar sem prazo / Ignorar (com motivo) / Reabrir**.
+- Sincronização DJEN **real** contra a API pública `GET https://comunicaapi.pje.jus.br/api/v1/comunicacao`, sem token, com paginação controlada e tratamento de `429`.
+- Nenhuma escrita em `process_deadlines` sem confirmação expressa do advogado responsável; a sugestão de dias úteis desconsidera apenas fins de semana.
+- Pendente desta fase: agendador automático de sincronização e cálculo determinístico com feriados/recessos forenses.
 
 ### Fase 4 — Calendário (P2, ~2-3 dias, risco baixo)
 - `/calendario` mensal reaproveitando os dados de `/prazos`; toggle Calendário/Lista; vencidos destacados; CSV. `date-fns` já está no projeto.

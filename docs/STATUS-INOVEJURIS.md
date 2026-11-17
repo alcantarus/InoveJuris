@@ -93,7 +93,7 @@
 - **Banco concluído:** migration corrigida aplicada no Supabase; `process_sync_log` existe e responde 200 via REST.
 - **Validação final:** `/api/process-consultation` com CNJ real retornou `429 - O DataJud limitou a consulta`; `/api/process-sync` gravou em `process_sync_log` um registro `sync_status=Erro` com `error_message` e `last_sync`. Ou seja, consulta, tratamento de erro e persistência estão funcionando.
 - **Único impedimento restante:** a chave disponível é a compartilhada, já limitada pelo CNJ (429 / "processo não encontrado" inconsistente). Para acompanhar andamentos de verdade é necessário obter uma chave de API própria do DataJud e atualizar `DATAJUD_API_KEY` no Vercel.
-- **Ainda não implementado:** cálculo de dias úteis com feriados/recesso, baixa justificada de vencidos, Publicações, Triagem, agendamento automático de sincronização e os achados P0 anteriores.
+- **Ainda não implementado (naquele momento):** cálculo de dias úteis com feriados/recesso, baixa justificada de vencidos, Publicações/Triagem (entregues em 2026-11-18, ver abaixo), agendamento automático de sincronização e os achados P0 anteriores.
 
 ## Entrega — Módulo de Processos unificado (2026-11-17)
 - Decisão do usuário: **foco apenas no módulo de Processos**; remover o Kanban (que não agradou) e unir o que já funciona no InoveJuris com os modelos `05-processos.md` (carteira/lista) e `06-processo.md` (detalhe). Kanban de **tarefas** do dashboard (`TaskKanban`, `TodayFocusWidget`) permanece — é outro módulo.
@@ -117,6 +117,21 @@
 - `npm run build`: **OK**. Validação local (porta 3002): KPIs, alternância Listar/Calendário, grade DOM–SÁB, navegação de mês, filtro de vencidos e tabela renderizando corretamente.
 - **Ainda não implementado:** cálculo determinístico de dias úteis com feriados nacionais/recessos forenses (o modelo cita, mas a base ainda não tem essa rotina). A migration de prazos já está aplicada; os campos de dias úteis/memória/confirmação aparecem quando preenchidos.
 - **Publicado (2026-11-17):** commit `c758490` em `trabalho-com-claude` (push feito) e deploy `dpl_3mU8rYmJZ4ethrY57zsaCSLT543e` em https://inove-juris.vercel.app.
+
+## Entrega — Módulo de Publicações (2026-11-18)
+- Referência: `02-publicacoes.md`. Nomenclatura padronizada como **Publicações** em UI, menu, rotas, código e documentação (sem usar o termo anterior como nome de módulo).
+- **Regra preservada:** nenhum prazo é criado automaticamente pela importação. A fila apenas recebe as publicações; a criação de prazo exige leitura, classificação e **confirmação expressa** do advogado responsável (campo de justificativa obrigatório).
+- Rota `/publicacoes` com KPIs **A triar / Triadas / Ignoradas / Todas** e abas **A triar / Triadas / Ignoradas / Todas** (a aba Triadas é a melhoria acrescentada ao modelo). Colunas da tabela: CNJ, Tribunal, Data, Processo, Advogado e Situação; busca por CNJ/parte/tribunal/texto e filtros por tribunal e origem; exportação CSV da visão filtrada.
+- Detalhe da publicação (`components/publicacoes/PublicationDetail.tsx`): **Disponibilidade / Câmara / Página / Importância**, botão **Ler o texto** (teor em texto puro, sem HTML) e link para o inteiro teor no tribunal. Ações: **Criar prazo**, **Classificar sem prazo**, **Ignorar** (com motivo) e **Reabrir para triagem**.
+- **Criação de prazo:** grava em `process_deadlines` com `notification_date`, `publication_date`, `count_start_date`, `business_days`, `calculation_memory`, `responsible_id`, `confirmed_at`, `confirmed_by` e `justification`; só depois marca a publicação como `Triada` e grava `deadline_id`. A data sugerida considera apenas fins de semana (sem feriados/recessos) e aparece explicitamente como sugestão revisável.
+- **Integração real com o DJEN:** `lib/djen.ts` consulta `GET https://comunicaapi.pje.jus.br/api/v1/comunicacao` (API pública, sem token), com filtros de período, tribunal, processo, OAB, advogado e parte; paginação de 100 itens (limite aceito pela API), teto de segurança de páginas e tratamento de `429` com orientação de esperar ~1 minuto. O teor HTML é convertido em texto e os destinatários/advogados são normalizados.
+- `POST /api/djen-sync`: valida filtros, busca no DJEN, vincula publicações a processos pelo CNJ (20 dígitos), insere novas e **atualiza as existentes sem sobrescrever decisão, responsável, leitura ou prazo**, e registra tudo em `publication_sync_log`.
+- Cadastro manual na fila (`Nova publicação`) para **Comunica PJe / E-mail / DJEN**, permitindo a fila única prevista no modelo.
+- Migration `supabase/migrations/20261118120000_create_publications.sql`: tabelas `publications` e `publication_sync_log`, índices, RLS, grants e comentários. Idempotente. **Aplicada no Supabase em 2026-11-18** via `supabase db query --remote`; tabelas confirmadas por REST (HTTP 200).
+- Permissão: `'/publicacoes': 'canAccessProcesses'` em `app/dashboard-layout.tsx`; item **Publicações** no grupo Operacional da sidebar.
+- `npm run build`: **OK** (`/publicacoes` e `/api/djen-sync` listados; 21 páginas estáticas geradas).
+- **Validação com dados reais (2026-11-17/18):** duas sincronizações DJEN com 100 comunicações cada, ambas `Sincronizado`; a segunda confirmou idempotência (`inserted=0`, `updated=100`) e preservou `status='A triar'`. A correção de entidades HTML case-sensitive gravou corretamente `DESPACHO/DECISÃO` no teor.
+- **UI validada em navegador:** `/publicacoes` com 100 registros, KPIs **100 / 0 / 0 / 100**, abas, filtros, busca, colunas CNJ/Tribunal/Data/Processo/Advogado/Situação e detalhe com **Ler o texto** exibindo o teor completo. Nenhum prazo foi criado na validação (`process_deadlines` sem registros para a data consultada). Uma decisão de teste (`Ignorada` / “Teste”) registrada durante a sessão foi revertida para `A triar`.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell

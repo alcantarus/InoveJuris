@@ -182,7 +182,7 @@ export default function ProcessoDetalhePage() {
   }
 
   const timeline = [
-    { label: 'Disponibilização DJEN / Intimação', date: nextDeadline?.notification_date || nextDeadline?.created_at },
+    { label: 'Disponibilização DJEN', date: nextDeadline?.notification_date || nextDeadline?.created_at },
     { label: 'Publicação', date: nextDeadline?.publication_date },
     { label: 'Início da contagem', date: nextDeadline?.count_start_date },
     { label: 'Vencimento', date: nextDeadline?.deadline_date },
