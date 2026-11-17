@@ -26,6 +26,8 @@ import {
   TrendingUp,
   Briefcase,
   MessageSquare,
+  CalendarClock,
+  CalendarDays,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
@@ -105,6 +107,8 @@ export function Sidebar() {
     { name: 'Contratos', href: '/contratos', icon: Briefcase, show: user?.canAccessContracts, group: 'Controladoria' },
     { name: 'Contas a Receber', href: '/contas-a-receber', icon: Wallet, show: user?.canAccessReceivables, group: 'Controladoria' },
     { name: 'Fluxo de Caixa', href: '/fluxo-caixa', icon: TrendingUp, show: user?.canAccessCashFlow, group: 'Controladoria' },
+    { name: 'Prazos', href: '/prazos', icon: CalendarClock, show: user?.canAccessProcesses, group: 'Operacional' },
+    { name: 'Calendário', href: '/calendario', icon: CalendarDays, show: user?.canAccessProcesses, group: 'Operacional' },
     { name: 'Notificações', href: '/notificacoes', icon: Bell, show: true, group: 'Operacional' },
     { name: 'Produtos', href: '/produtos', icon: Package, show: user?.canAccessProducts, group: 'Operacional' },
     { name: 'Indicadores', href: '/indicadores', icon: BarChart3, show: user?.canAccessIndicators, group: 'Operacional' },

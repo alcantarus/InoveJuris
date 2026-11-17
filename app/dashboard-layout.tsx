@@ -20,6 +20,8 @@ const PERMISSION_MAP: Record<string, keyof User> = {
   '/fluxo-caixa': 'canAccessCashFlow',
   '/produtos': 'canAccessProducts',
   '/indicadores': 'canAccessIndicators',
+  '/prazos': 'canAccessProcesses',
+  '/calendario': 'canAccessProcesses',
   '/relatorios': 'canAccessReports',
   '/auditoria': 'canAccessAudit',
   '/usuarios': 'canAccessUsers',
