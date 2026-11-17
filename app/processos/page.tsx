@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase'
 import DashboardLayout from '../dashboard-layout'
 import { 
   Search, 
@@ -295,27 +294,19 @@ export default function ProcessosPage() {
     
     setSyncingProcessId(proc.id)
     try {
-      // Chamada à nova Edge Function
-      const supabaseUrl = defaultUrlProd;
-      const supabaseAnonKey = defaultKeyProd;
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/datajud-sync`, {
+      const response = await fetch('/api/process-sync', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`
-        },
-        body: JSON.stringify({ 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           process_id: proc.id,
-          process_number: proc.number 
+          process_number: proc.number
         })
       })
 
       const data = await response.json()
       if (data.success) {
-        // Atualiza a UI e notifica o usuário
-        alert(`Processo ${proc.number} sincronizado com sucesso!`)
-        fetchProcesses() // Refresh para atualizar os dados na tela
+        alert(`Processo ${proc.number} sincronizado: ${data.movements} andamento(s) atualizado(s).`)
+        fetchProcesses()
       } else {
         alert(`Erro ao sincronizar processo: ${data.error || 'Erro desconhecido'}`)
       }
@@ -335,20 +326,7 @@ export default function ProcessosPage() {
       return
     }
     
-    let historyToSave = formData.history
-    
-    // If no history from consultation, use the mock one for demo purposes if it's a new process
-    if (historyToSave.length === 0 && !editingProcess) {
-      const now = new Date();
-      const getISO = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
-      historyToSave = [
-        { date: getISO(now), description: 'Processo cadastrado no sistema' },
-        { date: getISO(new Date(now.getTime() - 86400000)), description: 'Petição Inicial Juntada' },
-        { date: getISO(new Date(now.getTime() - 172800000)), description: 'Distribuído por Sorteio' },
-        { date: getISO(new Date(now.getTime() - 259200000)), description: 'Conclusos para Despacho' },
-        { date: getISO(new Date(now.getTime() - 345600000)), description: 'Recebimento da Inicial' }
-      ]
-    }
+    const historyToSave = formData.history
 
     const processData = {
       number: formData.number,
@@ -363,7 +341,7 @@ export default function ProcessosPage() {
       internal_notes: formData.internal_notes,
       lawyer_id: formData.lawyer_id || null,
       history: historyToSave.length > 0 ? historyToSave : (editingProcess?.history || []),
-      last_update: 'Agora',
+      last_update: new Date().toISOString(),
       updated_by: user?.id || null
     }
 

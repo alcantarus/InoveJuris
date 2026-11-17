@@ -11,34 +11,52 @@ const supabase = createClient(
 );
 
 async function syncProcess(process_id: number, process_number: string) {
-  const response = await fetch('/api/datajud-proxy', {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ process_number })
-  });
-  if (response.ok) {
-    alert('Sincronização iniciada com sucesso!');
-    window.location.reload();
-  } else {
-    alert('Erro ao iniciar sincronização.');
+  try {
+    const response = await fetch('/api/process-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ process_id, process_number })
+    });
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      alert(`Sincronização concluída: ${data.movements} andamento(s) atualizado(s).`);
+      window.location.reload();
+    } else {
+      alert(`Erro ao sincronizar: ${data.error || 'Erro desconhecido'}`);
+    }
+  } catch {
+    alert('Erro de comunicação com a API de sincronização.');
   }
 }
 
 export default function SyncDashboard() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const currentEnv = getAppEnv();
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase
+      let result = await supabase
         .from('process_sync_status')
         .select('*')
         .eq('environment', currentEnv);
-      
-      if (data) setData(data);
+
+      // Bancos que ainda não receberam a migration não têm a coluna environment.
+      if (result.error && String(result.error.message).includes('environment')) {
+        result = await supabase.from('process_sync_status').select('*');
+      }
+
+      const { data, error } = result;
+
+      if (error) {
+        setLoadError(error.message);
+        setData([]);
+      } else {
+        setLoadError(null);
+        setData(data || []);
+      }
       setLoading(false);
     }
     fetchData();
@@ -49,6 +67,11 @@ export default function SyncDashboard() {
   return (
     <div className="p-4 bg-white rounded-lg shadow">
       <h2 className="text-lg font-bold mb-4">Status de Sincronização DataJUD</h2>
+      {loadError && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+          Não foi possível carregar o status: {loadError}
+        </div>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left border-b">
