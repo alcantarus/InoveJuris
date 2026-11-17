@@ -181,7 +181,8 @@
 - **Contas a Receber** (`app/contas-a-receber/page.tsx`): cards para a carteira de contratos e para as parcelas do contrato. Mantidos busca, filtros (Todos/Abertos/Quitados/Atrasados/Vence Hoje), ordenação, olhos de privacidade, barra de progresso, seleção em lote, ações de Receber/Ajustar/Prorrogar/Estornar e os estados de carregamento/vazio.
 - Convertidos também: **Prazos** e a lista do **Calendário**; **Processos** (`ProcessTable`) e **Publicações** (`PublicationTable`, com “Ler e triar”); **Leads** (inclui funil, próxima ação, detalhes expansíveis e ações rápidas); **Indicadores** (lista, Comissões e Links Gerados, inclusive dentro dos modais); **Fluxo de Caixa** (page e Movimentações); **Produtos**, **Doenças**, **Relatórios** (7 tipos via renderizador único), **Auditoria** (`AuditAccessLogs`), **Extrato de Recebimentos**, **Configurações** (Auditoria, Matriz de Notificações, Integridade do banco) e **SyncDashboard**.
 - Nenhuma funcionalidade desktop foi removida; nenhuma dependência nova foi adicionada. Em Relatórios, o filtro de divergência GPS passou a ser aplicado de forma consistente às linhas e ao estado vazio.
-- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Validação em navegador com as visões mobile forçadas: Contas a Receber (106 contratos + parcelas), Prazos, Leads e Relatórios renderizaram cards com `scrollWidth == clientWidth` (sem rolagem horizontal).
+- Commit `f5c39d8` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_GPe7mkhhfq9NqryVihnhM9BY3bAT`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/contas-a-receber`, `/prazos` e `/relatorios` retornou **307** para `/login` (esperado sem sessão). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
