@@ -11,7 +11,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 | Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` |
 | `SUPABASE_SERVICE_ROLE_KEY` em Production? | **Sim.** Secret com a chave nova `sb_secret_...` (Preview segue com a legada) |
 | Alteração em buckets/policies/objetos do Storage? | **Sim (F6b):** 3 buckets passaram a privados e as 17 policies foram removidas. Nenhum objeto foi apagado |
-| Git | `7aa540e`, branch `trabalho-com-claude`. Os documentos atualizados nesta sessão ainda não foram comitados — o `git` não está disponível no PATH deste ambiente |
+| Git | `2ce7873`, branch `trabalho-com-claude`, árvore limpa, pushed no GitHub. Git 2.56 instalado via winget nesta sessão (executável em `C:\Program Files\Git\cmd\git.exe`) |
 
 **Conclusão operacional:** o sistema de produção pode ser usado normalmente — lançar contratos, receber títulos, acessar Publicações, etc. Os downloads passam pelo proxy assinado no servidor; a leitura em `/`, `/documentos` e `/publicacoes` foi confirmada. Falta apenas a validação manual dos fluxos de upload/remoção e das telas que exibem DOCX/imagens.
 
@@ -116,7 +116,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 1. Abrir este documento, `docs/STATUS-INOVEJURIS.md` e as seções 12.9/12.10 do parecer de impacto.
 2. Confirmar que a produção está em `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` e que os buckets estão privados.
 3. Fazer a validação manual dos fluxos de upload/remoção e das telas (DOCX, marketing, cartões de aniversário).
-4. Comitar os documentos atualizados nesta sessão (o `git` precisa ser disponibilizado no PATH).
-5. Seguir a fila da seção 5, começando pela F6c e pelo chamado F3.
+4. Registrar novas entregas nos documentos e comitar/push (Git já instalado em `C:\Program Files\Git\cmd\git.exe`).
+5. Seguir a fila da seção 5, começando pelo Ponto 2 (unificar chaves), F6c e o chamado F3.
 
 Nada precisa ser feito antes de desligar o computador: código, documentação e deploy de preview já estão salvos no GitHub e no Vercel.
