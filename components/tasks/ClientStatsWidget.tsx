@@ -29,6 +29,7 @@ interface Client {
   proxySigned: boolean
   isMinor: boolean
   legalRepresentative?: string
+  guardians?: unknown[]
 }
 
 export function ClientStatsWidget({ 
@@ -46,7 +47,7 @@ export function ClientStatsWidget({
   
   const total = totalCount;
   const minors = clients.filter(c => c.isMinor).length;
-  const assisted = clients.filter(c => c.legalRepresentative).length;
+  const assisted = clients.filter(c => (c.guardians?.length ?? 0) > 0 || !!c.legalRepresentative).length;
   
   // Health score: % of clients with name, email, and document
   const healthScore = total > 0 ? Math.round((clients.filter(c => c.name && c.email && c.document).length / total) * 100) : 0;

@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { getTodayBR } from '@/lib/utils'
 import { isConcludedDeadlineStatus } from '@/lib/deadline-status'
+import { getAppEnv, type AppEnv } from '@/lib/env'
 
 export type DeadlineBucket = 'vencidos' | 'hoje' | '7dias' | '30dias' | 'aberto' | 'concluido'
 
@@ -69,17 +70,22 @@ export const BUCKET_LABELS: Record<DeadlineBucket, string> = {
   concluido: 'Concluídos',
 }
 
-export async function fetchDeadlines(): Promise<DeadlinesPayload> {
+/**
+ * Carrega prazos e dados auxiliares de um único ambiente. As RPCs de mutação
+ * usam getAppEnv(); sem este filtro a lista misturava registros de test e
+ * production e a exclusão/criação falhava com P0002.
+ */
+export async function fetchDeadlines(env: AppEnv = getAppEnv()): Promise<DeadlinesPayload> {
   if (!isSupabaseConfigured) {
     return { items: [], processOptions: [], lawyers: [], error: null }
   }
 
   const [deadlinesRes, processesRes, contractsRes, clientsRes, lawyersRes] = await Promise.all([
-    supabase.from('process_deadlines').select('*'),
-    supabase.from('processes').select('id, number, client, court, type, status, priority, lawyer_id'),
-    supabase.from('contracts').select('processNumber, client_id'),
-    supabase.from('clients').select('id, name'),
-    supabase.from('lawyers').select('id, name, users:user_id(name)'),
+    supabase.from('process_deadlines').select('*').eq('environment', env),
+    supabase.from('processes').select('id, number, client, court, type, status, priority, lawyer_id').eq('environment', env),
+    supabase.from('contracts').select('processNumber, client_id').eq('environment', env),
+    supabase.from('clients').select('id, name').eq('environment', env),
+    supabase.from('lawyers').select('id, name, users:user_id(name)').eq('environment', env),
   ])
 
   const error = deadlinesRes.error || processesRes.error || contractsRes.error || clientsRes.error || lawyersRes.error

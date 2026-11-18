@@ -1,13 +1,13 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-17 (contexto desta conversa, com consolidação integral do histórico no final do arquivo e tarefa agendada para 2026-11-18).
+> Atualizado em: 2026-11-18 (filtro por ambiente entregue e representação legal de menores implementada e validada no cadastro de Clientes).
 
-## Índice da entrega mais recente (2026-11-17)
-- `ed47f32` — `fix(prazos): reativa exclusao de prazos em Prazos, Processos e Calendario`. Detalhes, validação E2E e deploy `dpl_6RQzU9K8xCBVx8Xyadvk9gKgHt1c`: ver seção **"Reativação da exclusão de prazos"**.
-- `aa675ff` — `docs: registra deploy da exclusao de prazos reativada` (alias de produção e encerramento do servidor local).
-- `ec6d462` — `docs: agenda correcao do filtro por ambiente em prazos`. Plano completo: ver seção **"AGENDADO para 2026-11-18 — filtrar prazos por ambiente"**.
-- Todos os três commits estão enviados para `trabalho-com-claude`; árvore de trabalho limpa ao final. Não executar a correção agendada antes de 2026-11-18 salvo pedido expresso.
+## Índice da entrega mais recente (2026-11-18)
+- Commit desta entrega: `feat(clientes): vinculos de representacao legal e filtro de ambiente em prazos` (hash atual em `git log -1`).
+- Migration aplicada em produção: `20261118140000_client_legal_guardians.sql` (`client_relationships`, `v_client_guardians`, `save_client_guardians`).
+- Detalhes: ver seções **"Correção do filtro por ambiente"** e **"Representação legal de menores em Clientes"**.
+- Commits anteriores desta sequência: `ed47f32` (exclusão de prazos), `aa675ff` (deploy), `ec6d462` (agendamento), `0165c37` (índice no STATUS).
 
 ## Contexto do projeto
 - **Stack:** Next.js 15 + Supabase (Postgres), uso de um único escritório (não SaaS/multi-tenant).
@@ -254,19 +254,34 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - Nenhuma migration nova: a exclusão é **hard delete** pela RPC existente, registrando `action='excluir'` em `process_deadline_history`; `publications.deadline_id` usa `ON DELETE SET NULL`. O motivo não é obrigatório no banco.
 - Validação E2E em `/prazos` com prazo temporário no ambiente `test`: criação (id `61`), abertura do modal, chamada `POST /rest/v1/rpc/delete_process_deadline` com HTTP `200` e resposta `true`, lista atualizada de 3 para 2 prazos. Histórico confirmado por SQL: id `11` (`criar`) e id `12` (`excluir`, `justification: "Validacao automatizada da exclusao"`, `source: "prazos"`).
 - Conferência visual em `/processos/39` (dois botões, modal abre e cancela) e em `/calendario` (botão na lista após navegar para dezembro/2026, modal abre e cancela).
-- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Atenção: `fetchDeadlines()` não filtra por ambiente; como `getAppEnv()` vem de `document.documentElement.dataset.env`, excluir um prazo de ambiente divergente falha com `P0002` ("Prazo não encontrado neste ambiente.") — comportamento já existente, não alterado aqui.
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Atenção naquele momento: `fetchDeadlines()` não filtrava por ambiente; como `getAppEnv()` vem de `document.documentElement.dataset.env`, excluir um prazo de ambiente divergente falhava com `P0002` ("Prazo não encontrado neste ambiente.") — comportamento preexistente, corrigido em 2026-11-18 na seção abaixo.
 - Commit `ed47f32` enviado para `trabalho-com-claude`. **Deploy de produção concluído:** `dpl_6RQzU9K8xCBVx8Xyadvk9gKgHt1c`, alias `https://inove-juris.vercel.app`. `vercel curl` em `/prazos`, `/processos` e `/calendario` retornou `Redirecting...` para `/login` (esperado sem sessão no CLI). O token antigo da Vercel continua considerado comprometido e deve ser revogado.
 - O servidor local `npm run dev` da porta 3000 foi encerrado ao final da validação.
 
-## AGENDADO para 2026-11-18 — filtrar prazos por ambiente
-- Solicitado pelo usuário após a entrega da exclusão: corrigir o comportamento preexistente em que `fetchDeadlines()` (`lib/deadlines.ts:72-147`) carrega registros de **todos os ambientes**, enquanto as RPCs de mutação usam `getAppEnv()`. Isso faz a lista misturar prazos `test`/`production` e pode gerar `P0002` na exclusão (e também na criação, porque o modal "Novo prazo" oferece processos do outro ambiente).
-- Plano de correção (não executado ainda):
-  1. Em `lib/deadlines.ts`, importar `getAppEnv` de `@/lib/env` e aceitar `fetchDeadlines(env: AppEnv = getAppEnv())`.
-  2. Aplicar `.eq('environment', env)` nas cinco consultas de `fetchDeadlines()`: `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers`. Todas essas tabelas possuem a coluna `environment` (confirmado por `information_schema.columns` em 2026-11-17).
-  3. Manter a chamada somente dentro dos efeitos cliente de `/prazos` e `/calendario` — no servidor, `getAppEnv()` cai em `production` (padrão da variável de ambiente), o que poderia filtrar errado se o cookie disser `test`.
-  4. Endurecimento secundário em `app/processos/[id]/page.tsx`: filtrar a consulta do processo e os `process_deadlines` embutidos pelo mesmo ambiente, para não abrir prazo de outro ambiente pela URL.
-  5. Validação: alternar entre PRODUÇÃO/TESTE pela Sidebar (a troca já recarrega a página e atualiza `data-env`), conferir que Prazos/Calendário mostram apenas prazos do ambiente ativo, que o seletor de processos do "Novo prazo" só oferece processos daquele ambiente e que criar/excluir retorna HTTP `200` sem `P0002`.
-- Esta tarefa fica registrada aqui e em `docs/PLANO-MELHORIAS-INOVEJURIS.md` como próximo passo. Não há automatização que dispare a correção nem envio de lembrete; ao retomar amanhã, seguir este plano.
+## Correção do filtro por ambiente — ENTREGUE em 2026-11-18
+- Corrigido o comportamento preexistente em que `fetchDeadlines()` carregava registros de **todos os ambientes**, enquanto as RPCs de mutação usam `getAppEnv()`. Isso misturava prazos `test`/`production`, oferecia processos do outro ambiente no modal "Novo prazo" e podia gerar `P0002` na criação/exclusão.
+- Implementação em `lib/deadlines.ts`: import de `getAppEnv`/`AppEnv`, assinatura `fetchDeadlines(env: AppEnv = getAppEnv())` e `.eq('environment', env)` nas cinco consultas (`process_deadlines`, `processes`, `contracts`, `clients`, `lawyers`).
+- A chamada continua ocorrendo somente em efeitos cliente (`/prazos`, `/calendario`); no servidor `getAppEnv()` cai em `production`, por isso não foi move-la para renderização server-side.
+- Validação com sessão autenticada em `/prazos`: requisição a `rest/v1/process_deadlines?...&environment=eq.production` retornou HTTP `200`. `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+- Não foi necessária migration nova.
+
+## Representação legal de menores em Clientes — ENTREGUE em 2026-11-18
+- Decisão de produto: o menor continua sendo uma parte no cadastro; pai/mãe/tutor/curador é **outro registro de Cliente**, relacionado por aresta. A frase usada pelos futuros documentos (“representado por...”) projeta campos do responsável — nunca texto copiado no menor.
+- `supabase/migrations/20261118140000_client_legal_guardians.sql` (aplicada em produção com `npx supabase db query --remote=jhlxzqsgmudkbjkynqdl --yes --file ...`; conferido `tabela=1`, `view=1`, `rpc=1`):
+  - `client_relationships`: vínculo por `environment`, `client_id`, `related_client_id`, `relationship_type` (`pai|mae|tutor|curador|outro`), rótulo livre para o texto da cláusula, tipo de guarda, `is_primary`, vigência e auditoria. Um relacionamento principal por menor por ambiente.
+  - `v_client_guardians`: expõe menor + responsável ao cadastro e, depois, ao catálogo do módulo Documentos.
+  - `save_client_guardians(p_client_id, p_environment, p_guardians JSONB, p_edited_by)`: substitui os vínculos em transação, valida mesmo `environment` para menor e responsáveis, rejeita vínculo consigo mesmo e mais de um principal.
+  - `clients."legalRepresentative"` permanece como legado; **não há backfill automático nem criação automática de clientes**.
+- Frontend: `lib/client-guardians.ts` (tipos, rótulos, leitura/escrita), `components/clients/GuardianPicker.tsx` (busca de clientes do mesmo ambiente), editor **“Vínculos de Representação Legal”** no modal de Cliente, aviso revisável quando existe texto legado sem vínculo, lista/filtro “Assistidos” e `ClientSlideOver` projetando `mãe (principal): Nome · CPF`.
+- Validação E2E em produção com o menor real **Anny Gabrielle Carvalho Borges** (`client_id=93`, legado “Arlene Carvalho de Santana Borges”):
+  1. Abrir edição: aviso legado exibido corretamente.
+  2. Buscar e selecionar **Arlene Carvalho de Santana Borges** (`client_id=94`), manter `mae` e principal, adicionar vínculo e salvar.
+  3. `POST /rest/v1/rpc/save_client_guardians` retornou **204**; modal fechou após recarregar a lista.
+  4. Recarregar a página e abrir o painel do cliente: `Representação legal — mãe (principal): Arlene Carvalho de Santana Borges · 032.448.265-55`; nenhum aviso de legado.
+  5. SQL confirmou `client_relationships.id=1`, `client_id=93`, `related_client_id=94`, `relationship_type='mae'`, `is_primary=true`, `environment='production'`, `created_by=2`, e a linha correspondente em `v_client_guardians`.
+- O vínculo de teste foi **mantido** porque reflete dado real correto.
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+- Pré-requisito para o módulo Documentos/“Modelo Vivo” concluído: o catálogo de dados poderá consumir `v_client_guardians` sem depender de texto livre.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell

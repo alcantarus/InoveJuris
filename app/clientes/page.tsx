@@ -5,6 +5,7 @@ import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
 import { ClientSlideOver } from '@/components/clients/ClientSlideOver'
+import { GuardianPicker, type GuardianCandidate } from '@/components/clients/GuardianPicker'
 import { ProcessPopover } from '@/components/clients/ProcessPopover'
 import { 
   Search, 
@@ -17,6 +18,7 @@ import {
   Download, 
   Trash2, 
   Edit2,
+  Link2,
   CheckCircle2,
   XCircle,
   Users,
@@ -31,6 +33,14 @@ import { Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
+import {
+  fetchGuardiansForClients,
+  saveClientGuardians,
+  RELATIONSHIP_LABELS,
+  RELATIONSHIP_TEXT,
+  type GuardianLink,
+  type RelationshipType,
+} from '@/lib/client-guardians'
 import Link from 'next/link'
 
 interface Client {
@@ -57,6 +67,7 @@ interface Client {
   proxySigned: boolean
   isMinor: boolean
   legalRepresentative?: string
+  guardians?: GuardianLink[]
   tags: string[]
   last_contact_at?: string | null
   next_follow_up_at?: string | null
@@ -277,6 +288,14 @@ export default function ClientesPage() {
   const [conflictWarning, setConflictWarning] = useState<string | null>(null)
   const [pendingSubmitData, setPendingSubmitData] = useState<any>(null)
 
+  const [guardianLinks, setGuardianLinks] = useState<GuardianLink[]>([])
+  const [guardianPick, setGuardianPick] = useState<GuardianCandidate | null>(null)
+  const [guardianType, setGuardianType] = useState<RelationshipType>('mae')
+  const [guardianLabel, setGuardianLabel] = useState('mãe')
+  const [guardianshipType, setGuardianshipType] = useState('')
+  const [guardianPrimary, setGuardianPrimary] = useState(true)
+  const [guardianError, setGuardianError] = useState('')
+
   const [isLoading, setIsLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
@@ -290,7 +309,7 @@ export default function ClientesPage() {
     if (!selectedFilter) return true;
     if (selectedFilter === 'total') return true;
     if (selectedFilter === 'minors') return client.isMinor;
-    if (selectedFilter === 'assisted') return !!client.legalRepresentative;
+    if (selectedFilter === 'assisted') return (client.guardians?.length ?? 0) > 0 || !!client.legalRepresentative;
     if (selectedFilter === 'health') return !!(client.name && client.email && client.document);
     return true;
   });
@@ -340,7 +359,7 @@ export default function ClientesPage() {
       
       if (error) throw error
       
-      const formattedClients = (data || []).map((item: any) => ({
+      const formattedClients: Client[] = (data || []).map((item: any) => ({
         ...item.client_data,
         vw_client_process_summary: [{
           active_processes_count: item.active_processes_count,
@@ -352,7 +371,13 @@ export default function ClientesPage() {
         total_overdue: item.total_overdue
       }))
 
-      setClients(formattedClients)
+      const guardiansByClient = await fetchGuardiansForClients(
+        formattedClients.map(client => client.id).filter(id => Number.isFinite(id))
+      )
+      setClients(formattedClients.map(client => ({
+        ...client,
+        guardians: guardiansByClient.get(client.id) || [],
+      })))
     } catch (error: any) {
       console.error('Error fetching clients:', error.message || error)
     } finally {
@@ -398,6 +423,13 @@ export default function ClientesPage() {
         last_contact_at: client.last_contact_at ? client.last_contact_at.split('T')[0] : '',
         next_follow_up_at: client.next_follow_up_at ? client.next_follow_up_at.split('T')[0] : '',
       })
+      setGuardianLinks(client.guardians || [])
+      setGuardianPick(null)
+      setGuardianType('mae')
+      setGuardianLabel('mãe')
+      setGuardianshipType('')
+      setGuardianPrimary((client.guardians || []).length === 0)
+      setGuardianError('')
     } else {
       setEditingClient(null)
       setFormData({
@@ -427,6 +459,13 @@ export default function ClientesPage() {
         last_contact_at: '',
         next_follow_up_at: ''
       })
+      setGuardianLinks([])
+      setGuardianPick(null)
+      setGuardianType('mae')
+      setGuardianLabel('mãe')
+      setGuardianshipType('')
+      setGuardianPrimary(true)
+      setGuardianError('')
     }
     setIsModalOpen(true)
   }
@@ -573,37 +612,55 @@ export default function ClientesPage() {
   }
 
   const executeSubmit = async (clientData: any) => {
+    let clientId: number | undefined = editingClient?.id
+    let clientError: any = null
+
     if (editingClient) {
       const { error } = await supabase
         .from('clients')
         .update(clientData)
         .eq('id', editingClient.id)
-      
-      if (error) {
-        console.error('Error updating client:', error)
-        alert(`Erro ao atualizar cliente: ${error.message || error.details || JSON.stringify(error)}`)
-      } else {
-        await fetchClients()
-        setIsModalOpen(false)
-        setConflictWarning(null)
-        setPendingSubmitData(null)
-      }
+      clientError = error
     } else {
       const { data, error } = await supabase
         .from('clients')
         .insert([{ ...clientData, created_by: user?.id || null }])
-        .select()
-      
-      if (error) {
-        console.error('Error creating client:', error)
-        alert(`Erro ao criar cliente: ${error.message || error.details || JSON.stringify(error)}`)
-      } else {
-        await fetchClients()
-        setIsModalOpen(false)
-        setConflictWarning(null)
-        setPendingSubmitData(null)
-      }
+        .select('id')
+        .single()
+      clientError = error
+      clientId = data?.id
     }
+
+    if (clientError) {
+      console.error('Error saving client:', clientError)
+      alert(`Erro ao salvar cliente: ${clientError.message || clientError.details || JSON.stringify(clientError)}`)
+      return
+    }
+
+    if (!clientId) {
+      alert('Erro ao salvar cliente: não foi possível obter o identificador.')
+      return
+    }
+
+    // Se o cliente deixou de ser menor, os vínculos antigos são removidos.
+    const linksToSave = formData.isMinor ? guardianLinks : []
+    const { error: guardiansError } = await saveClientGuardians(
+      clientId,
+      linksToSave,
+      getAppEnv(),
+      user?.id ?? null
+    )
+
+    if (guardiansError) {
+      console.error('Error saving legal guardians:', guardiansError)
+      alert(`Cliente salvo, mas não foi possível salvar os responsáveis legais: ${guardiansError}`)
+      return
+    }
+
+    await fetchClients()
+    setIsModalOpen(false)
+    setConflictWarning(null)
+    setPendingSubmitData(null)
   }
 
   const handleDelete = async (e: React.MouseEvent, id: number) => {
@@ -1283,18 +1340,181 @@ export default function ClientesPage() {
                 </div>
 
                 {formData.isMinor && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200"
+                    className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4"
                   >
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Representante Legal (Selecione na base)</label>
-                    <ClientCombobox 
-                      excludeId={editingClient?.id}
-                      value={formData.legalRepresentative || ''}
-                      onChange={(name) => setFormData({ ...formData, legalRepresentative: name })}
-                      placeholder="Pesquisar representante..."
-                    />
+                    <div className="flex items-start gap-2">
+                      <Link2 size={18} className="text-indigo-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Vínculos de Representação Legal</p>
+                        <p className="text-xs text-slate-500">
+                          O responsável é outro cliente cadastrado. Seus dados não são copiados para o menor.
+                        </p>
+                      </div>
+                    </div>
+
+                    {formData.legalRepresentative && guardianLinks.length === 0 && (
+                      <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 leading-relaxed">
+                        Representante legado: <strong>{formData.legalRepresentative}</strong>. Selecione esse cliente abaixo
+                        para converter o texto em vínculo.
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5">Responsável</label>
+                        <GuardianPicker
+                          excludeId={editingClient?.id}
+                          initialQuery={guardianLinks.length === 0 ? (formData.legalRepresentative || '') : ''}
+                          onSelect={candidate => {
+                            setGuardianPick(candidate)
+                            setGuardianError('')
+                          }}
+                        />
+                        {guardianPick && (
+                          <p className="mt-1 text-xs text-emerald-700 font-semibold">
+                            Selecionado: {guardianPick.name}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5">Parentesco / qualidade</label>
+                        <select
+                          value={guardianType}
+                          onChange={event => {
+                            const next = event.target.value as RelationshipType
+                            setGuardianType(next)
+                            setGuardianLabel(RELATIONSHIP_TEXT[next])
+                          }}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400"
+                        >
+                          {Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5">Texto no documento</label>
+                        <input
+                          value={guardianLabel}
+                          onChange={event => setGuardianLabel(event.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400"
+                          placeholder="Ex.: mãe, genitora, tutor"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5">Tipo de guarda (opcional)</label>
+                        <select
+                          value={guardianshipType}
+                          onChange={event => setGuardianshipType(event.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400"
+                        >
+                          <option value="">Não informado</option>
+                          <option value="poder paternal">Poder paternal</option>
+                          <option value="tutela">Tutela</option>
+                          <option value="curatela">Curatela</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded"
+                          checked={guardianPrimary}
+                          onChange={event => setGuardianPrimary(event.target.checked)}
+                        />
+                        Usar como responsável principal na cláusula
+                      </label>
+                      <button
+                        type="button"
+                        disabled={!guardianPick}
+                        onClick={() => {
+                          if (!guardianPick) return
+                          const duplicate = guardianLinks.some(
+                            link => link.related_client_id === guardianPick.id && link.relationship_type === guardianType
+                          )
+                          if (duplicate) {
+                            setGuardianError('Este vínculo já foi adicionado.')
+                            return
+                          }
+                          setGuardianLinks(previous => {
+                            const base = guardianPrimary
+                              ? previous.map(link => ({ ...link, is_primary: false }))
+                              : previous
+                            return [...base, {
+                              related_client_id: guardianPick.id,
+                              guardian_name: guardianPick.name,
+                              guardian_document: guardianPick.document,
+                              relationship_type: guardianType,
+                              relationship_label: guardianLabel.trim() || RELATIONSHIP_TEXT[guardianType],
+                              guardianship_type: guardianshipType || null,
+                              is_primary: guardianPrimary || base.length === 0,
+                            }]
+                          })
+                          setGuardianPick(null)
+                          setGuardianshipType('')
+                          setGuardianPrimary(false)
+                          setGuardianError('')
+                        }}
+                        className="inline-flex min-h-[40px] items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        <Plus size={15} /> Adicionar vínculo
+                      </button>
+                    </div>
+                    {guardianError && <p className="text-xs text-rose-600">{guardianError}</p>}
+
+                    {guardianLinks.length > 0 && (
+                      <div className="space-y-2">
+                        {guardianLinks.map((link, index) => (
+                          <div
+                            key={`${link.related_client_id}-${link.relationship_type}-${index}`}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-slate-200 bg-white"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 break-words">
+                                {link.guardian_name || `Cliente #${link.related_client_id}`}
+                                {link.is_primary && (
+                                  <span className="ml-2 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                                    Principal
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {link.relationship_label}
+                                {link.guardianship_type ? ` · ${link.guardianship_type}` : ''}
+                                {link.guardian_document ? ` · ${link.guardian_document}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {!link.is_primary && (
+                                <button
+                                  type="button"
+                                  onClick={() => setGuardianLinks(previous => previous.map((item, i) => ({
+                                    ...item,
+                                    is_primary: i === index,
+                                  })))}
+                                  className="min-h-[40px] px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                                >
+                                  Tornar principal
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setGuardianLinks(previous => previous.filter((_, i) => i !== index))}
+                                className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg p-2 text-rose-500 hover:bg-rose-50"
+                                title="Remover vínculo"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </div>

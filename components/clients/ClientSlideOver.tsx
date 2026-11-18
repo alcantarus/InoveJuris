@@ -26,6 +26,14 @@ interface Client {
   proxySigned: boolean
   isMinor: boolean
   legalRepresentative?: string
+  guardians?: {
+    related_client_id: number
+    guardian_name?: string | null
+    guardian_document?: string | null
+    relationship_label: string
+    is_primary: boolean
+    guardianship_type?: string | null
+  }[]
 }
 
 interface ClientSlideOverProps {
@@ -79,12 +87,34 @@ export const ClientSlideOver: React.FC<ClientSlideOverProps> = ({ isOpen, onClos
           </div>
         </div>
         
-        {client.legalRepresentative && (
-          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-            <User size={20} className="text-blue-600 mt-0.5" />
+        {client.isMinor && (client.guardians?.length ?? 0) > 0 && (
+          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+            <p className="font-semibold text-blue-900 flex items-center gap-2 mb-2">
+              <User size={18} /> Representação legal
+            </p>
+            <div className="space-y-2">
+              {client.guardians!.map((guardian, index) => (
+                <div key={`${guardian.related_client_id}-${index}`} className="text-sm text-blue-800">
+                  <span className="font-semibold">
+                    {guardian.relationship_label}
+                    {guardian.is_primary ? ' (principal)' : ''}:
+                  </span>{' '}
+                  {guardian.guardian_name || `Cliente #${guardian.related_client_id}`}
+                  {guardian.guardian_document ? ` · ${guardian.guardian_document}` : ''}
+                  {guardian.guardianship_type ? ` · ${guardian.guardianship_type}` : ''}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {client.isMinor && (client.guardians?.length ?? 0) === 0 && client.legalRepresentative && (
+          <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
+            <AlertTriangle size={20} className="text-amber-600 mt-0.5" />
             <div>
-              <p className="font-semibold text-blue-900">Assistido por:</p>
-              <p className="text-sm text-blue-700">{client.legalRepresentative}</p>
+              <p className="font-semibold text-amber-900">Representante legado não vinculado</p>
+              <p className="text-sm text-amber-800">{client.legalRepresentative}</p>
+              <p className="text-xs text-amber-700 mt-1">Edite o cadastro para converter em vínculo.</p>
             </div>
           </div>
         )}

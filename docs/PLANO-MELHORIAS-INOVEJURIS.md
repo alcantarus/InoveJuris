@@ -103,10 +103,16 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Modal de confirmação reutilizável (`components/prazos/DeleteDeadlineModal.tsx`) com resumo do prazo e **motivo opcional**, registrado na auditoria pela RPC existente `delete_process_deadline` — sem migration nova.
 - Validação E2E em ambiente de teste: RPC HTTP `200`, remoção do prazo temporário e histórico `criar` + `excluir` confirmados por SQL.
 
-### Próximo passo — AGENDADO para 2026-11-18: filtrar prazos por ambiente
-- Corrigir `fetchDeadlines()` em `lib/deadlines.ts` para aceitar `env = getAppEnv()` e aplicar `.eq('environment', env)` em `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers` (todas possuem a coluna).
-- Objetivo: eliminar a mistura de prazos `production`/`test` em Prazos/Calendário e o `P0002` na exclusão/criação quando o seletor de processos oferecia registros do outro ambiente.
-- Endurecer também `app/processos/[id]/page.tsx` com o mesmo filtro e validar a troca PRODUÇÃO/TESTE pela Sidebar. Plano completo em `docs/STATUS-INOVEJURIS.md`.
+### Fase 4.5 — Filtro por ambiente e representação legal — ENTREGUE em 2026-11-18
+- `fetchDeadlines(env = getAppEnv())` filtra `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers` pelo ambiente ativo. Validação em `/prazos`: consulta com `environment=eq.production` retornou HTTP `200`.
+- **Representação legal de menores**: pai/mãe/tutor/curador passa a ser outro Cliente relacionado, não texto copiado. Migration `20261118140000_client_legal_guardians.sql` aplicada em produção cria `client_relationships`, `v_client_guardians` e a RPC transacional `save_client_guardians`.
+- Cadastro de Clientes ganhou o editor “Vínculos de Representação Legal” (busca de responsáveis do mesmo ambiente, parentesco, rótulo da cláusula, principal e vigência), aviso legado revisável e exibição dos vínculos no painel do cliente.
+- E2E validada com `client_id=93` (Anny) e responsável `client_id=94` (Arlene): RPC `204`, recarga persistida e `v_client_guardians` conferida por SQL. Detalhes em `docs/STATUS-INOVEJURIS.md`.
+
+### Próximo passo — Módulo Documentos / “Modelo Vivo”
+- Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.
+- Retomar o parecer `Relatorio-Modulo-Documentos.md`: corrigir o achado F3 (mesmo problema de ambiente já resolvido), definir o catálogo auto-descoberto, blocos determinísticos (texto/variável/condição/repetição/cláusula/assinatura), biblioteca de cláusulas versionada e governança com hash/QR/snapshot.
+- Regra mantida: **zero IA** na geração; cada valor do documento deve ser rastreável até um registro do banco.
 
 ### Fase 5 — Confiança e diagnóstico (P2, ~4-6 dias, risco baixo)
 - `/diagnostico` com 16 perguntas e score (pode ser 100% front, sem banco — ótima primeira entrega segura).
