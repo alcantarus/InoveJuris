@@ -6,6 +6,7 @@
 ## Índice da entrega mais recente (2026-11-18)
 - Commit desta entrega: `feat(clientes): vinculos de representacao legal e filtro de ambiente em prazos` (hash atual em `git log -1`).
 - Migration aplicada em produção: `20261118140000_client_legal_guardians.sql` (`client_relationships`, `v_client_guardians`, `save_client_guardians`).
+- Deploy de produção: `dpl_HEdGnjmMiKjkAKEJo2wQc4K15TQJ`, alias `https://inove-juris.vercel.app`.
 - Detalhes: ver seções **"Correção do filtro por ambiente"** e **"Representação legal de menores em Clientes"**.
 - Commits anteriores desta sequência: `ed47f32` (exclusão de prazos), `aa675ff` (deploy), `ec6d462` (agendamento), `0165c37` (índice no STATUS).
 
@@ -281,6 +282,7 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
   5. SQL confirmou `client_relationships.id=1`, `client_id=93`, `related_client_id=94`, `relationship_type='mae'`, `is_primary=true`, `environment='production'`, `created_by=2`, e a linha correspondente em `v_client_guardians`.
 - O vínculo de teste foi **mantido** porque reflete dado real correto.
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+- Deploy de produção concluído: `dpl_HEdGnjmMiKjkAKEJo2wQc4K15TQJ`, alias `https://inove-juris.vercel.app`.
 - Pré-requisito para o módulo Documentos/“Modelo Vivo” concluído: o catálogo de dados poderá consumir `v_client_guardians` sem depender de texto livre.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
