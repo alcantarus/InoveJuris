@@ -534,3 +534,80 @@ Com autorização do usuário, os 9 `ALTER VIEW` foram aplicados:
 - Nenhum deploy foi publicado e nenhuma chave foi trocada. `MANIFEST.txt`, `verify_f5_*.json`, `kpi_after.json` e os SQL forward/rollback estão em `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118\`.
 
 Os achados preexistentes do item 11.3 permanecem — a F5 não os corrigiu, conforme previsto.
+
+---
+
+# 12. F6 — storage privado (parecer; **nada aplicado**)
+
+Preparado em 2026-11-18 a partir de leitura do catálogo de storage e do código. Nenhum bucket, policy ou objeto foi alterado.
+
+## 12.1 Inventário atual
+
+| Bucket | `public` | Objetos | Restrições |
+|---|---|---:|---|
+| `client_documents` | **sim** | 0 | nenhuma |
+| `templates` | **sim** | 5 | 10 MB, somente `.docx` |
+| `marketing` | **sim** | 29 | nenhuma |
+
+A tabela `storage.objects` tem RLS ativa (owner `supabase_storage_admin`, `FORCE RLS` desligado). Existem **17 policies**, todas permissivas. Os problemas:
+
+- `SELECT` público para os três buckets (`Public Access`, `Public Access Templates`, `Acesso Público para Marketing`, `Leitura Pública Marketing`).
+- `INSERT`/`UPDATE`/`DELETE` para `anon` e `public` em `marketing` e `templates` — qualquer pessoa com a anon key pode sobrescrever/apagar modelos e imagens.
+- Em `client_documents`, as policies de escrita usam `auth.role() = 'authenticated'`. Como a aplicação não usa JWT Supabase, essas policies **não protegem nada**; já a leitura pública está liberada.
+
+Snapshots em `C:\InoveTecnologia\InoveJuris-Backups\F6-20261118\`: `buckets_current.json`, `policies_current.json`, `objects_counts.json`, `rls_status.json`.
+
+## 12.2 Pontos de código
+
+| Local | Uso | Onde a URL é consumida |
+|---|---|---|
+| `app/clientes/[id]/page.tsx:291-305` | upload em `client_documents` e `getPublicUrl` | `file_url` gravado em `client_documents`; aberto em `window.open(doc.file_url)` (`:581`) |
+| `app/documentos/page.tsx:297-316` | upload em `templates` e `getPublicUrl` | `file_url` em `document_templates`; `fetch(template.file_url)` para gerar DOCX (`:462`) e `remove()` por nome extraído da URL (`:175-178`) |
+| `components/settings/MarketingTab.tsx:112-133` | upload em `marketing` e `getPublicUrl` | `image_url` em `birthday_templates`, exibida em `<Image src>` (`:663`, `:830`) e enviada para análise de IA (`:133`, `:791`) |
+
+## 12.3 Por que “gerar URL assinada no cliente” não resolve
+
+`createSignedUrl` chamado no navegador com a anon key depende da policy de `SELECT` em `storage.objects`. Se essa policy permitir `anon`, qualquer pessoa pode gerar sua própria URL assinada — não há ganho de segurança. Para fechar o bucket é preciso:
+
+1. **negar `SELECT` a `anon`/`public`** em `storage.objects`;
+2. gerar URLs assinadas **no servidor**, com `SUPABASE_SERVICE_ROLE_KEY` (que ignora RLS), depois de validar sessão/permissão com o helper da F2;
+3. fazer upload também por rota servidor, porque o cliente deixará de ter policy de `INSERT`.
+
+Portanto a F6 **não é somente SQL**: ela exige código, deploy e migração de leitura dos registros existentes. As URLs públicas já gravadas em `client_documents.file_url`, `document_templates.file_url` e `birthday_templates.image_url` deixarão de funcionar no momento em que os buckets virarem privados.
+
+## 12.4 Proposta em três sub-fatias
+
+**F6a — código, sem deploy e sem alteração no banco**
+
+- Nova rota servidor `/api/storage/signed-url` (download) e `/api/storage/upload` (upload), usando `requireAdminContext` da F2 ou validação de sessão equivalente e `SUPABASE_SERVICE_ROLE_KEY` somente no servidor.
+- Extrair o `storage_path` das URLs públicas existentes no momento da leitura (não exige migration): o path é o trecho após `/object/public/<bucket>/`. Para registros novos, passar a gravar o path relativo.
+- Ajustar os três pontos de código: clientes (abrir via signed URL obtida no servidor), documentos (fetch da signed URL para DOCX e delete por path), marketing (URL assinada para `<Image>` e análise de IA).
+- Manter fallback para URLs antigas enquanto os buckets ainda estiverem públicos — evita parar o sistema.
+- **Pré-requisito:** confirmar que `SUPABASE_SERVICE_ROLE_KEY` existe no ambiente da Vercel e que não há chave de service role em variável `NEXT_PUBLIC_*`. O CLI da Vercel não está disponível neste ambiente; essa confirmação depende do painel ou de `npx vercel`.
+
+**F6b — SQL + deploy, na mesma janela de validação**
+
+- Aplicar `forward_f6.sql`: `public=false` nos três buckets e remoção das 17 policies.
+- Publicar o código da F6a.
+- Rodar `verify_f6.sql`: três buckets com `public=false` e `policies_restantes=0`.
+- Validar upload/download nos três pontos, preview de marketing e geração de DOCX.
+- Rollback: `rollback_f6.sql` (recria as 17 policies e devolve `public=true`) e promover o deploy anterior.
+
+**F6c — limpeza posterior**
+
+- Backfill opcional de colunas `storage_path`, remoção das URLs públicas antigas e exclusão de objetos órfãos. Pode ser feito depois da validação, sem urgência.
+
+## 12.5 Validação obrigatória
+
+1. Antes: salvar `buckets_current.json`, `policies_current.json`, `objects_counts.json` (já salvos).
+2. Com o código da F6a em preview: validar os três fluxos com buckets ainda públicos — não pode haver regressão.
+3. Aplicar F6b e executar `verify_f6.sql`.
+4. Testar em produção: upload e download de documento de cliente; upload, download e exclusão de modelo DOCX com geração de documento; upload de imagem de marketing, preview no formulário e na listagem, análise de IA.
+5. Confirmar que nenhuma URL `.../object/public/...` continua sendo gravada.
+6. Se falhar: `rollback_f6.sql` + deploy anterior.
+
+## 12.6 Posição
+
+Recomendo **autorizar primeiro apenas a F6a** (preparação de código, sem deploy e sem banco). A virada dos buckets (F6b) deve acontecer somente depois que o código estiver em preview e validado — aplicar o SQL antes deixaria documentos, modelos e imagens inacessíveis.
+
+Nenhuma alteração foi feita nesta fatia.
