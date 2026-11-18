@@ -6,7 +6,7 @@
 ## Índice da entrega mais recente (2026-11-18)
 - Commit desta entrega: `feat(clientes): vinculos de representacao legal e filtro de ambiente em prazos` (hash atual em `git log -1`).
 - Migration aplicada em produção: `20261118140000_client_legal_guardians.sql` (`client_relationships`, `v_client_guardians`, `save_client_guardians`).
-- Deploy de produção: `dpl_HEdGnjmMiKjkAKEJo2wQc4K15TQJ`, alias `https://inove-juris.vercel.app`.
+- Deploys de produção desta sequência: `dpl_HEdGnjmMiKjkAKEJo2wQc4K15TQJ` (Clientes + filtro) e `dpl_9GZuKWe56Dmu8VcgKqPtXhoc73Sy` (endurecimento em `/processos/[id]`), ambos com alias `https://inove-juris.vercel.app`.
 - Detalhes: ver seções **"Correção do filtro por ambiente"** e **"Representação legal de menores em Clientes"**.
 - Commits anteriores desta sequência: `ed47f32` (exclusão de prazos), `aa675ff` (deploy), `ec6d462` (agendamento), `0165c37` (índice no STATUS).
 
@@ -270,6 +270,7 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
   - `/processos/29` em `production`: consulta com `environment=eq.production` + `process_deadlines.environment=eq.production` retornou `.single()` sem linhas (HTTP `406` esperado) e a tela exibiu “Processo não encontrado neste ambiente.”
   - Após trocar para `test` pela Sidebar, o mesmo `/processos/29` abriu normalmente, com o prazo “Juntar CTPS” e a consulta usando `environment=eq.test`.
 - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Não foi necessária migration nova.
+- Deploy do endurecimento: `dpl_9GZuKWe56Dmu8VcgKqPtXhoc73Sy`, alias `https://inove-juris.vercel.app`.
 
 ## Representação legal de menores em Clientes — ENTREGUE em 2026-11-18
 - Decisão de produto: o menor continua sendo uma parte no cadastro; pai/mãe/tutor/curador é **outro registro de Cliente**, relacionado por aresta. A frase usada pelos futuros documentos (“representado por...”) projeta campos do responsável — nunca texto copiado no menor.
