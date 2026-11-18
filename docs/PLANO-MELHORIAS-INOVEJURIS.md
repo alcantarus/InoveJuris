@@ -127,6 +127,7 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - `grant select` explícito das colunas novas corrigiu a listagem de usuários após o hardening coluna a coluna da Fase 4.6.
 - Validação: `tsc`/`build` OK; SQL em produção (0 divergências de backfill, payload de superadmin com flags `true`, bloqueios exatos e `changed_fields` correto); E2E com concessão/revogação pela UI, menu, rotas diretas e persistência após recarga. Usuários/sessões/logs temporários removidos; 4 usuários reais preservados.
 - **Camada B permanece pendente:** enforcement server-side nas RPCs/APIs de domínio, RLS restritiva, RPCs para gestão de perfis, unificação RBAC ↔ booleanas e limpeza de arquivos obsoletos.
+- Versionado no commit `9dc7827` (`trabalho-com-claude`) e publicado no deploy `dpl_8FnNJ22Za6efpojF5gNqP5vxentp` (alias `https://inove-juris.vercel.app`; `vercel curl /login` OK).
 
 ### Próximo passo — Módulo Documentos / “Modelo Vivo”
 - Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.
