@@ -19,6 +19,9 @@ export interface User {
   role_name?: string
   canAccessClients: boolean
   canAccessProcesses: boolean
+  canAccessPrazos: boolean
+  canAccessCalendario: boolean
+  canAccessPublicacoes: boolean
   canAccessContracts: boolean
   canAccessCashFlow: boolean
   canAccessReceivables: boolean

@@ -95,6 +95,9 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
                     <PermissionBadge hasPermission={user.canAccessClients} label="Clientes" />
                     <PermissionBadge hasPermission={user.canAccessLawyers} label="Advogados" />
                     <PermissionBadge hasPermission={user.canAccessProcesses} label="Processos" />
+                    <PermissionBadge hasPermission={user.canAccessPrazos} label="Prazos" />
+                    <PermissionBadge hasPermission={user.canAccessCalendario} label="Calendário" />
+                    <PermissionBadge hasPermission={user.canAccessPublicacoes} label="Publicações" />
                     <PermissionBadge hasPermission={user.canAccessContracts} label="Contratos" />
                     <PermissionBadge hasPermission={user.canAccessReceivables} label="Contas a Receber" />
                     <PermissionBadge hasPermission={user.canAccessCashFlow} label="Fluxo de Caixa" />
@@ -204,6 +207,9 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, o
               <PermissionBadge hasPermission={user.canAccessClients} label="Clientes" />
               <PermissionBadge hasPermission={user.canAccessLawyers} label="Advogados" />
               <PermissionBadge hasPermission={user.canAccessProcesses} label="Processos" />
+              <PermissionBadge hasPermission={user.canAccessPrazos} label="Prazos" />
+              <PermissionBadge hasPermission={user.canAccessCalendario} label="Calendário" />
+              <PermissionBadge hasPermission={user.canAccessPublicacoes} label="Publicações" />
               <PermissionBadge hasPermission={user.canAccessContracts} label="Contratos" />
               <PermissionBadge hasPermission={user.canAccessReceivables} label="Contas a Receber" />
               <PermissionBadge hasPermission={user.canAccessCashFlow} label="Fluxo de Caixa" />

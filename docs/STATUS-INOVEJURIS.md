@@ -1,9 +1,16 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-18 (filtro por ambiente entregue e representação legal de menores implementada e validada no cadastro de Clientes).
+> Atualizado em: 2026-11-18 (Camada A das permissões granulares de Prazos, Calendário e Publicações entregue; camada B permanece para etapa posterior).
 
-## Índice da entrega mais recente (2026-11-18)
+## Índice da entrega mais recente — Camada A de permissões granulares (2026-11-18)
+- Parecer técnico emitido **antes** de qualquer alteração; proposta de Camada A aprovada por citação do usuário.
+- Migration aplicada em produção: `supabase/migrations/20261118160000_module_permissions.sql` (`npx supabase db query --remote=jhlxzqsgmudkbjkynqdl --yes --file ...`), com patch final da RPC e `grant select` das colunas novas já aplicados diretamente no banco.
+- Commit e deploy: ver seção **“Permissões granulares de Prazos, Calendário e Publicações — Camada A entregue em 2026-11-18”** (IDs registrados ao final da entrega).
+- Escopo aprovado entregue: 3 colunas com backfill, 3 slugs vinculados a Administrador/Advogado/Estagiário, RPCs, `User`, formulário de Usuários, Sidebar, `PERMISSION_MAP`, correção fail-closed, regras anti-elevação e auditoria do diff de permissões.
+- Mantido para depois (Camada B): enforcement server-side em RPCs/APIs de domínio, RLS restritiva, RPCs para gestão de perfis, unificação RBAC ↔ booleanas e limpeza de arquivos obsoletos.
+
+## Índice da entrega anterior (2026-11-18)
 - Commit desta entrega: `feat(clientes): vinculos de representacao legal e filtro de ambiente em prazos` (hash atual em `git log -1`).
 - Migration aplicada em produção: `20261118140000_client_legal_guardians.sql` (`client_relationships`, `v_client_guardians`, `save_client_guardians`).
 - Deploys de produção desta sequência: `dpl_HEdGnjmMiKjkAKEJo2wQc4K15TQJ` (Clientes + filtro) e `dpl_9GZuKWe56Dmu8VcgKqPtXhoc73Sy` (endurecimento em `/processos/[id]`), ambos com alias `https://inove-juris.vercel.app`.
@@ -313,6 +320,30 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - **E2E no dev (`localhost:3000`)** com usuário temporário `e2e@inovejuris.local` (removido ao final): login em dois passos, dashboard, reload mantido, alternância PRODUÇÃO → TESTE → PRODUÇÃO pela Sidebar, heartbeat `200`, criação e exclusão administrativa de usuário via `admin_save_user`/`admin_delete_user` (HTTP `200`), logout pela UI e `validate` sem cookies retornando `valid=false`. O teste de restauração simulada (sem marker + atividade antiga) redirecionou para `/login?reason=session` e marcou a sessão como encerrada no banco. O travamento observado durante o E2E veio da automação de preenchimento do campo (e-mail duplicado/senha limpa após o challenge), não da aplicação.
 - Confirmação final em banco: **4 usuários reais**, **0 temporários**, **0 sessões ativas** após a limpeza. `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
 - `SUPABASE_SERVICE_ROLE_KEY` **não** foi necessária nem configurada. Commit `67fb5e5` enviado para `trabalho-com-claude`. Deploy de produção concluído: `dpl_3uTJ1pycd3GUT4jJtZXggjUpmsrh`, alias `https://inove-juris.vercel.app`; `vercel curl /login` retornou **200**. **Pendência:** revogar o token antigo da Vercel, considerar MFA/“lembrar de mim” em uma próxima fase e revisar as policies restantes de `audit_logs`.
+
+## Permissões granulares de Prazos, Calendário e Publicações — Camada A entregue em 2026-11-18
+- **Parecer prévio:** antes de editar qualquer arquivo foi entregue parecer técnico com opções e riscos. O usuário aprovou a **Camada A** por citação da proposta; a **Camada B** ficou expressamente adiada.
+- **Nomenclatura obrigatória:** **Publicações** em UI, menu, docs e identificadores user-facing; o termo anterior não foi reintroduzido como nome de módulo.
+- **Migration `20261118160000_module_permissions.sql` aplicada em produção:**
+  - Novas colunas `users."canAccessPrazos"`, `"canAccessCalendario"` e `"canAccessPublicacoes"`, todas `boolean NOT NULL DEFAULT false`.
+  - Backfill preservou o acesso existente: cada coluna passou a usar o valor de `coalesce("canAccessProcesses", false)`. Validação em produção: **4 usuários, 0 divergências** nas três colunas.
+  - `grant select` explícito das três colunas para `anon, authenticated, public`. Isso foi necessário porque a migration `20261118150000` concedeu `SELECT` coluna a coluna (sem `password`) e, sem o grant, `app/usuarios/page.tsx` retornava “Nenhum usuário encontrado”.
+  - Slugs `access_prazos`, `access_calendario` e `access_publicacoes` criados em `permissions` e vinculados aos perfis **Administrador, Advogado e Estagiário** em `role_permissions` (todos os ambientes/duplicidades existentes cobertos pelo `INSERT ... SELECT`).
+  - `_auth_user_payload()` passou a devolver sempre os três flags com `coalesce(..., false)`; superadmin continua com todos os flags de módulo forçados para `true`.
+  - `app_admin_save_user()` foi atualizada para gravar os três flags de forma independente, exigir senha de no mínimo **10 caracteres**, bloquear tentativas de auto-elevação e auditorizar o diff efetivo de permissões.
+- **Correções de segurança incluídas no patch final:**
+  - Não-superadmin não pode: criar/promover superadmin; conceder `canAccessUsers`, `canAccessSettings`, `canAccessAudit`, `canAccessProdEnv` ou `canAccessTestEnv`; atribuir o perfil **Administrador**; alterar superadmin existente.
+  - Mensagens exatas validadas em produção: “Somente superadministradores podem conceder privilégios de superadministrador.”, “Somente superadministradores podem conceder acesso a canAccessAudit.”, “Somente superadministradores podem atribuir o perfil Administrador.”, “Somente superadministradores podem alterar um superadministrador.” e “Somente superadministradores podem conceder acesso a canAccessProdEnv.”.
+  - Auditoria gravada com `old_data`, `new_data`, `changed_fields`, `performed_by` e `environment`. `changed_fields` é um **objeto** (`jsonb_object_agg`), compatível com `app/auditoria/page.tsx`; `action` usa `INSERT`/`UPDATE`. Corrigido o `role_id: null` espúrio que aparecia quando o perfil não era alterado.
+- **Código alterado:** `lib/auth.ts` (`User` com os 3 flags), `app/usuarios/page.tsx` (select, `formData`, `handleRoleChange`, payload e checkboxes **Prazos/Calendário/Publicações**), `components/Sidebar.tsx`, `app/dashboard-layout.tsx`, `components/UserTable.tsx` (badges desktop/mobile) e `app/page.tsx` (Radar de Prazos agora depende de `canAccessPrazos`).
+  - Guarda de rota corrigida para **fail-closed**: `user[requiredPermission] !== true` nega acesso mesmo se a chave estiver ausente/undefined.
+  - `app/api/auth/session/route.ts` foi conferido; repassa `admin_save_user` sem necessidade de alteração. `app/dashboard-layout-1.tsx` é legado e não participa do roteamento atual.
+- **Validações:** `npx tsc --noEmit` OK; `npm run build` OK (21 páginas). E2E em `localhost:3000` com usuários temporários:
+  - Usuário 71 (admin temporário, sem os 3 flags): menu ocultou **Prazos/Calendário/Publicações**; `/prazos`, `/calendario` e `/publicacoes` exibiram **Acesso Negado**; Radar de Prazos ausente.
+  - Usuário 72 (perfil **Estagiário**, mudança salva pela própria UI): flags persistidos após recarga (`Prazos=true`, `Calendário=true`, `Publicações=true`); menu mostrou os três itens; as três rotas abriram sem “Acesso Negado”; badges em `UserTable` apareceram como ativos e `Usuários` como inativo; a seleção do perfil Estagiário marcou automaticamente as três checkboxes.
+  - SQL conferiu `changed_fields` com exatamente `canAccessCalendario`, `canAccessPrazos` e `canAccessPublicacoes` na atualização de teste, com `performed_by=71` e `environment=production`.
+- **Limpeza:** usuários temporários `71` (`admin.temporario.permissoes@example.com`) e `72` (`permissoes.modulo.teste@example.com`), sessões de teste (incluindo IDs `11111111-...`, `22222222-...` e as sessões geradas no E2E), notificações e audit logs correlatos foram removidos. Confirmação final: **4 usuários reais** (`1`, `2`, `23`, `65`), nenhum usuário temporário e nenhum artefato de teste restante. Nenhum usuário real teve suas permissões alteradas.
+- **Pendência deliberada:** não houve enforcement server-side novo nas RPCs de domínio nem RLS restritiva adicional nesta camada (Camada B).
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell

@@ -19,9 +19,9 @@ const PERMISSION_MAP: Record<string, keyof User> = {
   '/fluxo-caixa': 'canAccessCashFlow',
   '/produtos': 'canAccessProducts',
   '/indicadores': 'canAccessIndicators',
-  '/prazos': 'canAccessProcesses',
-  '/calendario': 'canAccessProcesses',
-  '/publicacoes': 'canAccessProcesses',
+  '/prazos': 'canAccessPrazos',
+  '/calendario': 'canAccessCalendario',
+  '/publicacoes': 'canAccessPublicacoes',
   '/relatorios': 'canAccessReports',
   '/auditoria': 'canAccessAudit',
   '/usuarios': 'canAccessUsers',
@@ -41,7 +41,7 @@ export default function DashboardLayout({
     if (!user) return null
     const requiredPermission = PERMISSION_MAP[pathname] || Object.entries(PERMISSION_MAP).find(([path]) => pathname.startsWith(path) && path !== '/')?.[1]
     console.log('DashboardLayout: pathname:', pathname, 'requiredPermission:', requiredPermission, 'user permission:', user[requiredPermission as keyof User]);
-    if (requiredPermission && user[requiredPermission as keyof User] === false) {
+    if (requiredPermission && user[requiredPermission as keyof User] !== true) {
       return false
     }
     return true

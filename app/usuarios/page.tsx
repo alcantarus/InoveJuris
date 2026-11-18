@@ -56,6 +56,9 @@ export default function UsuariosPage() {
     canAccessDashboard: true,
     canAccessClients: false,
     canAccessProcesses: false,
+    canAccessPrazos: false,
+    canAccessCalendario: false,
+    canAccessPublicacoes: false,
     canAccessContracts: false,
     canAccessCashFlow: false,
     is_superadmin: false,
@@ -108,8 +111,9 @@ export default function UsuariosPage() {
         .from('users')
         .select(`
           id, name, email, is_superadmin,
-          "canAccessDashboard", "canAccessClients", "canAccessProcesses", 
-          "canAccessContracts", "canAccessReceivables", "canAccessCashFlow", "canAccessProducts", 
+          "canAccessDashboard", "canAccessClients", "canAccessProcesses",
+          "canAccessPrazos", "canAccessCalendario", "canAccessPublicacoes",
+          "canAccessContracts", "canAccessReceivables", "canAccessCashFlow", "canAccessProducts",
           "canAccessIndicators", "canAccessReports", "canAccessUsers", 
           "canAccessSettings", "canAccessAudit", "canAccessLawyers", "canAccessProdEnv", 
           "canAccessTestEnv", "canAccessDocuments", "canAccessDocTemplates", "canAccessDocGeneration", 
@@ -147,6 +151,9 @@ export default function UsuariosPage() {
         password: '', 
         expiration_date: user.expiration_date || '',
         neverExpires: !user.expiration_date,
+        canAccessPrazos: user.canAccessPrazos || false,
+        canAccessCalendario: user.canAccessCalendario || false,
+        canAccessPublicacoes: user.canAccessPublicacoes || false,
         canAccessAudit: user.canAccessAudit || false,
         canAccessLawyers: user.canAccessLawyers || false,
         canAccessProdEnv: user.canAccessProdEnv !== false,
@@ -170,6 +177,9 @@ export default function UsuariosPage() {
         canAccessDashboard: true,
         canAccessClients: false,
         canAccessProcesses: false,
+        canAccessPrazos: false,
+        canAccessCalendario: false,
+        canAccessPublicacoes: false,
         canAccessContracts: false,
         canAccessReceivables: false,
         canAccessCashFlow: false,
@@ -205,6 +215,9 @@ export default function UsuariosPage() {
     newPermissions.canAccessDashboard = has('access_dashboard')
     newPermissions.canAccessClients = has('access_clients')
     newPermissions.canAccessProcesses = has('access_processes')
+    newPermissions.canAccessPrazos = has('access_prazos')
+    newPermissions.canAccessCalendario = has('access_calendario')
+    newPermissions.canAccessPublicacoes = has('access_publicacoes')
     newPermissions.canAccessContracts = has('access_finance')
     newPermissions.canAccessCashFlow = has('access_cashflow')
     newPermissions.canAccessReceivables = has('access_receivables')
@@ -252,6 +265,9 @@ export default function UsuariosPage() {
       canAccessDashboard: formData.canAccessDashboard,
       canAccessClients: formData.canAccessClients,
       canAccessProcesses: formData.canAccessProcesses,
+      canAccessPrazos: formData.canAccessPrazos,
+      canAccessCalendario: formData.canAccessCalendario,
+      canAccessPublicacoes: formData.canAccessPublicacoes,
       canAccessContracts: formData.canAccessContracts,
       canAccessCashFlow: formData.canAccessCashFlow,
       canAccessReceivables: formData.canAccessReceivables,
@@ -500,6 +516,18 @@ export default function UsuariosPage() {
                 <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessProcesses} onChange={e => setFormData({...formData, canAccessProcesses: e.target.checked})} />
                   <span className="text-sm font-medium text-slate-700">Processos</span>
+                </label>
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessPrazos} onChange={e => setFormData({...formData, canAccessPrazos: e.target.checked})} />
+                  <span className="text-sm font-medium text-slate-700">Prazos</span>
+                </label>
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessCalendario} onChange={e => setFormData({...formData, canAccessCalendario: e.target.checked})} />
+                  <span className="text-sm font-medium text-slate-700">Calendário</span>
+                </label>
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessPublicacoes} onChange={e => setFormData({...formData, canAccessPublicacoes: e.target.checked})} />
+                  <span className="text-sm font-medium text-slate-700">Publicações</span>
                 </label>
                 <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessContracts} onChange={e => setFormData({...formData, canAccessContracts: e.target.checked})} />

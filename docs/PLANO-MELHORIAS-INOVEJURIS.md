@@ -3,11 +3,12 @@
 > Documento gerado a partir da análise do deploy `https://inove-juris.vercel.app/`, do código local e das 12 telas-sugestão em `Telas para Sugerir/`.
 > **Não houve alteração de código** nesta análise. As telas foram lidas por OCR do Windows (o modelo não processa imagem diretamente); alguns rótulos podem ter sido degradados pelo OCR e devem ser confirmados antes da implementação.
 
-## 0. Progresso (atualizado em 2026-11-17)
+## 0. Progresso (atualizado em 2026-11-18)
 - Por decisão do usuário, a ordem foi alterada: **começar pelas telas novas**, sem fase de estabilização prévia.
 - **Entregue e versionado:** Fase 1 parcial — `/prazos` e `/calendario` com camada de dados compartilhada (`lib/deadlines.ts`). Build OK.
 - **Correção DataJud entregue:** unificação em `lib/datajud.ts` + `/api/process-sync`, persistência de andamentos, remoção de chave hardcoded/Apify e criação da tabela `process_sync_log` (a antiga `process_sync_status` é uma VIEW e não serve para gravar status). Build OK.
 - **Publicações/Triagem entregue em 2026-11-18** (`/publicacoes`, integração real com o DJEN e criação de prazo mediante confirmação expressa). `/processos/[id]` também entregue em 2026-11-17.
+- **Camada A das permissões granulares entregue em 2026-11-18** (Fase 4.7): Prazos, Calendário e Publicações com flags independentes, backfill preservando acesso anterior, anti-elevação, auditoria de diff e fail-closed. Camada B adiada.
 - Ainda pendente das telas novas: cálculo de dias úteis com feriados/recesso; baixa justificada; sincronização automática (agendador).
 
 ## 1. Metodologia e limits
@@ -116,6 +117,16 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Cookies `session_id` e `app_env` são httpOnly, SameSite=Lax, Secure em produção e **sem expiração persistente**; validação acontece no servidor a cada carregamento e no heartbeat. Sessão morre ao fechar o navegador, por inatividade, logout, nova autenticação ou expiração do usuário.
 - Rate limit de 5 tentativas/10 min passou a ser servidor-side; mensagem genérica evita enumeração de usuário. Sem MFA nesta entrega, por decisão do usuário.
 - E2E validou login em dois passos, reload, troca de ambiente, heartbeat, admin_save_user/admin_delete_user, logout e bloqueio de sessão restaurada. Usuários temporários removidos; 4 usuários reais e 0 sessões ativas ao final. Deploy `dpl_3uTJ1pycd3GUT4jJtZXggjUpmsrh`. Detalhes em `docs/STATUS-INOVEJURIS.md`.
+
+### Fase 4.7 — Permissões granulares de Prazos, Calendário e Publicações (Camada A) — ENTREGUE em 2026-11-18
+- Parecer técnico emitido antes da alteração; usuário aprovou a Camada A e adiou a Camada B.
+- Migration `20261118160000_module_permissions.sql` aplicada em produção: 3 colunas novas (`canAccessPrazos`, `canAccessCalendario`, `canAccessPublicacoes`) com backfill de `canAccessProcesses`, slugs `access_prazos`/`access_calendario`/`access_publicacoes` e vínculo com os perfis Administrador, Advogado e Estagiário.
+- Flag passou a ser independente de Processos no formulário de Usuários, na tabela de usuários (badges desktop/mobile), na Sidebar e no `PERMISSION_MAP`. Radar de Prazos no dashboard usa `canAccessPrazos`.
+- Correção fail-closed no layout (`!== true`) e regras anti-elevação em `app_admin_save_user`: não-superadmin não cria/promove superadmin, não concede `canAccessUsers`/`canAccessSettings`/`canAccessAudit`/`canAccessProdEnv`/`canAccessTestEnv`, não atribui perfil Administrador e não altera superadmin existente.
+- Auditoria do diff de permissões com `old_data`, `new_data`, `changed_fields` (objeto), `performed_by` e `environment`; senha mínima de 10 caracteres na RPC de gravação.
+- `grant select` explícito das colunas novas corrigiu a listagem de usuários após o hardening coluna a coluna da Fase 4.6.
+- Validação: `tsc`/`build` OK; SQL em produção (0 divergências de backfill, payload de superadmin com flags `true`, bloqueios exatos e `changed_fields` correto); E2E com concessão/revogação pela UI, menu, rotas diretas e persistência após recarga. Usuários/sessões/logs temporários removidos; 4 usuários reais preservados.
+- **Camada B permanece pendente:** enforcement server-side nas RPCs/APIs de domínio, RLS restritiva, RPCs para gestão de perfis, unificação RBAC ↔ booleanas e limpeza de arquivos obsoletos.
 
 ### Próximo passo — Módulo Documentos / “Modelo Vivo”
 - Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.
