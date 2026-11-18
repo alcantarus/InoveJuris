@@ -7,7 +7,7 @@
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.
 - Parecer técnico emitido antes da alteração: eventos de fechamento não são 100% confiáveis; por isso a solução combina `sendBeacon` no fechamento com prazo curto no servidor.
 - Migration aplicada em produção: `supabase/migrations/20261118170000_session_close_all_devices.sql` (`_auth_session_payload` com 90s + `app_logout_all_user_sessions`).
-- Commit e deploy: IDs registrados ao final da seção detalhada.
+- Commit `119e1e1` enviado para `trabalho-com-claude`; deploy de produção `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` com alias `https://inove-juris.vercel.app` (`vercel curl /login` OK).
 
 ## Índice da entrega anterior — Camada A de permissões granulares (2026-11-18)
 - Parecer técnico emitido **antes** de qualquer alteração; proposta de Camada A aprovada por citação do usuário.
@@ -372,7 +372,7 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
   - E2E em `localhost:3000`: login com usuário temporário, inclusão de uma segunda sessão “de outro dispositivo”, disparo simulado de `pagehide` com `visibilityState=hidden`; **as duas sessões** foram marcadas como encerradas; heartbeat seguinte retornou 401, exibiu o aviso e redirecionou para `/login`. Repetição do teste confirmou **um único alerta** após a correção com `useRef`.
 - **Limpeza:** usuários, sessões, notificações, dispositivos confiáveis e audit logs dos testes temporários removidos; verificação final retornou **0 artefatos**. Usuários reais preservados, incluindo o criado pelo próprio usuário durante a sessão (`marcos@gmail.com`, id `73`). Nenhuma sessão real foi encerrada pelos testes.
 - **Limitação conhecida:** se o aviso de fechamento não chegar ao servidor, a sessão ainda pode sobreviver por até **90 segundos** — prazo aceito pelo usuário. Reloads deliberados não encerram a sessão. Trocar de app no celular pode disparar `pagehide` e, por consequência, logout global; isso é coerente com a opção “todos os dispositivos”.
-- **Commit e deploy:** a registrar ao final da entrega.
+- **Commit e deploy:** `119e1e1` (`feat(auth): encerrar todas as sessoes ao fechar aba/janela`) enviado para `trabalho-com-claude`; deploy `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` publicado em `https://inove-juris.vercel.app`; `vercel curl /login` retornou HTML normalmente.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell

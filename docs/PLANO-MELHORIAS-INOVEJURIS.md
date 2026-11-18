@@ -136,7 +136,7 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - `app/api/auth/session/route.ts`: nova ação `close_session`, acionada por `navigator.sendBeacon` (com fallback `fetch(..., { keepalive: true })`), que encerra as sessões e limpa os cookies httpOnly. `components/SessionMonitor.tsx`: `pagehide`/`beforeunload` com `visibilityState === 'hidden'` (reload não encerra sessão), rearma o aviso no retorno do BFCache, heartbeat de 20s e `useRef` para evitar alertas duplicados.
 - Validação: `tsc`/`build` OK; SQL em produção confirmou TTL (fresh válida, 100s inválida) e encerramento de duas sessões simultâneas; E2E simulou `pagehide` com aba oculta e confirmou as duas sessões encerradas, 401 no heartbeat, aviso único e redirect para `/login`.
 - Limpeza: usuários, sessões, notificações, dispositivos e audit logs temporários removidos (0 artefatos); 5 usuários reais preservados, incluindo `marcos@gmail.com` (id 73). Nenhuma sessão real foi encerrada. Limitações aceitas: até 90s de sobrevida sem sinal de fechamento e troca de app no celular pode disparar logout global.
-- Commit e deploy: a registrar ao final da entrega.
+- Versionado no commit `119e1e1` (`trabalho-com-claude`) e publicado no deploy `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` (alias `https://inove-juris.vercel.app`; `vercel curl /login` OK).
 
 ### Próximo passo — Módulo Documentos / “Modelo Vivo”
 - Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.
