@@ -31,9 +31,17 @@
 - **Novo achado:** `.env.example` tinha senha literal do pooler Supabase em comentário; valor removido e substituído por placeholder. Rotacionar essa senha junto com a F1.
 - Pendente do usuário: novas chaves (Gemini, DataJud, `pg_cron`) e revogação do token antigo da Vercel. Nenhum deploy publicado.
 
+## F2 concluída — rotas administrativas protegidas (2026-11-18)
+- Continuação autorizada pelo usuário **sem trocar as chaves**: chaves atuais seguem em uso, inclusive o fallback server-side do Gemini.
+- Novo helper `lib/server-auth.ts`: `requireAdminContext`, `AdminAuthError` e `authErrorResponse`, baseados em `app_validate_session` com os cookies `session_id` e `app_env`.
+- Rotas protegidas: `/api/backup/restore`, `/api/backup/generate`, `/api/settings/audit/cleanup` e `/api/settings/smtp/test`. O ambiente e o `userId` agora vêm da sessão validada, não do cookie cru ou do body.
+- `npm run build` passou. Validação local com build de produção: sem cookies → `307` para `/login`; com cookie forjado → `401` nas rotas protegidas (inclusive `/api/ai/generate`).
+- Pendente: validar o fluxo positivo com administrador real em staging/preview. **Nenhum deploy de correção foi publicado.**
+- Rollback F2: promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`.
+
 ## Próxima fatia
 
-- **F2** (rotas administrativas: backup/restore, generate e limpeza de auditoria) depende da entrega das novas chaves e da decisão sobre os fallbacks de service role.
+- **F3** — revogar `exec_sql` e funções `http` de `anon`/`public`/`authenticated`, com SQL forward/rollback e validação. Depende de F2 já validada em staging.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

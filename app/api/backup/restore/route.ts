@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import AdmZip from 'adm-zip';
 import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { authErrorResponse, requireAdminContext } from '@/lib/server-auth';
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdminContext('settings');
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -17,8 +19,7 @@ export async function POST(request: Request) {
     const zip = new AdmZip(buffer);
     const zipEntries = zip.getEntries();
 
-    const cookieStore = await cookies();
-    const appEnv = cookieStore.get('app_env')?.value || 'production';
+    const appEnv = admin.environment;
     const supabase = createClient(defaultUrlProd, defaultKeyProd);
 
     // Define restoration order to respect Foreign Keys (approximate)
@@ -76,6 +77,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Importação concluída', results });
 
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error('Restore Error:', error);
     return NextResponse.json({ error: error.message || 'Falha na importação' }, { status: 500 });
   }

@@ -242,3 +242,44 @@ A rota usa o mesmo par de cookies (`session_id` + `app_env`) e a mesma RPC `app_
 - Varredura do bundle client: a única ocorrência de `GEMINI_API_KEY` em `.next/static` é o nome da chave do `localStorage` da tela de leads. Nenhuma chave ou variável de ambiente do Gemini está exposta no cliente.
 - **Novo achado durante a preparação:** `.env.example` continha, em um comentário, uma URL de conexão ao pooler do Supabase com senha literal. O valor foi removido e substituído por placeholder genérico. Essa senha deve ser tratada como comprometida e rotacionada junto com a F1; uma varredura confirmou que não restou nenhuma ocorrência no repositório.
 - Pendente do usuário: fornecer a nova `GEMINI_API_KEY`, a chave DataJud, o token do `pg_cron` e revogar o token antigo da Vercel no painel da Vercel.
+
+---
+
+# 8. F2 — rotas administrativas (autorizada em 2026-11-18)
+
+O usuário optou por **continuar sem trocar as chaves**, usando as atuais até nova instrução. A F2 não depende de chaves novas.
+
+## 8.1 Escopo
+
+| Rota | Alteração |
+|---|---|
+| `/api/backup/restore` | Exigir sessão válida no servidor e permissão administrativa de configurações; ambiente passa a vir da sessão validada, não do cookie cru |
+| `/api/backup/generate` | Mesma proteção; `userId` recebido no body deixa de ser confiável e é substituído pelo id do usuário validado na sessão |
+| `/api/settings/audit/cleanup` | Exigir sessão válida e permissão de auditoria |
+| `/api/settings/smtp/test` | Exigir sessão válida e permissão administrativa de configurações (hoje aceita qualquer chamada e dispara conexão SMTP externa) |
+
+A validação usa `app_validate_session` com os cookies `session_id` + `app_env`, a mesma RPC usada no carregamento da aplicação. A autorização considera `is_superadmin` ou as flags `canAccessUsers` / `canAccessSettings` / `canAccessAudit` devolvidas pela própria sessão.
+
+## 8.2 Compatibilidade
+
+- Nenhuma chave é rotacionada; as atuais continuam em uso, inclusive o fallback server-side do Gemini.
+- As telas continuam iguais. Usuários comuns deixam de conseguir chamar essas rotas diretamente; administradores continuam usando normalmente.
+- O `userId` do body era usado apenas para `performed_by` do log e `user_id` do `backup_logs`. Passa a ser o usuário autenticado.
+
+## 8.3 Validação e rollback
+
+1. `npm run build`.
+2. Com sessão de administrador: exportar e restaurar backup de teste, limpar logs e testar SMTP.
+3. Sem sessão: as quatro rotas devem responder `401` ou `403`.
+4. Rollback: promover o deploy anterior (`dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`).
+
+## 8.4 Execução e validação (2026-11-18)
+
+- Implementação **concluída** nas quatro rotas `route.ts`. Nenhuma chave foi rotacionada; as atuais continuam em uso.
+- `npm run build` passou em Next.js 15.5.12; as quatro rotas aparecem no resultado do build.
+- Validação local com o build de produção (`next start` na porta 3100, encerrado ao final):
+  - sem cookies: middleware redireciona para `/login` (`307`) e limpa `session_id`/`app_env`;
+  - com cookies forjados para atravessar o middleware: `/api/backup/restore`, `/api/backup/generate`, `/api/settings/audit/cleanup`, `/api/settings/smtp/test` e `/api/ai/generate` responderam **`401`** — a RPC `app_validate_session` rejeitou a sessão.
+- O `userId` do body deixou de ser usado: `performed_by` e `backup_logs.user_id` agora vêm do usuário validado na sessão. O ambiente também vem da sessão validada, não do cookie cru.
+- **Pendente:** validar o fluxo positivo com um administrador real em staging/preview (exportar/restaurar backup de teste, limpar logs e testar SMTP). Não foi possível fazê-lo sem credenciais reais, e nenhum deploy foi publicado.
+- **Fora do escopo:** os arquivos legados `route-1.ts` (`backup/restore`, `backup/generate`, `settings/audit/cleanup`) não são rotas do App Router e permanecem intocados; a limpeza do legado está prevista no parecer de tenant.

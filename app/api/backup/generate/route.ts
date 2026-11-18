@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import archiver from 'archiver';
 import nodemailer from 'nodemailer';
 import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { authErrorResponse, requireAdminContext, AdminContext } from '@/lib/server-auth';
 
 // Helper to convert stream to buffer
 async function streamToBuffer(stream: any): Promise<Buffer> {
@@ -16,12 +16,14 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
 }
 
 export async function POST(request: Request) {
+  let admin: AdminContext | null = null;
+
   try {
+    admin = await requireAdminContext('settings');
+
     const body = await request.json();
-    const { sendEmail, smtpConfig, userId } = body;
-    
-    const cookieStore = await cookies();
-    const appEnv = cookieStore.get('app_env')?.value || 'production';
+    const { sendEmail, smtpConfig } = body;
+    const appEnv = admin.environment;
 
     // Initialize Supabase Client
     // Try to use service role key if available to bypass RLS
@@ -153,7 +155,7 @@ export async function POST(request: Request) {
       await supabase.from('audit_logs').insert([{
         table_name: 'backups',
         action: 'generate',
-        performed_by: Number(userId),
+        performed_by: admin.userId,
         environment: appEnv,
         new_data: {
           filename: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
@@ -163,7 +165,7 @@ export async function POST(request: Request) {
       console.log('Backup registered in audit_logs');
 
       await supabase.from('backup_logs').insert([{
-        user_id: userId || null,
+        user_id: admin.userId,
         status: 'success',
         file_name: `backup_${appEnv}_${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}.zip`,
         message: 'Backup realizado com sucesso.'
@@ -202,12 +204,14 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
+
     console.error('Backup Generation Error:', error);
     
     // Log failure to backup_status in system_settings
     try {
-      const cookieStore = await cookies();
-      const appEnv = cookieStore.get('app_env')?.value || 'production';
+      const appEnv = admin?.environment || 'production';
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
       const supabase = createClient(defaultUrlProd, serviceRoleKey || defaultKeyProd, {
         auth: { persistSession: false, autoRefreshToken: false }

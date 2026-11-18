@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { authErrorResponse, requireAdminContext } from '@/lib/server-auth';
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdminContext('audit');
+
     const body = await request.json();
     const { startDate, endDate } = body;
 
@@ -12,8 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Datas de início e fim são obrigatórias' }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const appEnv = cookieStore.get('app_env')?.value || 'production';
+    const appEnv = admin.environment;
     
     // Initialize Supabase Client
     const supabase = createClient(defaultUrlProd, defaultKeyProd);
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error('Audit Cleanup Error:', error);
     return NextResponse.json(
       { error: error.message || 'Falha ao limpar logs de auditoria' },

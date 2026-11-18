@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { authErrorResponse, requireAdminContext } from '@/lib/server-auth';
 
 export async function POST(request: Request) {
   try {
+    await requireAdminContext('settings');
+
     const config = await request.json();
 
     if (!config.host || !config.user || !config.password) {
@@ -29,6 +32,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error('SMTP Connection Error:', error);
     return NextResponse.json(
       { error: error.message || 'Falha ao conectar ao servidor SMTP' },
