@@ -76,7 +76,11 @@
 - **F6a implementada em 2026-11-18, sem deploy e sem banco:** rotas `/api/storage/upload`, `/api/storage/signed-url` (redireciona para URL assinada de 1h) e `/api/storage/remove`, todas com validação de sessão/permissão e service role somente no servidor. Helpers em `lib/storage-server.ts`, `lib/storage-policy.ts` e `lib/storage-client.ts`; `requireSessionContext()` extraído em `lib/server-auth.ts`.
 - Pontos ajustados: `app/clientes/[id]`, `app/documentos`, `components/settings/MarketingTab` e, adicionalmente, `components/BirthdayCardGenerator` (também consome as imagens de marketing). Nenhum `getPublicUrl` resta no cliente; URLs antigas continuam gravadas e são resolvidas pelo proxy assinado.
 - Build concluído; sem sessão as três rotas retornam `307` para `/login`. **Nenhum deploy publicado; nenhuma alteração em buckets/policies/objetos.**
-- F6b (buckets privados + remoção das 17 policies) depende de validar a F6a em preview e confirmar a service role na Vercel. Rollback em `rollback_f6.sql`.
+- **Preview da F6a publicado em 2026-11-18:** `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU` → `https://inove-juris-9nni894w2-alcantarus-projects.vercel.app`. Deploy de preview, **não promovido a produção**.
+- Com autorização do usuário, `SUPABASE_SERVICE_ROLE_KEY` foi adicionada como **Secret somente no Preview** do Vercel, usando a chave `service_role` atual do Supabase. Production e Development continuam sem a variável. Rollback: `vercel env rm SUPABASE_SERVICE_ROLE_KEY preview`.
+- Validação feita no preview: as três rotas retornam `307` para `/login` sem sessão; localmente, a chave atual gerou URL assinada com sucesso para um objeto existente de `templates`. **Validação positiva dos fluxos (upload/download/exclusão) ainda pendente** — depende de sessão válida de teste; não foi usada sessão de usuário real.
+- F6b (buckets privados + remoção das 17 policies) depende dessa validação positiva e de replicar a variável em Production no mesmo deploy. Rollback em `rollback_f6.sql`.
+- Último deploy de produção continua `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

@@ -643,4 +643,15 @@ Validações feitas:
 
 **Pré-requisito para a F6b:** `SUPABASE_SERVICE_ROLE_KEY` precisa existir no ambiente da Vercel. Se estiver ausente, as rotas retornam `503` com mensagem explícita — não há fallback para anon key, porque isso não permitiria assinar URLs de buckets privados. O CLI da Vercel não está disponível neste ambiente; a confirmação depende do painel ou de `npx vercel`.
 
-Nenhum deploy foi publicado e nenhuma alteração foi feita em buckets, policies ou objetos do Storage.
+Nenhum deploy de produção foi publicado e nenhuma alteração foi feita em buckets, policies ou objetos do Storage.
+
+## 12.8 Validação em preview da F6a (2026-11-18)
+
+- A consulta às variáveis do Vercel mostrou que `SUPABASE_SERVICE_ROLE_KEY` **não existia** em nenhum ambiente. Sem ela, as rotas da F6a retornariam `503` e o proxy de URL assinada quebraria imagens/DOCX no preview.
+- Com autorização do usuário, a chave `service_role` **atual** do Supabase foi adicionada como **Secret somente no Preview**. Production e Development continuam sem a variável. A chave legada foi exibida no output da CLI durante a consulta — mais um motivo para a rotação prevista na F1.
+- Preview publicado: **`dpl_DhMwQBT242d2HNL6eEcAPLCioAbU`**, `https://inove-juris-9nni894w2-alcantarus-projects.vercel.app`. Não foi promovido a produção; o deploy de produção permanece `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`.
+- Validação negativa no preview: `/api/storage/signed-url`, `/api/storage/upload` e `/api/storage/remove` retornam **`307` → `/login`** sem cookie, antes mesmo da validação `app_validate_session`.
+- Validação da chave: com a service role atual foi gerada com sucesso uma URL assinada para `templates/1772776048729_clients.docx` (`signed_url_ok=true`). Nenhuma chave foi exibida nos artefatos comitados.
+- **Não foi feita** a validação positiva dos três fluxos no navegador: ela exige uma sessão válida de teste. Não foi usada sessão de usuário real nem criada uma sessão artificial sem autorização.
+- Rollback do preview: `npx vercel env rm SUPABASE_SERVICE_ROLE_KEY preview` e descarte do deploy `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU`.
+- Para a F6b: replicar a variável em Production, publicar o código e aplicar `forward_f6.sql` na mesma janela, com `rollback_f6.sql` pronto.
