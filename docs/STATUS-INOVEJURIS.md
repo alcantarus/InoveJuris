@@ -39,8 +39,6 @@
 - Pendente: validar o fluxo positivo com administrador real em staging/preview. **Nenhum deploy de correção foi publicado.**
 - Rollback F2: promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`.
 
-## Próxima fatia
-
 ## F3 executada parcialmente em 2026-11-18
 - Autorização do usuário para a F3 completa. `exec_sql(text)` **foi revogado** de `PUBLIC`/`anon`/`authenticated`; `service_role` e `postgres` intactos.
 - `verify_before.json` (18/18 com anon=true) e `verify_after.json` (1/18 — somente `exec_sql` — com anon=false) salvos em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118`.
@@ -49,6 +47,14 @@
 - Rollbacks disponíveis: `rollback_partial.sql` (exec_sql) e `rollback.sql` (completo). **Nenhum deploy; nenhuma chave trocada.**
 - Decisão do usuário: abrir chamado no **Supabase Support** para revogar as 17 funções com role elevada. Arquivos `support_http_revoke.sql` e `SUPPORT-REQUEST.md` prontos no diretório da F3; chamado ainda não foi aberto por este agente.
 - Próximo passo: abrir o chamado e, em paralelo, seguir para F4 com o risco `http` registrado.
+
+## F4 — parecer preparado, nada aplicado (2026-11-18)
+- Seção 10 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Snapshots em `C:\InoveTecnologia\InoveJuris-Backups\F4-20261118`: 261 policies, 134 linhas de grants (67 objetos × 2 roles), 54 tabelas com policy ampla.
+- **Achado que mudou a fatia:** o app usa a anon key em cliente e servidor, sem JWT Supabase; a identidade está no cookie `session_id`. Os GUCs de organização/usuário das policies não são setados pelo código (só `app.current_env`), então as policies de tenant estão inertes e as permissivas `USING (true)` sustentam o sistema.
+- Em vez de “dropar `USING (true)` e aplicar `FORCE RLS`” agora, o parecer propõe **F4a**: revogar apenas `TRUNCATE`, `REFERENCES` e `TRIGGER` de `anon`/`authenticated` nos 67 objetos. `SELECT/INSERT/UPDATE/DELETE` intactos; sem deploy e sem troca de chave.
+- Arquivos prontos em `F4-20261118`: `forward_f4a.sql`, `rollback_f4a.sql`, `verify_f4a.sql`.
+- **F4b (reescrita de RLS) fica para decisão futura**: exige definir identidade por requisição no banco (JWT, RPCs `SECURITY DEFINER` ou GUC derivado da sessão) e escolher o modelo de tenant. Fazer isso agora pararia clientes, prazos, Publicações, contratos e financeiro.
+- Risco residual registrado: vazamento via REST com a anon key e tokens OAuth em `system_settings` não é resolvido pela F4a; depende da F4b. Nenhuma alteração de banco foi feita na F4.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

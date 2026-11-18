@@ -358,3 +358,80 @@ Diagnóstico completo e opções em `C:\InoveTecnologia\InoveJuris-Backups\F3-20
 - `rollback_partial.sql` desfaz somente `exec_sql`; `rollback.sql` restauraria os 18 grants caso a parte `http` venha a ser executada com role elevada.
 - **Decisão do usuário (2026-11-18):** acionar o **Supabase Support** para executar os `REVOKE` com role elevada. Pacote pronto em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\`: `support_http_revoke.sql` (17 comandos), `SUPPORT-REQUEST.md` (texto do chamado) e `verify.sql`. O chamado ainda precisa ser aberto pelo usuário; este agente não o abriu.
 - Até a resposta do Supabase, a F4 pode seguir, mas o risco residual das funções `http` deve constar do relatório final.
+
+---
+
+# 10. F4 — grants e RLS por tabela (parecer; **nada aplicado**)
+
+Preparado em 2026-11-18 a partir de levantamento **somente leitura**. Nenhuma policy, grant, tabela ou dado foi alterado.
+
+## 10.1 O que foi medido
+
+| Fonte | Resultado |
+|---|---|
+| `pg_policies` (`policies_current.json`) | **261 policies** no schema `public` |
+| `information_schema.role_table_grants` (`grants_current.json`) | **134 linhas** = 67 objetos × (`anon`, `authenticated`) |
+| Cruzamento com contagens da F0 | **54 tabelas** têm policy `USING (true)` ou alvo `public`/`anon` |
+| Grants por objeto | 66 objetos com `DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE`; `users` só com `REFERENCES, TRIGGER, TRUNCATE` |
+| Views incluídas | 11 views de KPIs também com grants de escrita |
+
+Snapshots em `C:\InoveTecnologia\InoveJuris-Backups\F4-20261118\`.
+
+## 10.2 Achado estrutural — muda a recomendação da F4
+
+A F4 foi originalmente descrita como “remover `USING (true)`, aplicar policy da sessão e `FORCE RLS`”. O levantamento mostra que **isso não pode ser feito agora sem parar o sistema**:
+
+1. **Toda consulta roda como `anon`.** `lib/supabase.ts`, `lib/supabase-server.ts` e `lib/server-auth.ts` usam a anon key (`defaultKeyProd`) sem sessão Supabase Auth; não há `setSession` nem JWT de usuário. As policies `to authenticated` são, na prática, **irrelevantes** para o uso corrente — quem decide o acesso é a policy permissiva `to public`/`to anon`.
+2. **A identidade da aplicação está no cookie `session_id`, validada por RPCs** (`app_validate_session` e congêneres), não em `auth.uid()`/`auth.jwt()`.
+3. **Os GUCs das policies de tenant não são definidos em lugar nenhum do código.** Existem policies `custom.organization_id`, `app.current_organization_id`, `custom.user_id`, `get_auth_organization()` — mas o único GUC configurado é `app.current_env`, via `set_app_environment` (`supabase_migrations.sql:645`). Há ainda divergência de nome: umas usam `app.current_env`, outras `app.current_environment`.
+4. Portanto, as policies “Isolamento por Tenant” estão **inertes**; as permissivas `USING (true)` é que liberam leitura/escrita. Se elas forem removidas hoje, o sistema inteiro recebe `403`/linhas vazias — clients, prazos, Publicações, contratos, parcelas, financeiro e dashboard.
+5. **A anon key é pública e está no bundle.** Qualquer pessoa pode chamar a REST API diretamente e ler `clients`, `contracts`, `financial_transactions`, `bank_accounts`, `installments`, `payments` e `system_settings` (onde há tokens OAuth em texto claro, ver `app/api/auth/email/callback/route.ts:113-127`). Isso **não é resolvido por ajuste de grants**; exige identidade por requisição no banco.
+
+Conclusão: a F4 precisa ser dividida.
+
+## 10.3 F4a — fatia segura, preparada e pronta para autorização
+
+Objetivo: remover privilegios de nível SQL que o PostgREST **nunca utiliza** e que não respeitam RLS.
+
+- `TRUNCATE` — RLS não se aplica; permite esvaziar tabela inteira.
+- `REFERENCES` — permite criar FK; sem uso pela aplicação.
+- `TRIGGER` — permite criar trigger; sem uso pela aplicação.
+
+**Não mexe** em `SELECT`, `INSERT`, `UPDATE` nem `DELETE`, que são usados pelas telas e por rotinas como o restore da F2. Não toca policies, `FORCE RLS`, `service_role`, `postgres` ou `supabase_admin`.
+
+| Arquivo (pasta F4) | Conteúdo |
+|---|---|
+| `forward_f4a.sql` | 67 `REVOKE TRUNCATE, REFERENCES, TRIGGER ... FROM anon, authenticated` |
+| `rollback_f4a.sql` | 67 `GRANT` devolvendo exatamente os três privilégios do snapshot |
+| `verify_f4a.sql` | Consulta que deve retornar **0 linhas** após o forward + controle de `SELECT/INSERT/UPDATE/DELETE` |
+| `grants_current.json`, `policies_current.json` | Baseline tirado antes de qualquer alteração |
+
+Impacto esperado: **nenhum** para o uso corrente; nenhum deploy, nenhuma troca de chave. Reduz superfície de abuso em SQL, mas **não resolve o vazamento via REST** descrito no item 5 — esse é o objetivo da F4b.
+
+Validação obrigatória da F4a:
+
+1. Rodar `verify_f4a.sql` antes (esperado: 402 linhas de privilégios sensíveis = 67 objetos × 3 privilégios × 2 roles) e salvar.
+2. Aplicar `forward_f4a.sql`.
+3. Rodar `verify_f4a.sql`: primeira consulta com **0 linhas**; segunda com as mesmas contagens de `SELECT/INSERT/UPDATE/DELETE` do antes.
+4. Verificar em produção: login, uma escrita em cliente, prazo, Publicação, contrato e pagamento, dashboard com os seis KPIs, exportar/restaurar backup de teste (já protegido na F2).
+5. Se qualquer item falhar: `rollback_f4a.sql` e revalidar. Último recurso: ponto PITR da F0.
+
+## 10.4 F4b — reescrita de RLS: **não executar nesta rodada**
+
+Para fechar o vazamento via REST é preciso responder “quem é o usuário desta requisição?” dentro do banco. Hoje a resposta está apenas no cookie, do lado da aplicação. Três caminhos:
+
+| Caminho | O que exige | Impacto | Adequação agora |
+|---|---|---|---|
+| **A. Supabase Auth (JWT)** | Trocar a sessão opaca por JWT; `auth.uid()` deixa de ser `null`; reescrever login, RPCs e policies `to authenticated` | Alto: mexe no login e em todas as consultas | **Não** — fora do acordo desta rodada |
+| **B. RPCs `SECURITY DEFINER`** | Toda leitura/escrita passa por funções que validam `session_id`; revogar acesso direto das tabelas ao `anon` | Muito alto: reescrever todas as consultas e views | **Não** — exigiria parar o sistema |
+| **C. GUC derivado da sessão** | Função `SECURITY DEFINER` que valida o cookie e seta `app.current_user_id` / `app.current_organization_id`; trocar policies permissivas por policies que usam esses GUCs | Médio-alto: exige padronizar nomes de GUC e garantir que toda requisição passe pela validação | **Alvo recomendado**, mas depende da decisão de multitenancy e da Camada B |
+
+Mesmo o caminho C não pode ser feito apenas “trocando policies”: é preciso (i) escolher um nome canônico para os GUCs, (ii) garantir que a validação da sessão rode antes de qualquer consulta, (iii) tratar RPCs `SECURITY DEFINER` e views — que hoje leem como definer — e (iv) decidir se a organização é derivada do usuário ou enviada pela aplicação. Isso está descrito em `docs/PARECER-TENANT-INOVEJURIS.md` (Apêndice C) e depende de decisão de produto que o usuário ainda não tomou.
+
+**Não fazer agora:** dropar policies `USING (true)`, revogar `SELECT/INSERT/UPDATE/DELETE` do `anon`, aplicar `FORCE RLS` ou renomear GUCs “de passagem”. Qualquer um desses interromperia clientes, prazos, Publicações, financeiro e dashboard.
+
+## 10.5 Posição técnica e decisão pedida
+
+- **Recomendação:** autorizar apenas a **F4a** nesta rodada, com os três arquivos já preparados e validação entre etapas. Manter a F4b como fatia futura, com decisão prévia entre os caminhos A/B/C.
+- **Risco residual após F4a:** o vazamento via REST com a anon key continua existindo e deve constar do relatório final — assim como as 17 funções `http` pendentes do Supabase Support.
+- **Ordem preservada:** F4a entra depois da F3; não depende de deploy nem de novas chaves. F4b depende de decisão de arquitetura de sessão/tenant e não deve ser misturada com F5/F6 nesta rodada.
