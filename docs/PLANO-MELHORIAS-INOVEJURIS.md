@@ -115,7 +115,7 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Migration `20261118150000_auth_session_hardening.sql` aplicada em produção: RPCs `SECURITY DEFINER` comparam bcrypt no Postgres, emitem `challenge`, criam/validam/encerram sessão e concentram escritas administrativas. Nenhum hash ou senha volta para o cliente; `users.password` não é selecionável por `anon`.
 - Cookies `session_id` e `app_env` são httpOnly, SameSite=Lax, Secure em produção e **sem expiração persistente**; validação acontece no servidor a cada carregamento e no heartbeat. Sessão morre ao fechar o navegador, por inatividade, logout, nova autenticação ou expiração do usuário.
 - Rate limit de 5 tentativas/10 min passou a ser servidor-side; mensagem genérica evita enumeração de usuário. Sem MFA nesta entrega, por decisão do usuário.
-- E2E validou login em dois passos, reload, troca de ambiente, heartbeat, admin_save_user/admin_delete_user, logout e bloqueio de sessão restaurada. Usuários temporários removidos; 4 usuários reais e 0 sessões ativas ao final. Detalhes em `docs/STATUS-INOVEJURIS.md`.
+- E2E validou login em dois passos, reload, troca de ambiente, heartbeat, admin_save_user/admin_delete_user, logout e bloqueio de sessão restaurada. Usuários temporários removidos; 4 usuários reais e 0 sessões ativas ao final. Deploy `dpl_3uTJ1pycd3GUT4jJtZXggjUpmsrh`. Detalhes em `docs/STATUS-INOVEJURIS.md`.
 
 ### Próximo passo — Módulo Documentos / “Modelo Vivo”
 - Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.
