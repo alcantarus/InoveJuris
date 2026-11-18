@@ -681,3 +681,13 @@ Observações: `vercel curl` avisa que bypassa o Deployment Protection da Vercel
 - Ressalva: os fluxos de **upload/remoção** e os testes visuais (abrir documento de cliente, gerar DOCX, preview e análise de IA de marketing, cartões de aniversário) permanecem como validação manual pendente; a leitura via proxy está confirmada.
 - Rollback disponível: `rollback_f6.sql` + promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` + `npx vercel env rm SUPABASE_SERVICE_ROLE_KEY production`.
 - A chave temporária usada localmente para o SQL foi apagada ao final. Nenhuma chave foi registrada em arquivos versionados.
+
+## 12.11 Ponto 2 — unificação das chaves do Supabase (2026-11-18) — **concluída**
+
+- As duas chaves novas entregues localmente foram validadas antes de qualquer alteração: `sb_publishable_...` respondeu `200` em `/auth/v1/health`; `sb_secret_...` gerou URL assinada no Storage com `200`. Os valores circularam apenas por arquivos temporários fora do repositório.
+- **Preview:** `NEXT_PUBLIC_SUPABASE_ANON_KEY` sobrescrito (`--force`, tipo `Config`) com a chave publishable e `SUPABASE_SERVICE_ROLE_KEY` sobrescrito (`--force`, tipo `Secret`) com a chave secreta. A checagem por `vercel env pull` confirmou o prefixo `sb_publishable_` no valor efetivo — a coluna de valor do `vercel env ls` mostra um prefixo antigo e não deve ser usada como verificação.
+- **Production:** anon key sobrescrito com a publishable; a service role já estava com a chave secreta desde a F6b e não foi alterada.
+- Deploys gerados após as trocas: Preview **`dpl_DVUkHA4hhKzni8ENe62i8wvsM65w`** e Production **`dpl_7PA9Yead2KsQSNhjAf1dhULMap7s`**, este com alias `https://inove-juris.vercel.app`. `NEXT_PUBLIC_*` é incorporado no build, por isso o redeploy foi obrigatório nos dois ambientes.
+- Validação nos dois deploys: Testes A/B/C OK (`signedUrl` + `expiresIn: 3600`; `302` no `redirect=1`), `/`, `/documentos` e `/publicacoes` com `200`, sem cookie com `307 → /login` e URL pública antiga com `400`. Nenhuma regressão observada.
+- As chaves legadas `eyJ...` **ainda estão ativas** no Supabase; desativá-las no painel é o próximo passo manual e deve ocorrer só depois desta validação.
+- Rollback: promover `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` em Production e `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU` no Preview. A promoção de um deploy antigo não desfaz as variáveis de ambiente; como as chaves novas funcionaram, não há necessidade de restaurar as legadas.
