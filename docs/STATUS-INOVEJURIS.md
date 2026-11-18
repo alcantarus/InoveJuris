@@ -58,12 +58,14 @@
 - **F4a aplicada em produção em 2026-11-18:** 402 → 0 linhas de `TRUNCATE/REFERENCES/TRIGGER` (`verify_f4a_before.json` → `verify_f4a_after.json`); CRUD inalterado (66 objetos por role). Leitura via anon key validada em 6 tabelas (`HTTP 206`); F3 continua com `42501`. Rollback em `rollback_f4a.sql`. **Nenhum deploy; nenhuma chave trocada.**
 - F4b não executada — depende de decisão de identidade/sessão e tenant.
 
-## F5 — parecer preparado, nada aplicado (2026-11-18)
+## F5 — parecer executado em 2026-11-18
 - Seção 11 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118`: `views_current.json`, `view_columns.json`, `kpi_baseline.sql/.json`, `forward_f5.sql`, `rollback_f5.sql`, `verify_f5.sql`.
 - 13 views no schema `public`, todas de `postgres`. 4 já têm `security_invoker=on`; 9 não têm e são o alvo do forward.
 - Baseline salvo com 48 medições (contagens e agregados por view/ambiente). Ex.: receivables metrics production `total_expected=488095.63`, `total_overdue=82470.40`.
 - Achados preexistentes sinalizados (não causados pela F5): views sem coluna `environment` recebem filtro injetado pelo Proxy e retornam `42703`; `app/page.tsx:246` seleciona colunas inexistentes em `vw_process_velocity`.
-- Impacto esperado: nenhum nos KPIs no estado atual; preparação necessária para a F4b. Validação prevista: `verify_f5.sql` 9/4 → 0/13 e comparação do baseline sem alterações. **Nada aplicado; aguardando autorização.**
+- Impacto esperado: nenhum nos KPIs no estado atual; preparação necessária para a F4b.
+- **F5 aplicada em produção em 2026-11-18:** `verify_f5_before.json` 9/4 → `verify_f5_after.json` 0/13; 48 medições de KPI idênticas (`kpi_after.json`, 0 alterações); REST com anon key validado em 7 views; F4a (0 sensíveis) e F3 (`42501`) revalidadas. Rollback em `rollback_f5.sql`. **Nenhum deploy; nenhuma chave trocada.**
+- Achados preexistentes das views seguem em aberto; não foram corrigidos pela F5.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

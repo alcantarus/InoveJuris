@@ -520,4 +520,17 @@ Exemplos do baseline: `vw_dashboard_receivables_metrics` production `total_expec
 
 Recomendo aplicar a F5 **como preparação para a F4b**, depois da F4a e com a validação acima. Ela é de baixo risco no estado atual e não depende de deploy nem de novas chaves. Não resolve, por si só, o vazamento via REST — esse ponto continua dependente da decisão de identidade/sessão da F4b.
 
-Não foi aplicada nenhuma alteração nesta fatia até o momento.
+Antes da execução registrada abaixo, nenhuma alteração havia sido aplicada nesta fatia.
+
+## 11.7 Execução da F5 em 2026-11-18 — **concluída**
+
+Com autorização do usuário, os 9 `ALTER VIEW` foram aplicados:
+
+- `verify_f5_before.json`: `sem_security_invoker=9`, `com_security_invoker=4`.
+- `verify_f5_after.json`: `sem_security_invoker=0`, `com_security_invoker=13`.
+- `kpi_after.json` comparado com `kpi_baseline.json`: 48 medições antes e depois, **0 ausentes, 0 alteradas, 0 novas**.
+- Validação via REST com a anon key em 7 views com `environment`: contagens idênticas ao baseline — `contract_receivables_summary` 106, `v_client_guardians` 1, `vw_dashboard_receivables_forecast` 5, `vw_dashboard_receivables_metrics` 1, `vw_dashboard_top_defaulters` 20, `vw_indicator_commission_status` 40, `vw_portal_commission_details` 106.
+- Revalidação das fatias anteriores: F4a continua com 0 privilégios sensíveis; `/api/diagnose-db` continua retornando `42501` (F3 intacta).
+- Nenhum deploy foi publicado e nenhuma chave foi trocada. `MANIFEST.txt`, `verify_f5_*.json`, `kpi_after.json` e os SQL forward/rollback estão em `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118\`.
+
+Os achados preexistentes do item 11.3 permanecem — a F5 não os corrigiu, conforme previsto.
