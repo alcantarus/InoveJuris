@@ -655,3 +655,29 @@ Nenhum deploy de produção foi publicado e nenhuma alteração foi feita em buc
 - **Não foi feita** a validação positiva dos três fluxos no navegador: ela exige uma sessão válida de teste. Não foi usada sessão de usuário real nem criada uma sessão artificial sem autorização.
 - Rollback do preview: `npx vercel env rm SUPABASE_SERVICE_ROLE_KEY preview` e descarte do deploy `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU`.
 - Para a F6b: replicar a variável em Production, publicar o código e aplicar `forward_f6.sql` na mesma janela, com `rollback_f6.sql` pronto.
+
+## 12.9 Validação positiva da F6a em preview (2026-11-18)
+
+Executada com cookie de sessão de teste no deploy `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU`, por `npx vercel curl` (somente leitura). O valor de `app_env` é `production` e o de `session_id` é o UUID da sessão — a primeira tentativa com os valores trocados foi corrigida antes da execução.
+
+| Teste | Resultado | Leitura |
+|---|---|---|
+| A — `templates/1772776048729_clients.docx` | JSON com `signedUrl` e `expiresIn: 3600` | Service role visível no preview, sessão válida e path correto. |
+| B — mesmo objeto com `redirect=1` | `302 Found` com `Location: .../storage/v1/object/sign/templates/...` | Redirecionamento funcionando; `iat`/`exp` do token separados por 3600 s. |
+| C — `marketing/templates/0.025508762559267928.png` | JSON com `signedUrl` e `expiresIn: 3600` | Bucket com subpasta também assinado; `%2F` decodificado corretamente. |
+
+Observações: `vercel curl` avisa que bypassa o Deployment Protection da Vercel — a autenticação exercitada foi a da aplicação (cookie de sessão), que é o escopo deste teste; a proteção do Vercel permanece ativa para acesso normal. O status veio como `HTTP/1.1 302` em vez de `HTTP/2 302`, diferença apenas da versão do protocolo reportada pelo proxy. As URLs assinadas não foram reproduzidas neste documento por serem credenciais válidas por 1 hora.
+
+**Posição:** a condição que bloqueava a F6b está satisfeita para o fluxo de **download**. Ressalvas que permanecem: (1) os fluxos de upload e remoção, bem como os testes de tela (abrir documento de cliente, gerar DOCX, preview/imagem de marketing, análise de IA e cartões de aniversário), seguem sem validação positiva e devem ser checados no item 12.5; (2) as URLs públicas antigas continuam gravadas no banco e, após a F6b, não haverá fallback — qualquer falha do proxy afetará imediatamente imagens e DOCX; (3) a `service_role` usada é a atual, que apareceu em output da CLI e está na fila de rotação da F1. Recomendação: F6b em janela única, com `rollback_f6.sql` e o deploy anterior prontos. Nenhuma alteração de produção foi feita por este registro.
+
+## 12.10 Execução da F6b em 2026-11-18 — **concluída**
+
+- `SUPABASE_SERVICE_ROLE_KEY` cadastrada como **Secret em Production**. O valor usado foi a **chave secreta nova** (`sb_secret_...`), obtida em `Settings > API Keys` do Supabase (as chaves legadas `eyJ...` não aparecem mais nesse painel). O Preview segue com a chave legada — unificar em F1.
+- Deploy do código da F6a em Production: **`dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i`**, alias `https://inove-juris.vercel.app`, `target: production`, `readyState: READY`, `environment: production`. A variável foi adicionada **antes** do deploy, para o build já nascer com ela.
+- Tentativa de aplicar `forward_f6.sql` via `exec_sql` com a service role falhou com `42501 must be owner of relation objects`; o diagnóstico seguinte confirmou que **nada foi aplicado** (3 buckets públicos, 17 policies). O SQL foi então executado no **SQL Editor do Supabase** (role dono do schema), com sucesso.
+- Verificação pós-SQL: `ESTADO_ATUAL buckets_publicos=0 policies=0` — os três buckets privados e as 17 policies removidas.
+- Validação em produção com buckets já privados: Testes A, B e C repetidos com sucesso (`signedUrl` + `expiresIn: 3600` nos dois buckets; `302` no `redirect=1`). Páginas `/`, `/documentos` e `/publicacoes` retornaram `HTTP 200` com a sessão de teste.
+- Validação negativa: `/object/public/templates/1772776048729_clients.docx` → `400` (`Bucket not found`); geração de URL assinada com a anon key → `400`. Ou seja, o acesso público antigo deixou de existir.
+- Ressalva: os fluxos de **upload/remoção** e os testes visuais (abrir documento de cliente, gerar DOCX, preview e análise de IA de marketing, cartões de aniversário) permanecem como validação manual pendente; a leitura via proxy está confirmada.
+- Rollback disponível: `rollback_f6.sql` + promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` + `npx vercel env rm SUPABASE_SERVICE_ROLE_KEY production`.
+- A chave temporária usada localmente para o SQL foi apagada ao final. Nenhuma chave foi registrada em arquivos versionados.

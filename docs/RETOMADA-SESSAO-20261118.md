@@ -6,14 +6,14 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 | Item | Estado |
 |---|---|
-| Deploy de produção | `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
-| Verificação HTTP em produção | `GET /` sem cookie → `307 → /login` (resposta normal da aplicação) |
-| Código da F6a em produção? | **Não.** Está apenas no repositório e em um deploy de **preview** |
-| `SUPABASE_SERVICE_ROLE_KEY` em Production? | **Não.** Existe somente no Preview, como Secret |
-| Alteração em buckets/policies/objetos do Storage? | **Nenhuma** |
-| Git | `7aa540e`, branch `trabalho-com-claude`, árvore limpa, pushed no GitHub |
+| Deploy de produção | `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
+| Verificação HTTP em produção | `/`, `/documentos` e `/publicacoes` retornaram `200` com sessão de teste |
+| Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` |
+| `SUPABASE_SERVICE_ROLE_KEY` em Production? | **Sim.** Secret com a chave nova `sb_secret_...` (Preview segue com a legada) |
+| Alteração em buckets/policies/objetos do Storage? | **Sim (F6b):** 3 buckets passaram a privados e as 17 policies foram removidas. Nenhum objeto foi apagado |
+| Git | `7aa540e`, branch `trabalho-com-claude`. Os documentos atualizados nesta sessão ainda não foram comitados — o `git` não está disponível no PATH deste ambiente |
 
-**Conclusão operacional:** o sistema de produção pode ser usado normalmente agora — lançar contratos, receber títulos, acessar Publicações, etc. Nenhuma funcionalidade foi desligada ou bloqueada. A F6a não alterou nenhuma tela usada em produção.
+**Conclusão operacional:** o sistema de produção pode ser usado normalmente — lançar contratos, receber títulos, acessar Publicações, etc. Os downloads passam pelo proxy assinado no servidor; a leitura em `/`, `/documentos` e `/publicacoes` foi confirmada. Falta apenas a validação manual dos fluxos de upload/remoção e das telas que exibem DOCX/imagens.
 
 ## 2. O que já foi entregue
 
@@ -32,6 +32,8 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 | F6 — parecer | Escrito, sem alteração de banco | `27c2c49` |
 | F6a — código | Rotas servidor de storage + ajuste de 4 consumidores | `eec6d1f`, `7e881b0` |
 | F6a — docs do preview | Registro do deploy e da chave | `6e752f5`, `7aa540e` |
+| F6a — validação positiva | Testes A/B/C no preview e em produção | seção 12.9 do parecer |
+| F6b — virada do storage | Chave em Production, deploy, buckets privados e 0 policies | `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i`, seção 12.10 do parecer |
 
 ## 3. Preview da F6a
 
@@ -43,9 +45,9 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 - Chave validada localmente: URL assinada gerada com sucesso para `templates/1772776048729_clients.docx` (`signed_url_ok=true`).
 - Validação negativa no preview: as três rotas retornam `307 → /login` sem cookie.
 
-## 4. Validação positiva pendente — como retomar
+## 4. Validação positiva — concluída em 2026-11-18
 
-O usuário escolheu **executar os comandos por conta própria** e escopo **somente leitura**. Os comandos abaixo devem ser rodados na pasta `C:\InoveTecnologia\InoveJuris`, substituindo `SESSION_ID` e `APP_ENV` pelos cookies copiados do navegador (F12 → Application → Storage → Cookies, após login no preview com conta de teste).
+Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. O deploy de produção a ser usado como referência é `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i`.
 
 **Atenção ao `vercel curl`:** os parâmetros do curl precisam vir depois de `--`; sem isso, o CLI cria arquivos espúrios (`-w`, `--max-time`).
 
@@ -77,8 +79,8 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 
 ## 5. Decisões pendentes
 
-1. **F6b** — depende da validação positiva acima. Na mesma janela: replicar `SUPABASE_SERVICE_ROLE_KEY` em Production, publicar o código e aplicar `forward_f6.sql`. Rollback: `rollback_f6.sql` + deploy anterior + `vercel env rm SUPABASE_SERVICE_ROLE_KEY production`.
-2. **F6c (aftercare)** — backfill de `storage_path` e limpeza de órfãos; URLs antigas `/object/public/...` continuam gravadas em `client_documents.file_url`, `document_templates.file_url` e `birthday_templates.image_url`. A leitura já passa pelo proxy assinado; não há fallback automático se a rota falhar enquanto os buckets ainda estiverem públicos.
+1. **F6b — concluída.** Secret replicada em Production (chave nova `sb_secret_...`), código publicado em `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` e `forward_f6.sql` aplicado pelo SQL Editor do Supabase. Estado: 0 buckets públicos, 0 policies. Falta a validação manual dos fluxos de upload/remoção e das telas. Rollback: `rollback_f6.sql` + `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` + `vercel env rm SUPABASE_SERVICE_ROLE_KEY production`.
+2. **F6c (aftercare)** — backfill de `storage_path` e limpeza de órfãos; URLs antigas `/object/public/...` continuam gravadas em `client_documents.file_url`, `document_templates.file_url` e `birthday_templates.image_url`. A leitura passa pelo proxy assinado e, com os buckets já privados, **não há mais fallback**: qualquer falha da rota afeta imediatamente imagens e DOCX.
 3. **F3** — 17 funções `http`/`urlencode` ainda executáveis por `anon`/`authenticated`; são de `supabase_admin` e `postgres` não é superuser. Usuário escolheu Supabase Support. Pacote em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\SUPPORT-REQUEST.md` + `support_http_revoke.sql`. Chamado ainda não aberto.
 4. **F1 rotação** — depende de novas chaves: `GEMINI_API_KEY`, chave DataJud, token do `pg_cron`, nova senha do pooler e revogação do token antigo da Vercel. A chave `service_role` legada apareceu no output da CLI do Supabase e deve ser considerada exposta.
 5. **F2 validação positiva** com administrador real em staging/preview.
@@ -91,7 +93,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 - Parecer técnico antes de qualquer modificação.
 - Sistema não pode ficar parado; correção gradual, backup antes, validação entre fatias.
 - Nenhuma implementação de tenant autorizada — apenas parecer.
-- Nenhum deploy de correção de segurança em produção até agora (o deploy atual é o do logout global, anterior à F6a).
+- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5 e agora F6a/F6b. Deploy atual: `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i`.
 - Não usar sessão de usuário real nem criar sessão artificial sem autorização.
 - Usuários reais preservados: `1`, `2`, `23`, `65`, `73`. Usuário `73` (`marcos@gmail.com`) não deve ser removido.
 - `public.users` possui `canAccessReceivables` e `canaccessreceivables` (diferem só por caixa).
@@ -103,7 +105,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 |---|---|
 | Chave no Preview | `npx vercel env rm SUPABASE_SERVICE_ROLE_KEY preview` |
 | Deploy do preview | descartar `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU` |
-| F6b (quando aplicada) | `C:\InoveTecnologia\InoveJuris-Backups\F6-20261118\rollback_f6.sql` + deploy anterior + remover a variável de Production |
+| F6b (aplicada) | `C:\InoveTecnologia\InoveJuris-Backups\F6-20261118\rollback_f6.sql` + promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` + `npx vercel env rm SUPABASE_SERVICE_ROLE_KEY production` |
 | F5 | `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118\` |
 | F4a | `C:\InoveTecnologia\InoveJuris-Backups\F4-20261118\` |
 | F3 | `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\` |
@@ -111,10 +113,10 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 
 ## 8. Retomada em resumo
 
-1. Abrir este documento e `docs/STATUS-INOVEJURIS.md`.
-2. Confirmar que a produção continua em `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`.
-3. Rodar os três comandos da seção 4 (ou escolher outra forma de sessão de teste).
-4. Com o resultado, decidir F6b — parecer técnico antes de qualquer alteração, backup e janela de deploy + SQL.
-5. Seguir a fila da seção 5.
+1. Abrir este documento, `docs/STATUS-INOVEJURIS.md` e as seções 12.9/12.10 do parecer de impacto.
+2. Confirmar que a produção está em `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` e que os buckets estão privados.
+3. Fazer a validação manual dos fluxos de upload/remoção e das telas (DOCX, marketing, cartões de aniversário).
+4. Comitar os documentos atualizados nesta sessão (o `git` precisa ser disponibilizado no PATH).
+5. Seguir a fila da seção 5, começando pela F6c e pelo chamado F3.
 
 Nada precisa ser feito antes de desligar o computador: código, documentação e deploy de preview já estão salvos no GitHub e no Vercel.
