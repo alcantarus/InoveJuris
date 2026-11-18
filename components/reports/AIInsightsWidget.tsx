@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Loader2, Sparkles, BrainCircuit } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 
 export default function AIInsightsWidget() {
@@ -45,30 +44,30 @@ export default function AIInsightsWidget() {
           return;
         }
 
-        // Prepare data for Gemini
+        // Envia apenas numeros agregados; a chave fica no servidor.
         const pendingTasks = (tasks as TaskItem[]).filter(t => t.status === 'pending').length;
         const completedTasks = (tasks as TaskItem[]).filter(t => t.status === 'completed').length;
         const highPriorityPending = (tasks as TaskItem[]).filter(t => t.status === 'pending' && t.priority > 1).length;
 
-        const prompt = `
-          Você é um assistente de produtividade para um advogado.
-          Aqui estão os dados das tarefas do usuário:
-          - Total de tarefas: ${tasks.length}
-          - Tarefas concluídas: ${completedTasks}
-          - Tarefas pendentes: ${pendingTasks}
-          - Tarefas pendentes de alta prioridade: ${highPriorityPending}
-          
-          Com base nesses dados, escreva um insight curto e motivacional (máximo de 3 frases) sobre a produtividade do usuário e uma sugestão de foco. Use um tom profissional, mas encorajador.
-        `;
-
-        const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY! });
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: prompt,
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'dashboard_insight',
+            payload: {
+              total: tasks.length,
+              completed: completedTasks,
+              pending: pendingTasks,
+              highPriorityPending,
+            },
+          }),
         });
 
+        if (!response.ok) throw new Error('Falha ao gerar insight');
+        const result = await response.json();
+
         if (isMounted) {
-          setInsight(response.text || 'Não foi possível gerar um insight no momento.');
+          setInsight(result.text || 'Não foi possível gerar um insight no momento.');
         }
       } catch (err: any) {
         console.error('Error generating AI insight:', err);

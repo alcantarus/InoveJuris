@@ -42,8 +42,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
-  
   // Get environment from cookies or env var for consistent SSR
   const cookieStore = await cookies();
   const envCookie = cookieStore.get('app_env')?.value;
@@ -51,11 +49,7 @@ export default async function RootLayout({
 
   return (
     <html lang="pt-BR" className={cn(jetbrainsMono.variable, playfairDisplay.variable, "font-sans", geist.variable)} data-env={appEnv}>
-      <head>
-        <script dangerouslySetInnerHTML={{
-          __html: `window.GEMINI_API_KEY = ${JSON.stringify(geminiKey)};`
-        }} />
-      </head>
+      {/* A chave do Gemini nao e mais injetada no cliente. */}
       <body className="font-sans antialiased bg-slate-50 text-slate-900 overflow-x-hidden" suppressHydrationWarning>
         <ResizeObserverFix />
         <SettingsProvider>

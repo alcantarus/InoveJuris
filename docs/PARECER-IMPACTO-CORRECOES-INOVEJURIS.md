@@ -191,3 +191,54 @@ Registro da F0:
 `npx supabase db dump` exige Docker, que não está disponível neste ambiente. A exportação lógica foi feita por API SQL (`npx supabase db query`), em leitura. A pequena diferença entre o baseline (3.785) e a exportação (3.806) é de heartbeats gravados entre as consultas.
 
 Próxima fatia pendente de autorização: **F1 — rotação de segredos** (DataJud, token do `pg_cron`, Gemini e token antigo da Vercel).
+
+---
+
+# 7. F1 — preparação de código (autorizada em 2026-11-18)
+
+O usuário autorizou **apenas a preparação do código**. Nenhuma variável de ambiente, segredo, banco ou deploy será alterado nesta etapa. As novas chaves serão fornecidas pelo usuário posteriormente.
+
+## 7.1 Escopo exato das alterações
+
+| Arquivo | Alteração |
+|---|---|
+| `lib/gemini-server.ts` (novo) | Centraliza a resolução da chave no servidor: chave manual do usuário → `GEMINI_API_KEY` → `GOOGLE_API_KEY` → legado `NEXT_PUBLIC_GEMINI_API_KEY` apenas como fallback temporário |
+| `app/api/ai/generate/route.ts` (novo) | Único ponto de chamada ao Gemini. Aceita apenas `kind` fixo (`dashboard_insight`, `task_subtasks`, `lead_score`, `lead_insights`), valida sessão pelo cookie `session_id` via `app_validate_session`, e nunca devolve a chave |
+| `lib/actions/gemini.ts` | Passa a usar o resolvedor central; mantém a ação de análise de imagem de aniversário |
+| `app/layout.tsx`, `app/layout-1.tsx` | Remove a injeção `window.GEMINI_API_KEY` — hoje a chave é gravada no HTML |
+| `next.config.ts`, `next.config-1.ts` | Remove o bloco `env` que força `NEXT_PUBLIC_GEMINI_API_KEY` no bundle |
+| `components/reports/AIInsightsWidget.tsx` | Chama a nova API com contagens agregadas; deixa de importar `@google/genai` |
+| `components/tasks/TaskIntelligence.tsx` | Chama a nova API com o título da tarefa; deixa de importar `@google/genai` |
+| `app/leads/page.tsx` | Substitui as três chamadas client-side por `fetch` à nova API; mantém a chave manual do usuário em `localStorage` |
+| `.env.example` | Documenta `GEMINI_API_KEY` como servidor e marca a variável `NEXT_PUBLIC_` como legada |
+
+## 7.2 Por que a API valida sessão
+
+A rota usa o mesmo par de cookies (`session_id` + `app_env`) e a mesma RPC `app_validate_session` já usada pelo carregamento da aplicação. Isso evita que a nova rota vire um proxy aberto de Gemini. A chave manual informada pelo próprio usuário continua sendo aceita — ela não é segredo da aplicação.
+
+## 7.3 Compatibilidade
+
+- Enquanto o usuário não fornecer `GEMINI_API_KEY`, a variável legada `NEXT_PUBLIC_GEMINI_API_KEY` continua funcionando **somente no servidor**. Nenhum componente client passa a referenciá-la.
+- Os textos, prompts e fallbacks exibidos ao usuário permanecem os mesmos.
+- A geração de insight, sub-tarefas e análise de leads continua com a mesma interface.
+
+## 7.4 Fora desta preparação
+
+- Rotação em si: DataJud, `pg_cron`, Gemini e token Vercel — depende das novas chaves do usuário.
+- Revogação do token antigo da Vercel: precisa ser feita no painel da Vercel.
+- Token do `pg_cron`: depende de confirmação de Vault/secret no Supabase.
+- Fallbacks de `SUPABASE_SERVICE_ROLE_KEY` para anon key: tratados na F2, não aqui, para não quebrar rotas que hoje dependem deles.
+
+## 7.5 Validação e rollback
+
+1. `npm run build` — nenhuma referência a `NEXT_PUBLIC_GEMINI_API_KEY` deve restar em arquivos `'use client'`.
+2. Deploy de preview e teste das quatro funções de IA.
+3. Rollback: promover o deploy anterior (`dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`) e rever os arquivos da tabela acima.
+
+## 7.6 Execução e achado adicional (2026-11-18)
+
+- Preparação de código **concluída**. `npm run build` passou em Next.js 15.5.12 e a rota `/api/ai/generate` aparece no resultado do build.
+- Nenhuma variável de ambiente, segredo, banco ou deploy foi alterado.
+- Varredura do bundle client: a única ocorrência de `GEMINI_API_KEY` em `.next/static` é o nome da chave do `localStorage` da tela de leads. Nenhuma chave ou variável de ambiente do Gemini está exposta no cliente.
+- **Novo achado durante a preparação:** `.env.example` continha, em um comentário, uma URL de conexão ao pooler do Supabase com senha literal. O valor foi removido e substituído por placeholder genérico. Essa senha deve ser tratada como comprometida e rotacionada junto com a F1; uma varredura confirmou que não restou nenhuma ocorrência no repositório.
+- Pendente do usuário: fornecer a nova `GEMINI_API_KEY`, a chave DataJud, o token do `pg_cron` e revogar o token antigo da Vercel no painel da Vercel.

@@ -1,19 +1,15 @@
 'use server'
 
 import { GoogleGenAI } from "@google/genai";
+import { resolveGeminiKey } from "@/lib/gemini-server";
 
 export async function getGeminiApiKey() {
-  return process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+  return resolveGeminiKey() || '';
 }
 
 export async function analyzeTemplateImage(base64Image: string, manualApiKey?: string) {
   // Ordem de busca: 1. Chave manual enviada pelo usuário, 2. Segredos do Servidor
-  const apiKey = 
-    manualApiKey ||
-    process.env.GEMINI_API_KEY || 
-    process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
-    process.env.GOOGLE_API_KEY || 
-    process.env.API_KEY;
+  const apiKey = resolveGeminiKey(manualApiKey);
 
   if (!apiKey || apiKey.trim() === '') {
     return { 

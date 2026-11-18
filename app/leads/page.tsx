@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { MessageSquare, Plus, Phone, Calendar, Trash2, UserPlus, Filter, Edit2, Zap, ChevronRight } from 'lucide-react'
-import { GoogleGenAI } from '@google/genai';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { LeadKpiHeader } from '@/components/leads/LeadKpiHeader'
@@ -306,21 +305,19 @@ export default function LeadsPage() {
     let generatedNotes = description;
 
     // AI Analysis during creation
-    const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (apiKey && description) {
+    if (description) {
         try {
-            const ai = new GoogleGenAI({ apiKey });
-            const prompt = `Analise este lead. Descreva o problema em 2 linhas. Defina o nível de urgência/temperatura respondendo APENAS com um emoji (🔥 para Quente/Urgente, 🌤️ para Morno, ❄️ para Frio).
-            
-            Texto: "${description}"
-            
-            Formato de Resposta (JSON estrito):
-            { "score": "🔥", "notes": "Descrição do problema..." }`;
-            
-            const result = await ai.models.generateContent({
-                model: "gemini-3-flash-preview",
-                contents: prompt,
+            const response = await fetch('/api/ai/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    kind: 'lead_score',
+                    payload: { description },
+                    manualKey: customApiKey || undefined,
+                }),
             });
+            if (!response.ok) throw new Error('Falha na análise de IA');
+            const result = await response.json();
             const text = result.text || "";
             try {
                 const parsed = JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
@@ -399,21 +396,21 @@ export default function LeadsPage() {
   }
 
   const analyzeLead = async (desc: string) => {
-    const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) {
-        setInsights('API Key do Gemini não configurada.')
-        return
-    }
     setIsAnalyzing(true)
     setInsights('')
     try {
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Analise a descrição deste lead: "${desc}". (1) Identifique o sentimento do cliente (positivo/negativo/neutral). (2) Liste 3 pontos chave do problema. (3) Sugira a melhor abordagem de contato. Mantenha em bullets.`
-        const result = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: prompt,
-        });
-        setInsights(result.text || "");
+        const response = await fetch('/api/ai/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                kind: 'lead_insights',
+                payload: { description: desc },
+                manualKey: customApiKey || undefined,
+            }),
+        })
+        if (!response.ok) throw new Error('Falha na análise de IA')
+        const result = await response.json()
+        setInsights(result.text || "")
     } catch (e: any) {
         console.error("Gemini Error:", e)
         setInsights(`Não foi possível gerar insights: ${e.message}`)
@@ -423,12 +420,6 @@ export default function LeadsPage() {
   }
 
   const generateAiAnalysisForLead = async (lead: Lead) => {
-    const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) {
-        alert('API Key do Gemini não configurada. Defina na área de configuração abaixo da lista.');
-        return;
-    }
-
     if (!lead.description) {
         alert('O lead não possui descrição para ser analisada.');
         return;
@@ -437,18 +428,17 @@ export default function LeadsPage() {
     setIsAnalyzingId(lead.id);
 
     try {
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Analise este lead. Descreva o problema em 2 linhas. Defina o nível de urgência/temperatura respondendo APENAS com um emoji (🔥 para Quente/Urgente, 🌤️ para Morno, ❄️ para Frio).
-        
-        Texto: "${lead.description}"
-        
-        Formato de Resposta (JSON estrito):
-        { "score": "🔥", "notes": "Descrição do problema..." }`;
-        
-        const result = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: prompt,
+        const response = await fetch('/api/ai/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                kind: 'lead_score',
+                payload: { description: lead.description },
+                manualKey: customApiKey || undefined,
+            }),
         });
+        if (!response.ok) throw new Error('Falha na análise de IA');
+        const result = await response.json();
         const text = result.text || "";
         
         let generatedScore = lead.score;

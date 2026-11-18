@@ -23,7 +23,17 @@
 - Local dos arquivos (fora do repositório): `C:\InoveTecnologia\InoveJuris-Backups\F0-20261118`.
 - Conteúdo: `MANIFEST.txt` com SHA256, `table_counts.json`, `schema_columns.json`, `schema_indexes.json`, `views_snapshot.json`, `functions_snapshot.json`, `policies_rollback.json/.sql` (261 policies), `grants_rollback.json/.sql` (930 grants) e `data_chunk_1..6.json` (58 tabelas / 3.806 linhas).
 - `npx supabase db dump` exige Docker, indisponível; a exportação lógica foi feita via API SQL (`npx supabase db query`). Nada foi instalado e nenhuma alteração de código/banco/deploy ocorreu.
-- Próxima fatia pendente de autorização: **F1** (rotação de segredos).
+## F1 — preparação de código concluída (2026-11-18)
+- Usuário autorizou **somente preparar o código**, sem alterar variáveis de ambiente, banco ou deploy.
+- Chave Gemini removida do cliente: nova rota server-side `/api/ai/generate`, helper `lib/gemini-server.ts`, remoção da injeção `window.GEMINI_API_KEY` no layout e do bloco `env` do `next.config.ts`.
+- Componentes adaptados: `AIInsightsWidget`, `TaskIntelligence` e `app/leads/page.tsx` (3 chamadas).
+- `npm run build` passou; nenhuma chave Gemini aparece no bundle client.
+- **Novo achado:** `.env.example` tinha senha literal do pooler Supabase em comentário; valor removido e substituído por placeholder. Rotacionar essa senha junto com a F1.
+- Pendente do usuário: novas chaves (Gemini, DataJud, `pg_cron`) e revogação do token antigo da Vercel. Nenhum deploy publicado.
+
+## Próxima fatia
+
+- **F2** (rotas administrativas: backup/restore, generate e limpeza de auditoria) depende da entrega das novas chaves e da decisão sobre os fallbacks de service role.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

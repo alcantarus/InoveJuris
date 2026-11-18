@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,36 +18,20 @@ export default function TaskIntelligence({ taskTitle, onAddSubtasks }: TaskIntel
       return;
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) {
-      toast.error('A chave da API Gemini não está configurada.');
-      return;
-    }
-
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Sugira 3 a 5 sub-tarefas práticas para o compromisso: "${taskTitle}"`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              subtasks: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: 'Lista de sub-tarefas sugeridas.',
-              },
-            },
-            required: ['subtasks'],
-          },
-        },
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'task_subtasks',
+          payload: { title: taskTitle },
+        }),
       });
 
-      const json = JSON.parse(response.text || '{}');
+      if (!response.ok) throw new Error('Falha ao gerar sub-tarefas');
+      const result = await response.json();
+      const json = JSON.parse(result.text || '{}');
       if (json.subtasks) {
         onAddSubtasks(json.subtasks);
         toast.success('Sub-tarefas sugeridas com sucesso!');
