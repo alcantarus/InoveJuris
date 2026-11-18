@@ -29,6 +29,7 @@ import DashboardLayout from '@/app/dashboard-layout'
 import { cn, formatCurrency, formatDate, formatDateTime, getTodayBR } from '@/lib/utils'
 import { daysUntilDate, getNextDeadline, getResponsibleName, normalizeParties } from '@/lib/processes'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { getAppEnv } from '@/lib/env'
 import { useAuth } from '@/lib/auth'
 import { confirmDeadlineRecord } from '@/lib/deadline-mutations'
 import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
@@ -65,15 +66,25 @@ export default function ProcessoDetalhePage() {
       return
     }
 
+    // O detalhe precisa usar o mesmo ambiente de Prazos/Calendário e das RPCs
+    // de mutação; sem estes filtros um processo podia ser aberto pela URL com
+    // prazos de outro ambiente e a exclusão/criação falhava com P0002.
+    const env = getAppEnv()
     const [processRes, lawyersRes, contractsRes, clientsRes] = await Promise.all([
-      supabase.from('processes').select('*, process_deadlines(*)').eq('id', Number(params.id)).single(),
-      supabase.from('lawyers').select('id, name, users:user_id(name)'),
-      supabase.from('contracts').select('processNumber, client_id'),
-      supabase.from('clients').select('id, name'),
+      supabase
+        .from('processes')
+        .select('*, process_deadlines(*)')
+        .eq('id', Number(params.id))
+        .eq('environment', env)
+        .eq('process_deadlines.environment', env)
+        .single(),
+      supabase.from('lawyers').select('id, name, users:user_id(name)').eq('environment', env),
+      supabase.from('contracts').select('processNumber, client_id').eq('environment', env),
+      supabase.from('clients').select('id, name').eq('environment', env),
     ])
 
     if (processRes.error || !processRes.data) {
-      toast.error('Processo não encontrado.')
+      toast.error('Processo não encontrado neste ambiente.')
       setLoading(false)
       return
     }

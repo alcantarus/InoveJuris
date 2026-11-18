@@ -104,7 +104,8 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Validação E2E em ambiente de teste: RPC HTTP `200`, remoção do prazo temporário e histórico `criar` + `excluir` confirmados por SQL.
 
 ### Fase 4.5 — Filtro por ambiente e representação legal — ENTREGUE em 2026-11-18
-- `fetchDeadlines(env = getAppEnv())` filtra `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers` pelo ambiente ativo. Validação em `/prazos`: consulta com `environment=eq.production` retornou HTTP `200`.
+- `fetchDeadlines(env = getAppEnv())` filtra `process_deadlines`, `processes`, `contracts`, `clients` e `lawyers` pelo ambiente ativo. `app/processos/[id]/page.tsx` recebeu o mesmo filtro no processo, nos prazos embutidos e nas consultas auxiliares.
+- Validação alternando PRODUÇÃO/TESTE pela Sidebar: `/prazos` mostrou 0 prazos em produção e 2 em teste; o seletor de “Novo prazo” ofereceu apenas processos do ambiente ativo; `/processos/29` foi recusado em produção e abriu normalmente em teste.
 - **Representação legal de menores**: pai/mãe/tutor/curador passa a ser outro Cliente relacionado, não texto copiado. Migration `20261118140000_client_legal_guardians.sql` aplicada em produção cria `client_relationships`, `v_client_guardians` e a RPC transacional `save_client_guardians`.
 - Cadastro de Clientes ganhou o editor “Vínculos de Representação Legal” (busca de responsáveis do mesmo ambiente, parentesco, rótulo da cláusula, principal e vigência), aviso legado revisável e exibição dos vínculos no painel do cliente.
 - E2E validada com `client_id=93` (Anny) e responsável `client_id=94` (Arlene): RPC `204`, recarga persistida e `v_client_guardians` conferida por SQL. Detalhes em `docs/STATUS-INOVEJURIS.md`.

@@ -263,8 +263,13 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - Corrigido o comportamento preexistente em que `fetchDeadlines()` carregava registros de **todos os ambientes**, enquanto as RPCs de mutação usam `getAppEnv()`. Isso misturava prazos `test`/`production`, oferecia processos do outro ambiente no modal "Novo prazo" e podia gerar `P0002` na criação/exclusão.
 - Implementação em `lib/deadlines.ts`: import de `getAppEnv`/`AppEnv`, assinatura `fetchDeadlines(env: AppEnv = getAppEnv())` e `.eq('environment', env)` nas cinco consultas (`process_deadlines`, `processes`, `contracts`, `clients`, `lawyers`).
 - A chamada continua ocorrendo somente em efeitos cliente (`/prazos`, `/calendario`); no servidor `getAppEnv()` cai em `production`, por isso não foi move-la para renderização server-side.
-- Validação com sessão autenticada em `/prazos`: requisição a `rest/v1/process_deadlines?...&environment=eq.production` retornou HTTP `200`. `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
-- Não foi necessária migration nova.
+- **Endurecimento em `app/processos/[id]/page.tsx`:** o detalhe agora filtra o próprio processo, os `process_deadlines` embutidos e as consultas auxiliares de `lawyers`, `contracts` e `clients` pelo mesmo `getAppEnv()`. Sem isso, era possível abrir pela URL um processo de outro ambiente e tentar editar/excluir prazos incompatíveis.
+- Validação completa com sessão autenticada, alternando **PRODUÇÃO → TESTE → PRODUÇÃO** pela Sidebar:
+  - `/prazos` em `production`: `process_deadlines?...&environment=eq.production` → HTTP `200`, **0 prazos**; “Novo prazo” ofereceu somente processos de produção (20 opções; nenhuma com id `29`/`30`).
+  - `/prazos` em `test`: mesma consulta com `environment=eq.test` → HTTP `200`, **2 prazos vencidos**; “Novo prazo” ofereceu exatamente os processos `29` e `30`.
+  - `/processos/29` em `production`: consulta com `environment=eq.production` + `process_deadlines.environment=eq.production` retornou `.single()` sem linhas (HTTP `406` esperado) e a tela exibiu “Processo não encontrado neste ambiente.”
+  - Após trocar para `test` pela Sidebar, o mesmo `/processos/29` abriu normalmente, com o prazo “Juntar CTPS” e a consulta usando `environment=eq.test`.
+- `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas). Não foi necessária migration nova.
 
 ## Representação legal de menores em Clientes — ENTREGUE em 2026-11-18
 - Decisão de produto: o menor continua sendo uma parte no cadastro; pai/mãe/tutor/curador é **outro registro de Cliente**, relacionado por aresta. A frase usada pelos futuros documentos (“representado por...”) projeta campos do responsável — nunca texto copiado no menor.
