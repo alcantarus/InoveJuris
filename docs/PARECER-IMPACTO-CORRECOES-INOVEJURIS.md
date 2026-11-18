@@ -334,3 +334,26 @@ Não há rotina de uso corrente dependente dessas funções. Não é necessário
 ## 9.5 Rollback de deploy
 
 A F3 é apenas SQL. Se houver efeito indireto em produção, promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` e executar `rollback.sql`. O ponto PITR da F0 (`2026-11-18 18:01:02.49299+00`) permanece disponível.
+
+## 9.6 Execução em 2026-11-18 — **parcial**
+
+Com autorização do usuário para a F3 completa, a execução produziu:
+
+- **`exec_sql(text)`: revogado com sucesso** de `PUBLIC`, `anon` e `authenticated`. `service_role` e `postgres` continuam podendo executar.
+- **`verify_before.json`:** 18/18 funções com `anon=true` e `authenticated=true`.
+- **`verify_after.json`:** 1/18 (`exec_sql`) com `anon=false`; as 17 funções `http`/`urlencode` continuam `true`.
+- Efeito confirmado em produção: `GET /api/diagnose-db` retornou `42501 permission denied for function exec_sql` — falha controlada, sem alteração de dados.
+- Os três jobs do `pg_cron` continuam ativos e rodando como `postgres`.
+
+### Bloqueio das funções `http`
+
+As 17 funções são **propriedade de `supabase_admin`** (`proacl` com grantor `supabase_admin`). A conexão disponível executa como `postgres`, que não é superuser, não é membro de `supabase_admin` e não tem `GRANT OPTION`. Os `REVOKE` retornaram sucesso silencioso, mas a ACL não mudou — inclusive em teste isolado. Um teste com `select 1/0` confirmou que erros normais são reportados pelo endpoint.
+
+Diagnóstico completo e opções em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\BLOCKED-http.md`.
+
+### Estado e rollback
+
+- A F3 **não está completa**: o buraco de SQL arbitrário está fechado; o de SSRF/exfiltração via `http` permanece.
+- Não foi feito deploy e nenhuma chave foi trocada.
+- `rollback_partial.sql` desfaz somente `exec_sql`; `rollback.sql` restauraria os 18 grants caso a parte `http` venha a ser executada com role elevada.
+- **Pendente:** aplicar os `REVOKE` das 17 funções com acesso `supabase_admin` (via Supabase/support ou credencial elevada fornecida pelo usuário). Até lá, a F4 pode seguir, mas o risco residual deve constar do relatório final.

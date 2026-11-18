@@ -41,7 +41,13 @@
 
 ## Próxima fatia
 
-- **F3** — parecer técnico registrado em `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`, seção 9. SQL `forward.sql`, `rollback.sql` e `verify.sql` preparados em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118`. **Aguardando autorização**; nada foi aplicado no banco.
+## F3 executada parcialmente em 2026-11-18
+- Autorização do usuário para a F3 completa. `exec_sql(text)` **foi revogado** de `PUBLIC`/`anon`/`authenticated`; `service_role` e `postgres` intactos.
+- `verify_before.json` (18/18 com anon=true) e `verify_after.json` (1/18 — somente `exec_sql` — com anon=false) salvos em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118`.
+- Produção: `GET /api/diagnose-db` retornou `42501 permission denied for function exec_sql`; jobs `pg_cron` 1/2/5 seguem ativos como `postgres`.
+- **Bloqueio:** as 17 funções `http`/`urlencode` pertencem a `supabase_admin`; a conexão `postgres` não tem permissão para revogar e o `REVOKE` foi ignorado silenciosamente. Detalhes em `BLOCKED-http.md` no mesmo diretório.
+- Rollbacks disponíveis: `rollback_partial.sql` (exec_sql) e `rollback.sql` (completo). **Nenhum deploy; nenhuma chave trocada.**
+- Próximo passo dependente de acesso elevado: revogar as 17 funções `http`; depois seguir para F4.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.
