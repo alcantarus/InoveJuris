@@ -131,6 +131,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ valid: true, user: data.user })
     }
 
+    // Aviso enviado no fechamento da aba/janela (sendBeacon). Encerra todas
+    // as sessões ativas do usuário, inclusive as de outros dispositivos.
+    if (action === 'close_session') {
+      if (context.sessionId) {
+        await supabase.rpc('app_logout_all_user_sessions', { p_session_id: context.sessionId })
+      }
+      const response = NextResponse.json({ success: true })
+      clearAuthCookies(response)
+      return response
+    }
+
     if (action === 'heartbeat') {
       if (!context.sessionId) {
         const response = NextResponse.json({ valid: false }, { status: 401 })

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { useSettings } from '@/components/providers/SettingsProvider';
@@ -13,6 +13,12 @@ export function SessionMonitor() {
   const { user, logout } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const terminationHandled = useRef(false);
+
+  // Cada novo login deve poder exibir o aviso de sessão encerrada uma vez.
+  useEffect(() => {
+    if (user) terminationHandled.current = false;
+  }, [user]);
 
   // Avoid running on login page
   const isLoginPage = pathname === '/login';
@@ -73,7 +79,9 @@ export function SessionMonitor() {
         });
 
         if (res.status === 401) {
-          alert('Sua sessão foi encerrada por um administrador ou por um novo login.');
+          if (terminationHandled.current) return;
+          terminationHandled.current = true;
+          alert('Sua sessão foi encerrada: a aba foi fechada, houve novo login ou um administrador encerrou o acesso.');
           await logout();
           return;
         }
@@ -87,8 +95,8 @@ export function SessionMonitor() {
       }
     };
 
-    // Send heartbeat every 30 seconds to quickly detect remote termination
-    const interval = setInterval(sendHeartbeat, 30 * 1000);
+    // Heartbeat a cada 20s: o servidor tolera 90s sem sinal antes de expirar.
+    const interval = setInterval(sendHeartbeat, 20 * 1000);
 
     // Send initial heartbeat after 5 seconds
     const initialTimeout = setTimeout(sendHeartbeat, 5 * 1000);
@@ -98,6 +106,64 @@ export function SessionMonitor() {
       clearTimeout(initialTimeout);
     };
   }, [user, logout, isLoginPage]);
+
+  // Aviso de fechamento da aba/janela. O sendBeacon funciona durante o
+  // descarregamento e envia os cookies httpOnly da sessão ao servidor.
+  useEffect(() => {
+    if (isLoginPage || !user) return;
+
+    let closeNotified = false;
+
+    const notifyClose = () => {
+      if (closeNotified) return;
+      closeNotified = true;
+
+      const payload = JSON.stringify({ action: 'close_session' });
+
+      if (typeof navigator.sendBeacon === 'function') {
+        navigator.sendBeacon(
+          '/api/auth/session',
+          new Blob([payload], { type: 'application/json' })
+        );
+        return;
+      }
+
+      void fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        credentials: 'same-origin',
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+
+    const handlePageHide = () => {
+      // Reload mantém a página visível; aba/janela fechada ou saída do sistema
+      // passa por visibilitychange -> hidden antes do pagehide.
+      if (document.visibilityState === 'hidden') {
+        notifyClose();
+      }
+    };
+    const handleBeforeUnload = () => {
+      if (document.visibilityState === 'hidden') {
+        notifyClose();
+      }
+    };
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // Retorno do BFCache: a aba voltou a existir e pode gerar novo aviso.
+      if (event.persisted) closeNotified = false;
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [user, isLoginPage]);
 
   useEffect(() => {
     if (isLoginPage) return;

@@ -4,6 +4,7 @@
 > **Não houve alteração de código** nesta análise. As telas foram lidas por OCR do Windows (o modelo não processa imagem diretamente); alguns rótulos podem ter sido degradados pelo OCR e devem ser confirmados antes da implementação.
 
 ## 0. Progresso (atualizado em 2026-11-18)
+- **Logout global ao fechar aba/janela entregue em 2026-11-18** (Fase 4.8): `sendBeacon` encerra todas as sessões do usuário em todos os dispositivos; fallback server-side de 90 segundos. MFA continua fora desta entrega.
 - Por decisão do usuário, a ordem foi alterada: **começar pelas telas novas**, sem fase de estabilização prévia.
 - **Entregue e versionado:** Fase 1 parcial — `/prazos` e `/calendario` com camada de dados compartilhada (`lib/deadlines.ts`). Build OK.
 - **Correção DataJud entregue:** unificação em `lib/datajud.ts` + `/api/process-sync`, persistência de andamentos, remoção de chave hardcoded/Apify e criação da tabela `process_sync_log` (a antiga `process_sync_status` é uma VIEW e não serve para gravar status). Build OK.
@@ -128,6 +129,14 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Validação: `tsc`/`build` OK; SQL em produção (0 divergências de backfill, payload de superadmin com flags `true`, bloqueios exatos e `changed_fields` correto); E2E com concessão/revogação pela UI, menu, rotas diretas e persistência após recarga. Usuários/sessões/logs temporários removidos; 4 usuários reais preservados.
 - **Camada B permanece pendente:** enforcement server-side nas RPCs/APIs de domínio, RLS restritiva, RPCs para gestão de perfis, unificação RBAC ↔ booleanas e limpeza de arquivos obsoletos.
 - Versionado no commit `9dc7827` (`trabalho-com-claude`) e publicado no deploy `dpl_8FnNJ22Za6efpojF5gNqP5vxentp` (alias `https://inove-juris.vercel.app`; `vercel curl /login` OK).
+
+### Fase 4.8 — Logout global ao fechar aba/janela — ENTREGUE em 2026-11-18
+- Solicitação do usuário: fechar a aba ou a janela do navegador — em qualquer navegador, celular, tablet ou computador — deve encerrar a sessão e exigir login/senha. Parecer técnico emitido antes da alteração, com duas decisões confirmadas: **todas as sessões do usuário em todos os dispositivos** e **90 segundos** de tolerância se o aviso de fechamento não chegar.
+- Migration `20261118170000_session_close_all_devices.sql` aplicada em produção: `_auth_session_payload()` valida `last_seen_at` com TTL de 90s (antes 10 min) e a nova RPC `app_logout_all_user_sessions(p_session_id uuid)` marca `logout_at` de todas as sessões ativas do usuário. A RPC usa a sessão informada apenas para identificar o usuário, aceitando aviso tardio desde que a sessão não tenha sido encerrada antes.
+- `app/api/auth/session/route.ts`: nova ação `close_session`, acionada por `navigator.sendBeacon` (com fallback `fetch(..., { keepalive: true })`), que encerra as sessões e limpa os cookies httpOnly. `components/SessionMonitor.tsx`: `pagehide`/`beforeunload` com `visibilityState === 'hidden'` (reload não encerra sessão), rearma o aviso no retorno do BFCache, heartbeat de 20s e `useRef` para evitar alertas duplicados.
+- Validação: `tsc`/`build` OK; SQL em produção confirmou TTL (fresh válida, 100s inválida) e encerramento de duas sessões simultâneas; E2E simulou `pagehide` com aba oculta e confirmou as duas sessões encerradas, 401 no heartbeat, aviso único e redirect para `/login`.
+- Limpeza: usuários, sessões, notificações, dispositivos e audit logs temporários removidos (0 artefatos); 5 usuários reais preservados, incluindo `marcos@gmail.com` (id 73). Nenhuma sessão real foi encerrada. Limitações aceitas: até 90s de sobrevida sem sinal de fechamento e troca de app no celular pode disparar logout global.
+- Commit e deploy: a registrar ao final da entrega.
 
 ### Próximo passo — Módulo Documentos / “Modelo Vivo”
 - Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.

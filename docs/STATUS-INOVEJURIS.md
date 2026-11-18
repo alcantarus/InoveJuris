@@ -1,9 +1,15 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-18 (Camada A das permissões granulares de Prazos, Calendário e Publicações entregue; camada B permanece para etapa posterior).
+> Atualizado em: 2026-11-18 (logout global no fechamento de aba/janela entregue; Camada A das permissões granulares permanecendo registrada abaixo).
 
-## Índice da entrega mais recente — Camada A de permissões granulares (2026-11-18)
+## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
+- Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.
+- Parecer técnico emitido antes da alteração: eventos de fechamento não são 100% confiáveis; por isso a solução combina `sendBeacon` no fechamento com prazo curto no servidor.
+- Migration aplicada em produção: `supabase/migrations/20261118170000_session_close_all_devices.sql` (`_auth_session_payload` com 90s + `app_logout_all_user_sessions`).
+- Commit e deploy: IDs registrados ao final da seção detalhada.
+
+## Índice da entrega anterior — Camada A de permissões granulares (2026-11-18)
 - Parecer técnico emitido **antes** de qualquer alteração; proposta de Camada A aprovada por citação do usuário.
 - Migration aplicada em produção: `supabase/migrations/20261118160000_module_permissions.sql` (`npx supabase db query --remote=jhlxzqsgmudkbjkynqdl --yes --file ...`), com patch final da RPC e `grant select` das colunas novas já aplicados diretamente no banco.
 - Commit `9dc7827` enviado para `trabalho-com-claude`; deploy de produção `dpl_8FnNJ22Za6efpojF5gNqP5vxentp` com alias `https://inove-juris.vercel.app`.
@@ -345,6 +351,28 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - **Limpeza:** usuários temporários `71` (`admin.temporario.permissoes@example.com`) e `72` (`permissoes.modulo.teste@example.com`), sessões de teste (incluindo IDs `11111111-...`, `22222222-...` e as sessões geradas no E2E), notificações e audit logs correlatos foram removidos. Confirmação final: **4 usuários reais** (`1`, `2`, `23`, `65`), nenhum usuário temporário e nenhum artefato de teste restante. Nenhum usuário real teve suas permissões alteradas.
 - **Pendência deliberada:** não houve enforcement server-side novo nas RPCs de domínio nem RLS restritiva adicional nesta camada (Camada B).
 - **Versionamento/publicação:** commit `9dc7827` (`feat(permissoes): flags independentes de prazos, calendario e publicacoes (camada A)`) enviado para `trabalho-com-claude`; deploy de produção `dpl_8FnNJ22Za6efpojF5gNqP5vxentp`, alias `https://inove-juris.vercel.app`; `vercel curl /login` retornou o HTML da tela de login sem erro de acesso. Nenhum usuário real precisou ser alterado: os 4 existentes permaneceram com os flags já migrados.
+
+## Logout global ao fechar aba/janela — entregue em 2026-11-18
+- **Parecer prévio:** antes de editar foi explicado que nenhum navegador garante a entrega de um evento de fechamento ao servidor (celular em segundo plano, swipe de aba, crash, queda de rede). O usuário escolheu: (1) encerrar **todas as sessões do usuário em todos os dispositivos**; (2) fallback de **90 segundos** quando o aviso não chegar.
+- **Migration `20261118170000_session_close_all_devices.sql` aplicada em produção:**
+  - `_auth_session_payload()` passou a considerar `last_seen_at` mais antigo que **90 segundos** como inválido (antes eram 10 minutos). Validação SQL: sessão com `last_seen_at = now()` válida; sessão com 100 segundos inválida.
+  - Nova RPC `app_logout_all_user_sessions(p_session_id uuid)`: localiza o usuário pela sessão informada e marca `logout_at = now()` em **todas** as sessões ativas dele. A sessão informada pode estar com `last_seen_at` antigo, mas precisa existir e não ter sido encerrada antes.
+  - `revoke`/`grant` de execução ajustados para `anon, authenticated`.
+- **API:** `app/api/auth/session/route.ts` ganhou a ação `close_session`, que chama a RPC acima e devolve cookies limpos. O endpoint é chamado por `navigator.sendBeacon`, que funciona durante o descarregamento e envia os cookies httpOnly.
+- **Cliente:** `components/SessionMonitor.tsx` passou a:
+  -Listener de `pagehide`/`beforeunload` com `document.visibilityState === 'hidden'`. Isso evita disparar logout em **reload** (página permanece visível) e cobre fechamento de aba/janela e saída do sistema.
+  - Enviar `sendBeacon` para `close_session` com fallback para `fetch(..., { keepalive: true })`.
+  - Rearmar o aviso ao voltar do BFCache (`pageshow` com `persisted`).
+  - Heartbeat reduzido de 30s para **20s**, compatível com a tolerância de 90s.
+  - Aviso de sessão encerrada atualizado para citar aba fechada, novo login ou administrador.
+  - `terminationHandled` (useRef) garante **um único** alerta/redirect quando vários heartbeats recebem 401 ao mesmo tempo.
+- **Validações:**
+  - `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+  - SQL em produção: RPC encerrou duas sessões do mesmo usuário (uma fresca e uma com 100s de atraso); `fresh_valida=true`, `stale_valida=false` após a mudança de TTL.
+  - E2E em `localhost:3000`: login com usuário temporário, inclusão de uma segunda sessão “de outro dispositivo”, disparo simulado de `pagehide` com `visibilityState=hidden`; **as duas sessões** foram marcadas como encerradas; heartbeat seguinte retornou 401, exibiu o aviso e redirecionou para `/login`. Repetição do teste confirmou **um único alerta** após a correção com `useRef`.
+- **Limpeza:** usuários, sessões, notificações, dispositivos confiáveis e audit logs dos testes temporários removidos; verificação final retornou **0 artefatos**. Usuários reais preservados, incluindo o criado pelo próprio usuário durante a sessão (`marcos@gmail.com`, id `73`). Nenhuma sessão real foi encerrada pelos testes.
+- **Limitação conhecida:** se o aviso de fechamento não chegar ao servidor, a sessão ainda pode sobreviver por até **90 segundos** — prazo aceito pelo usuário. Reloads deliberados não encerram a sessão. Trocar de app no celular pode disparar `pagehide` e, por consequência, logout global; isso é coerente com a opção “todos os dispositivos”.
+- **Commit e deploy:** a registrar ao final da entrega.
 
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
