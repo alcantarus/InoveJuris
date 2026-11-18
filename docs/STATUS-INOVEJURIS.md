@@ -291,6 +291,29 @@ Esta seção reúne as decisões, identificadores, detalhes de implementação e
 - Deploy de produção concluído: `dpl_HEdGnjmMiKjkAKEJo2wQc4K15TQJ`, alias `https://inove-juris.vercel.app`.
 - Pré-requisito para o módulo Documentos/“Modelo Vivo” concluído: o catálogo de dados poderá consumir `v_client_guardians` sem depender de texto livre.
 
+## Blindagem de login, senhas e sessão — ENTREGUE em 2026-11-18
+- Solicitação do usuário: validar com “toda a segurança necessária” a tela de login, evitar vazamento de chaves/senhas e corrigir o auto-login após fechar o navegador sem clicar em **Sair do Sistema**. Decisões confirmadas: aplicar mudanças direto em produção; sessão deve encerrar ao fechar janela/aba; **sem MFA agora**.
+- **Auditoria do código anterior** (achados confirmados):
+  - `bcryptjs` comparava a senha no navegador e o cliente selecionava `password` do banco; havia fallback para texto plano.
+  - `select('*')` e logs traziam/exibiam hash, e-mail e estrutura de permissões no console.
+  - Identificador da sessão ficava em `localStorage` e era enviado no body do heartbeat/logout; cookie `app_env` usava `sameSite: 'none'`.
+  - Rate limit e verificação de expiração eram apenas client-side; presença de cookie/localStorage bastava para considerar autenticado.
+  - RLS permissiva em `users`, `user_sessions`, `login_attempts` e `trusted_devices`.
+- **Migration aplicada em produção:** `supabase/migrations/20261118150000_auth_session_hardening.sql` (`npx supabase db query --remote=jhlxzqsgmudkbjkynqdl --yes --file ...`). Antes da alteração foi criado o snapshot `_auth_hardening_policy_backup_20261118` com as policies originais.
+  - Tabela `login_challenges` e funções auxiliares `_auth_*`.
+  - RPCs `SECURITY DEFINER`: `app_authenticate`, `app_complete_login`, `app_validate_session`, `app_heartbeat`, `app_logout`, `app_switch_environment`, `app_admin_save_user`, `app_admin_delete_user`, `app_admin_impersonate`, `app_admin_terminate_session`, `app_admin_trust_device`, `app_get_security_data`, `app_get_my_trusted_devices`, `app_remove_my_trusted_device`.
+  - Comparação bcrypt acontece no Postgres (`extensions.crypt`). Os 4 hashes reais usavam `$2b$`; a função `_auth_normalize_bcrypt` converte apenas o prefixo para `$2a$`, exigido pelo `pgcrypto` do Supabase (teste direto: `$2b$` falhou e `$2a$` passou). Nenhum texto plano foi encontrado.
+  - Coluna `users.password` deixou de ser selecionável por `anon` (`GET /rest/v1/users?select=password...` → **401 permission denied**; colunas seguras → **200**). Escrita direta em `users` foi revogada e policies permissivas de sessões/tentativas/dispositivos foram removidas. `audit_logs` manteve policies de compatibilidade (resíduo a revisar).
+  - Fluxo de dois passos preservado: `authenticate` devolve `challenge` sem senha/hash; `login` troca o challenge por `sessionId` e grava sessão no banco.
+- **Sessão:** `session_id` e `app_env` passaram a ser cookies **httpOnly, SameSite=Lax, Secure em produção e sem Max-Age/Expires** (cookie de sessão). Cabeçalho real conferido: `session_id=...; Path=/; HttpOnly; SameSite=lax`. O `app_env` saiu de `sameSite: 'none'`. O `sessionId` não vai mais para `localStorage` nem para o body de heartbeat/logout.
+- **Validação server-side:** `useAuth()` chama `app_validate_session` no bootstrap; `middleware.ts` exige ambos os cookies; `SessionMonitor` usa heartbeat por cookie e encerra a sessão se o servidor responder `401`. Sessões expiram após 12 h, 10 min sem heartbeat, logout, troca de ambiente indevida ou data de expiração do usuário.
+- **Auto-login ao fechar o navegador:** marker em `sessionStorage` + `session_last_activity`; se o navegador restaurar a aba sem marker e com gap > 2 min, a aplicação chama `logout`, limpa estado local e redireciona para `/login?reason=session`.
+- **Código alterado:** `lib/auth.ts` (sem bcrypt/hash/sessionId no cliente), `app/api/auth/session/route.ts` (todas as ações via RPC, sem logs de body/email/permissões), `middleware.ts`, `app/login/page.tsx`, `components/SessionMonitor.tsx`, `app/usuarios/page.tsx`, `components/AuditAccessLogs.tsx` e `components/settings/TrustedDevicesTab.tsx`. Senha é limpa do state React assim que o challenge é recebido.
+- **Testes SQL em produção:** fluxo completo `app_authenticate` → `app_complete_login` → `app_validate_session` → `app_heartbeat` → `app_logout` passou; após logout, `app_validate_session` retornou `valid=false`. Teste REST anônimo: 5 senhas erradas → `invalid_credentials`, 6ª → `rate_limited`. Usuário temporário `auth-check@inovejuris.local` removido.
+- **E2E no dev (`localhost:3000`)** com usuário temporário `e2e@inovejuris.local` (removido ao final): login em dois passos, dashboard, reload mantido, alternância PRODUÇÃO → TESTE → PRODUÇÃO pela Sidebar, heartbeat `200`, criação e exclusão administrativa de usuário via `admin_save_user`/`admin_delete_user` (HTTP `200`), logout pela UI e `validate` sem cookies retornando `valid=false`. O teste de restauração simulada (sem marker + atividade antiga) redirecionou para `/login?reason=session` e marcou a sessão como encerrada no banco. O travamento observado durante o E2E veio da automação de preenchimento do campo (e-mail duplicado/senha limpa após o challenge), não da aplicação.
+- Confirmação final em banco: **4 usuários reais**, **0 temporários**, **0 sessões ativas** após a limpeza. `npx tsc --noEmit` e `npm run build`: **OK** (21 páginas).
+- `SUPABASE_SERVICE_ROLE_KEY` **não** foi necessária nem configurada. **Pendência:** revogar o token antigo da Vercel, considerar MFA/“lembrar de mim” em uma próxima fase e revisar as policies restantes de `audit_logs`.
+
 ## Comandos úteis (PowerShell, em `C:\InoveTecnologia\InoveJuris`)
 ```powershell
 git remote -v

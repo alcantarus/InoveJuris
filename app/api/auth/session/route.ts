@@ -1,285 +1,290 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { getSupabaseServer } from '@/lib/supabase-server'
 import { UAParser } from 'ua-parser-js'
+import { AppEnv } from '@/lib/env'
+
+const isEnv = (value: unknown): value is AppEnv => value === 'production' || value === 'test'
+
+function getIp(request: Request) {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  return request.headers.get('x-real-ip') || 'Unknown'
+}
+
+function getReadableUserAgent(request: Request, supplied?: unknown) {
+  const raw = typeof supplied === 'string' && supplied.trim() ? supplied : request.headers.get('user-agent') || 'Unknown'
+  const parser = new UAParser(raw)
+  const browser = parser.getBrowser()
+  const os = parser.getOS()
+  const device = parser.getDevice()
+
+  if (browser.name && os.name) {
+    const mobile = device.type === 'mobile' ? ' (Mobile)' : ''
+    return `${browser.name} no ${os.name}${mobile}`.slice(0, 500)
+  }
+
+  return raw.slice(0, 500)
+}
+
+async function getAuthContext() {
+  const cookieStore = await cookies()
+  const sessionId = cookieStore.get('session_id')?.value || null
+  const cookieEnv = cookieStore.get('app_env')?.value
+  const environment: AppEnv = isEnv(cookieEnv) ? cookieEnv : 'production'
+  return { sessionId, environment }
+}
+
+function setAuthCookies(response: NextResponse, sessionId: string, environment: AppEnv) {
+  const secure = process.env.NODE_ENV === 'production'
+  const options = {
+    httpOnly: true,
+    secure,
+    sameSite: 'lax' as const,
+    path: '/',
+  }
+
+  // Sem maxAge/expires: ambas são cookies de sessão e morrem ao fechar o navegador.
+  response.cookies.set('session_id', sessionId, options)
+  response.cookies.set('app_env', environment, options)
+}
+
+function clearAuthCookies(response: NextResponse) {
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+  }
+  response.cookies.set('session_id', '', { ...options, maxAge: 0 })
+  response.cookies.set('app_env', '', { ...options, maxAge: 0 })
+}
+
+function fail(error: string, status = 400) {
+  return NextResponse.json({ success: false, error }, { status })
+}
 
 export async function POST(request: Request) {
   try {
-    const supabase = await getSupabaseServer();
-    const body = await request.json()
-    console.log('Session API: Corpo da requisição:', JSON.stringify(body))
-    const { userId, environment, userAgent, action, sessionId, email, reason } = body
+    const body = await request.json().catch(() => ({}))
+    const action = typeof body.action === 'string' ? body.action : ''
+    const supabase = await getSupabaseServer()
+    const context = await getAuthContext()
+    const ip = getIp(request)
+    const userAgent = getReadableUserAgent(request, body.userAgent)
 
-    // Get IP address
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
+    // ---- Autenticação: credenciais nunca são comparadas no cliente ----
+    if (action === 'authenticate') {
+      const email = typeof body.email === 'string' ? body.email : ''
+      const password = typeof body.password === 'string' ? body.password : ''
 
-    if (action === 'check_rate_limit') {
-      const now = new Date();
-      const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
-      const { data, error } = await supabase
-        .from('login_attempts')
-        .select('id')
-        .eq('email', email)
-        .gte('attempted_at', tenMinutesAgo)
+      const { data, error } = await supabase.rpc('app_authenticate', {
+        p_email: email,
+        p_password: password,
+        p_ip: ip,
+        p_user_agent: userAgent,
+      })
 
-      if (error) {
-        // If table doesn't exist yet, just allow
-        return NextResponse.json({ allowed: true })
-      }
+      if (error) return fail('Não foi possível validar as credenciais.', 500)
+      if (!data?.success) return fail(data?.error || 'E-mail ou senha inválidos.', 401)
 
-      if (data && data.length >= 5) {
-        return NextResponse.json({ allowed: false, error: 'Muitas tentativas falhas. Tente novamente em 10 minutos.' })
-      }
-
-      return NextResponse.json({ allowed: true })
+      return NextResponse.json({
+        success: true,
+        user: data.user,
+        challenge: data.challenge,
+      })
     }
 
-    if (action === 'login_failed') {
-      // Log failed attempt
-      const { error } = await supabase
-        .from('login_attempts')
-        .insert([
-          {
-            email: email,
-            ip_address: ip,
-            user_agent: userAgent || request.headers.get('user-agent') || 'Unknown',
-            reason: reason || 'Credenciais inválidas',
-            attempted_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
-          }
-        ])
-      
-      if (error) {
-        console.error('Failed to log login attempt:', error)
+    // ---- Troca do challenge por uma sessão opaca ----
+    if (action === 'login') {
+      const environment = body.environment
+      if (!isEnv(environment)) return fail('Ambiente inválido.')
+
+      const challenge = typeof body.challenge === 'string' ? body.challenge : ''
+      if (!challenge) return fail('Validação de login inválida.')
+
+      const { data, error } = await supabase.rpc('app_complete_login', {
+        p_challenge: challenge,
+        p_environment: environment,
+        p_ip: ip,
+        p_user_agent: userAgent,
+      })
+
+      if (error) return fail('Não foi possível iniciar a sessão.', 500)
+      if (!data?.success) return fail(data?.error || 'Não foi possível iniciar a sessão.', 403)
+
+      const response = NextResponse.json({ success: true, user: data.user })
+      setAuthCookies(response, String(data.sessionId), environment)
+      return response
+    }
+
+    // ---- Validação server-side no carregamento da aplicação ----
+    if (action === 'validate') {
+      if (!context.sessionId) return NextResponse.json({ valid: false })
+
+      const { data, error } = await supabase.rpc('app_validate_session', {
+        p_session_id: context.sessionId,
+        p_environment: context.environment,
+      })
+
+      if (error || !data?.valid) return NextResponse.json({ valid: false })
+      return NextResponse.json({ valid: true, user: data.user })
+    }
+
+    if (action === 'heartbeat') {
+      if (!context.sessionId) {
+        const response = NextResponse.json({ valid: false }, { status: 401 })
+        clearAuthCookies(response)
+        return response
       }
+
+      const { data, error } = await supabase.rpc('app_heartbeat', {
+        p_session_id: context.sessionId,
+        p_environment: context.environment,
+      })
+
+      if (error || !data?.valid) {
+        const response = NextResponse.json({ valid: false }, { status: 401 })
+        clearAuthCookies(response)
+        return response
+      }
+
+      return NextResponse.json({ valid: true })
+    }
+
+    if (action === 'logout') {
+      if (context.sessionId) {
+        await supabase.rpc('app_logout', { p_session_id: context.sessionId })
+      }
+      const response = NextResponse.json({ success: true })
+      clearAuthCookies(response)
+      return response
+    }
+
+    if (action === 'switch_environment') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
+      if (!isEnv(body.environment)) return fail('Ambiente inválido.')
+
+      const { data, error } = await supabase.rpc('app_switch_environment', {
+        p_session_id: context.sessionId,
+        p_environment: body.environment,
+      })
+
+      if (error) return fail('Não foi possível trocar de ambiente.', 500)
+      if (!data?.success) return fail(data?.error || 'Não foi possível trocar de ambiente.', 403)
+
+      const response = NextResponse.json({ success: true })
+      setAuthCookies(response, context.sessionId, body.environment)
+      return response
+    }
+
+    // ---- Administração de usuários (todas com sessão válida no servidor) ----
+    if (action === 'admin_save_user') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
+
+      const { data, error } = await supabase.rpc('app_admin_save_user', {
+        p_session_id: context.sessionId,
+        p_payload: body.payload || {},
+      })
+
+      if (error) return fail('Acesso negado ou dados inválidos.', 403)
+      if (!data?.success) return fail(data?.error || 'Não foi possível salvar o usuário.', 400)
+      return NextResponse.json({ success: true, user: data.user })
+    }
+
+    if (action === 'admin_delete_user') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
+
+      const { data, error } = await supabase.rpc('app_admin_delete_user', {
+        p_session_id: context.sessionId,
+        p_user_id: body.userId,
+      })
+
+      if (error) return fail('Acesso negado.', 403)
+      if (!data?.success) return fail(data?.error || 'Não foi possível excluir o usuário.', 400)
       return NextResponse.json({ success: true })
     }
 
     if (action === 'impersonate') {
-      const { adminId, targetUserId } = body
-      const { error } = await supabase
-        .from('audit_logs')
-        .insert([
-          {
-            user_id: adminId,
-            action: 'impersonate_user',
-            entity: 'users',
-            entity_id: targetUserId,
-            details: { target_user_id: targetUserId, user_agent: userAgent || request.headers.get('user-agent') || 'Unknown', ip_address: ip },
-            environment: environment
-          }
-        ])
-      
-      if (error) {
-        console.error('Failed to log impersonation:', error)
-      }
-      return NextResponse.json({ success: true })
-    }
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
 
-    if (action === 'login') {
-      console.log('Session API: Iniciando login para', userId)
-      // 1. Prevent simultaneous logins (Logout other active sessions for this user)
-      const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
-      await supabase
-        .from('user_sessions')
-        .update({ logout_at: nowISO })
-        .eq('user_id', userId)
-        .is('logout_at', null)
-      console.log('Session API: Sessões anteriores finalizadas')
-
-      // 2. Parse User-Agent
-      const uaString = userAgent || request.headers.get('user-agent') || 'Unknown'
-      const parser = new UAParser(uaString)
-      const browser = parser.getBrowser()
-      const os = parser.getOS()
-      const device = parser.getDevice()
-      
-      let readableUA = uaString
-      if (browser.name && os.name) {
-        readableUA = `${browser.name} no ${os.name}`
-        if (device.type === 'mobile') readableUA += ' (Mobile)'
-      }
-      console.log('Session API: UA parseado')
-
-      // 4. Check for Anomalous Access
-      try {
-        console.log('Session API: Verificando acesso anômalo')
-        // First, check if this device is trusted
-        const { data: trustedDevices } = await supabase
-          .from('trusted_devices')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('user_agent', readableUA)
-          .limit(1);
-
-        const isTrusted = trustedDevices && trustedDevices.length > 0;
-        console.log('Session API: Acesso anômalo verificado, isTrusted:', isTrusted)
-
-        if (!isTrusted) {
-          const { data: previousSessions } = await supabase
-            .from('user_sessions')
-            .select('user_agent')
-            .eq('user_id', userId)
-            .order('login_at', { ascending: false })
-            .limit(10)
-
-          if (previousSessions && previousSessions.length > 0) {
-            const knownDevices = new Set(previousSessions.map((s: any) => s.user_agent))
-
-            const isNewDevice = !knownDevices.has(readableUA)
-
-            if (isNewDevice) {
-              let alertMessage = 'Novo acesso detectado em sua conta.'
-              alertMessage = `Acesso de um novo dispositivo (${readableUA}).`
-
-              // Create notification
-              await supabase.from('notifications').insert([{
-                user_id: userId,
-                title: 'Alerta de Segurança',
-                message: alertMessage,
-                type: 'warning',
-                environment: environment
-              }])
-              console.log('Session API: Notificação de segurança criada')
-            }
-          }
-        } else {
-          // Update last_used_at for trusted device
-          const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
-          await supabase
-            .from('trusted_devices')
-            .update({ last_used_at: nowISO })
-            .eq('user_id', userId)
-            .eq('user_agent', readableUA);
-          console.log('Session API: Dispositivo confiável atualizado')
-        }
-      } catch (e) {
-        console.error('Anomalous Access Check Error:', e)
-      }
-
-      console.log('Session API: Inserindo nova sessão')
-      const loginISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
-      const { data, error } = await supabase
-        .from('user_sessions')
-        .insert([
-          {
-            user_id: userId,
-            environment: environment,
-            ip_address: ip,
-            user_agent: readableUA,
-            login_at: loginISO,
-            last_seen_at: loginISO,
-          }
-        ])
-        .select('id')
-        .single()
-
-      if (error) {
-        console.error('Session API: Erro ao inserir sessão:', error)
-        throw error
-      }
-      console.log('Session API: Sessão inserida com sucesso')
-
-      // C. Correção Opcional (Tabela Genérica audit_logs):
-      // Log successful login to the general audit_logs table
-      try {
-        await supabase.from('audit_logs').insert([{
-          table_name: 'user_sessions',
-          record_id: data.id,
-          action: 'login',
-          performed_by: userId,
-          environment: environment,
-          new_data: {
-            ip_address: ip,
-            user_agent: readableUA,
-            login_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
-          }
-        }])
-        console.log('Session API: Login registrado em audit_logs')
-      } catch (auditError) {
-        console.error('Session API: Erro ao registrar login em audit_logs:', auditError)
-        // Don't fail the login if audit logging fails
-      }
-
-      const response = NextResponse.json({ success: true, sessionId: data.id })
-      response.cookies.set('session_id', data.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/'
+      const { data, error } = await supabase.rpc('app_admin_impersonate', {
+        p_session_id: context.sessionId,
+        p_target_user_id: body.targetUserId,
+        p_ip: ip,
+        p_user_agent: userAgent,
       })
-      return response
-    } 
-    
-    if (action === 'logout' && sessionId) {
-      const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z';
-      const { error } = await supabase
-        .from('user_sessions')
-        .update({
-          logout_at: nowISO,
-          last_seen_at: nowISO
-        })
-        .eq('id', sessionId)
 
-      if (error) throw error
-
-      const response = NextResponse.json({ success: true })
-      response.cookies.delete('session_id')
-      return response
+      if (error) return fail('Acesso negado.', 403)
+      if (!data?.success) return fail(data?.error || 'Não foi possível assumir este usuário.', 400)
+      return NextResponse.json({ success: true, user: data.user, challenge: data.challenge })
     }
 
-    if (action === 'heartbeat' && sessionId) {
-      console.log('Session API: Heartbeat para sessão', sessionId)
-      // Check if session is already terminated
-      const { data: sessions, error: fetchError } = await supabase
-        .from('user_sessions')
-        .select('logout_at')
-        .eq('id', sessionId);
+    // ---- Logs e dispositivos confiáveis ----
+    if (action === 'security_data') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
 
-      if (fetchError) {
-        console.error('Session API: Erro ao buscar sessão no heartbeat:', fetchError)
-        throw fetchError
-      }
+      const { data, error } = await supabase.rpc('app_get_security_data', {
+        p_session_id: context.sessionId,
+        p_environment: context.environment,
+      })
 
-      if (!sessions || sessions.length === 0) {
-        console.log('Session API: Sessão não encontrada')
-        return NextResponse.json({ success: false, error: 'Session not found' }, { status: 401 })
-      }
+      if (error) return fail('Acesso negado.', 403)
+      return NextResponse.json({ success: true, data })
+    }
 
-      const session = sessions[0];
+    if (action === 'admin_terminate_session') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
 
-      if (session.logout_at) {
-        console.log('Session API: Sessão terminada')
-        return NextResponse.json({ success: false, error: 'Session terminated' }, { status: 401 })
-      }
+      const { error } = await supabase.rpc('app_admin_terminate_session', {
+        p_session_id: context.sessionId,
+        p_target_session_id: body.targetSessionId,
+      })
 
-      const { error } = await supabase
-        .from('user_sessions')
-        .update({
-          last_seen_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z'
-        })
-        .eq('id', sessionId)
-
-      if (error) {
-        console.error('Session API: Erro ao atualizar heartbeat:', error)
-        throw error
-      }
-
-      console.log('Session API: Heartbeat atualizado com sucesso')
+      if (error) return fail('Acesso negado.', 403)
       return NextResponse.json({ success: true })
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    if (action === 'admin_trust_device') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
 
-  } catch (error: any) {
-    console.error('Session API Error:', JSON.stringify(error, null, 2))
-    
-    // Extract more details if it's a Supabase error
-    const details = error?.message || error?.details || error?.hint || String(error)
-    const code = error?.code || 'UNKNOWN'
-    
-    return NextResponse.json({ 
-      error: 'Internal Server Error', 
-      code,
-      details
-    }, { status: 500 })
+      const { error } = await supabase.rpc('app_admin_trust_device', {
+        p_session_id: context.sessionId,
+        p_target_user_id: body.targetUserId,
+        p_user_agent: body.userAgent || userAgent,
+        p_ip: ip,
+        p_environment: context.environment,
+      })
+
+      if (error) return fail('Acesso negado.', 403)
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'trusted_devices') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
+
+      const { data, error } = await supabase.rpc('app_get_my_trusted_devices', {
+        p_session_id: context.sessionId,
+      })
+
+      if (error) return fail('Sessão inválida.', 401)
+      return NextResponse.json({ success: true, devices: data || [] })
+    }
+
+    if (action === 'remove_trusted_device') {
+      if (!context.sessionId) return fail('Sessão inválida.', 401)
+
+      const { error } = await supabase.rpc('app_remove_my_trusted_device', {
+        p_session_id: context.sessionId,
+        p_device_id: body.deviceId,
+      })
+
+      if (error) return fail('Não foi possível remover o dispositivo.', 400)
+      return NextResponse.json({ success: true })
+    }
+
+    return fail('Ação inválida.')
+  } catch {
+    return fail('Erro interno de autenticação.', 500)
   }
 }

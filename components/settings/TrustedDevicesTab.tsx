@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Shield, Trash2, Smartphone, Monitor, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
+
+async function authAction(action: string, payload: Record<string, unknown> = {}) {
+  const response = await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...payload }),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data?.error || 'Falha na operação.')
+  return data
+}
 
 interface TrustedDevice {
   id: string;
@@ -27,20 +37,8 @@ export function TrustedDevicesTab() {
           setLoading(false);
           return;
         }
-        const { data, error } = await supabase
-          .from('trusted_devices')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('last_used_at', { ascending: false });
-
-        if (error) {
-          // Se a tabela não existir, não faz nada
-          if (error.code !== '42P01') {
-            console.error('Error fetching trusted devices:', error);
-          }
-        } else {
-          setDevices(data || []);
-        }
+        const result = await authAction('trusted_devices');
+        setDevices(result.devices || []);
       } catch (e) {
         console.error('Error fetching trusted devices:', e);
       } finally {
@@ -57,12 +55,7 @@ export function TrustedDevicesTab() {
     }
 
     try {
-      const { error } = await supabase
-        .from('trusted_devices')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await authAction('remove_trusted_device', { deviceId: id });
 
       setDevices(prev => prev.filter(d => d.id !== id));
       toast.success('Dispositivo removido com sucesso.');

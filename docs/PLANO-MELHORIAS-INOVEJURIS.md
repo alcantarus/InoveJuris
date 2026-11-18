@@ -110,6 +110,13 @@ Corrigir os 7 achados P0 acima. Entregável: console limpo, views 200, link do R
 - Cadastro de Clientes ganhou o editor “Vínculos de Representação Legal” (busca de responsáveis do mesmo ambiente, parentesco, rótulo da cláusula, principal e vigência), aviso legado revisável e exibição dos vínculos no painel do cliente.
 - E2E validada com `client_id=93` (Anny) e responsável `client_id=94` (Arlene): RPC `204`, recarga persistida e `v_client_guardians` conferida por SQL. Detalhes em `docs/STATUS-INOVEJURIS.md`.
 
+### Fase 4.6 — Blindagem de autenticação e sessão — ENTREGUE em 2026-11-18
+- Auditoria confirmou que a senha era comparada no navegador, hash/sessionId ficavam em `localStorage`, logs expunham dados sensíveis e RLS era permissiva em tabelas de autenticação.
+- Migration `20261118150000_auth_session_hardening.sql` aplicada em produção: RPCs `SECURITY DEFINER` comparam bcrypt no Postgres, emitem `challenge`, criam/validam/encerram sessão e concentram escritas administrativas. Nenhum hash ou senha volta para o cliente; `users.password` não é selecionável por `anon`.
+- Cookies `session_id` e `app_env` são httpOnly, SameSite=Lax, Secure em produção e **sem expiração persistente**; validação acontece no servidor a cada carregamento e no heartbeat. Sessão morre ao fechar o navegador, por inatividade, logout, nova autenticação ou expiração do usuário.
+- Rate limit de 5 tentativas/10 min passou a ser servidor-side; mensagem genérica evita enumeração de usuário. Sem MFA nesta entrega, por decisão do usuário.
+- E2E validou login em dois passos, reload, troca de ambiente, heartbeat, admin_save_user/admin_delete_user, logout e bloqueio de sessão restaurada. Usuários temporários removidos; 4 usuários reais e 0 sessões ativas ao final. Detalhes em `docs/STATUS-INOVEJURIS.md`.
+
 ### Próximo passo — Módulo Documentos / “Modelo Vivo”
 - Pré-requisito de Clientes concluído: o catálogo de dados do Modelo Vivo poderá consumir `v_client_guardians` para projetar “representado por ...” a partir de registros relacionados.
 - Retomar o parecer `Relatorio-Modulo-Documentos.md`: corrigir o achado F3 (mesmo problema de ambiente já resolvido), definir o catálogo auto-descoberto, blocos determinísticos (texto/variável/condição/repetição/cláusula/assinatura), biblioteca de cláusulas versionada e governança com hash/QR/snapshot.

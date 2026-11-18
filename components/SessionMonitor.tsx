@@ -61,25 +61,29 @@ export function SessionMonitor() {
 
   // Heartbeat logic
   useEffect(() => {
-    if (isLoginPage || !user || !user.sessionId) return;
+    if (isLoginPage || !user) return;
 
     const sendHeartbeat = async () => {
       try {
+        // O identificador da sessão está apenas no cookie httpOnly.
         const res = await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'heartbeat',
-            sessionId: user.sessionId
-          })
+          body: JSON.stringify({ action: 'heartbeat' })
         });
 
         if (res.status === 401) {
           alert('Sua sessão foi encerrada por um administrador ou por um novo login.');
-          logout();
+          await logout();
+          return;
+        }
+
+        if (res.ok) {
+          localStorage.setItem('session_last_activity', Date.now().toString());
+          sessionStorage.setItem('inovejuris_browser_session_open', '1');
         }
       } catch (error) {
-        console.error('Failed to send heartbeat:', error);
+        console.error('Falha ao atualizar a sessão:', error);
       }
     };
 

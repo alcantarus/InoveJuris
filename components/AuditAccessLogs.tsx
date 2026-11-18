@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { 
   Search, 
   Monitor, 
@@ -35,6 +34,17 @@ import {
 
 import { getAppEnv } from '@/lib/env'
 import { getTodayBR } from '@/lib/utils'
+
+async function authAction(action: string, payload: Record<string, unknown> = {}) {
+  const response = await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...payload }),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data?.error || 'Falha na operação.')
+  return data
+}
 
 interface AccessLog {
   id: string
@@ -82,41 +92,15 @@ export function AuditAccessLogs() {
 
   useEffect(() => {
     const fetchLogs = async () => {
-      if (!isSupabaseConfigured) {
+      try {
+        const result = await authAction('security_data')
+        setLogs(result.data?.sessions || [])
+        setFailedAttempts(result.data?.failed || [])
+      } catch (error) {
+        console.error('Erro ao carregar logs de acesso:', error)
+      } finally {
         setLoading(false)
-        return
       }
-
-      const [sessionsRes, failedRes] = await Promise.all([
-        supabase
-          .from('user_sessions')
-          .select(`
-            *,
-            user:users!user_sessions_user_id_fkey(name, email)
-          `)
-          .eq('environment', currentEnv)
-          .order('login_at', { ascending: false })
-          .limit(500),
-        supabase
-          .from('login_attempts')
-          .select('*')
-          .order('attempted_at', { ascending: false })
-          .limit(500)
-      ])
-
-      if (sessionsRes.error) {
-        console.error('Error fetching access logs:', sessionsRes.error)
-      } else {
-        setLogs(sessionsRes.data || [])
-      }
-
-      if (failedRes.error) {
-        console.error('Error fetching failed attempts:', failedRes.error)
-      } else {
-        setFailedAttempts(failedRes.data || [])
-      }
-
-      setLoading(false)
     }
 
     fetchLogs()
@@ -126,24 +110,17 @@ export function AuditAccessLogs() {
     if (!confirm('Tem certeza que deseja encerrar esta sessão? O usuário será desconectado.')) return
 
     try {
-      const { error } = await supabase
-        .from('user_sessions')
-        .update({
-          logout_at: new Date().toISOString()
-        })
-        .eq('id', sessionId)
+      await authAction('admin_terminate_session', { targetSessionId: sessionId })
 
-      if (error) throw error
-
-      setLogs(logs.map(log => 
-        log.id === sessionId 
-          ? { ...log, logout_at: new Date().toISOString() } 
+      setLogs(logs.map(log =>
+        log.id === sessionId
+          ? { ...log, logout_at: new Date().toISOString() }
           : log
       ))
-      
+
       toast.success('Sessão encerrada com sucesso.')
     } catch (error) {
-      console.error('Error terminating session:', error)
+      console.error('Erro ao encerrar sessão:', error)
       toast.error('Erro ao encerrar sessão.')
     }
   }
@@ -152,28 +129,13 @@ export function AuditAccessLogs() {
     if (!confirm(`Deseja marcar este dispositivo (${log.user_agent}) como confiável para o usuário ${log.user?.name}?`)) return
 
     try {
-      const { error } = await supabase
-        .from('trusted_devices')
-        .insert([{
-          user_id: log.user_id,
-          device_name: log.user_agent,
-          user_agent: log.user_agent,
-          ip_address: log.ip_address,
-          location: log.location || 'Desconhecido',
-          environment: currentEnv
-        }])
-
-      if (error) {
-        if (error.code === '42P01') {
-          toast.error('Tabela trusted_devices não existe. Execute o script SQL.');
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success('Dispositivo marcado como confiável.');
-      }
+      await authAction('admin_trust_device', {
+        targetUserId: log.user_id,
+        userAgent: log.user_agent,
+      })
+      toast.success('Dispositivo marcado como confiável.')
     } catch (error) {
-      console.error('Error trusting device:', error)
+      console.error('Erro ao marcar dispositivo como confiável:', error)
       toast.error('Erro ao marcar dispositivo como confiável.')
     }
   }

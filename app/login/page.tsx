@@ -25,6 +25,7 @@ function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [loginStep, setLoginStep] = useState<'credentials' | 'environment'>('credentials')
   const [validatedUser, setValidatedUser] = useState<any>(null)
+  const [challenge, setChallenge] = useState<string>('')
   const [selectedEnv, setSelectedEnv] = useState<AppEnv>('production')
   
   const router = useRouter()
@@ -46,39 +47,31 @@ function LoginPageContent() {
 
     const result = await validateCredentials(email, password)
     
-    if (result.success) {
+    if (result.success && result.user && result.challenge) {
       const user = result.user
-      // Robust check for permissions
-      const canProd = user.canAccessProdEnv === true || user.canAccessProdEnv === null || user.canAccessProdEnv === undefined;
-      const canTest = user.canAccessTestEnv === true;
-
-      console.log('[Login] Permissões detectadas:', { canProd, canTest, raw: { prod: user.canAccessProdEnv, test: user.canAccessTestEnv } });
+      const canProd = user.canAccessProdEnv !== false
+      const canTest = user.canAccessTestEnv === true
 
       setValidatedUser(user)
+      setChallenge(result.challenge)
+      setPassword('')
 
       if (canProd && canTest) {
-        // Both - Explicitly set step to environment
-        console.log('[Login] Ambos os ambientes disponíveis. Mostrando seleção.');
         setLoginStep('environment')
         setIsLoading(false)
       } else if (canProd) {
-        // Only Prod
-        console.log('[Login] Apenas Produção disponível. Entrando automaticamente.');
-        const loginResult = await login(user, 'production')
+        const loginResult = await login(user, 'production', result.challenge)
         if (!loginResult.success) {
           setError(loginResult.error || 'Erro ao acessar ambiente de produção.')
           setIsLoading(false)
         }
       } else if (canTest) {
-        // Only Test
-        console.log('[Login] Apenas Testes disponível. Entrando automaticamente.');
-        const loginResult = await login(user, 'test')
+        const loginResult = await login(user, 'test', result.challenge)
         if (!loginResult.success) {
           setError(loginResult.error || 'Erro ao acessar ambiente de testes.')
           setIsLoading(false)
         }
       } else {
-        // None
         setError('Você não tem permissão para acessar nenhum ambiente.')
         setIsLoading(false)
       }
@@ -92,7 +85,7 @@ function LoginPageContent() {
     setError('')
     setIsLoading(true)
 
-    const result = await login(validatedUser, selectedEnv)
+    const result = await login(validatedUser, selectedEnv, challenge)
     
     if (result.success) {
       // router.push('/') is handled by window.location.href in auth.ts
@@ -101,11 +94,6 @@ function LoginPageContent() {
       setIsLoading(false)
     }
   }
-
-  // ... dentro do JSX, nos botões de seleção:
-  // onClick={() => { console.log('[Login] Ambiente selecionado:', 'production'); setSelectedEnv('production')}}
-  // onClick={() => { console.log('[Login] Ambiente selecionado:', 'test'); setSelectedEnv('test')}}
-
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

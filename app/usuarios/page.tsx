@@ -15,8 +15,18 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { User, useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
 import { removeAccents } from '@/lib/utils'
-import bcrypt from 'bcryptjs'
 import { UserTable } from '@/components/UserTable'
+
+async function authAction(action: string, payload: Record<string, unknown> = {}) {
+  const response = await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...payload }),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data?.error || 'Falha na operação.')
+  return data
+}
 
 export default function UsuariosPage() {
   const { user: currentUser, impersonate } = useAuth()
@@ -217,7 +227,7 @@ export default function UsuariosPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!isSupabaseConfigured) {
       toast.error('Supabase não configurado. Não é possível salvar.')
       return
@@ -225,9 +235,20 @@ export default function UsuariosPage() {
 
     const currentEnv = getAppEnv()
 
-    const userData: any = {
+    if (!editingUser && !formData.password) {
+      toast.error('A senha é obrigatória para novos usuários.')
+      return
+    }
+
+    // A senha vai em texto para a API somente dentro do servidor, que a
+    // transforma em hash no banco. O navegador nunca recebe o hash de volta.
+    const payload: Record<string, unknown> = {
+      id: editingUser?.id,
       name: formData.name,
       email: formData.email,
+      password: formData.password || undefined,
+      role_id: formData.role_id || undefined,
+      environment: currentEnv,
       canAccessDashboard: formData.canAccessDashboard,
       canAccessClients: formData.canAccessClients,
       canAccessProcesses: formData.canAccessProcesses,
@@ -251,95 +272,25 @@ export default function UsuariosPage() {
       expiration_date: formData.neverExpires ? null : (formData.expiration_date || null),
     }
 
-    if (formData.password) {
-      const salt = bcrypt.genSaltSync(10)
-      userData.password = bcrypt.hashSync(formData.password, salt)
-    }
-
-    if (editingUser) {
-      userData.updated_by = currentUser?.id
-      const { data, error } = await supabase
-        .from('users')
-        .update(userData)
-        .eq('id', editingUser.id)
-        .select(`
-          id, name, email, is_superadmin,
-          "canAccessDashboard", "canAccessClients", "canAccessProcesses", 
-          "canAccessContracts", "canAccessReceivables", "canAccessCashFlow", "canAccessProducts", 
-          "canAccessIndicators", "canAccessReports", "canAccessUsers", 
-          "canAccessSettings", "canAccessAudit", "canAccessLawyers", "canAccessProdEnv", 
-          "canAccessTestEnv", "canAccessDocuments", "canAccessDocTemplates", "canAccessDocGeneration", "canAccessLeads", expiration_date, created_at,
-          user_roles!user_id (
-            role_id,
-            roles (name)
-          )
-        `)
-      
-      if (error) {
-        console.error('Error updating user:', error)
-        toast.error(`Erro ao atualizar usuário: ${error.message || 'Erro desconhecido'}`)
-      } else {
-        // Update user_roles
-        if (formData.role_id) {
-          await supabase.from('user_roles').delete().eq('user_id', editingUser.id)
-          await supabase.from('user_roles').insert({ user_id: editingUser.id, role_id: formData.role_id })
-        }
-
-        if (data && data.length > 0) {
-          const formatted = {
-            ...data[0],
-            role_id: formData.role_id,
-            role_name: roles.find(r => r.id === formData.role_id)?.name
-          }
-          setUsers(prev => prev.map(u => u.id === editingUser.id ? formatted : u))
-          toast.success('Usuário atualizado com sucesso!')
-        }
-        setIsModalOpen(false)
-      }
-    } else {
-      if (!formData.password) {
-        toast.error('A senha é obrigatória para novos usuários.')
-        return
+    try {
+      const result = await authAction('admin_save_user', { payload })
+      const saved = result.user
+      const formatted = {
+        ...saved,
+        role_id: formData.role_id,
+        role_name: roles.find(r => r.id === formData.role_id)?.name,
       }
 
-      userData.created_by = currentUser?.id || null
-      userData.updated_by = currentUser?.id || null
-      const { data, error } = await supabase
-        .from('users')
-        .insert([userData])
-        .select(`
-          id, name, email, 
-          "canAccessDashboard", "canAccessClients", "canAccessProcesses", 
-          "canAccessContracts", "canAccessReceivables", "canAccessCashFlow", "canAccessProducts", 
-          "canAccessIndicators", "canAccessReports", "canAccessUsers", 
-          "canAccessSettings", "canAccessAudit", "canAccessLawyers", "canAccessProdEnv", 
-          "canAccessTestEnv", "canAccessDocuments", "canAccessDocTemplates", "canAccessDocGeneration", "canAccessLeads", expiration_date, created_at,
-          user_roles!user_id (
-            role_id,
-            roles (name)
-          )
-        `)
-      
-      if (error) {
-        console.error('Error creating user:', error)
-        toast.error(`Erro ao criar usuário: ${error.message || 'Erro desconhecido'}`)
-      } else {
-        // Insert user_roles
-        if (data && data.length > 0 && formData.role_id) {
-          await supabase.from('user_roles').insert({ user_id: data[0].id, role_id: formData.role_id })
-        }
-
-        if (data && data.length > 0) {
-          const formatted = {
-            ...data[0],
-            role_id: formData.role_id,
-            role_name: roles.find(r => r.id === formData.role_id)?.name
-          }
-          setUsers(prev => [...prev, formatted])
-          toast.success('Usuário criado com sucesso!')
-        }
-        setIsModalOpen(false)
-      }
+      setUsers(prev => editingUser
+        ? prev.map(u => u.id === editingUser.id ? formatted : u)
+        : [...prev, formatted]
+      )
+      setFormData(prev => ({ ...prev, password: '' }))
+      toast.success(editingUser ? 'Usuário atualizado com sucesso!' : 'Usuário criado com sucesso!')
+      setIsModalOpen(false)
+    } catch (err: any) {
+      console.error('Erro ao salvar usuário:', err)
+      toast.error(err?.message || 'Não foi possível salvar o usuário.')
     }
   }
 
@@ -366,17 +317,13 @@ export default function UsuariosPage() {
     }
 
     if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', id)
-      
-      if (error) {
-        console.error('Error deleting user:', error)
-        toast.error('Erro ao excluir usuário.')
-      } else {
+      try {
+        await authAction('admin_delete_user', { userId: id })
         setUsers(prev => prev.filter(u => u.id !== id))
         toast.success('Usuário excluído com sucesso!')
+      } catch (err: any) {
+        console.error('Erro ao excluir usuário:', err)
+        toast.error(err?.message || 'Erro ao excluir usuário.')
       }
     }
   }

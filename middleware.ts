@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // Public routes that don't need auth
+
+  // Rotas públicas que não precisam de sessão
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
@@ -14,12 +14,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for session cookie
-  const sessionCookie = request.cookies.get('session_id')
-  
-  if (!sessionCookie) {
-    // Redirect to login if no session cookie
-    return NextResponse.redirect(new URL('/login', request.url))
+  // O cookie é de sessão (sem Max-Age/Expires) e é validado no servidor
+  // pela API /api/auth/session ao carregar a aplicação. Aqui apenas
+  // bloqueamos requisições que nem chegaram a receber os cookies.
+  const sessionId = request.cookies.get('session_id')?.value
+  const appEnv = request.cookies.get('app_env')?.value
+
+  if (!sessionId || !appEnv || (appEnv !== 'production' && appEnv !== 'test')) {
+    const response = NextResponse.redirect(new URL('/login', request.url))
+    response.cookies.delete('session_id')
+    response.cookies.delete('app_env')
+    return response
   }
 
   return NextResponse.next()
