@@ -67,12 +67,16 @@
 - **F5 aplicada em produção em 2026-11-18:** `verify_f5_before.json` 9/4 → `verify_f5_after.json` 0/13; 48 medições de KPI idênticas (`kpi_after.json`, 0 alterações); REST com anon key validado em 7 views; F4a (0 sensíveis) e F3 (`42501`) revalidadas. Rollback em `rollback_f5.sql`. **Nenhum deploy; nenhuma chave trocada.**
 - Achados preexistentes das views seguem em aberto; não foram corrigidos pela F5.
 
-## F6 — parecer preparado, nada aplicado (2026-11-18)
+## F6 — parecer preparado; F6a implementada, sem deploy (2026-11-18)
 - Seção 12 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\F6-20261118` com `MANIFEST.txt`.
 - 3 buckets públicos: `client_documents` (0 objetos), `templates` (5), `marketing` (29). 17 policies permissivas em `storage.objects`, inclusive `SELECT` público e escrita por `anon`/`public`.
 - Achado crítico: gerar URL assinada no cliente com a anon key não resolve, porque o atacante pode gerar a dele; é preciso gerar no servidor com `SUPABASE_SERVICE_ROLE_KEY` e negar `SELECT` a `anon`.
 - A F6 exige código + deploy; o SQL sozinho quebraria upload/download. Proposta: **F6a** preparar rotas servidor e ajustar os 3 pontos (`clientes/[id]`, `documentos`, `MarketingTab`) sem deploy; **F6b** aplicar `forward_f6.sql` e publicar o código juntos; `rollback_f6.sql` pronto.
-- Pré-requisito: confirmar `SUPABASE_SERVICE_ROLE_KEY` na Vercel e nenhuma service role em `NEXT_PUBLIC_*`. **Nada aplicado; aguardando autorização.**
+- Pré-requisito: confirmar `SUPABASE_SERVICE_ROLE_KEY` na Vercel e nenhuma service role em `NEXT_PUBLIC_*`.
+- **F6a implementada em 2026-11-18, sem deploy e sem banco:** rotas `/api/storage/upload`, `/api/storage/signed-url` (redireciona para URL assinada de 1h) e `/api/storage/remove`, todas com validação de sessão/permissão e service role somente no servidor. Helpers em `lib/storage-server.ts`, `lib/storage-policy.ts` e `lib/storage-client.ts`; `requireSessionContext()` extraído em `lib/server-auth.ts`.
+- Pontos ajustados: `app/clientes/[id]`, `app/documentos`, `components/settings/MarketingTab` e, adicionalmente, `components/BirthdayCardGenerator` (também consome as imagens de marketing). Nenhum `getPublicUrl` resta no cliente; URLs antigas continuam gravadas e são resolvidas pelo proxy assinado.
+- Build concluído; sem sessão as três rotas retornam `307` para `/login`. **Nenhum deploy publicado; nenhuma alteração em buckets/policies/objetos.**
+- F6b (buckets privados + remoção das 17 policies) depende de validar a F6a em preview e confirmar a service role na Vercel. Rollback em `rollback_f6.sql`.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

@@ -27,6 +27,7 @@ import {
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
+import { storageUrl, uploadStorageFile } from '@/lib/storage-client'
 import { formatCurrency, formatDate, cn, getTodayBR } from '@/lib/utils'
 import { motion } from 'motion/react'
 
@@ -286,17 +287,13 @@ export default function ClientProfilePage() {
     try {
       const fileExt = file.name.split('.').pop()
       const fileName = `${crypto.randomUUID()}.${fileExt}`
-      const filePath = `${clientId}/${fileName}`
 
-      const { error: uploadError } = await supabase.storage
-        .from('client_documents')
-        .upload(filePath, file)
-
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('client_documents')
-        .getPublicUrl(filePath)
+      // Upload feito no servidor com service role; o caminho continua
+      // {clientId}/{arquivo} e o formato da URL gravada nao muda.
+      const { publicUrl } = await uploadStorageFile('client_documents', file, {
+        clientId,
+        path: fileName,
+      })
 
       const { data, error: dbError } = await supabase
         .from('client_documents')
@@ -578,7 +575,7 @@ export default function ClientProfilePage() {
               {documents.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {documents.map(doc => (
-                    <div key={doc.id} className="border border-slate-200 rounded-xl p-4 flex items-start gap-3 hover:border-indigo-300 transition-colors group cursor-pointer" onClick={() => window.open(doc.file_url, '_blank')}>
+                    <div key={doc.id} className="border border-slate-200 rounded-xl p-4 flex items-start gap-3 hover:border-indigo-300 transition-colors group cursor-pointer" onClick={() => window.open(storageUrl(doc.file_url, 'client_documents'), '_blank')}>
                       <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                         <FileText size={24} />
                       </div>

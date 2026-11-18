@@ -610,4 +610,37 @@ Portanto a F6 **não é somente SQL**: ela exige código, deploy e migração de
 
 Recomendo **autorizar primeiro apenas a F6a** (preparação de código, sem deploy e sem banco). A virada dos buckets (F6b) deve acontecer somente depois que o código estiver em preview e validado — aplicar o SQL antes deixaria documentos, modelos e imagens inacessíveis.
 
-Nenhuma alteração foi feita nesta fatia.
+Antes da F6a, nenhuma alteração havia sido feita nesta fatia.
+
+## 12.7 Execução da F6a em 2026-11-18 — código preparado, **sem deploy e sem banco**
+
+Com autorização do usuário, a F6a foi implementada no repositório:
+
+| Arquivo | Alteração |
+|---|---|
+| `app/api/storage/upload/route.ts` | `POST`: valida sessão, bucket e permissão; aceita `FormData`, limita a 10 MB e envia via service role. Nunca usa `NEXT_PUBLIC_*`. |
+| `app/api/storage/signed-url/route.ts` | `GET`: valida sessão e gera URL assinada de 1 hora. Com `redirect=1`, responde `302` para a URL assinada — permite que `<img>`, `fetch()` e `window.open()` continuem funcionando sem código assíncrono nas telas. |
+| `app/api/storage/remove/route.ts` | `POST`: valida sessão e remove o objeto por caminho. |
+| `lib/storage-server.ts` | Lista de buckets permitidos, validação de caminho, cliente service role somente no servidor e formato da URL pública mantido. |
+| `lib/storage-policy.ts` | Autorização por módulo (`canAccessClients`, `canAccessDocTemplates`/`canAccessDocGeneration`, `canAccessSettings` ou superadmin). Para `client_documents`, exige que o primeiro segmento seja um cliente do ambiente da sessão. |
+| `lib/server-auth.ts` | Extração de `requireSessionContext()`; `requireAdminContext()` continua idêntico na prática. |
+| `lib/storage-client.ts` | Helpers do navegador: converte URL pública antiga em URL do proxy assinado, faz upload/remoção. Não contém chave alguma. |
+
+Pontos de código ajustados:
+
+- `app/clientes/[id]/page.tsx`: upload por rota servidor e abertura do documento via URL assinada.
+- `app/documentos/page.tsx`: upload por rota servidor, download do DOCX via URL assinada e exclusão por caminho extraído da URL.
+- `components/settings/MarketingTab.tsx`: upload por rota servidor, preview com `<Image unoptimized>`, listagem e análise de IA via URL assinada.
+- `components/BirthdayCardGenerator.tsx`: ajuste adicional necessário — o gerador de cartões também consome `birthday_templates.image_url` (canvas e duas imagens); sem isso, a F6b quebraria os cartões de aniversário.
+
+Não resta nenhuma chamada a `getPublicUrl` no código cliente. Os registros novos continuam gravando a URL pública no formato atual — não houve migration. A leitura passa pelo proxy assinado e a URL pública antiga é usada somente como fallback se a rota falhar enquanto os buckets ainda estiverem públicos. A limpeza/backfill de `storage_path` fica para a F6c.
+
+Validações feitas:
+
+- `npm run build`: concluído com sucesso; as três rotas aparecem na tabela de rotas.
+- Teste local sem cookie: `/api/storage/signed-url`, `/api/storage/upload` e `/api/storage/remove` retornaram **`307`** para `/login` (middleware), antes mesmo da validação `app_validate_session` interna.
+- Nenhuma chave `NEXT_PUBLIC_*` foi introduzida; nenhuma chamada ao Supabase Storage foi feita nesta etapa.
+
+**Pré-requisito para a F6b:** `SUPABASE_SERVICE_ROLE_KEY` precisa existir no ambiente da Vercel. Se estiver ausente, as rotas retornam `503` com mensagem explícita — não há fallback para anon key, porque isso não permitiria assinar URLs de buckets privados. O CLI da Vercel não está disponível neste ambiente; a confirmação depende do painel ou de `npx vercel`.
+
+Nenhum deploy foi publicado e nenhuma alteração foi feita em buckets, policies ou objetos do Storage.

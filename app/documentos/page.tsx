@@ -10,6 +10,12 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { VariablesDictionary } from '@/components/documents/VariablesDictionary'
 import { removeAccents, normalizeSearchText } from '@/lib/utils'
+import {
+  removeStorageFile,
+  storagePathFromUrl,
+  storageUrl,
+  uploadStorageFile,
+} from '@/lib/storage-client'
 import { motion, AnimatePresence } from 'motion/react'
 
 // Função de Limpeza de Tags (String-based State Machine)
@@ -172,10 +178,9 @@ export default function DocumentosPage() {
 
       // 3. Delete file from storage
       try {
-        const urlParts = fileUrl.split('/')
-        const fileName = urlParts[urlParts.length - 1]
-        if (fileName) {
-          await supabase.storage.from('templates').remove([fileName])
+        const path = storagePathFromUrl(fileUrl, 'templates')
+        if (path) {
+          await removeStorageFile('templates', path)
         }
       } catch (e) {
         console.error('Error deleting file from storage:', e)
@@ -291,20 +296,13 @@ export default function DocumentosPage() {
     setIsSaving(true)
     
     try {
-      // 1. Upload file to Supabase Storage
+      // 1. Upload feito no servidor com service role
       console.log('Iniciando upload para o Storage...')
       const fileName = `${Date.now()}_${file.name}`
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('templates')
-        .upload(fileName, file)
-
-      if (uploadError) {
-        console.error('Erro no Upload:', uploadError)
-        throw new Error(`Erro no Upload do Arquivo: ${uploadError.message}`)
-      }
-      console.log('Upload concluído:', uploadData)
-
-      const { data: publicUrlData } = supabase.storage.from('templates').getPublicUrl(fileName)
+      const { publicUrl } = await uploadStorageFile('templates', file, {
+        path: fileName,
+      })
+      console.log('Upload concluído:', publicUrl)
 
       // 2. Save template to DB
       console.log('Salvando no Banco de Dados...')
@@ -313,7 +311,7 @@ export default function DocumentosPage() {
         .insert({ 
           name: templateName, 
           category: templateCategory, 
-          file_url: publicUrlData.publicUrl 
+          file_url: publicUrl 
         })
         .select()
         .single()
@@ -459,7 +457,7 @@ export default function DocumentosPage() {
 
       // 4. Generate doc
       console.log('Baixando arquivo do template:', template.file_url)
-      const response = await fetch(template.file_url)
+      const response = await fetch(storageUrl(template.file_url, 'templates'))
       if (!response.ok) throw new Error(`Erro ao baixar arquivo do template: ${response.statusText}`)
       
       const arrayBuffer = await response.arrayBuffer()

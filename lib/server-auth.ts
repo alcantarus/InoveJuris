@@ -12,20 +12,20 @@ export class AdminAuthError extends Error {
   }
 }
 
-export type AdminContext = {
+export type SessionContext = {
   sessionId: string
   environment: string
   userId: number
   user: Record<string, any>
 }
 
+export type AdminContext = SessionContext
+
 /**
- * Valida a sessao no servidor antes de autorizar rotas administrativas.
- * Nao confia em cookies crus nem em identificadores enviados no corpo.
+ * Valida a sessao no servidor. Nao confia em cookies crus nem em
+ * identificadores enviados no corpo. Usada por rotas que nao exigem admin.
  */
-export async function requireAdminContext(
-  permission: 'settings' | 'audit' = 'settings'
-): Promise<AdminContext> {
+export async function requireSessionContext(): Promise<SessionContext> {
   const cookieStore = await cookies()
   const sessionId = cookieStore.get('session_id')?.value
   const environment = cookieStore.get('app_env')?.value || 'production'
@@ -51,6 +51,18 @@ export async function requireAdminContext(
     throw new AdminAuthError('Sessão inválida.', 401)
   }
 
+  return { sessionId, environment, userId, user }
+}
+
+/**
+ * Valida a sessao e exige permissao administrativa.
+ */
+export async function requireAdminContext(
+  permission: 'settings' | 'audit' = 'settings'
+): Promise<AdminContext> {
+  const ctx = await requireSessionContext()
+  const user = ctx.user
+
   const isAdmin =
     user.is_superadmin === true ||
     user.canAccessUsers === true ||
@@ -62,7 +74,7 @@ export async function requireAdminContext(
     throw new AdminAuthError('Acesso negado.', 403)
   }
 
-  return { sessionId, environment, userId, user }
+  return ctx
 }
 
 export function authErrorResponse(error: unknown): NextResponse | null {

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Type, AlertCircle, CheckCircle2, Sparkles, Upload, Loader2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyzeTemplateImage } from '@/lib/actions/gemini';
+import { storageUrl, uploadStorageFile } from '@/lib/storage-client';
 
 interface BirthdayTemplate {
   id: string;
@@ -107,24 +108,11 @@ export function MarketingTab() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `templates/${fileName}`;
 
-      // Upload to Supabase Storage (Bucket 'marketing')
-      // Note: Bucket must be created in Supabase Dashboard with public access
-      const { data, error } = await supabase.storage
-        .from('marketing')
-        .upload(filePath, file);
-
-      if (error) {
-        if (error.message.includes('bucket not found')) {
-          toast.error('Bucket "marketing" não encontrado no Supabase. Crie-o no painel do Supabase Storage.');
-        } else {
-          throw error;
-        }
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('marketing')
-        .getPublicUrl(filePath);
+      // Upload feito no servidor com service role. O bucket ainda pode estar
+      // publico; a URL gravada mantem o formato atual para compatibilidade.
+      const { publicUrl } = await uploadStorageFile('marketing', file, {
+        path: filePath,
+      });
 
       setEditingTemplate(prev => ({ ...prev, image_url: publicUrl }));
       toast.success('Imagem carregada com sucesso!');
@@ -142,7 +130,7 @@ export function MarketingTab() {
   const analyzeImage = async (imageUrl: string) => {
     setIsAnalyzing(true);
     try {
-      const base64Data = await fetchAndResizeImage(imageUrl);
+      const base64Data = await fetchAndResizeImage(storageUrl(imageUrl, 'marketing'));
       const result = await analyzeTemplateImage(base64Data, manualKey);
       
       if (result.error) {
@@ -660,9 +648,10 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                       {editingTemplate.image_url ? (
                         <>
                           <Image 
-                            src={editingTemplate.image_url} 
+                            src={storageUrl(editingTemplate.image_url, 'marketing')} 
                             alt="Preview" 
                             fill 
+                            unoptimized
                             className="object-cover" 
                             referrerPolicy="no-referrer"
                           />
@@ -827,7 +816,7 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                     <div key={template.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
                       <div className="aspect-square relative bg-slate-100">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={template.image_url} alt={template.name} className="w-full h-full object-cover" />
+                        <img src={storageUrl(template.image_url, 'marketing')} alt={template.name} className="w-full h-full object-cover" />
                         
                         {/* Preview overlay */}
                         <div className="absolute inset-0 pointer-events-none">

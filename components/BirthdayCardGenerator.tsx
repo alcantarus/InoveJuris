@@ -4,6 +4,7 @@ import React, { useRef, useState, useEffect } from 'react'
 import html2canvas from 'html2canvas'
 import { Download, X, Loader2, Image as ImageIcon, Type, User, Sparkles, Check, ChevronRight, PartyPopper } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { storageUrl } from '@/lib/storage-client'
 import { motion, AnimatePresence } from 'motion/react'
 import confetti from 'canvas-confetti'
 import { toast } from 'sonner'
@@ -201,7 +202,7 @@ export function BirthdayCardGenerator({
       // Carregar imagem de fundo
       const img = new Image()
       img.crossOrigin = 'anonymous'
-      img.src = selectedTemplate.image_url
+      img.src = storageUrl(selectedTemplate.image_url, 'marketing')
       await new Promise((resolve, reject) => {
         img.onload = resolve
         img.onerror = reject
@@ -391,7 +392,7 @@ export function BirthdayCardGenerator({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
-                        src={template.image_url} 
+                        src={storageUrl(template.image_url, 'marketing')} 
                         alt={template.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         crossOrigin="anonymous"
@@ -510,7 +511,7 @@ export function BirthdayCardGenerator({
                 {/* Imagem de Fundo (Arte do Social Media) */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
-                  src={selectedTemplate.image_url} 
+                  src={storageUrl(selectedTemplate.image_url, 'marketing')} 
                   alt="Fundo do Cartão"
                   className="absolute inset-0 w-full h-full object-cover z-0"
                   crossOrigin="anonymous"
