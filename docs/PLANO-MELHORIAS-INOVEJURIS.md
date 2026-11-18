@@ -4,6 +4,7 @@
 > **Não houve alteração de código** nesta análise. As telas foram lidas por OCR do Windows (o modelo não processa imagem diretamente); alguns rótulos podem ter sido degradados pelo OCR e devem ser confirmados antes da implementação.
 
 ## 0. Progresso (atualizado em 2026-11-18)
+- **Parecer de multitenancy registrado em 2026-11-18:** relatório completo em `docs/PARECER-TENANT-INOVEJURIS.md`. Análise somente leitura; nenhuma mudança executada. Plano sugerido: T0 backup/segurança → T1 fundação → T2 colunas/backfill → T3 sessão → T4 observação → T5 RLS → T6 telas em lotes → T7 operação locável.
 - **Logout global ao fechar aba/janela entregue em 2026-11-18** (Fase 4.8): `sendBeacon` encerra todas as sessões do usuário em todos os dispositivos; fallback server-side de 90 segundos. MFA continua fora desta entrega.
 - Por decisão do usuário, a ordem foi alterada: **começar pelas telas novas**, sem fase de estabilização prévia.
 - **Entregue e versionado:** Fase 1 parcial — `/prazos` e `/calendario` com camada de dados compartilhada (`lib/deadlines.ts`). Build OK.

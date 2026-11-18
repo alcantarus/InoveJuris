@@ -3,6 +3,13 @@
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
 > Atualizado em: 2026-11-18 (logout global no fechamento de aba/janela entregue; Camada A das permissões granulares permanecendo registrada abaixo).
 
+## Parecer guardado — multitenancy para locação futura (2026-11-18)
+- Relatório completo: `docs/PARECER-TENANT-INOVEJURIS.md`.
+- Análise **somente leitura**: nenhum código, banco ou deploy foi alterado por este parecer.
+- Conclusão: viável de forma gradual; começar por **backup validado + segurança/Camada B**, antes de qualquer seletor de organização.
+- Modelo recomendado: um banco, `organization_id` por tabela de domínio, `organization_members` e RLS derivada da sessão.
+- Pontos de restauração registrados: commit `ed9103d` e deploy `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs`.
+
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.
 - Parecer técnico emitido antes da alteração: eventos de fechamento não são 100% confiáveis; por isso a solução combina `sendBeacon` no fechamento com prazo curto no servidor.
