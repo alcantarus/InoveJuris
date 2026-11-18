@@ -54,7 +54,9 @@
 - Em vez de “dropar `USING (true)` e aplicar `FORCE RLS`” agora, o parecer propõe **F4a**: revogar apenas `TRUNCATE`, `REFERENCES` e `TRIGGER` de `anon`/`authenticated` nos 67 objetos. `SELECT/INSERT/UPDATE/DELETE` intactos; sem deploy e sem troca de chave.
 - Arquivos prontos em `F4-20261118`: `forward_f4a.sql`, `rollback_f4a.sql`, `verify_f4a.sql`.
 - **F4b (reescrita de RLS) fica para decisão futura**: exige definir identidade por requisição no banco (JWT, RPCs `SECURITY DEFINER` ou GUC derivado da sessão) e escolher o modelo de tenant. Fazer isso agora pararia clientes, prazos, Publicações, contratos e financeiro.
-- Risco residual registrado: vazamento via REST com a anon key e tokens OAuth em `system_settings` não é resolvido pela F4a; depende da F4b. Nenhuma alteração de banco foi feita na F4.
+- Risco residual registrado: vazamento via REST com a anon key e tokens OAuth em `system_settings` não é resolvido pela F4a; depende da F4b.
+- **F4a aplicada em produção em 2026-11-18:** 402 → 0 linhas de `TRUNCATE/REFERENCES/TRIGGER` (`verify_f4a_before.json` → `verify_f4a_after.json`); CRUD inalterado (66 objetos por role). Leitura via anon key validada em 6 tabelas (`HTTP 206`); F3 continua com `42501`. Rollback em `rollback_f4a.sql`. **Nenhum deploy; nenhuma chave trocada.**
+- F4b não executada — depende de decisão de identidade/sessão e tenant.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

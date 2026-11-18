@@ -435,3 +435,17 @@ Mesmo o caminho C não pode ser feito apenas “trocando policies”: é preciso
 - **Recomendação:** autorizar apenas a **F4a** nesta rodada, com os três arquivos já preparados e validação entre etapas. Manter a F4b como fatia futura, com decisão prévia entre os caminhos A/B/C.
 - **Risco residual após F4a:** o vazamento via REST com a anon key continua existindo e deve constar do relatório final — assim como as 17 funções `http` pendentes do Supabase Support.
 - **Ordem preservada:** F4a entra depois da F3; não depende de deploy nem de novas chaves. F4b depende de decisão de arquitetura de sessão/tenant e não deve ser misturada com F5/F6 nesta rodada.
+
+## 10.6 Execução da F4a em 2026-11-18 — **concluída**
+
+Com autorização do usuário, a F4a foi aplicada em produção:
+
+- `verify_f4a_before.json`: **402 linhas** de `TRUNCATE`/`REFERENCES`/`TRIGGER` para `anon`/`authenticated` (67 objetos × 3 × 2).
+- Aplicação de `forward_f4a.sql`: 67 `REVOKE`, sem erro.
+- `verify_f4a_after.json`: **0 linhas** sensíveis. `SELECT`, `INSERT`, `UPDATE` e `DELETE` permaneceram em **66 objetos por role**, exatamente como antes.
+- Validação de leitura via REST com a anon key (sem sessão): `clients` 113, `contracts` 122, `installments` 166, `financial_transactions` 1.135, `publications` 56 e `system_settings` 11 — todos `HTTP 206`, sem alteração de contagens além do heartbeats já conhecido.
+- A F3 permanece intacta: `/api/diagnose-db` continua retornando `42501 permission denied for function exec_sql`.
+- Nenhum deploy foi publicado e nenhuma chave foi trocada.
+- `MANIFEST.txt`, `forward_f4a.sql`, `rollback_f4a.sql` e os dois `verify_f4a_*.json` estão em `C:\InoveTecnologia\InoveJuris-Backups\F4-20261118\`.
+
+**Não feito:** F4b. O vazamento via REST e as 17 funções `http` seguem como riscos residuais.
