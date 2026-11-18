@@ -356,4 +356,5 @@ Diagnóstico completo e opções em `C:\InoveTecnologia\InoveJuris-Backups\F3-20
 - A F3 **não está completa**: o buraco de SQL arbitrário está fechado; o de SSRF/exfiltração via `http` permanece.
 - Não foi feito deploy e nenhuma chave foi trocada.
 - `rollback_partial.sql` desfaz somente `exec_sql`; `rollback.sql` restauraria os 18 grants caso a parte `http` venha a ser executada com role elevada.
-- **Pendente:** aplicar os `REVOKE` das 17 funções com acesso `supabase_admin` (via Supabase/support ou credencial elevada fornecida pelo usuário). Até lá, a F4 pode seguir, mas o risco residual deve constar do relatório final.
+- **Decisão do usuário (2026-11-18):** acionar o **Supabase Support** para executar os `REVOKE` com role elevada. Pacote pronto em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\`: `support_http_revoke.sql` (17 comandos), `SUPPORT-REQUEST.md` (texto do chamado) e `verify.sql`. O chamado ainda precisa ser aberto pelo usuário; este agente não o abriu.
+- Até a resposta do Supabase, a F4 pode seguir, mas o risco residual das funções `http` deve constar do relatório final.

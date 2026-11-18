@@ -47,7 +47,8 @@
 - Produção: `GET /api/diagnose-db` retornou `42501 permission denied for function exec_sql`; jobs `pg_cron` 1/2/5 seguem ativos como `postgres`.
 - **Bloqueio:** as 17 funções `http`/`urlencode` pertencem a `supabase_admin`; a conexão `postgres` não tem permissão para revogar e o `REVOKE` foi ignorado silenciosamente. Detalhes em `BLOCKED-http.md` no mesmo diretório.
 - Rollbacks disponíveis: `rollback_partial.sql` (exec_sql) e `rollback.sql` (completo). **Nenhum deploy; nenhuma chave trocada.**
-- Próximo passo dependente de acesso elevado: revogar as 17 funções `http`; depois seguir para F4.
+- Decisão do usuário: abrir chamado no **Supabase Support** para revogar as 17 funções com role elevada. Arquivos `support_http_revoke.sql` e `SUPPORT-REQUEST.md` prontos no diretório da F3; chamado ainda não foi aberto por este agente.
+- Próximo passo: abrir o chamado e, em paralelo, seguir para F4 com o risco `http` registrado.
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.
