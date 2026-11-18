@@ -283,3 +283,54 @@ A validação usa `app_validate_session` com os cookies `session_id` + `app_env`
 - O `userId` do body deixou de ser usado: `performed_by` e `backup_logs.user_id` agora vêm do usuário validado na sessão. O ambiente também vem da sessão validada, não do cookie cru.
 - **Pendente:** validar o fluxo positivo com um administrador real em staging/preview (exportar/restaurar backup de teste, limpar logs e testar SMTP). Não foi possível fazê-lo sem credenciais reais, e nenhum deploy foi publicado.
 - **Fora do escopo:** os arquivos legados `route-1.ts` (`backup/restore`, `backup/generate`, `settings/audit/cleanup`) não são rotas do App Router e permanecem intocados; a limpeza do legado está prevista no parecer de tenant.
+
+---
+
+# 9. F3 — `exec_sql` e funções `http` (parecer; aguardando autorização)
+
+Nesta etapa **nada foi aplicado**. Apenas leitura do catálogo e preparação dos arquivos SQL locais.
+
+## 9.1 Evidências levantadas
+
+- `public.exec_sql(text)`: `SECURITY DEFINER = false`, mas com `EXECUTE` para `anon`, `authenticated`, `PUBLIC`, `service_role`, `postgres` e `supabase_admin`.
+- 17 funções de `http`/`urlencode` no schema `public` (`http`, `http_get`, `http_post`, `http_put`, `http_patch`, `http_delete`, `http_head`, `http_header`, `http_set_curlopt`, `http_reset_curlopt`, `http_list_curlopt` e as três sobrecargas de `urlencode`): todas com `EXECUTE` para `anon`, `authenticated` e `PUBLIC`.
+- A aplicação **não** chama nenhuma função `http` via RPC. O único uso é `exec_sql`, em rotas utilitárias de reparo: `fix-db`, `diagnose-db`, `check-enum`, `alter-leads`, `fix-cancellation` e em scripts avulsos fora de `app/`.
+- Os três jobs do `pg_cron` (ids 1, 2 e 5) executam como **`postgres`**. Revogar de `anon`/`authenticated`/`PUBLIC` não interfere neles.
+- O token do `pg_cron` continua em texto plano — item pendente da F1, fora desta fatia.
+
+## 9.2 Impacto no uso
+
+| Item | Depois da F3 |
+|---|---|
+| Login, clientes, processos, prazos, Publicações, contratos, financeiro, dashboard | **Nenhuma mudança** |
+| `/api/fix-db`, `/api/diagnose-db`, `/api/check-enum` | Deixam de funcionar — **objetivo da correção** |
+| `/api/alter-leads`, `/api/fix-cancellation` | Continuam se `SUPABASE_SERVICE_ROLE_KEY` estiver configurada; os fallbacks para anon deixam de funcionar |
+| Jobs `pg_cron` (inclusive o de andamentos/DataJud) | Não afetados — rodam como `postgres` |
+| Rotas F1/F2 já corrigidas | Não usam `exec_sql` nem `http`; não afetadas |
+
+Não há rotina de uso corrente dependente dessas funções. Não é necessário ajuste de tela.
+
+## 9.3 Arquivos preparados (fora do repositório)
+
+`C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\`
+
+| Arquivo | Finalidade |
+|---|---|
+| `forward.sql` | 18 `REVOKE EXECUTE ... FROM public, anon, authenticated` |
+| `rollback.sql` | Devolve os grants exatos anteriores (`public`, `anon`, `authenticated`) |
+| `verify.sql` | Confirma `anon`/`authenticated` sem execução e `service_role` mantendo |
+
+`service_role`, `postgres` e `supabase_admin` **não** são tocados. O rollback não mexe nas chaves rotacionadas nem nas correções F1/F2.
+
+## 9.4 Validação obrigatória
+
+1. Executar `verify.sql` **antes** e guardar o resultado.
+2. Aplicar `forward.sql`.
+3. Executar `verify.sql`: `anon_pode_executar=false`, `authenticated_pode_executar=false`, `service_role_pode_executar=true` para todas as 18 funções.
+4. Confirmar que `/api/fix-db`, `/api/diagnose-db` e `/api/check-enum` falham de forma controlada e que nenhuma tela de uso corrente apresenta erro.
+5. Confirmar que um job `pg_cron` executou no horizonte esperado (sem expor o comando/token).
+6. Se qualquer item falhar: executar `rollback.sql` e revalidar.
+
+## 9.5 Rollback de deploy
+
+A F3 é apenas SQL. Se houver efeito indireto em produção, promover `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` e executar `rollback.sql`. O ponto PITR da F0 (`2026-11-18 18:01:02.49299+00`) permanece disponível.
