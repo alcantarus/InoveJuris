@@ -311,7 +311,7 @@ export default function DocumentosPage() {
         .insert({ 
           name: templateName, 
           category: templateCategory, 
-          file_url: publicUrl 
+          file_url: publicUrl
         })
         .select()
         .single()

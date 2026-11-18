@@ -648,7 +648,7 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                       {editingTemplate.image_url ? (
                         <>
                           <Image 
-                            src={storageUrl(editingTemplate.image_url, 'marketing')} 
+                            src={storageUrl(editingTemplate.image_url, 'marketing')}
                             alt="Preview" 
                             fill 
                             unoptimized

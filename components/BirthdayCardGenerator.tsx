@@ -392,7 +392,7 @@ export function BirthdayCardGenerator({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
-                        src={storageUrl(template.image_url, 'marketing')} 
+                        src={storageUrl(template.image_url, 'marketing')}
                         alt={template.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         crossOrigin="anonymous"
@@ -511,7 +511,7 @@ export function BirthdayCardGenerator({
                 {/* Imagem de Fundo (Arte do Social Media) */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
-                  src={storageUrl(selectedTemplate.image_url, 'marketing')} 
+                  src={storageUrl(selectedTemplate.image_url, 'marketing')}
                   alt="Fundo do Cartão"
                   className="absolute inset-0 w-full h-full object-cover z-0"
                   crossOrigin="anonymous"
