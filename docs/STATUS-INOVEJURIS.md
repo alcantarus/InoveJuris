@@ -15,7 +15,15 @@
 - Auditoria passiva concluída nas frentes de repositório/Git/dependências, HTTP/TLS e banco Supabase. **Nada foi alterado** em código, banco ou deploy.
 - Resposta à pergunta do usuário: a maior parte das correções é invisível; ajustes internos ficam concentrados em backup/restore, chave Gemini, storage e CSP; Next.js vai em trilha própria de staging.
 - Ordem recomendada: F0 backup → F1 segredos → F2 rotas administrativas → F3 `exec_sql`/`http` → F4 grants/RLS → F5 views → F6 storage → F7 headers → F8 dependências.
-- Próximo passo pendente de autorização: **F0** (dumps, PITR, tag, SQL das policies atuais).
+
+## F0 concluída — ponto de retorno antes das correções (2026-11-18)
+- Autorização do usuário registrada; execução **somente leitura** em produção.
+- Timestamp PITR: `2026-11-18 18:01:02.49299+00`. `archive_mode=on`, `wal_level=logical`, `archive_command` configurado — elegível a PITR.
+- Tag no Git: `pre-security-fix-f0-20261118` (enviada para `origin`). HEAD: `878fd03`.
+- Local dos arquivos (fora do repositório): `C:\InoveTecnologia\InoveJuris-Backups\F0-20261118`.
+- Conteúdo: `MANIFEST.txt` com SHA256, `table_counts.json`, `schema_columns.json`, `schema_indexes.json`, `views_snapshot.json`, `functions_snapshot.json`, `policies_rollback.json/.sql` (261 policies), `grants_rollback.json/.sql` (930 grants) e `data_chunk_1..6.json` (58 tabelas / 3.806 linhas).
+- `npx supabase db dump` exige Docker, indisponível; a exportação lógica foi feita via API SQL (`npx supabase db query`). Nada foi instalado e nenhuma alteração de código/banco/deploy ocorreu.
+- Próxima fatia pendente de autorização: **F1** (rotação de segredos).
 
 ## Índice da entrega mais recente — logout ao fechar aba em qualquer dispositivo (2026-11-18)
 - Solicitação do usuário: ao fechar a aba/janela, em qualquer navegador, celular, tablet ou computador, a sessão deve ser encerrada e exigir login/senha. Decisões confirmadas: **encerrar todas as sessões do usuário em todos os dispositivos** e tolerância de **90 segundos** se o aviso de fechamento não chegar.

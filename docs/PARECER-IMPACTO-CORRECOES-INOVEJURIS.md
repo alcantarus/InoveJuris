@@ -175,6 +175,19 @@ Cada fatia deve conter: **SQL/projeto forward**, **rollback** e **query de verif
 
 ## 6. Status e próximo passo
 
-Nenhuma correção aplicada. Árvore de trabalho e produção intactas.
+**F0 concluída em 2026-11-18 com autorização do usuário.** Nenhuma correção de segurança (F1–F8) foi aplicada. Árvore de trabalho, código e deploy intactos.
 
-Se autorizado, o próximo passo é a **F0**: dumps full/schema/data, registro do timestamp PITR, tag no Git e salvamento do SQL exato das policies atuais. A F0 não altera nada em produção e é pré-requisito de todas as demais.
+Registro da F0:
+
+- timestamp PITR: `2026-11-18 18:01:02.49299+00`; `archive_mode=on` e `wal_level=logical`;
+- tag: `pre-security-fix-f0-20261118`, HEAD `878fd03`;
+- local fora do repositório: `C:\InoveTecnologia\InoveJuris-Backups\F0-20261118`;
+- `MANIFEST.txt` com SHA256 de todos os arquivos;
+- `table_counts.json`, `schema_columns.json`, `schema_indexes.json`, `views_snapshot.json`, `functions_snapshot.json`;
+- `policies_rollback.json/.sql` — 261 policies, com `drop` antes dos `create`;
+- `grants_rollback.json/.sql` — 930 grants;
+- `data_chunk_1..6.json` — 58 tabelas, 3.806 linhas.
+
+`npx supabase db dump` exige Docker, que não está disponível neste ambiente. A exportação lógica foi feita por API SQL (`npx supabase db query`), em leitura. A pequena diferença entre o baseline (3.785) e a exportação (3.806) é de heartbeats gravados entre as consultas.
+
+Próxima fatia pendente de autorização: **F1 — rotação de segredos** (DataJud, token do `pg_cron`, Gemini e token antigo da Vercel).

@@ -5,7 +5,8 @@
 
 ## 0. Progresso (atualizado em 2026-11-18)
 - **Parecer de multitenancy registrado em 2026-11-18:** relatório completo em `docs/PARECER-TENANT-INOVEJURIS.md`. Análise somente leitura; nenhuma mudança executada. Plano sugerido: T0 backup/segurança → T1 fundação → T2 colunas/backfill → T3 sessão → T4 observação → T5 RLS → T6 telas em lotes → T7 operação locável.
-- **Parecer de impacto das correções de segurança registrado em 2026-11-18:** `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Nenhuma correção aplicada; fatias F0–F8 com impacto, ajuste de rotina, validação e rollback mapeados. F0 (backup/PITR/tag) pendente de autorização.
+- **Parecer de impacto das correções de segurança registrado em 2026-11-18:** `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Fatias F0–F8 com impacto, ajuste de rotina, validação e rollback mapeados.
+- **F0 concluída em 2026-11-18:** ponto de retorno criado com timestamp PITR `2026-11-18 18:01:02.49299+00`, tag `pre-security-fix-f0-20261118`, exportação lógica de 58 tabelas/3.806 linhas e SQL de rollback de 261 policies e 930 grants. Arquivos fora do repositório, em `C:\InoveTecnologia\InoveJuris-Backups\F0-20261118`, com `MANIFEST.txt` e SHA256. Somente leitura em produção. Próxima: F1 (rotação de segredos).
 - **Logout global ao fechar aba/janela entregue em 2026-11-18** (Fase 4.8): `sendBeacon` encerra todas as sessões do usuário em todos os dispositivos; fallback server-side de 90 segundos. MFA continua fora desta entrega.
 - Por decisão do usuário, a ordem foi alterada: **começar pelas telas novas**, sem fase de estabilização prévia.
 - **Entregue e versionado:** Fase 1 parcial — `/prazos` e `/calendario` com camada de dados compartilhada (`lib/deadlines.ts`). Build OK.
