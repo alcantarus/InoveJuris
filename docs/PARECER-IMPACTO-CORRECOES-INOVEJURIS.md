@@ -449,3 +449,75 @@ Com autorização do usuário, a F4a foi aplicada em produção:
 - `MANIFEST.txt`, `forward_f4a.sql`, `rollback_f4a.sql` e os dois `verify_f4a_*.json` estão em `C:\InoveTecnologia\InoveJuris-Backups\F4-20261118\`.
 
 **Não feito:** F4b. O vazamento via REST e as 17 funções `http` seguem como riscos residuais.
+
+---
+
+# 11. F5 — views e `security_invoker` (parecer; **nada aplicado**)
+
+Preparado em 2026-11-18 a partir de leitura do catálogo e das consultas que alimentam os KPIs. Nenhuma view foi alterada.
+
+## 11.1 Inventário atual
+
+| Item | Resultado |
+|---|---|
+| Views no schema `public` | **13** |
+| Proprietário | `postgres` em todas |
+| Já com `security_invoker=on` | **4**: `vw_dashboard_receivables_forecast`, `vw_dashboard_receivables_metrics`, `vw_dashboard_top_defaulters`, `vw_legal_contract_indicators` |
+| Sem a opção | **9**: `contract_receivables_summary`, `process_sync_status`, `v_client_guardians`, `vw_area_efficiency`, `vw_cash_flow_forecast`, `vw_client_process_summary`, `vw_indicator_commission_status`, `vw_portal_commission_details`, `vw_process_velocity` |
+
+Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118\`: `views_current.json` (definições/owner/opções), `view_columns.json`, `kpi_baseline.sql` e `kpi_baseline.json` (48 linhas de contagens e agregados por view/ambiente).
+
+## 11.2 Consumidores
+
+| View | Onde é usada |
+|---|---|
+| `vw_dashboard_receivables_metrics`, `_forecast`, `_top_defaulters` | `app/page.tsx:243-245` |
+| `vw_process_velocity` | `app/page.tsx:246`, `components/dashboard/dynamic/ProcessVelocityCard.tsx`, `app/api/check-db` |
+| `vw_cash_flow_forecast` | `app/page.tsx:247`, `components/dashboard/dynamic/CashFlowForecastCard.tsx` |
+| `vw_area_efficiency` | `app/page.tsx:248`, `components/dashboard/dynamic/AreaEfficiencyCard.tsx` |
+| `contract_receivables_summary` | `app/contas-a-receber/page.tsx:359` |
+| `vw_indicator_commission_status` | `app/indicadores/page.tsx:379` |
+| `vw_portal_commission_details` | `app/portal/indicador/[token]/page.tsx:52` |
+| `v_client_guardians` | `lib/client-guardians.ts:58` e consumida em RPCs de clientes |
+| `vw_client_process_summary` | RPCs `get_clients_with_process_summary*` (migrations) e `app/clientes/page.tsx` |
+| `process_sync_status` | consultas de sincronização de andamentos |
+
+## 11.3 Impacto esperado
+
+Hoje as tabelas de base têm RLS permissiva, portanto **os valores dos KPIs não devem mudar**. A alteração é de quem avalia a RLS: com `security_invoker=on`, a view passa a usar a identidade da sessão chamadora em vez do dono da view. Isso é pré-requisito da F4b — sem isso, a view continuaria um caminho de desvio da RLS restritiva futura.
+
+Não há mudança de colunas, nomes, tipos ou definição SQL. Nenhuma policy, grant ou dado é tocado.
+
+### Achados preexistentes (não causados pela F5)
+
+1. `vw_process_velocity` **não tem coluna `environment`**, mas o Proxy em `lib/supabase.ts` injeta `.eq('environment', currentEnv)` em toda consulta de view. Teste via REST retornou `42703 column vw_process_velocity.environment does not exist`. O mesmo vale para `vw_cash_flow_forecast`, `vw_area_efficiency`, `vw_client_process_summary` e `process_sync_status`, que também não têm a coluna.
+2. `app/page.tsx:246` seleciona `contract_id, client_id, law_area` em `vw_process_velocity`; a view expõe `process_id, process_number, status, created_at, last_update, days_since_last_movement`. Essa consulta já falha antes da F5.
+
+A F5 **não corrige nem agrava** esses itens — eles precisam de fatia própria de código. A validação da F5 deve usar as contagens do banco, não o resultado dessas consultas quebradas.
+
+## 11.4 Arquivos preparados
+
+| Arquivo | Finalidade |
+|---|---|
+| `forward_f5.sql` | 9 `ALTER VIEW ... SET (security_invoker = on)` |
+| `rollback_f5.sql` | 9 `ALTER VIEW ... RESET (security_invoker)` |
+| `verify_f5.sql` | Conta views com/sem a opção: antes `9/4`, depois `0/13` |
+| `kpi_baseline.sql` / `kpi_baseline.json` | 48 medições de contagem e agregados por view/ambiente |
+
+Exemplos do baseline: `vw_dashboard_receivables_metrics` production `total_expected=488095.63`, `total_received=152526.65`, `total_pending=335568.98`, `total_overdue=82470.40`; `vw_dashboard_top_defaulters` production 20 linhas e `82470.40`; `vw_process_velocity` 21 linhas.
+
+## 11.5 Validação obrigatória
+
+1. Rodar `verify_f5.sql` antes: `sem_security_invoker=9`, `com_security_invoker=4`.
+2. Aplicar `forward_f5.sql`.
+3. Rodar `verify_f5.sql` depois: `sem=0`, `com=13`.
+4. Rodar `kpi_baseline.sql` gerando `kpi_after.json` e comparar com `kpi_baseline.json`: **0 linhas ausentes, alteradas ou novas**.
+5. Validar via REST com a anon key, para as views que têm `environment`: `contract_receivables_summary`, `v_client_guardians`, `vw_dashboard_receivables_*`, `vw_indicator_commission_status`, `vw_portal_commission_details` — mesmas contagens.
+6. Validar nas telas: dashboard (KPIs), contas a receber, indicadores, portal do indicador, representação legal em clientes.
+7. Se qualquer item falhar: `rollback_f5.sql`, revalidar. Último recurso: PITR da F0.
+
+## 11.6 Posição e decisão
+
+Recomendo aplicar a F5 **como preparação para a F4b**, depois da F4a e com a validação acima. Ela é de baixo risco no estado atual e não depende de deploy nem de novas chaves. Não resolve, por si só, o vazamento via REST — esse ponto continua dependente da decisão de identidade/sessão da F4b.
+
+Não foi aplicada nenhuma alteração nesta fatia até o momento.
