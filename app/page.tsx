@@ -283,17 +283,19 @@ export default function Page() {
 
     fetchData()
 
-    // Setup Realtime Subscriptions
-    const channels = [
-      supabase.channel('processes').on('postgres_changes', { event: '*', schema: 'public', table: 'processes' }, fetchData).subscribe(),
-      supabase.channel('contracts').on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, fetchData).subscribe(),
-      supabase.channel('installments').on('postgres_changes', { event: '*', schema: 'public', table: 'installments' }, fetchData).subscribe(),
-      supabase.channel('transactions').on('postgres_changes', { event: '*', schema: 'public', table: 'financial_transactions' }, fetchData).subscribe(),
-      supabase.channel('process_deadlines').on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, fetchData).subscribe(),
-    ]
+    // Um único canal com cinco listeners. Antes eram cinco canais
+    // independentes, cada um com seu próprio polling de realtime.list_changes.
+    const channel = supabase
+      .channel('dashboard-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'processes' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'installments' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_transactions' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, fetchData)
+      .subscribe()
 
     return () => {
-      channels.forEach(channel => supabase.removeChannel(channel))
+      supabase.removeChannel(channel)
     }
   }, [])
 

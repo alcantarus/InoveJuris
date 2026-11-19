@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { getAppEnv } from '@/lib/env';
@@ -75,7 +75,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchSettings = async () => {
+  // Dedupe de requisições em voo. Sem isso, mount + callback do Realtime
+  // podiam disparar a mesma consulta duas vezes numa janela curta (a
+  // segunda consulta aparecia em pg_stat_statements com 2 chamadas).
+  const inFlightRef = useRef<Promise<void> | null>(null);
+
+  const loadSettings = useCallback(async () => {
     try {
       // The supabase client proxy automatically adds .eq('environment', APP_ENV)
       const { data, error } = await supabase
@@ -108,7 +113,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // `force=true` ignora a promise em voo — usado quando os dados podem ter
+  // mudado desde que a busca anterior começou (Realtime e rollback).
+  const fetchSettings = useCallback((force = false): Promise<void> => {
+    if (!force && inFlightRef.current) return inFlightRef.current;
+
+    const promise = loadSettings().finally(() => {
+      if (inFlightRef.current === promise) inFlightRef.current = null;
+    });
+    inFlightRef.current = promise;
+    return promise;
+  }, [loadSettings]);
 
   useEffect(() => {
     fetchSettings();
@@ -126,7 +143,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           filter: `environment=eq.${getAppEnv()}`,
         },
         () => {
-          fetchSettings();
+          // A mudança pode ter ocorrido depois que uma busca anterior
+          // começou: força uma nova leitura em vez de reaproveitar a promise.
+          fetchSettings(true);
         }
       )
       .subscribe();
@@ -134,7 +153,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchSettings]);
 
   useEffect(() => {
     // Force light theme
@@ -171,7 +190,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error(`Error updating setting ${key}:`, JSON.stringify(error, null, 2));
         // Revert optimistic update by fetching from server
-        fetchSettings();
+        fetchSettings(true);
         // Try to get more details from the error object
         const details = typeof error === 'object' ? JSON.stringify(error) : String(error);
         throw new Error(details);

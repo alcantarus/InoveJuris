@@ -5,18 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Gift, ImageIcon, Printer, PartyPopper, MessageCircle } from 'lucide-react'
 import { BirthdayCardGenerator } from '../BirthdayCardGenerator'
+import { getBirthdays, type BirthdayPerson } from '@/lib/birthdays'
 import { motion, AnimatePresence } from 'motion/react'
 import confetti from 'canvas-confetti'
 import { cn } from '@/lib/utils'
-
-interface BirthdayPerson {
-  id: string
-  name: string
-  birthDate: string
-  age: number
-  type: 'client' | 'indicator' | 'maternity'
-  phone?: string
-}
 
 export default function BirthdayWidget() {
   const { user } = useAuth()
@@ -29,88 +21,7 @@ export default function BirthdayWidget() {
     if (!user) return
 
     try {
-      const [clientsRes, indicatorsRes, maternityRes] = await Promise.all([
-        supabase.from('clients').select('id, name, "birthDate", phone').not('"birthDate"', 'is', null),
-        supabase.from('indicators').select('id, name, data_nascimento, phone').not('data_nascimento', 'is', null),
-        supabase.from('contracts').select('id, rn_name, rn_birth_date').ilike('product', '%maternidade%').not('rn_birth_date', 'is', null)
-      ])
-      
-      if (clientsRes.error) throw clientsRes.error
-      if (indicatorsRes.error) throw indicatorsRes.error
-      if (maternityRes.error) throw maternityRes.error
-
-      const todayDate = new Date()
-      const currentMonth = todayDate.getMonth() + 1
-      const currentDay = todayDate.getDate()
-      const currentYear = todayDate.getFullYear()
-
-      const processBirthday = (person: any, dateField: string, type: 'client' | 'indicator') => {
-        const birthDate = person[dateField]
-        if (!birthDate) return null
-        
-        let dateObj: Date
-        let birthYear: number
-        
-        if (birthDate.includes('-')) {
-          const [year, month, day] = birthDate.split('-').map(Number)
-          dateObj = new Date(year, month - 1, day)
-          birthYear = year
-        } else if (birthDate.includes('/')) {
-          const [day, month, year] = birthDate.split('/').map(Number)
-          dateObj = new Date(year, month - 1, day)
-          birthYear = year
-        } else {
-          dateObj = new Date(birthDate)
-          birthYear = dateObj.getFullYear()
-        }
-        
-        if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
-          return {
-            id: `${type}_${person.id}`,
-            name: person.name,
-            birthDate: birthDate,
-            age: currentYear - birthYear,
-            type,
-            phone: person.phone
-          }
-        }
-        return null
-      }
-
-      const processMaternity = (contract: any) => {
-        const birthDate = contract.rn_birth_date
-        if (!birthDate) return null
-        
-        let dateObj: Date
-        
-        if (birthDate.includes('-')) {
-          const [year, month, day] = birthDate.split('-').map(Number)
-          dateObj = new Date(year, month - 1, day)
-        } else if (birthDate.includes('/')) {
-          const [day, month, year] = birthDate.split('/').map(Number)
-          dateObj = new Date(year, month - 1, day)
-        } else {
-          dateObj = new Date(birthDate)
-        }
-        
-        if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
-          return {
-            id: `maternity_${contract.id}`,
-            name: contract.rn_name,
-            birthDate: birthDate,
-            age: 0, // Recém-nascido
-            type: 'maternity'
-          }
-        }
-        return null
-      }
-
-      const birthdayClients = (clientsRes.data || []).map((c: any) => processBirthday(c, 'birthDate', 'client')).filter(Boolean) as BirthdayPerson[]
-      const birthdayIndicators = (indicatorsRes.data || []).map((i: any) => processBirthday(i, 'data_nascimento', 'indicator')).filter(Boolean) as BirthdayPerson[]
-      const maternityBirths = (maternityRes.data || []).map((c: any) => processMaternity(c)).filter(Boolean) as BirthdayPerson[]
-      
-      const allBirthdays = [...birthdayClients, ...birthdayIndicators, ...maternityBirths] as BirthdayPerson[]
-      
+      const allBirthdays = await getBirthdays()
       setBirthdays(allBirthdays)
       
       const today = new Date()

@@ -5,16 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Gift, X, ChevronRight, Image as ImageIcon, CheckCircle2, Calendar, Sparkles, PartyPopper, Printer } from 'lucide-react'
 import { BirthdayCardGenerator } from './BirthdayCardGenerator'
+import { getBirthdays, invalidateBirthdaysCache, type BirthdayPerson } from '@/lib/birthdays'
 import { motion, AnimatePresence } from 'motion/react'
 import confetti from 'canvas-confetti'
-
-interface BirthdayPerson {
-  id: string
-  name: string
-  birthDate: string
-  age: number
-  type: 'client' | 'indicator' | 'maternity'
-}
 
 export function BirthdayChecker({ className = '' }: { className?: string }) {
   const { user } = useAuth()
@@ -31,87 +24,7 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
     if (!user) return
 
     try {
-      const [clientsRes, indicatorsRes, maternityRes] = await Promise.all([
-        supabase.from('clients').select('id, name, "birthDate"').not('"birthDate"', 'is', null),
-        supabase.from('indicators').select('id, name, data_nascimento').not('data_nascimento', 'is', null),
-        supabase.from('contracts').select('id, rn_name, rn_birth_date').ilike('product', '%maternidade%').not('rn_birth_date', 'is', null)
-      ])
-      
-      if (clientsRes.error) throw clientsRes.error
-      if (indicatorsRes.error) throw indicatorsRes.error
-      if (maternityRes.error) throw maternityRes.error
-
-      const todayDate = new Date()
-      const currentMonth = todayDate.getMonth() + 1
-      const currentDay = todayDate.getDate()
-      const currentYear = todayDate.getFullYear()
-
-      const processBirthday = (person: any, dateField: string, type: 'client' | 'indicator') => {
-        const birthDate = person[dateField]
-        if (!birthDate) return null
-        
-        let dateObj: Date
-        let birthYear: number
-        
-        if (birthDate.includes('-')) {
-          const [year, month, day] = birthDate.split('-').map(Number)
-          dateObj = new Date(year, month - 1, day)
-          birthYear = year
-        } else if (birthDate.includes('/')) {
-          const [day, month, year] = birthDate.split('/').map(Number)
-          dateObj = new Date(year, month - 1, day)
-          birthYear = year
-        } else {
-          dateObj = new Date(birthDate)
-          birthYear = dateObj.getFullYear()
-        }
-        
-        if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
-          return {
-            id: `${type}_${person.id}`,
-            name: person.name || 'Cliente',
-            birthDate: birthDate,
-            age: currentYear - birthYear,
-            type
-          }
-        }
-        return null
-      }
-
-      const processMaternity = (contract: any) => {
-        const birthDate = contract.rn_birth_date
-        if (!birthDate) return null
-        
-        let dateObj: Date
-        
-        if (birthDate.includes('-')) {
-          const [year, month, day] = birthDate.split('-').map(Number)
-          dateObj = new Date(year, month - 1, day)
-        } else if (birthDate.includes('/')) {
-          const [day, month, year] = birthDate.split('/').map(Number)
-          dateObj = new Date(year, month - 1, day)
-        } else {
-          dateObj = new Date(birthDate)
-        }
-        
-        if ((dateObj.getMonth() + 1) === currentMonth && dateObj.getDate() === currentDay) {
-          return {
-            id: `maternity_${contract.id}`,
-            name: contract.rn_name || 'Recém-nascido',
-            birthDate: birthDate,
-            age: 0, // Recém-nascido
-            type: 'maternity'
-          }
-        }
-        return null
-      }
-
-      const birthdayClients = (clientsRes.data || []).map((c: any) => processBirthday(c, 'birthDate', 'client')).filter(Boolean) as BirthdayPerson[]
-      const birthdayIndicators = (indicatorsRes.data || []).map((i: any) => processBirthday(i, 'data_nascimento', 'indicator')).filter(Boolean) as BirthdayPerson[]
-      const maternityBirths = (maternityRes.data || []).map((c: any) => processMaternity(c)).filter(Boolean) as BirthdayPerson[]
-      
-      const allBirthdays = [...birthdayClients, ...birthdayIndicators, ...maternityBirths] as BirthdayPerson[]
-      
+      const allBirthdays = await getBirthdays()
       setBirthdays(allBirthdays)
       
       // Carrega os cartões já enviados hoje
@@ -163,6 +76,10 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
     checkBirthdays()
 
     const handleFocus = () => {
+      // Preserva o comportamento original de revalidar ao focar a janela,
+      // mas sem refetch em cada mount (o cache compartilhado evita as 3
+      // consultas duplicadas por componente no dashboard).
+      invalidateBirthdaysCache()
       checkBirthdays()
     }
 
