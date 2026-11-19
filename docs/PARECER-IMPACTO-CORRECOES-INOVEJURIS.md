@@ -948,6 +948,55 @@ O `n_live_tup = 10` do diagnóstico anterior estava **errado** (estimativa sem `
 
 Nenhuma alteração foi feita no banco; heartbeat de 20 s, acesso alternativo e contas reais continuam fora de escopo.
 
+## 13.12 Medição limpa com a app em uso — plano de otimização (2026-11-19)
+
+Amostra coletada após login com conta de teste, dashboard + Processos + Publicações. Dados válidos.
+
+### Onde o tempo da aplicação foi gasto
+
+| Query | Chamadas | Tempo total | Média | Comentário |
+|---|---|---|---|---|
+| `realtime.list_changes` (Realtime) | **178** | **1.873,91 ms** | 10,53 ms | Maior consumidor agregado; polling do WAL pelas subscriptions |
+| `app_heartbeat` | 6 | 437,70 ms | **72,95 ms** | Maior custo **por chamada**; escrita em `user_sessions` |
+| `app_validate_session` | 20 | 367,24 ms | 18,36 ms | **Também faz `UPDATE` em `user_sessions`** (linha 341 da migration) |
+| `check_daily_birthdays()` | 1 | 185,54 ms | 185,54 ms | Job antigo, não chamado pelo front; 1 chamada na janela |
+| `SELECT ... audit_logs ... ORDER BY performed_at LIMIT 5` | 1 | 133,32 ms | 133,32 ms | Dashboard; **sem índice** em `(environment, performed_at DESC)` |
+| `app_authenticate` | 4 | 196,69 ms | ~49 ms | Login |
+| `app_complete_login` | 1 | 65,99 ms | 65,99 ms | Login |
+| `contracts ... ilike '%maternidade%'` | 4 | 45,49 ms | 11,37 ms | Widget de aniversário |
+| `clients ... birthDate` | 3 | 38,12 ms | 12,71 ms | Widget de aniversário |
+| `system_settings` (2 consultas) | 2 | 26,70 ms | 13,35 ms | 11 linhas com 368 kB de TOAST |
+| `set_config(...)` do PostgREST | 93 | 163,83 ms | 1,76 ms | Overhead por requisição HTTP |
+| Views F7/dashboard | 1 cada | 0,08–4,06 ms | — | **Baratas — não são gargalo** |
+
+`blks_hit = 1.812.600` × `blks_read = 1.763` → 99,9% de cache. O custo é de **processamento e escrita**, não de leitura de disco.
+
+### Descobertas novas e concretas
+
+1. **`app_validate_session` também grava.** Além do heartbeat de 20 s, toda validação de sessão atualiza `last_seen_at` (`migrations/20261118150000_auth_session_hardening.sql:341-343`). Na janela foram 20 chamadas. É amplificação de escrita — mas mudar isso altera a semântica do controle de 90 s. **Somente com autorização explícita.**
+2. **Widget de aniversário duplicado no dashboard.** `BirthdayChecker` (`app/page.tsx:725`) e `BirthdayWidget` (`app/page.tsx:1731`) fazem cada um as mesmas 3 consultas (`components/BirthdayChecker.tsx:34-38` e `components/dashboard/BirthdayWidget.tsx:32-36`). São **6 consultas onde bastavam 3**.
+3. **5 canais Realtime só no dashboard** (`app/page.tsx:288-292`), mais `Sidebar`, `SettingsProvider` e páginas de processos/prazos/notificações/calendário — 12 `.channel()` no total. Cada canal alimenta o `realtime.list_changes`.
+4. **Falta de índice em `audit_logs`**: há índices em `record_id`, `environment`, `performed_by` e PK, mas nenhum em `(environment, performed_at DESC)`, que é exatamente o `ORDER BY` da consulta do dashboard.
+5. **`system_settings`**: 11 linhas, 368 kB de TOAST (~33 kB/linha). Uma chave com JSON grande é lida em toda mount.
+
+### Plano priorizado (ainda NÃO executado)
+
+**Fase 1A — sem mudança de segurança, com backup/rollback, uma de cada vez:**
+
+| # | Ação | Ganho esperado | Risco |
+|---|---|---|---|
+| 1 | Unificar `BirthdayChecker` + `BirthdayWidget` em um hook compartilhado | −3 consultas por carga do dashboard | Baixo (só leitura, sem mudança de dados) |
+| 2 | Consolidar os 5 canais Realtime do dashboard em 1 canal com 5 listeners | Menos polling `realtime.list_changes` | Baixo (precisa validar que os 5 eventos continuam chegando) |
+| 3 | Cachear `system_settings` no `SettingsProvider` e eliminar a 2ª consulta | −1 consulta e −368 kB lidos | Baixo |
+| 4 | Criar índice `audit_logs (environment, performed_at DESC)` | 133 ms → alguns ms | Baixo, mas é mudança de schema: backup + rollback |
+| 5 | `ANALYZE` nas tabelas da app | Estatísticas corretas (o `n_live_tup=10` estava errado) | Muito baixo |
+
+**Fase 1B — somente com sua autorização explícita:**
+
+- Reduzir a escrita duplicada em `app_validate_session` e/ou espaçar o heartbeat de 20 s. **Não farei sem aval**, porque mexe na tolerância de 90 s do controle de sessão.
+
+**Descartado com base em medição:** apagar índices "não usados" ou "duplicados" (falsos positivos), mexer nas views F7 (são baratas), limpar logs por volume (25 MB no total) e migrar para NoSQL.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
