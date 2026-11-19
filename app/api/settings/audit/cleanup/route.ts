@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
 import { authErrorResponse, requireAdminContext } from '@/lib/server-auth';
+import { createServiceRoleClient, ServiceRoleConfigError } from '@/lib/supabase-service';
 
 export async function POST(request: Request) {
   try {
@@ -16,8 +15,9 @@ export async function POST(request: Request) {
 
     const appEnv = admin.environment;
     
-    // Initialize Supabase Client
-    const supabase = createClient(defaultUrlProd, defaultKeyProd);
+    // A limpeza apaga audit_logs, cuja escrita foi revogada do anon no
+    // F4b-1c1. Usa service_role com falha explicita se a chave faltar.
+    const supabase = createServiceRoleClient();
 
     // Perform deletion
     // We use >= startDate and <= endDate (inclusive)
@@ -52,6 +52,15 @@ export async function POST(request: Request) {
   } catch (error: any) {
     const unauthorized = authErrorResponse(error);
     if (unauthorized) return unauthorized;
+
+    if (error instanceof ServiceRoleConfigError) {
+      console.error('Audit Cleanup Error:', error.message);
+      return NextResponse.json(
+        { error: 'Servidor sem configuração de escrita.' },
+        { status: 500 }
+      );
+    }
+
     console.error('Audit Cleanup Error:', error);
     return NextResponse.json(
       { error: error.message || 'Falha ao limpar logs de auditoria' },
