@@ -1348,14 +1348,20 @@ Restam quatro dependências diretas cuja correção exige major: `next` 15 → 1
   - sem cookie: `GET /api/check-deadlines`, `GET /api/db/status`, `POST /api/process-sync`, `POST /api/djen-sync`, `POST /api/process-consultation` → **307** para `/login` (middleware);
   - com cookie falso (`session_id` inexistente + `app_env=production`): todas → **401** `{"error":"Sessão inválida."}` (guarda da rota, sem tocar no banco além da RPC de validação);
   - `/api/auth/session` continua acessível → **400** sem body (esperado).
-- **Não validado:** fluxo autenticado real (A/B/C) — não havia cookie fresco neste ambiente; e Preview/Production.
+- **Não validado:** fluxo autenticado real (A/B/C) — não havia cookie fresco neste ambiente.
 
-## 16.4 Rollback
+## 16.4 Production
+
+- **Promovida em 2026-11-19.** Deployment de Production: `dpl_A5BoCyrTwcv35UXskj8eqBgeY5SP`, alias `https://inove-juris.vercel.app`, gerado a partir do Preview testado `qx87roe3z`.
+- Validação com `curl` no domínio de Production: `/login` `200`; sem cookie, as cinco rotas → `307 → /login`; com cookie falso, as cinco → `401`; as sete rotas removidas → `404`; `/api/auth/session` → `400` sem body.
+- Rollback de deploy: promover `dpl_CamrC5NmuaqbRThnGTL3DbD8a4QZ` (Production anterior, Fase 1C). Rollback de código: `git revert 86e6c7b` e `git revert bf364e9`.
+
+## 16.5 Rollback
 
 - Código: `git revert <commit-da-fase-0>` (o commit de dependências é separado).
 - Arquivos: restaurar de `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\` (26 arquivos originais).
 - Banco: nada foi aplicado; se o forward for aplicado depois, usar `rollback_cleanup_old_logs.sql` ciente de que a definição antiga é funcionalmente quebrada.
 
-## 16.5 Risco residual e próximo passo
+## 16.6 Risco residual e próximo passo
 
 A Fase 0 reduz superfície e vazamento, mas **não fecha o P0**: a chave anon continua pública e a RLS segue permissiva. O próximo passo continua sendo o inventário F4b e a revogação por tabela, com validação entre etapas. A F3 (17 funções `http`) segue dependente do chamado no Supabase Support.
