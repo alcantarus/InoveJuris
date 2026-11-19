@@ -727,7 +727,12 @@ export function SystemTab() {
     const storedUrl = localStorage.getItem('custom_supabase_url_production');
     const storedKey = localStorage.getItem('custom_supabase_key_production');
     if (storedUrl) setCustomUrl(storedUrl);
-    if (storedKey) setCustomKey(storedKey);
+    if (storedKey && storedKey.trim().startsWith('sb_publishable_')) {
+      setCustomKey(storedKey);
+    } else if (storedKey) {
+      // Chave legada desativada: remover para nao quebrar as consultas.
+      localStorage.removeItem('custom_supabase_key_production');
+    }
   }, []);
 
   const handleConfigureDatabase = () => {
@@ -792,6 +797,10 @@ export function SystemTab() {
   };
 
   const saveSupabaseConfig = () => {
+    if (customKey && !customKey.trim().startsWith('sb_publishable_')) {
+      setSaveStatus('error');
+      return;
+    }
     try {
       if (customUrl) localStorage.setItem('custom_supabase_url_production', customUrl);
       else localStorage.removeItem('custom_supabase_url_production');

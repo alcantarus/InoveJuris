@@ -1232,6 +1232,10 @@ export default function SetupPage() {
       alert('Preencha a URL e a Chave.')
       return
     }
+    if (!customKey.trim().startsWith('sb_publishable_')) {
+      alert('Use apenas a chave publishable (sb_publishable_...). As chaves legadas foram desativadas.')
+      return
+    }
     localStorage.setItem(`custom_supabase_url_production`, customUrl)
     localStorage.setItem(`custom_supabase_key_production`, customKey)
     alert('Configuração salva com sucesso! A página será recarregada.')

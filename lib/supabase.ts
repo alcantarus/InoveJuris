@@ -27,14 +27,26 @@ const setEnvironment = async (client: any) => {
   await client.rpc('set_app_environment', { env_name: env });
 };
 
+const isPublishableKey = (key: string | null | undefined): key is string =>
+  typeof key === 'string' && key.trim().startsWith('sb_publishable_')
+
 export const getSupabaseConfig = (env: 'production' | 'test') => {
   // We ignore the 'env' parameter because we always connect to PROD database.
   // The isolation is done via the 'environment' column in the tables.
   if (typeof window !== 'undefined') {
     const customUrl = localStorage.getItem(`custom_supabase_url_production`)
     const customKey = localStorage.getItem(`custom_supabase_key_production`)
-    if (customUrl && customKey) {
-      return { url: customUrl, key: customKey, isCustom: true }
+
+    // Chaves legadas (eyJ...) foram desativadas no Supabase em 2026-11-18.
+    // Uma chave antiga salva no localStorage de um navegador quebra TODAS as
+    // consultas, inclusive o Realtime. Nunca deixar essa chave ser usada.
+    if (customKey && !isPublishableKey(customKey)) {
+      localStorage.removeItem(`custom_supabase_key_production`)
+    }
+
+    if (customUrl && isPublishableKey(customKey)) {
+      const url = getValidUrl(customUrl, defaultUrlProd, 'custom_supabase_url_production')
+      return { url, key: customKey.trim(), isCustom: true }
     }
   }
   return { url: defaultUrlProd, key: defaultKeyProd, isCustom: false }
