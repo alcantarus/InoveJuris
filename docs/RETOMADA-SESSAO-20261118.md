@@ -205,7 +205,7 @@ Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-
 
 ### Próximo passo (nesta ordem)
 
-1. Executar `reset_stats_medicao_limpa.sql` (zera só contadores), usar a app por ~10 min e rodar `queries_app.sql`; comparar com a linha de base da seção 13.12. A medição anterior ficou contaminada porque o `stats_reset` ainda era 03:32 — leitura preliminar na seção 13.14 do parecer.
+1. ~~Medição limpa~~ **concluída:** `stats_reset = 09:57:07.940908`, ~10 min de uso, `queries_app.sql` recebido e comparado na seção 13.16. Resultado: `audit_logs` 9,76 ms (era 133,32), cache 99,979%, `app_validate_session` 59,48 ms e `realtime.list_changes` 8,28 s agregados seguem como alvos reais. A medição anterior (13.14) ficou contaminada com `stats_reset` 03:32.
 2. Publicar o código (deploy de Preview e Production), testar login com **conta de teste**, repetir A/B/C com **cookie fresco** e conferir o console com `Ctrl+Shift+R`.
 3. **Parecer `audit_logs` (seção 13.15):** usuário pediu otimização/avaliação. Nada implementado. Executar `analise_audit_logs.sql` (read-only) e enviar as saídas para confirmar se `user_sessions` gera ruído de heartbeat e de onde vêm as 2.248 linhas. Só depois propor mudança com forward/rollback e autorização explícita.
 4. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.

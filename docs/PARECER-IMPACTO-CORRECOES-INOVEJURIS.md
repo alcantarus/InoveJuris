@@ -1082,6 +1082,30 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 
 **Antes de qualquer mudança:** executar `analise_audit_logs.sql` (read-only) para confirmar quais tabelas geram mais linhas, se `user_sessions` tem trigger ativo e o tamanho real (heap + índices + TOAST). Nenhuma exclusão de histórico sem política jurídica definida. Backup/rollback antes de cada alteração.
 
+## 13.16 Medição LIMPA pós-Fase 1A (janela desde 09:57:07 UTC)
+
+`stats_reset = 2026-11-19T09:57:07.940908+00` — janela limpa, sem DDL/ANALYZE/deploys. ~10 min de uso normal da app.
+
+| Query | Base (13.12) | Contaminada (13.14) | **Limpa (13.16)** | Leitura |
+|---|---|---|---|---|
+| `audit_logs` dashboard | 133,32 ms | 46,63 ms | **9,76 ms** (1 chamada) | −93% vs. base; índice confirmado |
+| `audit_logs` simples (2× environment) | — | — | **8,00 ms** (1 chamada) | Segunda consulta, também barata |
+| `app_validate_session` | 18,36 ms | 95,18 ms | **59,48 ms** (32 / 1.903,22 ms) | −37% vs. contaminada; ainda o maior custo unitário (Fase 1B) |
+| `app_heartbeat` | 72,95 ms | 70,06 ms | **42,90 ms** (31 / 1.329,81 ms) | −39% vs. contaminada |
+| `realtime.list_changes` | 10,53 ms | 6,75 ms | **9,51 ms** (871 / 8.279,78 ms) | **8,28 s agregados** — maior volume |
+| `get_clients_with_process_summary` | — | — | **78,85 ms** (2 / 157,70 ms) | Novo ponto de atenção, fora do escopo atual |
+| `system_settings` | 13,35 ms | 24,13 ms | **0 chamadas registradas** | Compatível com o dedupe da Fase 1A |
+| Cache | 99,9% | 99,97% | **99,979%** (8.998.501 hits / 1.879 reads) | Só 19 leituras físicas novas na janela |
+
+**Contas fechadas:**
+
+- Tempo de banco das queries da app: **~3,71 s**. Desse total, `app_validate_session` + `app_heartbeat` = **3,23 s (87%)**.
+- `audit_logs` soma **17,76 ms** (9,76 + 8,00) = **0,5%** do tempo da app. **Não é gargalo.**
+- `realtime.list_changes` consome **8,28 s** em 871 polls. Reduzir exigiria observar menos tabelas — mudança funcional, não autorizada.
+- `tup_updated` **+104** e `tup_inserted` **+84** na janela, enquanto a seção `escritas` só mostra 6 deletes de `realtime.subscription`: as escritas acontecem **dentro das RPCs** (`app_validate_session`/`app_heartbeat` atualizam `user_sessions` e o trigger insere em `audit_logs`). Isso reforça a hipótese de amplificação por auditoria de sessão — a confirmar com `analise_audit_logs.sql`.
+
+**Conclusão:** a Fase 1A entregou o prometido na leitura (audit 133,32 → 9,76 ms; cache 99,979%). O problema de I/O **não é volume, é padrão de acesso**: 87% do tempo da app em validação/heartbeat e 8,28 s em Realtime. Otimizar `audit_logs` não resolve a madrugada; a alavanca real (Fase 1B) continua sem autorização.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
