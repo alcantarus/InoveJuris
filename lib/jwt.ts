@@ -23,6 +23,8 @@ type Jwk = Parameters<typeof importJWK>[0]
 let cachedKey: Awaited<ReturnType<typeof importJWK>> | null = null
 let cachedRaw: string | null = null
 let cachedKid: string | undefined
+let cachedHmacKey: Uint8Array | null = null
+let cachedHmacSecret: string | null = null
 let missingKeyWarned = false
 
 // Trava de segurança: um token só chega ao navegador depois que o próprio
@@ -69,34 +71,52 @@ async function tokenAcceptedByPostgrest(token: string): Promise<boolean> {
 }
 
 export function isTokenSigningConfigured(): boolean {
-  return Boolean(process.env.SUPABASE_JWT_PRIVATE_JWK?.trim())
+  return Boolean(
+    process.env.SUPABASE_JWT_PRIVATE_JWK?.trim() || process.env.SUPABASE_JWT_SECRET?.trim()
+  )
 }
 
 function tokenRole(): 'anon' | 'authenticated' {
   return process.env.SUPABASE_JWT_ROLE === 'authenticated' ? 'authenticated' : 'anon'
 }
 
-async function getSigningKey(): Promise<{ key: Awaited<ReturnType<typeof importJWK>>; kid?: string } | null> {
-  const raw = process.env.SUPABASE_JWT_PRIVATE_JWK?.trim()
-  if (!raw) {
-    if (!missingKeyWarned) {
-      missingKeyWarned = true
-      console.warn('[jwt] SUPABASE_JWT_PRIVATE_JWK ausente: sessão segue sem token.')
+type SigningMaterial =
+  | { alg: 'ES256'; key: Awaited<ReturnType<typeof importJWK>>; kid?: string }
+  | { alg: 'HS256'; key: Uint8Array }
+
+async function getSigningMaterial(): Promise<SigningMaterial | null> {
+  const rawJwk = process.env.SUPABASE_JWT_PRIVATE_JWK?.trim()
+
+  if (rawJwk) {
+    const configuredKid = process.env.SUPABASE_JWT_KID?.trim()
+
+    if (cachedKey && cachedRaw === rawJwk) {
+      return { alg: 'ES256', key: cachedKey, kid: configuredKid || cachedKid }
     }
-    return null
+
+    const jwk = JSON.parse(rawJwk) as Jwk
+    cachedKey = await importJWK(jwk, ALG)
+    cachedRaw = rawJwk
+    cachedKid = typeof (jwk as any).kid === 'string' ? (jwk as any).kid : undefined
+    return { alg: 'ES256', key: cachedKey, kid: configuredKid || cachedKid }
   }
 
-  const configuredKid = process.env.SUPABASE_JWT_KID?.trim()
-
-  if (cachedKey && cachedRaw === raw) {
-    return { key: cachedKey, kid: configuredKid || cachedKid }
+  // Alternativa: segredo compartilhado legado (HS256), ainda aceito pelo
+  // PostgREST enquanto a chave antiga constar em "Previously used keys".
+  const secret = process.env.SUPABASE_JWT_SECRET?.trim()
+  if (secret) {
+    if (!cachedHmacKey || cachedHmacSecret !== secret) {
+      cachedHmacKey = new TextEncoder().encode(secret)
+      cachedHmacSecret = secret
+    }
+    return { alg: 'HS256', key: cachedHmacKey }
   }
 
-  const jwk = JSON.parse(raw) as Jwk
-  cachedKey = await importJWK(jwk, ALG)
-  cachedRaw = raw
-  cachedKid = typeof (jwk as any).kid === 'string' ? (jwk as any).kid : undefined
-  return { key: cachedKey, kid: configuredKid || cachedKid }
+  if (!missingKeyWarned) {
+    missingKeyWarned = true
+    console.warn('[jwt] Sem chave de assinatura configurada: sessão segue sem token.')
+  }
+  return null
 }
 
 export interface SessionClaims {
@@ -114,7 +134,7 @@ export interface SignedSessionToken {
 export async function signSessionToken(
   claims: SessionClaims
 ): Promise<SignedSessionToken | null> {
-  const signing = await getSigningKey()
+  const signing = await getSigningMaterial()
   if (!signing) return null
 
   const now = Math.floor(Date.now() / 1000)
@@ -127,8 +147,15 @@ export async function signSessionToken(
   }
   if (claims.organizationId) payload.organization_id = claims.organizationId
 
+  const header =
+    signing.alg === 'ES256'
+      ? signing.kid
+        ? { alg: 'ES256' as const, kid: signing.kid }
+        : { alg: 'ES256' as const }
+      : { alg: 'HS256' as const }
+
   const token = await new SignJWT(payload)
-    .setProtectedHeader(signing.kid ? { alg: ALG, kid: signing.kid } : { alg: ALG })
+    .setProtectedHeader(header)
     .setSubject(String(claims.userId))
     .setIssuedAt(now)
     .setExpirationTime(expiresAt)
