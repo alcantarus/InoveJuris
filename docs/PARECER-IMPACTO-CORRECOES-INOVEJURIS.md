@@ -914,6 +914,40 @@ Scripts em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`: `quer
 
 **Nenhuma alteração foi feita.** Heartbeat de 20 s, acesso alternativo e contas reais continuam fora de escopo.
 
+## 13.11 Primeira leitura de `pg_stat_statements` — amostra contaminada (2026-11-19)
+
+Executado `queries_caras_resumo.sql`. **A amostra não serve para atribuir custo à aplicação**, pelos seguintes motivos:
+
+- `pg_stat_statements_info().stats_reset = 2026-11-19T03:32:23Z` — isto é, a janela começa **depois da recuperação do incidente**. O consumo que derrubou o login não está mais no histórico.
+- `pg_stat_database`: `tup_inserted = 32`, `tup_updated = 7`, `tup_deleted = 196`, `xact_commit = 10399`. Números de escrita baixíssimos confirmam que **a aplicação não foi usada** nessa janela — só o SQL Editor e o Studio.
+- As queries do topo são **introspecção do Supabase Studio**, não da app:
+  - `SELECT name FROM pg_timezone_names` — 8.574 ms em 3 chamadas (2.858 ms cada);
+  - `WITH RECURSIVE base_types ...` — 5.446 ms + 3.173 ms;
+  - `pgbouncer.get_auth` — 2.044 ms em 5 chamadas (409 ms cada);
+  - `pks_fks` / `pg_constraint` — 1.874 ms;
+  - Consultas de catálogo do próprio Studio (functions, roles, casts, relations).
+- `blks_hit = 1.373.144` contra `blks_read = 1.330` (**99,9% de acerto de cache**). Reforça: leitura de tabela não é o gargalo.
+- Tamanho total do banco: **25 MB** — confirma que volume não é o problema.
+
+### Contagem exata corrigiu a estimativa
+
+| Tabela | Linhas reais | Tamanho | Observação |
+|---|---|---|---|
+| `audit_logs` | 2.201 | 2,6 MB | ~1,2 KB/linha — normal, não é inchaço |
+| `system_settings` | 11 | 368 kB | **~33 KB/linha** — desproporcional; candidato a inspeção (sem alteração) |
+| `publications` | 56 | 568 kB | ~10 KB/linha, plausível (Publicações com texto) |
+| `user_sessions` | 138 | 248 kB | ~1,8 KB/linha, normal |
+| `notifications` | 93 | 136 kB | normal |
+| `login_attempts` | 17 | 96 kB | normal |
+
+O `n_live_tup = 10` do diagnóstico anterior estava **errado** (estimativa sem `ANALYZE`); a contagem real é 2.201.
+
+### Próxima medição (limpa)
+
+`C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\queries_app.sql`. Sequência: fazer login com a **conta de teste**, abrir dashboard, esperar ~30 s, visitar Processos e Publicações, **só então** executar o script. Ele separa queries da aplicação, ruído do Studio, demais chamadas e escritas. Até lá, **nenhuma conclusão sobre qual query da app consome I/O é válida**.
+
+Nenhuma alteração foi feita no banco; heartbeat de 20 s, acesso alternativo e contas reais continuam fora de escopo.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
