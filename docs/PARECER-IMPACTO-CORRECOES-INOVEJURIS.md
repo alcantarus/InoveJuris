@@ -1326,8 +1326,8 @@ Execução autorizada da Fase 0 em branch `fase0-seguranca`, sem deploy de Produ
 | `shadcn` | em `dependencies` | em `devDependencies` |
 
 Artefatos SQL em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`:
-- `forward_cleanup_old_logs.sql` / `rollback_cleanup_old_logs.sql` (não aplicados e não agendados);
-- `inventario_f4b.sql` (read-only: RLS/policies, grants de `anon`/`authenticated`, funções executáveis, volume por tabela).
+- `forward_cleanup_old_logs.sql` **aplicado pelo usuário em 2026-11-19** (`Success. No rows returned`); `rollback_cleanup_old_logs.sql` disponível; **não agendado** (nenhum job `pg_cron` criado);
+- `inventario_f4b.sql` e `inventario_f4b_v2.sql` (read-only: RLS/policies, grants de `anon`/`authenticated`, funções executáveis, volume por tabela).
 
 ## 16.2 Dependências
 
@@ -1358,9 +1358,9 @@ Restam quatro dependências diretas cuja correção exige major: `next` 15 → 1
 
 ## 16.5 Rollback
 
-- Código: `git revert <commit-da-fase-0>` (o commit de dependências é separado).
+- Código: `git revert db91b81`, `git revert 86e6c7b` e `git revert bf364e9`.
 - Arquivos: restaurar de `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\` (26 arquivos originais).
-- Banco: nada foi aplicado; se o forward for aplicado depois, usar `rollback_cleanup_old_logs.sql` ciente de que a definição antiga é funcionalmente quebrada.
+- Banco: forward do `cleanup_old_logs()` **aplicado** em 2026-11-19. Com o forward, a limpeza deixou de falhar com `42703` e passou a usar `performed_at`; ainda **não há agendamento**. A definição antiga permanece em `rollback_cleanup_old_logs.sql`, mas é funcionalmente quebrada.
 
 ## 16.6 Risco residual e próximo passo
 
