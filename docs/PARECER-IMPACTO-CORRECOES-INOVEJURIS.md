@@ -1175,7 +1175,9 @@ FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 - O agregado do `realtime.list_changes` caiu, mas o número de polls também (871 → 147) e a janela pode ser mais curta; a média por chamada caiu só 11%. Não atribuir toda a queda ao trigger.
 - Contadores `pg_stat_database` não são zeráveis no Supabase (`pg_stat_reset` → 42501): os deltas globais (tup_inserted/updated) misturam janelas e não servem para comparação isolada.
 
-**Pendente:** saída de `verificar_fase1c.sql` para prova direta de que não há mais `user_sessions / UPDATE` nos últimos 15 min; login com conta de teste, A/B/C com cookie fresco, console com `Ctrl+Shift+R` e observação do `Disk IO Balance`.
+**Prova direta concluída:** `verificar_fase1c.sql` (últimos 15 min) devolveu 38 UPDATEs, todos com última ocorrência às 10:23:36 — anteriores ao forward. `verificar_fase1c_v2.sql` (corte explícito em 10:25:37, posterior ao forward) devolveu **nenhuma linha**: zero INSERT/UPDATE/DELETE/login de `user_sessions` no período pós-mudança. O heartbeat/validação parou de gerar auditoria.
+
+**Pendente:** login com conta de teste, A/B/C com cookie fresco, console com `Ctrl+Shift+R` e observação do `Disk IO Balance`.
 
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
