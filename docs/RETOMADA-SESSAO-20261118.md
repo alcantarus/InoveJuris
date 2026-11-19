@@ -2,7 +2,7 @@
 
 Documento único para retomar o trabalho após desligar o computador. Tudo o que é relevante está também em `docs/STATUS-INOVEJURIS.md`, `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e `docs/PLANO-MELHORIAS-INOVEJURIS.md`.
 
-> **ALERTA (2026-11-19):** o Postgres do Supabase está inacessível por esgotamento do burst de I/O (baseline de 5 MB/s). O login falha com `504`/`57014` e o SQL Editor com `Connection terminated due to connection timeout`. **Antes de qualquer validação, teste `select 1;` no SQL Editor.** Detalhes na seção 10 e nas seções 13/14 do parecer de impacto. Nenhum deploy foi revertido.
+> **INCIDENTE RESOLVIDO (2026-11-19):** o Postgres do Supabase havia ficado inacessível por esgotamento do burst de I/O (baseline de 5 MB/s), com `504`/`57014` no login e `Connection terminated due to connection timeout` no SQL Editor. O usuário rodou `select 1;` e obteve `1`; REST, RPC `app_authenticate` e a rota `/api/auth/session` voltaram a responder (seção 13.8 do parecer de impacto). **Nenhum deploy foi revertido e nenhuma sessão artificial foi criada.** Mantém-se a recomendação de reduzir o tráfego/balance do disco para não recorrer.
 
 ## 1. Situação atual — produção íntegra
 
@@ -147,6 +147,8 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 - `__cf_bm` (Cloudflare) e a falha de websocket (Supabase Realtime) são externos ao código do app e não afetam dados.
 
 Nada precisa ser feito antes de desligar o computador: código, documentação e deploys já estão salvos no GitHub e no Vercel.
+
+> **Atualização 19/11:** o banco voltou (`select 1` → `1`); REST, RPC de login e rota `/api/auth/session` respondendo. Restam: login com conta de teste no navegador, A/B/C com cookie fresco e conferência visual do console. Ver seção 13.8 do parecer de impacto.
 
 ## 10. Incidente de acesso e decisão de banco (2026-11-19)
 

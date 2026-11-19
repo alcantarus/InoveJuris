@@ -848,6 +848,21 @@ Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput wi
 - **Revalidação em 19/11:** consulta REST simples continua em **TIMEOUT** em 8 s.
 - **Fontes consultadas em 2026-11-19:** *Compute and Disk*, *High Disk I/O*, *Memory and Swap usage explained* e *Diagnose HTTP API issues* (docs.supabase.com).
 
+## 13.8 Recuperação confirmada em 2026-11-19 (após `select 1` do usuário)
+
+- O usuário executou `select 1;` no SQL Editor e obteve `[{ "?column?": 1 }]`, confirmando que o Postgres voltou a responder.
+- Validações repetidas imediatamente depois:
+
+| Teste | Resultado |
+|---|---|
+| `GET /rest/v1/system_settings?select=key&limit=1` (chave publishable) | **HTTP 200 em 5 s** — `[{"key":"session_timeout"}]` |
+| RPC `app_authenticate` com e-mail vazio (sem efeito colateral) | **HTTP 200 em 0 s** — `{"code":"invalid_credentials","error":"E-mail ou senha inválidos.","success":false}` |
+| `POST /api/auth/session` (`authenticate`, e-mail vazio) no alias de produção | **HTTP 401 em 3 s** — `{"success":false,"error":"E-mail ou senha inválidos."}` |
+
+- O `401` é o comportamento **correto** da rota (`app/api/auth/session/route.ts:89`) para credencial inválida; a mensagem de erro genérica do incidente (`500` / timeout) não aparece mais.
+- **Conclusão:** o acesso ao sistema não estava comprometido por código, deploy, F7-VIEWS ou limpeza. A causa foi exclusivamente o esgotamento do orçamento de I/O do Supabase. Nenhum rollback, backdoor ou mudança de autenticação foi necessário.
+- **Ainda pendente:** teste de login com conta de **teste** no navegador; A/B/C do storage com cookie fresco; conferência visual do console com hard reload; acompanhamento do **Disk IO Balance** no Observability para evitar recorrência. Não foi usada conta real nem criada sessão artificial.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
