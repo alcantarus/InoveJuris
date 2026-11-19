@@ -771,3 +771,115 @@ Observações: `vercel curl` avisa que bypassa o Deployment Protection da Vercel
 - **Deploys da limpeza (atuais):** Production `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` (alias `https://inove-juris.vercel.app`) e Preview `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY`. Rollback: promover `dpl_DykQeTzCcRQ3yhhYQ8G3qooATE4Y` / `dpl_GFvFohoh2piXQqNVTYLeNzVMPkFR`.
 - Validação sem cookie nos dois deploys: `/`, `/documentos`, `/publicacoes`, `/configuracoes`, `/relatorios` e `/fluxo-caixa` → `307` (redirect de login), conforme esperado. A validação A/B/C com cookie fresco ficou pendente porque a sessão de teste expira após 90 s sem heartbeat.
 - **Não corrigíveis no código do app:** `__cf_bm` é cookie de bot management do Cloudflare (domínio rejeitado pelo navegador); a falha de websocket é da conexão Realtime do Supabase (infra/rede/autenticação do canal), não do Proxy de dados. Nenhum dos dois afeta dados ou funcionalidade.
+
+# 13. Indisponibilidade de acesso ao sistema — diagnóstico e causa (2026-11-19)
+
+- **Sintoma relatado:** tela de login em "Validando..." e, com credenciais corretas, a mensagem "Não foi possível validar as credenciais.". O usuário levantou a hipótese de que alguma implementação/correção tivesse comprometido o acesso e pediu verificação do vínculo, desfazimento e alternativa que não impedisse o acesso.
+- **Fluxo verificado:** `app/login/page.tsx` → `lib/auth.ts` (`validateCredentials` → `postAuth('authenticate')`) → `POST /api/auth/session` → RPC `app_authenticate` no Postgres. **Nenhum desses arquivos foi alterado** na F7-VIEWS nem na limpeza do console (que mexeram em dashboard, gráficos, fontes e logs). Busca por `statement_timeout` no código e nos backups: **zero ocorrências**.
+- **Parecer prévio:** antes de qualquer mudança de código ou rollback, foi feito teste controlado sem depender do navegador do usuário.
+
+## 13.1 Evidências coletadas
+
+| Teste | Resultado | Interpretação |
+|---|---|---|
+| RPC `app_authenticate` com e-mail vazio (sem efeito colateral) | `504 upstream request timeout` | Não é erro de senha |
+| RPC `app_validate_session` (sem vínculo com login) | timeout | Não é específico do login |
+| `GET /rest/v1/processes?select=id&limit=1` | timeout em 40 s | Consulta simples também falha |
+| `GET /rest/v1/system_settings?select=key&limit=1` | timeout em 8 s | Origem do `Error fetching settings:` no console |
+| Mesma consulta com chave inválida de propósito | `401` em 0 s | Gateway aceita a chave correta; o travamento é no banco |
+| Chave publishable correta (`.env.local`) | timeout em 12 s, duas vezes | Chave válida, backend sem resposta |
+| `POST /api/auth/session` pelo alias público | timeout em 25 s | A rota herda o timeout do banco |
+| SQL Editor do Supabase | `Failed to run sql query: Connection terminated due to connection timeout` | Conexão direta ao Postgres também falha |
+| Erro no console do app | `57014 canceling statement due to statement timeout` | `statement_timeout` do Postgres |
+| `https://status.supabase.com/` | verde | Não é indisponibilidade global declarada |
+| `/login` no Vercel | `HTTP 200` em 2 s | Staticidade do front está sã |
+| `SUPABASE_SERVICE_ROLE_KEY` lida do Vercel | `401 Invalid API key`; `vercel env pull` devolve `[SENSITIVE]` | Não há como consultar/reiniciar o projeto por Management API neste ambiente |
+
+## 13.2 Teste A/B controlado de deploy
+
+Promoção temporária do deploy anterior, teste no alias público e devolução imediata ao deploy atual — nenhum arquivo alterado:
+
+| Deploy | `POST /api/auth/session` |
+|---|---|
+| `dpl_DykQeTzCcRQ3yhhYQ8G3qooATE4Y` (anterior à limpeza) | **TIMEOUT** |
+| `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` (atual) | **TIMEOUT** |
+
+**Conclusão:** desfazer a limpeza não resolve. Não foi mantido nenhum rollback: além de inútil, custaria as correções já validadas (F7-VIEWS, chaves novas, buckets privados). O alias de produção foi devolvido ao deploy atual.
+
+## 13.3 Causa confirmada
+
+Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput will return to its baseline of 5 MB/s. The budget refills whenever disk IO demand is at or below baseline. Upgrade your compute or use the AI Assistant to identify and optimize disk-intensive queries."*
+
+- Projeto: `jhlxzqsgmudkbjkynqdl` (`https://jhlxzqsgmudkbjkynqdl.supabase.co`).
+- Plano Nano (free): **5 MB/s baseline**, burst até **261 MB/s**, **250 IOPS baseline / 11.800 IOPS máximas**, 500 MB de banco, 1 GB de storage e 5 GB de egress.
+- Com o burst esgotado, até leitura de catálogo/`select 1` estoura o `statement_timeout`: daí o `57014`, o `504`, a falha do SQL Editor e a mensagem enganosa de credenciais inválidas.
+- Réplicas de leitura e replicação externa só existem nos planos **Pro/Team/Enterprise** (confirmado na documentação oficial).
+
+## 13.4 Ação imediata sem deploy
+
+1. Fechar **todas** as abas/janelas do InoveJuris (inclusive celular) e parar tentativas de login por 10–15 minutos — o orçamento recarrega quando a demanda fica em ou abaixo de 5 MB/s.
+2. Testar `select 1;` no SQL Editor: https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/sql/new
+3. Se não responder: **Project Settings → Billing/Compute → upgrade** (caminho pago estrutural) ou **Help → Support** com: projeto `jhlxzqsgmudkbjkynqdl`, erro do SQL Editor `Connection terminated due to connection timeout`, erros da API `57014` e `504`, horário aproximado 19/11 entre 01:30 e 02:00 UTC e a mensagem de esgotamento de burst de I/O.
+4. Não há `SUPABASE_ACCESS_TOKEN` neste ambiente; `~/.supabase` contém apenas `telemetry.json`. Não foi possível consultar status nem reiniciar o projeto via Management API.
+
+## 13.5 O que **não** foi feito
+
+- Nenhum rollback de deploy foi mantido e nenhum arquivo de autenticação foi alterado.
+- Nenhum login emergencial, backdoor ou enfraquecimento de validação foi criado.
+- O heartbeat de 20 s não foi alterado: a tolerância de 90 s faz parte do controle de sessão e qualquer mudança exige parecer e autorização explícitos.
+
+## 13.6 Validação pendente após a recuperação do banco
+
+1. Repetir `GET /rest/v1/system_settings?select=key&limit=1` e a rota `POST /api/auth/session` (com credencial fictícia, sem gravação).
+2. Repetir os testes A/B/C com **cookie de teste fresco** (`app_env=production` + `session_id` do UUID; expira após 90 s sem heartbeat).
+3. Conferir o console no navegador com hard reload (`Ctrl+Shift+R`).
+4. Levantar `pg_stat_statements` / `pg_stat_activity` e preparar o plano de otimização da Fase 1 (seção 14.5), com backup e rollback antes de cada mudança.
+5. Com aval do usuário, trocar a mensagem "Não foi possível validar as credenciais." por "Sistema temporariamente indisponível — tente novamente" quando o erro for `57014`/timeout — sem criar acesso alternativo.
+
+# 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
+
+- **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
+- **Resposta direta:** existem plataformas parecidas, mas **nenhuma é ao mesmo tempo free, mais robusta que o Nano e transparente para o código atual**. Há sempre um trade-off: trocar o teto de I/O por reescrita de camada de acesso ou por responsabilidade operacional.
+
+## 14.1 Comparativo confirmado em 2026-11-19
+
+| Critério | Supabase Nano (atual) | **Nhost Free** | Appwrite Free | Neon Free | Supabase self-host em VM free |
+|---|---|---|---|---|---|
+| Postgres real | Sim | **Sim** | Não (MariaDB) | Sim | **Sim (idêntico)** |
+| API REST estilo PostgREST | Sim | Não (GraphQL/Hasura) | Não (SDK próprio) | Não | **Sim** |
+| Auth pronto | Sim (custom no DB) | Sim | Sim | Não | Sim |
+| Storage + Realtime | Sim | Sim | Sim | Não | Sim |
+| I/O previsível | Não (burst → 5 MB/s) | Atenção (compute compartilhado) | Atenção (5 GB banda) | Atenção (100 CU-h/mês) | **Sim (disco próprio)** |
+| Custo | R$ 0 | R$ 0 | R$ 0 | R$ 0 | R$ 0 (mas opera a VM) |
+| Esforço de migração | — | Alto | Muito alto | Alto | Baixo no código / alto na operação |
+
+## 14.2 Nhost Free — substituto gerenciado mais fiel
+
+- Stack: **Postgres + Hasura GraphQL + Auth + Storage + Functions + Realtime**, sob licença MIT.
+- Free Starter: **1 projeto, 1 GB de banco, 1 GB de storage, 5 GB de egress, MAU ilimitado**.
+- **A favor:** como é Postgres real, o schema, as funções plpgsql (`app_authenticate`, `app_heartbeat`, etc.), as views da F7, as RLS e o `pg_cron` seguem no dump. A lógica de negócio não é reescrita.
+- **Contra:** a API gerada é GraphQL do Hasura, não PostgREST; RLS vira permissão Hasura; Storage/Realtime trocam de SDK. Reescrita dos ~40 pontos de `supabase-js` (`.from()`, `.rpc()`, `.channel()`, `createSignedUrl`) e do Proxy de `environment` (`lib/supabase.ts`, `lib/supabase-server.ts`). É um projeto de dias, não uma troca de chave.
+
+## 14.3 Appwrite Free e outros descartados
+
+- **Appwrite Free:** Auth, Databases, Storage, Functions, Realtime, 2 projetos, 1 database/1 bucket/2 functions por projeto, 2 GB de storage, 5 GB de banda, 750 mil execuções e 75 mil MAU. Porém o banco é **MariaDB**: funções plpgsql, views e RLS do InoveJuris não portam. Descartado.
+- **Firebase:** NoSQL; reescrita total da modelagem e das consultas. Descartado.
+- **PlanetScale:** em 2026 não lista plano free (modelo usage-based). Descartado.
+- **CockroachDB Serverless:** compatível com wire protocol do Postgres, mas sem plpgsql/RLS equivalentes. Descartado.
+- **Neon Free (já avaliado):** 1 GB por projeto (20 GB no total), 100 CU-hours/mês, autoscaling até 2 CU (~8 GB RAM), 10 branches, scale-to-zero após 5 min, 5 GB de transferência pública. É o melhor "só Postgres" free, mas falta PostgREST/RLS gateway, Storage e Realtime prontos. **Armadilha:** o heartbeat de 20 s (`components/SessionMonitor.tsx:99` → `app_heartbeat`) mantém o compute acordado; a 1 CU contínuo são ~720 CU-hours/mês, que esgotariam os 100 grátis em ~4 dias. Migrar exige reduzir o heartbeat para ~60 s preservando a tolerância de 90 s — somente com parecer e autorização.
+
+## 14.4 Supabase self-host em Oracle Cloud Always Free — "mais recursos, R$ 0"
+
+- Recursos Always Free confirmados: VM ARM **2 OCPU / 12 GB de RAM** (a cota foi reduzida de 4/24 em 2026; algumas contas PAYG ainda mostram 4/24 — confirmar no painel da conta), **3.000 CPU-hours + 18.000 GB-hours/mês**, suficientes para rodar o mês inteiro, block volume e Object Storage. Região **São Paulo** (`sa-saopaulo-1`), próxima ao Vercel `gru1`.
+- **Vantagem real:** o Docker Compose do Supabase mantém **100% de paridade** (PostgREST, GoTrue/custom auth, Storage, Realtime, Studio) e o disco é próprio — **sem budget de burst que colapsa para 5 MB/s**.
+- **Preço:** virar DBA — backup automatizado, upgrades, TLS, monitoramento e disponibilidade. VM única é ponto único de falha. Para sistema jurídico em produção, somente com backup e rollback bem definidos.
+
+## 14.5 Plano recomendado (nesta ordem)
+
+1. **Fase 1 — gratuita, zero migração (recomendada agora):** otimizar o padrão de acesso que esgota o burst — 14 consultas no mount do dashboard (`app/page.tsx`), 5 canais Realtime na dashboard e mais em processos/prazos/notificações/calendário/settings, settings buscados no mount (`SettingsProvider.tsx`), agregações das views da F7, cache de configurações, índices sob medida e redução do heartbeat de 20 s → 60 s preservando os 90 s (este último só com autorização). Cada passo com parecer, backup e validação.
+2. **Fase 2 — paga, minutos:** se a otimização não bastar, upgrade de compute no Supabase (Micro/Small). Cura estrutural imediata, mais barata que dias de migração e mais segura que virar DBA.
+3. **Fase 3 — somente se decidir sair:** POC em paralelo, sem desligar produção. Nhost como substituto gerenciado (banco portável, API reescrita) ou Supabase self-host na Oracle (paridade total, operação nas mãos do time). Promover só após paridade funcional validada, incluindo A/B/C e login.
+
+**Posição técnica:** o travamento não decorre de falta de recurso do Supabase, mas do burst de I/O consumido por acesso excessivo com apenas ~3.800 linhas. Trocar de provedor sem corrigir esse padrão apenas troca o formato do limite. O "alívio free" mais rápido é reduzir o acesso; o plano B está documentado para tirar o peso da decisão, não para ser executado agora.
+
+**Fontes consultadas em 2026-11-19:** documentação oficial Supabase (compute/disk, pricing, replicação), Neon (free tier/faqs), Nhost (pricing), Appwrite (pricing/changelog), Oracle Cloud (Always Free resources) e páginas de comparação de BaaS. Limites devem ser reconfirmados no ato de qualquer decisão.

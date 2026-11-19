@@ -2,6 +2,8 @@
 
 Documento único para retomar o trabalho após desligar o computador. Tudo o que é relevante está também em `docs/STATUS-INOVEJURIS.md`, `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e `docs/PLANO-MELHORIAS-INOVEJURIS.md`.
 
+> **ALERTA (2026-11-19):** o Postgres do Supabase está inacessível por esgotamento do burst de I/O (baseline de 5 MB/s). O login falha com `504`/`57014` e o SQL Editor com `Connection terminated due to connection timeout`. **Antes de qualquer validação, teste `select 1;` no SQL Editor.** Detalhes na seção 10 e nas seções 13/14 do parecer de impacto. Nenhum deploy foi revertido.
+
 ## 1. Situação atual — produção íntegra
 
 | Item | Estado |
@@ -15,7 +17,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 | Alteração em buckets/policies/objetos do Storage? | **Sim (F6b):** 3 buckets passaram a privados e as 17 policies foram removidas. Nenhum objeto foi apagado |
 | Git | Git 2.56 instalado via winget (executável em `C:\Program Files\Git\cmd\git.exe`); branch `trabalho-com-claude`; HEAD em `git log -1` |
 
-**Conclusão operacional:** o sistema de produção pode ser usado normalmente — lançar contratos, receber títulos, acessar Publicações, etc. Os downloads passam pelo proxy assinado no servidor. Os KPIs agora separam `production` de `test` na origem (views), sem misturar dados. Falta apenas a validação manual dos fluxos de upload/remoção e das telas que exibem DOCX/imagens.
+**Conclusão operacional anterior ao incidente de 2026-11-19:** o sistema de produção vinha sendo usado normalmente — lançar contratos, receber títulos, acessar Publicações, etc. Os downloads passam pelo proxy assinado no servidor. Os KPIs separam `production` de `test` na origem (views), sem misturar dados. **Desde 19/11 o acesso está bloqueado pelo banco** (ver alerta no topo e seção 10); falta a validação manual dos fluxos de upload/remoção e das telas que exibem DOCX/imagens assim que o banco voltar.
 
 ## 2. O que já foi entregue
 
@@ -145,3 +147,36 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 - `__cf_bm` (Cloudflare) e a falha de websocket (Supabase Realtime) são externos ao código do app e não afetam dados.
 
 Nada precisa ser feito antes de desligar o computador: código, documentação e deploys já estão salvos no GitHub e no Vercel.
+
+## 10. Incidente de acesso e decisão de banco (2026-11-19)
+
+### Passo 0 — antes de retomar qualquer item desta retomada
+
+1. Parar tentativas de login e fechar abas do app por 10–15 min (o orçamento de I/O recarrega quando a demanda fica em ou abaixo de 5 MB/s).
+2. Rodar `select 1;` em https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/sql/new
+3. Se responder: repetir REST simples, rota de login, testes A/B/C com **cookie fresco** e conferência visual do console (`Ctrl+Shift+R`).
+4. Se não responder: **upgrade de compute** no Supabase ou **Help → Support** com o erro do SQL Editor, `57014`, `504`, o project ref e a mensagem de esgotamento de burst. Não há token de gestão do Supabase neste ambiente para reiniciar o projeto por API.
+
+### O que foi apurado
+
+- O fluxo de login (`app/login/page.tsx` → `lib/auth.ts` → `POST /api/auth/session` → RPC `app_authenticate`) **não foi tocado** na F7-VIEWS nem na limpeza do console.
+- Teste A/B controlado: deploy anterior e deploy atual falham **identicamente** na rota de login (`TIMEOUT`). O alias voltou para `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj`; **nenhum rollback foi mantido**.
+- Erros: `504 upstream request timeout` (RPC de login), `57014 canceling statement due to statement timeout` (settings), timeout em REST/SQL Editor, `Connection terminated due to connection timeout` (SQL Editor). Chave inválida de propósito retorna `401` em 0 s — a chave correta está válida; o Postgres é que não responde.
+- Causa: mensagem do Supabase confirmando esgotamento do orçamento de I/O e queda para o baseline de 5 MB/s. Réplicas/replicação externa são Pro/Team/Enterprise.
+- Não foi criado login emergencial, backdoor nem alterado o heartbeat de 20 s (tolerância de 90 s faz parte do controle de sessão).
+
+### Decisão de banco (parecer registrado, sem implementação)
+
+| Opção | Veredito |
+|---|---|
+| Otimizar dentro do Supabase (14 consultas da dashboard, 5+ canais Realtime, settings no mount, views F7, índices; heartbeat 20 s → 60 s **somente com autorização**) | **Recomendado agora — free e zero migração** |
+| Upgrade de compute no Supabase | Plano B pago, minutos, sem risco de migração |
+| Nhost Free (Postgres + Hasura GraphQL + Auth + Storage; 1 GB DB/1 GB storage/5 GB egress) | Substituto gerenciado mais fiel; exige reescrever ~40 pontos de `supabase-js` e o Proxy de `environment` |
+| Appwrite Free (MariaDB) | Descartado — funções plpgsql/views/RLS não portam |
+| Neon Free (1 GB, 100 CU-h, 2 CU, 10 branches) | Melhor "só Postgres", mas sem PostgREST/Storage/Realtime; heartbeat de 20 s esgotaria os CU-hours em ~4 dias |
+| Supabase self-host em Oracle Always Free (2 OCPU/12 GB, região São Paulo) | Paridade total e disco próprio; custo é operar backup/TLS/upgrades/disponibilidade |
+| Firebase / PlanetScale / Cockroach | Descartados (NoSQL / sem free / sem plpgsql-RLS equivalente) |
+
+**Posição:** trocar de provedor sem corrigir o padrão de acesso só troca o formato do limite. Seguir Fase 1 (otimização) → Fase 2 (compute) → Fase 3 (só então POC de migração em paralelo, sem cortar produção). Documentação completa: seções 13 e 14 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e seção "Incidente de acesso e decisão de banco" de `docs/STATUS-INOVEJURIS.md`.
+
+Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-Backups\DOCS-20261119\`.
