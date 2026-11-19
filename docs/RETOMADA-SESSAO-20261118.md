@@ -170,7 +170,7 @@ Nada precisa ser feito antes de desligar o computador: código, documentação e
 | Opção | Veredito |
 |---|---|
 | Otimizar dentro do Supabase (14 consultas da dashboard, 5+ canais Realtime, settings no mount, views F7, índices; heartbeat 20 s → 60 s **somente com autorização**) | **Recomendado agora — free e zero migração** |
-| Upgrade de compute no Supabase | Plano B pago, minutos, sem risco de migração |
+| Upgrade de compute no Supabase | Plano B pago (a partir de US$ 25/mês — Micro exige Pro), minutos, sem risco de migração |
 | Nhost Free (Postgres + Hasura GraphQL + Auth + Storage; 1 GB DB/1 GB storage/5 GB egress) | Substituto gerenciado mais fiel; exige reescrever ~40 pontos de `supabase-js` e o Proxy de `environment` |
 | Appwrite Free (MariaDB) | Descartado — funções plpgsql/views/RLS não portam |
 | Neon Free (1 GB, 100 CU-h, 2 CU, 10 branches) | Melhor "só Postgres", mas sem PostgREST/Storage/Realtime; heartbeat de 20 s esgotaria os CU-hours em ~4 dias |
