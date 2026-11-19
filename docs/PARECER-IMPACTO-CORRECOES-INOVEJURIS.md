@@ -1177,7 +1177,34 @@ FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 
 **Prova direta concluída:** `verificar_fase1c.sql` (últimos 15 min) devolveu 38 UPDATEs, todos com última ocorrência às 10:23:36 — anteriores ao forward. `verificar_fase1c_v2.sql` (corte explícito em 10:25:37, posterior ao forward) devolveu **nenhuma linha**: zero INSERT/UPDATE/DELETE/login de `user_sessions` no período pós-mudança. O heartbeat/validação parou de gerar auditoria.
 
-**Pendente:** login com conta de teste, A/B/C com cookie fresco, console com `Ctrl+Shift+R` e observação do `Disk IO Balance`.
+## 13.19 Validação final autenticada e encerramento da Fase 1 (2026-11-19)
+
+**Login:** feito com a conta de teste fornecida pelo usuário, apenas no browser e apenas para leitura. Nenhuma credencial foi gravada em arquivo, documento ou log, e nenhuma sessão artificial foi criada. O cookie de sessão é HttpOnly (`document.cookie` vazio, comportamento correto); para não expor seu valor, os testes foram chamados do próprio origin com `credentials: 'include'`. Nenhum usuário real foi alterado.
+
+**A/B/C em produção, com cookie fresco:**
+
+| Teste | Resultado |
+|---|---|
+| A — `GET /api/storage/signed-url?bucket=templates&path=1772776048729_clients.docx` | **200**; JSON com `bucket`, `path`, `signedUrl` (host `jhlxzqsgmudkbjkynqdl.supabase.co`) e `expiresIn: 3600` |
+| B — mesmo path com `&redirect=1` | **302** com `Location` apontando para a URL assinada; a requisição seguinte ao storage retornou **200**. A navegação do browser termina em `ERR_FAILED` porque o destino é um download de `.docx` — esperado, não é falha da rota |
+| C — `bucket=marketing&path=templates%2F0.025508762559267928.png` | **200**; mesmo formato, `expiresIn: 3600`, path normalizado para `templates/0.025508762559267928.png` |
+
+**Rotas protegidas com cookie:** `/publicacoes`, `/processos`, `/configuracoes`, `/prazos` e `/relatorios` carregam normalmente, sem redirect para `/login`. Sem cookie, `/`, `/publicacoes`, `/processos` e `/configuracoes` retornam **307 → `/login`**, como esperado.
+
+**Console:** `Ctrl+Shift+R` na dashboard → **0 erros e 0 warnings**. Navegação pelas cinco rotas acima → **0 erros**. Observação honesta: no **primeiro** carregamento logo após o login apareceram 8 warnings transitórios do Recharts (`width(-1)/height(-1)`) durante a transição de rota; **não se reproduziram** no hard refresh nem na navegação entre rotas. Não há erro funcional. Se voltarem a ocorrer de forma repetida, abrir parecer específico antes de qualquer ajuste — não mexer "no escuro".
+
+**`Disk IO Balance`:** não foi observado diretamente porque o painel do Supabase exige login e não havia sessão do painel neste browser (`https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/observability`). O monitoramento nas próximas horas continua com o usuário. A evidência indireta é forte: tempo de banco das queries da app caiu 81% e o cache de buffers está em 99,985%.
+
+### Encerramento
+
+| Fatia | Estado final |
+|---|---|
+| Fase 1A | **Concluída e publicada:** índice `idx_audit_logs_env_performed_at`, `ANALYZE`, cache/dedupe de aniversariantes, 1 canal Realtime e dedupe de `fetchSettings` |
+| Fase 1C | **Concluída e publicada:** trigger `audit_user_sessions` reduzido a `AFTER INSERT OR DELETE`; prova direta por `verificar_fase1c_v2.sql` (zero linhas após o corte) |
+| Fase 1B | **Não executada, não autorizada e desnecessária:** o custo de 95 ms que a motivava era o trigger de auditoria, não a validação de sessão. `app_validate_session`, heartbeat de 20 s e tolerância de 90 s permanecem intactos |
+| Realtime | Inalterado. Reduzir `realtime.list_changes` exigiria observar menos tabelas — mudança funcional não autorizada |
+
+Nenhuma alteração em autenticação, nenhum acesso alternativo, nenhum dado apagado e nenhuma implementação de tenant. Rollbacks seguem disponíveis: `rollback_otim1_index_audit_logs.sql` (índice), `rollback_otim3_audit_user_sessions.sql` (trigger), `git revert 8cdf51e` (Fase 1A) e `git revert c3eff3e` (Fase 1C). Único item em aberto: observação visual do `Disk IO Balance` no painel do Supabase.
 
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
