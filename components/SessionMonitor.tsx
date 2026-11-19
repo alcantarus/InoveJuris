@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { useSettings } from '@/components/providers/SettingsProvider';
 import { useAuth } from '@/lib/auth';
+import { setSessionToken } from '@/lib/session-token';
 
 export function SessionMonitor() {
   const router = useRouter();
@@ -87,6 +88,9 @@ export function SessionMonitor() {
         }
 
         if (res.ok) {
+          // O heartbeat renova o token de sessão antes de ele vencer.
+          const data = await res.json().catch(() => null);
+          if (data?.token) setSessionToken(data.token);
           localStorage.setItem('session_last_activity', Date.now().toString());
           sessionStorage.setItem('inovejuris_browser_session_open', '1');
         }

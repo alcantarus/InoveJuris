@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getSupabaseServer } from '@/lib/supabase-server'
 import { UAParser } from 'ua-parser-js'
 import { AppEnv } from '@/lib/env'
+import { signSessionToken } from '@/lib/jwt'
 
 const isEnv = (value: unknown): value is AppEnv => value === 'production' || value === 'test'
 
@@ -64,6 +65,33 @@ function fail(error: string, status = 400) {
   return NextResponse.json({ success: false, error }, { status })
 }
 
+/**
+ * Anexa o token de sessão à resposta. Sem chave configurada, devolve o payload
+ * original — a Fase A é opcional em tempo de execução.
+ */
+async function withSessionToken(
+  payload: Record<string, any>,
+  sessionId: string | null,
+  environment: AppEnv,
+  user: any
+) {
+  if (!sessionId || !user) return payload
+
+  try {
+    const signed = await signSessionToken({
+      userId: user.id,
+      sessionId,
+      environment,
+      organizationId: typeof user.organization_id === 'string' ? user.organization_id : null,
+    })
+    if (!signed) return payload
+    return { ...payload, token: signed.token, token_expires_at: signed.expiresAt }
+  } catch (error) {
+    console.error('[auth] Falha ao assinar token de sessao:', error)
+    return payload
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
@@ -113,7 +141,14 @@ export async function POST(request: Request) {
       if (error) return fail('Não foi possível iniciar a sessão.', 500)
       if (!data?.success) return fail(data?.error || 'Não foi possível iniciar a sessão.', 403)
 
-      const response = NextResponse.json({ success: true, user: data.user })
+      const response = NextResponse.json(
+        await withSessionToken(
+          { success: true, user: data.user },
+          String(data.sessionId),
+          environment,
+          data.user
+        )
+      )
       setAuthCookies(response, String(data.sessionId), environment)
       return response
     }
@@ -128,7 +163,14 @@ export async function POST(request: Request) {
       })
 
       if (error || !data?.valid) return NextResponse.json({ valid: false })
-      return NextResponse.json({ valid: true, user: data.user })
+      return NextResponse.json(
+        await withSessionToken(
+          { valid: true, user: data.user },
+          context.sessionId,
+          context.environment,
+          data.user
+        )
+      )
     }
 
     // Aviso enviado no fechamento da aba/janela (sendBeacon). Encerra todas
@@ -160,7 +202,14 @@ export async function POST(request: Request) {
         return response
       }
 
-      return NextResponse.json({ valid: true })
+      return NextResponse.json(
+        await withSessionToken(
+          { valid: true },
+          context.sessionId,
+          context.environment,
+          data.user
+        )
+      )
     }
 
     if (action === 'logout') {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { AppEnv } from './env'
+import { setSessionToken } from './session-token'
 
 const AUTH_ENDPOINT = '/api/auth/session'
 const USER_KEY = 'inovejuris_user'
@@ -52,6 +53,8 @@ type AuthResponse = {
   user?: any
   challenge?: string
   error?: string
+  token?: string
+  token_expires_at?: number
 }
 
 async function postAuth(action: string, payload: Record<string, unknown> = {}): Promise<AuthResponse> {
@@ -71,6 +74,7 @@ async function postAuth(action: string, payload: Record<string, unknown> = {}): 
 }
 
 function clearLocalSession() {
+  setSessionToken(null)
   localStorage.removeItem(USER_KEY)
   localStorage.removeItem(ACTIVITY_KEY)
   sessionStorage.removeItem(SESSION_MARKER)
@@ -99,6 +103,7 @@ export function useAuth() {
         return
       }
       const nextUser = withEnvironment(data.user, data.user.environment || 'production')
+      setSessionToken(data.token)
       localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
       setUser(nextUser)
     } catch {
@@ -140,6 +145,7 @@ export function useAuth() {
 
         sessionStorage.setItem(SESSION_MARKER, '1')
         localStorage.setItem(ACTIVITY_KEY, Date.now().toString())
+        setSessionToken(data.token)
         if (!cancelled) setUser(withEnvironment(data.user, data.user.environment || 'production'))
       } catch {
         clearLocalSession()
@@ -188,6 +194,7 @@ export function useAuth() {
       }
 
       const nextUser = withEnvironment(data.user, selectedEnv)
+      setSessionToken(data.token)
       storeAuthenticatedUser(nextUser)
       setUser(nextUser)
       window.location.assign('/')

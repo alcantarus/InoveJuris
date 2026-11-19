@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getAppEnv } from './env'
+import { getSessionToken } from './session-token'
 
 // Helper to ensure URL is valid or fallback
 const getValidUrl = (url: string | undefined, fallback: string, name: string) => {
@@ -21,6 +22,32 @@ export const defaultKeyProd = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 // We now ONLY use the Production database for both environments (Logical Isolation)
 const clients = new Map<string, any>();
+
+// Token de sessão (F4b-2b / Fase A). Sem token, a requisição sai como hoje.
+// O header só é injetado se ainda não existir — o supabase-js respeita isso.
+const sessionAwareFetch: typeof fetch = (input, init) => {
+  const token = typeof window === 'undefined' ? null : getSessionToken()
+  if (!token) return fetch(input as any, init)
+
+  const headers = new Headers(init?.headers)
+  if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+  return fetch(input as any, { ...init, headers })
+}
+
+// O canal Realtime precisa receber o token explicitamente.
+const realtimeTokens = new Map<string, string>()
+
+const applyRealtimeToken = (url: string, client: any) => {
+  if (typeof window === 'undefined') return
+  const token = getSessionToken()
+  if (!token || realtimeTokens.get(url) === token) return
+  try {
+    client.realtime?.setAuth?.(token)
+    realtimeTokens.set(url, token)
+  } catch {
+    // Realtime indisponível não pode impedir as consultas.
+  }
+}
 
 const setEnvironment = async (client: any) => {
   const env = getAppEnv(); // 'production' or 'test'
@@ -57,11 +84,16 @@ export const getSupabase = () => {
   const config = getSupabaseConfig('production')
   
   if (!clients.has(config.url)) {
-    const client = createClient(config.url, config.key)
+    const client = createClient(config.url, config.key, {
+      global: { fetch: sessionAwareFetch },
+    })
     setEnvironment(client);
     clients.set(config.url, client);
   }
-  return clients.get(config.url);
+
+  const client = clients.get(config.url)
+  applyRealtimeToken(config.url, client)
+  return client;
 }
 
 // Export a Proxy that intercepts queries to enforce Logical Isolation
