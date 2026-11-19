@@ -878,7 +878,8 @@ Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput wi
   5. **Tabelas de log/auditoria sem retenção** — `login_attempts`, `login_challenges`, `user_sessions`, `audit_logs`, `notifications`, `process_sync_log`, `publication_sync_log`, `process_deadline_history`, `backup_logs`, `task_history`, `marketing_logs`.
   6. **Cache hit baixo** e **`seq_scan` alto** — sinal de falta de índice ou de cache pequeno.
   7. **Queries caras** (`pg_stat_statements`) — frente real de consumo.
-- **Script pronto:** `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\diagnostico_readonly.sql` — somente `SELECT`, sem gravar/alterar/apagar nada. Se `extensions.pg_stat_statements` não existir, pedir aval antes de habilitar (é mudança de configuração, pequena mas não read-only).
+- **Scripts prontos (pasta `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`):** `diagnostico_readonly.sql` (seções separadas) e `diagnostico_resumo.sql` (devolve **um único JSON**, mais fácil de enviar). Ambos somente `SELECT`, sem gravar/alterar/apagar nada. Se `extensions.pg_stat_statements` não existir, pedir aval antes de habilitar (é mudança de configuração, pequena mas não read-only).
+- **Primeiro retorno recebido (apenas seção de views):** 13 views no schema `public`, todas com "0 bytes" — esperado, pois view é objeto virtual e não armazena dados. O dado relevante é que 4 views são consultadas no mount do dashboard e recalculam joins a cada carga. As 5 views da F7 são apenas parte desse total; as outras 8 ficam como ponto de revisão de segurança **separado**, sem alteração autorizada.
 - **Limites assumidos:** não vou reduzir o heartbeat de 20 s nem criar acesso alternativo. Qualquer mudança decorrente do levantamento passa por parecer, backup e rollback.
 
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
