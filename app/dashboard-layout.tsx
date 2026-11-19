@@ -40,7 +40,6 @@ export default function DashboardLayout({
   const hasPermission = useMemo(() => {
     if (!user) return null
     const requiredPermission = PERMISSION_MAP[pathname] || Object.entries(PERMISSION_MAP).find(([path]) => pathname.startsWith(path) && path !== '/')?.[1]
-    console.log('DashboardLayout: pathname:', pathname, 'requiredPermission:', requiredPermission, 'user permission:', user[requiredPermission as keyof User]);
     if (requiredPermission && user[requiredPermission as keyof User] !== true) {
       return false
     }

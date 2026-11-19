@@ -1,4 +1,4 @@
-import { Inter, JetBrains_Mono, Playfair_Display, Geist } from 'next/font/google'
+import { JetBrains_Mono, Playfair_Display, Geist } from 'next/font/google'
 import './globals.css'
 import { EnvBanner } from '@/components/EnvBanner'
 import { SessionMonitor } from '@/components/SessionMonitor'
@@ -16,11 +16,13 @@ const geist = Geist({subsets:['latin'],variable:'--font-sans'})
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
+  preload: false,
 })
 
 const playfairDisplay = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-serif',
+  preload: false,
 })
 
 export const metadata = {

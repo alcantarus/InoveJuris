@@ -70,7 +70,7 @@ export default function DashboardReceivablesCards({
           Previsão de Entrada (Próximos 15 dias)
         </h3>
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <BarChart data={forecastData}>
               <XAxis dataKey="date" />
               <YAxis />

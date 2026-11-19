@@ -1918,7 +1918,7 @@ function RelatoriosPageContent() {
                           <div className="text-lg sm:text-xl font-bold text-slate-900">{formatCurrency(item.value, isVisible('reports_gps'))}</div>
                         </div>
                         <div className="h-11 w-11 sm:h-12 sm:w-12 shrink-0">
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                             <PieChart>
                               <Pie
                                 data={[{ value: item.value }, { value: Math.max(0, gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value) }]}

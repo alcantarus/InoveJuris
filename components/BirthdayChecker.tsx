@@ -113,7 +113,6 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
       const allBirthdays = [...birthdayClients, ...birthdayIndicators, ...maternityBirths] as BirthdayPerson[]
       
       setBirthdays(allBirthdays)
-      console.log('Eventos encontrados:', allBirthdays)
       
       // Carrega os cartões já enviados hoje
       const todayStart = new Date()

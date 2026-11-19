@@ -125,8 +125,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           table: 'system_settings',
           filter: `environment=eq.${getAppEnv()}`,
         },
-        (payload: any) => {
-          console.log('Settings changed:', payload);
+        () => {
           fetchSettings();
         }
       )

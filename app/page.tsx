@@ -230,7 +230,7 @@ export default function Page() {
       }
 
       try {
-        const [clientsRes, processesRes, installmentsRes, contractsRes, productsRes, auditRes, transactionsRes, lawAreasRes, deadlinesRes, receivablesMetricsRes, receivablesForecastRes, topDefaultersRes, velocityRes, forecastRes, efficiencyRes] = await Promise.all([
+        const [clientsRes, processesRes, installmentsRes, contractsRes, productsRes, auditRes, transactionsRes, lawAreasRes, deadlinesRes, receivablesMetricsRes, receivablesForecastRes, topDefaultersRes] = await Promise.all([
           supabase.from('clients').select('*'),
           supabase.from('processes').select('*'),
           supabase.from('installments').select('*'),
@@ -242,16 +242,8 @@ export default function Page() {
           supabase.from('process_deadlines').select('*'),
           supabase.from('vw_dashboard_receivables_metrics').select('*'),
           supabase.from('vw_dashboard_receivables_forecast').select('*'),
-          supabase.from('vw_dashboard_top_defaulters').select('*'),
-          supabase.from('vw_process_velocity').select('process_id, process_number, status, created_at, last_update, days_since_last_movement'),
-          supabase.from('vw_cash_flow_forecast').select('installment_id, contract_id, due_date, amount, paid_amount, status, expected_amount'),
-          supabase.from('vw_area_efficiency').select('law_area, total_processes, average_ticket')
+          supabase.from('vw_dashboard_top_defaulters').select('*')
         ])
-
-        console.log('Velocity:', velocityRes.data, velocityRes.error);
-        console.log('Forecast:', forecastRes.data, forecastRes.error);
-        console.log('Efficiency:', efficiencyRes.data, efficiencyRes.error);
-
 
         setData({
           clients: clientsRes.data || [],
@@ -1460,7 +1452,7 @@ export default function Page() {
                 </div>
               </div>
               <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <BarChart data={cashFlowProjectionData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
@@ -1504,7 +1496,7 @@ export default function Page() {
                 <p className="text-xs text-slate-500">Volume financeiro total por área de atuação</p>
               </div>
               <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <BarChart data={profitabilityByArea} layout="vertical" margin={{ left: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                     <XAxis type="number" hide />
@@ -1544,7 +1536,7 @@ export default function Page() {
           >
             <h3 className="text-lg font-bold text-slate-900 mb-6">Contratos por Área</h3>
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={areaChartData} layout="vertical" margin={{ left: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" hide />
@@ -1575,7 +1567,7 @@ export default function Page() {
           >
             <h3 className="text-lg font-bold text-slate-900 mb-6">Status dos Processos</h3>
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={statusChartData} layout="vertical" margin={{ left: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" hide />
@@ -1606,7 +1598,7 @@ export default function Page() {
           >
             <h3 className="text-lg font-bold text-slate-900 mb-6">Status das Parcelas</h3>
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={instStatusChartData}
@@ -1707,7 +1699,7 @@ export default function Page() {
               </div>
             </div>
             <div className="h-[180px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={inssSuccessData}

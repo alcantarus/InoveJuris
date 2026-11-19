@@ -549,7 +549,7 @@ export default function MovimentacoesPage() {
               Distribuição de Entradas
             </h3>
             <div className="h-64 mb-4">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={processedIncomeData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" tickFormatter={(value) => isVisible('cashflow_all') ? value : '•••'} />
@@ -584,7 +584,7 @@ export default function MovimentacoesPage() {
               Distribuição de Despesas
             </h3>
             <div className="h-64 mb-4">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={processedExpenseData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" tickFormatter={(value) => isVisible('cashflow_all') ? value : '•••'} />

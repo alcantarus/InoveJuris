@@ -484,3 +484,14 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - Cancelamento no app bloqueia contratos com parcelas recebidas (regra de negócio).
 - Este arquivo é um resumo operacional; detalhes finos de schema/regras podem variar conforme o banco em produção.
 - **Continuidade de conversas:** este assistente não mantém memória persistente automática entre sessões. Para "armazenar" o histórico/continuidade, mantenha este arquivo (`docs/STATUS-INOVEJURIS.md`) atualizado e versionado no repositório, e ao iniciar uma nova sessão peça para ler este documento e retomar a partir dele. Se desejar, registre também decisões/resumos adicionais em arquivos no repo (ex.: `docs/`).
+
+## F7-VIEWS + limpeza de console — entregue em 2026-11-18
+
+- **F7-VIEWS (concluída):** as cinco views do dashboard (`process_sync_status`, `vw_area_efficiency`, `vw_cash_flow_forecast`, `vw_client_process_summary`, `vw_process_velocity`) agora expõem `environment` como última coluna e mantêm `security_invoker=on`. SQL aplicado pelo usuário no SQL Editor; artefatos em `C:\InoveTecnologia\InoveJuris-Backups\F7-VIEWS-20261118\`.
+- Contagens por ambiente: `process_sync_status` 19/2, `vw_area_efficiency` 4/3, `vw_cash_flow_forecast` 10/0, `vw_client_process_summary` 107/6, `vw_process_velocity` 19/2 (production/test). `vw_area_efficiency` passou de 5 para 7 linhas porque passou a agrupar por área **e** ambiente.
+- `lib/supabase.ts`: removida a lista `VIEWS_SEM_ENVIRONMENT`. Uma regra única para todas as tabelas/views — sem exceções. Fim do risco de KPIs misturarem `production` e `test`.
+- **Limpeza de console:** logs de debug removidos (dashboard, KPIs, aniversariantes, Realtime) e consultas duplicadas eliminadas em `app/page.tsx`. Os 19 `ResponsiveContainer` receberam `minWidth={0} minHeight={0}`. Fonte `Inter` removida; `JetBrains_Mono` e `Playfair_Display` sem preload.
+- `npm run build`: **OK** (25 páginas). `.next/static`: 0 arquivos com chave legada e 0 com os textos de debug.
+- **Deploys atuais:** Production `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` (alias `https://inove-juris.vercel.app`), Preview `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY`. Sem cookie, as rotas retornam `307` nos dois ambientes.
+- **Rollback:** F7-VIEWS → `rollback_f7.sql` + `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL` / `dpl_HeKYexkBYyaELZR2DN46femm2YHK`. Limpeza → promover `dpl_DykQeTzCcRQ3yhhYQ8G3qooATE4Y` / `dpl_GFvFohoh2piXQqNVTYLeNzVMPkFR`.
+- **Pendente:** validação A/B/C do storage com cookie de teste fresco (o anterior expirou pela regra de 90 s sem heartbeat) e confirmação visual do console no navegador do usuário (hard reload). `__cf_bm` e o websocket do Realtime são externos ao app.

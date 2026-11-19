@@ -737,5 +737,37 @@ Observações: `vercel curl` avisa que bypassa o Deployment Protection da Vercel
   - `app/page.tsx:246` passou a selecionar as colunas reais de `vw_process_velocity` (`process_id, process_number, status, created_at, last_update, days_since_last_movement`) em vez de `contract_id, client_id, law_area`.
 - Validação REST com a chave publishable: os quatro `select` usados pela tela e pelos cards retornaram `200`; a consulta com `environment=eq.production` em `vw_process_velocity` retornou `400`, confirmando o diagnóstico. `npm run build` passou.
 - Novos deploys: Production **`dpl_2i4To1n9zycciTw2cuVLuB6yjwvL`** (alias `https://inove-juris.vercel.app`) e Preview **`dpl_HeKYexkBYyaELZR2DN46femm2YHK`**.
-- **Risco residual (pendente):** as definições SQL dessas cinco views não filtram por `environment` (confirmado em `views_current.json`, snapshot da F5). Sem o filtro do Proxy, os KPIs passam a agregar registros de `production` e `test`. A correção definitiva é alterar as views no banco para expor/filtrar `environment` (ou usar `app.current_env`), em fatia própria com validação de KPIs — **não foi feito nesta rodada**.
-- Avisos restantes no console são cosméticos/ambientais: `__cf_bm` é cookie do Cloudflare e `width(-1)/height(-1)` é tamanho de contêiner de gráfico; nenhum afeta dados.
+- **Risco residual:** encerrado na seção 12.16. As definições SQL das cinco views passaram a expor e separar `environment`; o Proxy voltou a filtrar todas as tabelas/views sem lista de exceções.
+- Avisos restantes no console são cosméticos/ambientais: `__cf_bm` é cookie do Cloudflare e `width(-1)/height(-1)` é tamanho de contêiner de gráfico; tratados na seção 12.17.
+
+## 12.16 F7 — separação definitiva por `environment` nas views do dashboard (2026-11-18)
+
+- **Parecer prévio e autorização:** o usuário autorizou a correção das views "sem gambiarras", de forma limpa e eficaz. Foi explicado que a `service_role` não é owner das views (owner `postgres`), então o DDL precisa ser aplicado no SQL Editor do Supabase, como na F6b.
+- **Estratégia:** `CREATE OR REPLACE VIEW` preservando a ordem das colunas existentes e acrescentando `environment` como **última coluna**. Mantido `security_invoker=on` (aplicado na F5). O `GROUP BY` de `vw_area_efficiency` passou a incluir `environment`; o join de `vw_client_process_summary` passou a exigir `c.environment = p.environment`, evitando contar processos de `test` para clientes de `production`.
+- **Artefatos:** `C:\InoveTecnologia\InoveJuris-Backups\F7-VIEWS-20261118\` — `forward_f7.sql`, `rollback_f7.sql`, `verify_f7.sql`, `MANIFEST.txt`.
+- **Baseline REST antes:** `process_sync_status` 21, `vw_area_efficiency` 5, `vw_cash_flow_forecast` 10, `vw_client_process_summary` 113, `vw_process_velocity` 21.
+- **SQL aplicado pelo usuário no SQL Editor.** Validação REST depois (filtro `environment=eq...`):
+
+| View | production | test |
+|---|---:|---:|
+| `process_sync_status` | 19 | 2 |
+| `vw_area_efficiency` | 4 | 3 |
+| `vw_cash_flow_forecast` | 10 | 0 |
+| `vw_client_process_summary` | 107 | 6 |
+| `vw_process_velocity` | 19 | 2 |
+
+- `vw_area_efficiency` passou de 5 para 7 linhas porque agora agrupa por área **e** ambiente; esperado. As demais fecharam com a baseline.
+- **Código:** removida a lista `VIEWS_SEM_ENVIRONMENT` de `lib/supabase.ts`. Agora existe uma regra única — toda tabela/view recebe `.eq('environment', currentEnv)` — sem exceções. `npm run build` passou; varredura do `.next/static`: 0 arquivos com a chave legada.
+- **Deploys F7-VIEWS:** Production `dpl_DykQeTzCcRQ3yhhYQ8G3qooATE4Y` e Preview `dpl_GFvFohoh2piXQqNVTYLeNzVMPkFR`.
+- **Rollback:** `rollback_f7.sql` + promover `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL` (Production) / `dpl_HeKYexkBYyaELZR2DN46femm2YHK` (Preview). O rollback mantém `security_invoker=on`.
+
+## 12.17 Limpeza dos avisos do console (2026-11-18)
+
+- Logs de debug removidos: `Velocity:` / `Forecast:` / `Efficiency:` (e o `null` dos `.error`) em `app/page.tsx`; `Eventos encontrados:` em `components/BirthdayChecker.tsx`; `DashboardLayout: pathname:` em `app/dashboard-layout.tsx`; `Settings changed:` em `components/providers/SettingsProvider.tsx`.
+- Consultas duplicadas removidas de `app/page.tsx`: as três views de KPI eram buscadas duas vezes na mesma carga; ficou uma única `Promise.all`.
+- `ResponsiveContainer` padronizado com `minWidth={0} minHeight={0}` em **todos os 19 gráficos** (`app/page.tsx`, `app/relatorios/page.tsx`, `app/fluxo-caixa/page.tsx`, `app/fluxo-caixa/movimentacoes/page.tsx`, `components/AuditAccessLogs.tsx`, `components/dashboard/DashboardReceivablesCards.tsx`, `components/portal/CommissionChart.tsx`, `components/reports/ProductivityChart.tsx`). Isso elimina `The width(-1) and height(-1) of chart should be greater than 0`.
+- Fontes: `Inter` removido (não era usado); `JetBrains_Mono` e `Playfair_Display` com `preload: false`. A Geist continua ativa e é efetivamente usada por `font-sans` (a variável definida pela classe `next/font` prevalece sobre a declaração `@theme` por especificidade), então não gera preload órfão.
+- `npm run build` passou. Varredura do `.next/static`: **0** arquivos com chave antiga e **0** com os textos de debug removidos.
+- **Deploys da limpeza (atuais):** Production `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` (alias `https://inove-juris.vercel.app`) e Preview `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY`. Rollback: promover `dpl_DykQeTzCcRQ3yhhYQ8G3qooATE4Y` / `dpl_GFvFohoh2piXQqNVTYLeNzVMPkFR`.
+- Validação sem cookie nos dois deploys: `/`, `/documentos`, `/publicacoes`, `/configuracoes`, `/relatorios` e `/fluxo-caixa` → `307` (redirect de login), conforme esperado. A validação A/B/C com cookie fresco ficou pendente porque a sessão de teste expira após 90 s sem heartbeat.
+- **Não corrigíveis no código do app:** `__cf_bm` é cookie de bot management do Cloudflare (domínio rejeitado pelo navegador); a falha de websocket é da conexão Realtime do Supabase (infra/rede/autenticação do canal), não do Proxy de dados. Nenhum dos dois afeta dados ou funcionalidade.
