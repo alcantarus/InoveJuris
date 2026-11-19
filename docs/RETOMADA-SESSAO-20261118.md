@@ -6,11 +6,11 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 | Item | Estado |
 |---|---|
-| Deploy de produção | `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
-| Deploy de preview | `dpl_DVUkHA4hhKzni8ENe62i8wvsM65w` — gerado após a troca das chaves |
-| Verificação HTTP em produção | `/`, `/documentos` e `/publicacoes` retornaram `200` com sessão de teste; sem cookie → `307` |
-| Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s` |
-| Chaves do Supabase nos dois ambientes? | **Sim.** anon key `sb_publishable_...` e service role `sb_secret_...` em Preview e Production; chaves legadas ainda ativas no painel |
+| Deploy de produção | `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
+| Deploy de preview | `dpl_HoAt2kNRiBweZS9itN7kUipzBYor` — gerado após a remoção da chave fixa |
+| Verificação HTTP nos dois ambientes | `/`, `/documentos` e `/publicacoes` retornaram `200` com cookie de teste fresco; sem cookie → `307` |
+| Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo` |
+| Chaves do Supabase nos dois ambientes? | **Sim.** anon key `sb_publishable_...` e service role `sb_secret_...` em Preview e Production; chaves legadas **desativadas** |
 | Alteração em buckets/policies/objetos do Storage? | **Sim (F6b):** 3 buckets passaram a privados e as 17 policies foram removidas. Nenhum objeto foi apagado |
 | Git | Git 2.56 instalado via winget (executável em `C:\Program Files\Git\cmd\git.exe`); branch `trabalho-com-claude`, pushed no GitHub — HEAD atual em `git log -1` |
 
@@ -36,6 +36,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 | F6a — validação positiva | Testes A/B/C no preview e em produção | seção 12.9 do parecer |
 | F6b — virada do storage | Chave em Production, deploy, buckets privados e 0 policies | `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i`, seção 12.10 do parecer |
 | Ponto 2 — unificar chaves | Publishable + secreta em Preview e Production, com redeploy e validação | `dpl_DVUkHA4hhKzni8ENe62i8wvsM65w`, `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s`, seção 12.11 do parecer |
+| Desativação das legadas + chave fixa | Legadas desativadas; `defaultKeyProd` passou a ler env; A/B/C revalidados com cookie fresco | `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo`, `dpl_HoAt2kNRiBweZS9itN7kUipzBYor`, seções 12.12/12.13 |
 
 ## 3. Preview da F6a
 
@@ -49,7 +50,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 ## 4. Validação positiva — concluída em 2026-11-18
 
-Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. Após o Ponto 2, os deploys de referência são `dpl_DVUkHA4hhKzni8ENe62i8wvsM65w` (preview) e `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s` (produção).
+Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. Após a remoção da chave fixa, os deploys de referência são `dpl_HoAt2kNRiBweZS9itN7kUipzBYor` (preview) e `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo` (produção).
 
 **Atenção ao `vercel curl`:** os parâmetros do curl precisam vir depois de `--`; sem isso, o CLI cria arquivos espúrios (`-w`, `--max-time`).
 
@@ -84,7 +85,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 1. **F6b — concluída.** Secret replicada em Production (chave nova `sb_secret_...`), código publicado em `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` e `forward_f6.sql` aplicado pelo SQL Editor do Supabase. Estado: 0 buckets públicos, 0 policies. Falta a validação manual dos fluxos de upload/remoção e das telas. Rollback: `rollback_f6.sql` + `dpl_9T539S8prQ6NQ4pwMpPZcfW1T3qs` + `vercel env rm SUPABASE_SERVICE_ROLE_KEY production`.
 2. **F6c (aftercare)** — backfill de `storage_path` e limpeza de órfãos; URLs antigas `/object/public/...` continuam gravadas em `client_documents.file_url`, `document_templates.file_url` e `birthday_templates.image_url`. A leitura passa pelo proxy assinado e, com os buckets já privados, **não há mais fallback**: qualquer falha da rota afeta imediatamente imagens e DOCX.
 3. **F3** — 17 funções `http`/`urlencode` ainda executáveis por `anon`/`authenticated`; são de `supabase_admin` e `postgres` não é superuser. Usuário escolheu Supabase Support. Pacote em `C:\InoveTecnologia\InoveJuris-Backups\F3-20261118\SUPPORT-REQUEST.md` + `support_http_revoke.sql`. Chamado ainda não aberto.
-4. **F1 rotação — em andamento.** O Ponto 2 já substituiu o anon key e a service role nos dois ambientes (seção 12.11 do parecer). Falta: **desativar as chaves legadas no painel do Supabase**, fornecer `GEMINI_API_KEY`, chave DataJud, token do `pg_cron`, nova senha do pooler e revogar o token antigo da Vercel. A chave `service_role` legada apareceu no output da CLI do Supabase e deve ser considerada exposta.
+4. **F1 rotação — em andamento.** O Ponto 2 já substituiu o anon key e a service role nos dois ambientes (12.11) e as chaves legadas foram **desativadas** (12.12). Também foi removida a chave legada fixa em `lib/supabase.ts` (12.13). Falta: fornecer `GEMINI_API_KEY`, chave DataJud, token do `pg_cron`, nova senha do pooler, revogar o token antigo da Vercel e limpar os scripts avulsos com chave fixa.
 5. **F2 validação positiva** com administrador real em staging/preview.
 6. **F4b** — depende de decidir identidade no banco (JWT Supabase Auth, RPCs `SECURITY DEFINER` ou GUC derivado da sessão) e modelo de tenant. Pré-requisito: parecer `docs/PARECER-TENANT-INOVEJURIS.md`.
 7. **F7** — headers/CSP em report-only. **F8** — confirmar em staging se a correção do Next cabe em 15.x ou exige 16.x. Sem MFA nesta rodada.
@@ -95,7 +96,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 - Parecer técnico antes de qualquer modificação.
 - Sistema não pode ficar parado; correção gradual, backup antes, validação entre fatias.
 - Nenhuma implementação de tenant autorizada — apenas parecer.
-- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5, F6a/F6b e as chaves novas do Supabase (Ponto 2). Deploy atual: `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s`.
+- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5, F6a/F6b, chaves novas do Supabase (Ponto 2) e remoção da chave legada fixa do código. Chaves legadas desativadas. Deploy atual: `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo`.
 - Não usar sessão de usuário real nem criar sessão artificial sem autorização.
 - Usuários reais preservados: `1`, `2`, `23`, `65`, `73`. Usuário `73` (`marcos@gmail.com`) não deve ser removido.
 - `public.users` possui `canAccessReceivables` e `canaccessreceivables` (diferem só por caixa).
@@ -117,7 +118,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 ## 8. Retomada em resumo
 
 1. Abrir este documento, `docs/STATUS-INOVEJURIS.md` e as seções 12.9/12.10/12.11 do parecer de impacto.
-2. Confirmar que a produção está em `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s` e que os buckets estão privados.
+2. Confirmar que a produção está em `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo` e que os buckets estão privados.
 3. Desativar as chaves legadas no Supabase e concluir a rotação F1 restante.
 4. Fazer a validação manual dos fluxos de upload/remoção e das telas (DOCX, marketing, cartões de aniversário).
 5. Registrar novas entregas nos documentos e comitar/push (Git já instalado em `C:\Program Files\Git\cmd\git.exe`).
