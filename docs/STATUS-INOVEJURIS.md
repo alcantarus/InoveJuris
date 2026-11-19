@@ -8,7 +8,7 @@
 - **Itens 1–3 entregues** no commit `8cdf51e` (pushed em `trabalho-com-claude`): `lib/birthdays.ts` (cache/dedupe, 6 → 3 consultas de aniversariantes), 5 canais Realtime do dashboard → 1 canal `dashboard-changes`, e dedupe de `fetchSettings` no `SettingsProvider` (com `force` no Realtime/rollback).
 - `npx tsc --noEmit` e `npm run build`: **OK** (25 páginas). Ponto de restauração: `5014dee`; rollback do código: `git revert 8cdf51e`.
 - **Item 4 concluído em 2026-11-19:** `forward_otim1_index_audit_logs.sql` executado pelo usuário; `EXPLAIN ANALYZE` da consulta do dashboard mostrou `Index Scan using idx_audit_logs_env_performed_at` e **0,766 ms** (era 133,32 ms), com 4 buffers. Rollback: `rollback_otim1_index_audit_logs.sql` em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`.
-- **Item 5 pronto, não executado:** `forward_otim2_analyze.sql` (`ANALYZE` em todas as tabelas `public`), no mesmo diretório. Sem rollback necessário.
+- **Item 5 concluído em 2026-11-19:** `ANALYZE` em todas as tabelas `public`; `last_analyze = 09:38:11 UTC`; `n_live_tup`: `audit_logs` 2.248, `clients` 113, `publications` 56, `system_settings` 11 (antes 57/0/0/0). Nenhum dado alterado, sem rollback.
 - Pendente: executar 4 e 5 no SQL Editor (um de cada vez), repetir medição limpa, publicar o código, testar login com conta de teste, A/B/C com cookie fresco, conferir console (`Ctrl+Shift+R`) e observar `Disk IO Balance`.
 - Detalhes: seção 13.13 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`.
 

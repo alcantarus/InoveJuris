@@ -1019,6 +1019,8 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 
 **Item 4 executado pelo usuário em 2026-11-19 — resultado:** `Index Scan using idx_audit_logs_env_performed_at`, `Index Cond: (environment = 'production')`, `Buffers: shared hit=2 read=2`, **Execution Time: 0,766 ms** (contra 133,32 ms na linha de base — ~174× mais rápido). `Planning Time: 7,801 ms` é pago uma vez por query e tende a cair com estatísticas frescas (item 5). Nenhum outro objeto foi alterado.
 
+**Item 5 executado pelo usuário em 2026-11-19 — resultado:** `ANALYZE` aplicado a todas as tabelas `public`; `last_analyze = 2026-11-19 09:38:11 UTC`. `n_live_tup` corrigido: `audit_logs` 2.248, `clients` 113, `publications` 56, `system_settings` 11 (antes: 57/0/0/0 e `last_analyze=null`). Na primeira tentativa foi executada apenas a consulta final do script, sem o bloco `DO $$`; a reexecução do bloco corrigiu. Nenhum dado foi alterado e não há rollback.
+
 ### Validação pendente
 
 1. Executar item 4 e item 5 no SQL Editor, um de cada vez, e conferir a saída.
