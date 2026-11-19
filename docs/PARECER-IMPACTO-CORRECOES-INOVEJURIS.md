@@ -997,6 +997,33 @@ Amostra coletada após login com conta de teste, dashboard + Processos + Publica
 
 **Descartado com base em medição:** apagar índices "não usados" ou "duplicados" (falsos positivos), mexer nas views F7 (são baratas), limpar logs por volume (25 MB no total) e migrar para NoSQL.
 
+## 13.13 Execução da Fase 1A — itens 1 a 3 concluídos (2026-11-19)
+
+**Autorização registrada:** usuário aprovou a Fase 1A completa (itens 1–5), um de cada vez, com backup e rollback; optou por **não mexer na Fase 1B** (heartbeat de 20 s e escrita em `app_validate_session` intactos). Nenhuma autenticação, cookie ou acesso alternativo foi alterado.
+
+### Itens 1–3 — código (commit `8cdf51e`, pushed)
+
+- **Item 1 — aniversariantes unificados:** novo `lib/birthdays.ts` com `getBirthdays()` e `invalidateBirthdaysCache()`, cache de 5 min e dedupe de promise em voo. `BirthdayChecker` e `BirthdayWidget` passaram a consumir o módulo; as 6 consultas por carga do dashboard viraram 3. `BirthdayChecker` ainda invalida o cache no foco da janela, preservando o comportamento original.
+- **Item 2 — Realtime:** os 5 canais do dashboard (`processes`, `contracts`, `installments`, `transactions`, `process_deadlines`) foram substituídos por um único canal `dashboard-changes` com 5 listeners. A verificação de que os 5 eventos continuam chegando faz parte da validação pendente.
+- **Item 3 — `SettingsProvider`:** `fetchSettings` agora deduplica requisições em voo (`useRef`); o callback do Realtime e o rollback do `updateSetting` usam `force=true` para não reaproveitar dados defasados. `refreshSettings` segue exposto normalmente.
+- **Backup/rollback:** ponto de restauração `5014dee` (commit imediatamente anterior). Rollback do código: `git revert 8cdf51e`. `npx tsc --noEmit` e `npm run build` passaram (25 páginas).
+
+### Itens 4–5 — banco (scripts prontos, aguardando execução no SQL Editor)
+
+| Item | Forward | Rollback |
+|---|---|---|
+| 4 — índice `audit_logs (environment, performed_at DESC)` | `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\forward_otim1_index_audit_logs.sql` | `...\rollback_otim1_index_audit_logs.sql` |
+| 5 — `ANALYZE` em todas as tabelas `public` | `...\forward_otim2_analyze.sql` | Não necessário (só atualiza estatísticas) |
+
+Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verificação antes/depois (`pg_indexes`, `EXPLAIN ANALYZE`, `pg_stat_user_tables`).
+
+### Validação pendente
+
+1. Executar item 4 e item 5 no SQL Editor, um de cada vez, e conferir a saída.
+2. Repetir a medição limpa com a app em uso (comparar `realtime.list_changes`, `audit_logs`, `system_settings` e o total de chamadas).
+3. Deploy do código, login com conta de teste, A/B/C com cookie fresco e conferência do console com `Ctrl+Shift+R`.
+4. Observar o saldo `Disk IO Balance` nas horas seguintes.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.

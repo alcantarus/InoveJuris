@@ -1,7 +1,15 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-18 (logout global no fechamento de aba/janela entregue; Camada A das permissões granulares permanecendo registrada abaixo).
+> Atualizado em: 2026-11-19 (Fase 1A de otimização de I/O: itens 1–3 entregues; itens 4–5 aguardando execução no SQL Editor).
+
+## Fase 1A — otimização de I/O (2026-11-19)
+- Autorização do usuário: itens 1 a 5, um de cada vez, com backup/rollback. **Fase 1B não autorizada** — heartbeat de 20 s, `app_validate_session` e tolerância de 90 s intactos. Nenhum acesso alternativo criado.
+- **Itens 1–3 entregues** no commit `8cdf51e` (pushed em `trabalho-com-claude`): `lib/birthdays.ts` (cache/dedupe, 6 → 3 consultas de aniversariantes), 5 canais Realtime do dashboard → 1 canal `dashboard-changes`, e dedupe de `fetchSettings` no `SettingsProvider` (com `force` no Realtime/rollback).
+- `npx tsc --noEmit` e `npm run build`: **OK** (25 páginas). Ponto de restauração: `5014dee`; rollback do código: `git revert 8cdf51e`.
+- **Itens 4–5 prontos, não executados:** `forward_otim1_index_audit_logs.sql` (`CREATE INDEX IF NOT EXISTS idx_audit_logs_env_performed_at`) e `forward_otim2_analyze.sql` (`ANALYZE` em todas as tabelas `public`), em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`. Rollback do índice: `rollback_otim1_index_audit_logs.sql`.
+- Pendente: executar 4 e 5 no SQL Editor (um de cada vez), repetir medição limpa, publicar o código, testar login com conta de teste, A/B/C com cookie fresco, conferir console (`Ctrl+Shift+R`) e observar `Disk IO Balance`.
+- Detalhes: seção 13.13 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`.
 
 ## Parecer guardado — multitenancy para locação futura (2026-11-18)
 - Relatório completo: `docs/PARECER-TENANT-INOVEJURIS.md`.

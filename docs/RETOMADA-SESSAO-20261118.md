@@ -184,3 +184,23 @@ Nada precisa ser feito antes de desligar o computador: código, documentação e
 **Posição:** trocar de provedor sem corrigir o padrão de acesso só troca o formato do limite. Seguir Fase 1 (otimização) → Fase 2 (compute) → Fase 3 (só então POC de migração em paralelo, sem cortar produção). Documentação completa: seções 13 e 14 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e seção "Incidente de acesso e decisão de banco" de `docs/STATUS-INOVEJURIS.md`.
 
 Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-Backups\DOCS-20261119\`.
+
+## 11. Fase 1A — autorizada e em execução (2026-11-19)
+
+**Usuário autorizou os itens 1 a 5, um de cada vez, com backup e rollback. Optou por não mexer na Fase 1B** — heartbeat de 20 s, `app_validate_session` e a tolerância de 90 s seguem intactos. Nenhuma chave, cookie, sessão artificial ou acesso alternativo foi criado.
+
+### Já feito
+
+- Itens 1–3 no commit `8cdf51e` (pushed): `lib/birthdays.ts` com cache de 5 min e dedupe (6 → 3 consultas de aniversariantes); 5 canais Realtime do dashboard → 1 canal com 5 listeners; dedupe de `fetchSettings` no `SettingsProvider` (com `force=true` no Realtime e no rollback).
+- `npx tsc --noEmit` e `npm run build`: **OK**. Ponto de restauração: `5014dee`; rollback: `git revert 8cdf51e`.
+- Scripts prontos para os itens 4–5 em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`: `forward_otim1_index_audit_logs.sql`, `rollback_otim1_index_audit_logs.sql`, `forward_otim2_analyze.sql`.
+
+### Próximo passo (nesta ordem)
+
+1. Executar `forward_otim1_index_audit_logs.sql` no SQL Editor (https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/sql/new) e conferir o `EXPLAIN ANALYZE`.
+2. Executar `forward_otim2_analyze.sql` e conferir `last_analyze`/`n_live_tup`.
+3. Repetir a medição limpa com a app em uso (`queries_app.sql`) e comparar com a linha de base da seção 13.12 do parecer.
+4. Publicar o código (deploy de Preview e Production), testar login com **conta de teste**, repetir A/B/C com **cookie fresco** e conferir o console com `Ctrl+Shift+R`.
+5. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.
+
+Se qualquer passo falhar: `rollback_otim1_index_audit_logs.sql` para o índice e `git revert 8cdf51e` para o código. Nenhum desses passos altera autenticação.
