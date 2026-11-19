@@ -166,18 +166,14 @@ export async function processContractCancellation(contractId: number, reason: st
   if (!contract) throw new Error('Contrato não encontrado.');
 
   // Always use fallback to avoid RPC restrictions
-  console.log('[processContractCancellation] Bypassing RPC for all cancellations to ensure reliability');
   return await performFallbackCancellation(contractId, reason, userId, contract);
 }
 
 async function performFallbackCancellation(contractId: number, reason: string, userId: number | null, contract: any) {
-  console.log('[processContractCancellation] Starting fallback for contractId:', contractId);
-
   const normalizedStatus = (contract.status || '').toString().trim().toLowerCase();
 
   // Defensiva: se o contrato já estiver cancelado, não tenta atualizar novamente
   if (normalizedStatus === 'cancelado' || normalizedStatus === 'cancelada') {
-    console.log('[processContractCancellation] Contract already canceled');
     return { success: true };
   }
 
@@ -195,8 +191,6 @@ async function performFallbackCancellation(contractId: number, reason: string, u
     console.error('[processContractCancellation] Installments fetch error:', fetchError);
     throw fetchError;
   }
-
-  console.log('[processContractCancellation] Fetched installments:', insts);
 
   const hasPayments = insts?.some((i: any) => (Number(i.amountPaid) || 0) > 0);
   if (hasPayments) {

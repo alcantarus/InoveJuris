@@ -1308,3 +1308,54 @@ Nenhuma alteração em autenticação, nenhum acesso alternativo, nenhum dado ap
 Se, ainda assim, a decisão for sair do Supabase: **Appwrite Cloud Free** é a opção NoSQL free mais próxima de um BaaS completo; **Firebase** só com Blaze (pago); **PocketBase** se o time aceitar operar o próprio servidor. Nenhuma delas oferece paridade automática com o que está implementado hoje.
 
 **Fontes consultadas em 2026-11-19:** Firebase Pricing (Spark × Blaze), Appwrite Pricing/Changelog, PocketBase Docs, MongoDB Atlas free tier. Limites devem ser reconfirmados no ato de qualquer decisão.
+
+# 16. Fase 0 de segurança — execução (2026-11-19)
+
+Execução autorizada da Fase 0 em branch `fase0-seguranca`, sem deploy de Production e sem alterar autenticação (heartbeat 20 s, `app_validate_session` e tolerância de 90 s intactos).
+
+## 16.1 O que foi alterado
+
+| Item | Antes | Depois |
+|---|---|---|
+| Rotas de diagnóstico | `fix-db`, `diagnose-db`, `check-db`, `check-enum`, `fix-cancellation`, `alter-leads`, `setup-sessions` públicas | removidas (com os duplicados `route-1.ts`), além de `fetch*.js` |
+| `/api/db/status` | pública, expunha host/tamanho do banco | `requireSessionContext` + `authErrorResponse` → `401` sem sessão |
+| Tela de leads | chamava `/api/fix-db` no mount | apenas `fetchLeads()` |
+| `check-deadlines`, `process-consultation`, `process-sync`, `djen-sync` | sem validação de sessão | `requireSessionContext`; ambiente vem de `ctx.environment` |
+| Logs de payload | `lib/supabase.ts` e `lib/supabase-server.ts` imprimiam inserts/updates/parcelas | removidos; `removeConsole` em produção mantém apenas `error`/`warn` no cliente |
+| `cleanup_old_logs()` | usava `created_at` (inexistente em `audit_logs`) | usa `performed_at`; execução revogada de `anon`/`authenticated` |
+| `shadcn` | em `dependencies` | em `devDependencies` |
+
+Artefatos SQL em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`:
+- `forward_cleanup_old_logs.sql` / `rollback_cleanup_old_logs.sql` (não aplicados e não agendados);
+- `inventario_f4b.sql` (read-only: RLS/policies, grants de `anon`/`authenticated`, funções executáveis, volume por tabela).
+
+## 16.2 Dependências
+
+`npm audit fix` sem `--force`:
+
+| Escopo | Antes | Depois |
+|---|---|---|
+| Todos | 48 (3 critical, 27 high) | **23 (0 critical, 3 high)** |
+| `--omit=dev` | 48 (3 critical, 27 high) | **10 (0 critical, 3 high)** |
+
+Restam quatro dependências diretas cuja correção exige major: `next` 15 → 16, `nodemailer` 8 → 10, `adm-zip` 0.5 → 0.6 e `archiver` 7 → 8. Não foram forçadas; exigem branch, build e A/B/C próprios. O `next` restante é `moderate` (postcss transitivo).
+
+## 16.3 Validação
+
+- `npm run build`: **OK**; o manifesto não lista mais as rotas removidas.
+- `npx tsc --noEmit`: **EXIT 0** após remover `.next` (tipos gerados antigos) e o duplicado `next-env.d-1.ts`.
+- HTTP (build de produção local, porta 3100):
+  - sem cookie: `GET /api/check-deadlines`, `GET /api/db/status`, `POST /api/process-sync`, `POST /api/djen-sync`, `POST /api/process-consultation` → **307** para `/login` (middleware);
+  - com cookie falso (`session_id` inexistente + `app_env=production`): todas → **401** `{"error":"Sessão inválida."}` (guarda da rota, sem tocar no banco além da RPC de validação);
+  - `/api/auth/session` continua acessível → **400** sem body (esperado).
+- **Não validado:** fluxo autenticado real (A/B/C) — não havia cookie fresco neste ambiente; e Preview/Production.
+
+## 16.4 Rollback
+
+- Código: `git revert <commit-da-fase-0>` (o commit de dependências é separado).
+- Arquivos: restaurar de `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\` (26 arquivos originais).
+- Banco: nada foi aplicado; se o forward for aplicado depois, usar `rollback_cleanup_old_logs.sql` ciente de que a definição antiga é funcionalmente quebrada.
+
+## 16.5 Risco residual e próximo passo
+
+A Fase 0 reduz superfície e vazamento, mas **não fecha o P0**: a chave anon continua pública e a RLS segue permissiva. O próximo passo continua sendo o inventário F4b e a revogação por tabela, com validação entre etapas. A F3 (17 funções `http`) segue dependente do chamado no Supabase Support.

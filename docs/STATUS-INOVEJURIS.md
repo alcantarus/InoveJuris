@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-19 (Fase 1A de otimização de I/O: itens 1–3 entregues; itens 4–5 aguardando execução no SQL Editor).
+> Atualizado em: 2026-11-19 (Fase 0 de segurança executada em branch `fase0-seguranca`; Fase 1A/1C fechadas).
 
 ## Fase 1A — otimização de I/O (2026-11-19)
 - Autorização do usuário: itens 1 a 5, um de cada vez, com backup/rollback. **Fase 1B não autorizada** — heartbeat de 20 s, `app_validate_session` e tolerância de 90 s intactos. Nenhum acesso alternativo criado.
@@ -523,3 +523,17 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Pendências adicionais:** após o banco voltar, repetir REST simples, rota de login, A/B/C com cookie fresco e validação visual do console; levantar `pg_stat_statements`/`pg_stat_activity` para o plano de otimização; avaliar trocar a mensagem de login para "Sistema temporariamente indisponível" em erros `57014`/timeout (somente com aval).
 - **Deploys inalterados:** Production `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj`, Preview `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY`. Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-Backups\DOCS-20261119\`.
 - **Parecer NoSQL (sem implementação):** nenhum NoSQL free comporta os recursos atuais (plpgsql, RLS, views, joins, `pg_cron`, Realtime, Storage assinado) — a mudança seria reescrita integral. Appwrite Cloud Free é o BaaS NoSQL free mais completo; Firebase Spark não cobre Storage/Functions (exige Blaze) e o heartbeat de 20 s estouraria a cota de operações; PocketBase é free self-host, mas exige JS hooks e operação própria. Detalhes na seção 15 do parecer de impacto. Recomendação mantida: Fase 1 (otimização) antes de qualquer migração.
+
+## Fase 0 de segurança — executada em 2026-11-19
+
+- **Branch:** `fase0-seguranca` (a partir de `trabalho-com-claude`, HEAD `c15c30b`). Commit de código `bf364e9`. Nada foi enviado à Production.
+- **Rotas públicas de diagnóstico removidas:** `fix-db`, `diagnose-db`, `check-db`, `check-enum`, `fix-cancellation`, `alter-leads`, `setup-sessions` (incluindo os duplicados `route-1.ts`) e os arquivos soltos `fetch.js`, `fetch-1.js`, `app/fetch.js`, `app/fetch-1.js`. Não havia referências de código a elas.
+- **`/api/db/status` protegida** com `requireSessionContext` + `authErrorResponse`; a tela de backup continua funcionando com sessão válida.
+- **`app/leads/page.tsx`:** removida a chamada automática a `/api/fix-db`; o carregamento agora usa apenas `fetchLeads()`.
+- **Guarda de sessão adicionada** em `check-deadlines`, `process-consultation`, `process-sync` e `djen-sync`. Em `process-sync`/`djen-sync` o ambiente passou a vir de `ctx.environment` (sessão), não de `getAppEnv()`/body.
+- **Logs de payload removidos:** `lib/supabase.ts` (insert/update e parcelas no cancelamento) e `lib/supabase-server.ts` (5 logs por query). `next.config.ts` ganhou `removeConsole` em produção, preservando `error`/`warn` no bundle do cliente.
+- **`cleanup_old_logs()` corrigido** para `performed_at` (era `created_at`, coluna inexistente). Scripts: `forward_cleanup_old_logs.sql` e `rollback_cleanup_old_logs.sql` em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`. **Não agendado** e não aplicado no banco.
+- **Dependências:** `shadcn` movido para `devDependencies`; `npm audit fix` sem `--force` reduziu os avisos totais de **48 → 23** e, em `--omit=dev`, de 48 → **10 (0 critical)**. Restam upgrades maiores (`next` 16, `nodemailer` 10, `adm-zip` 0.6, `archiver` 8) que exigem plano próprio e não entram na Fase 0.
+- **Validação:** `npm run build` **OK** (rotas de diagnóstico ausentes do manifesto) e `npx tsc --noEmit` **EXIT 0** após limpar `.next` e remover o duplicado `next-env.d-1.ts`. HTTP: sem cookie → `307 → /login`; com cookie falso (`session_id` inexistente) → `401 {"error":"Sessão inválida."}` em todas as cinco rotas testadas. `/api/auth/session` segue pública (controle `400` sem body).
+- **Pendente:** validação autenticada A/B/C com cookie fresco (não havia sessão válida neste ambiente) e deploy de Preview; Production só com autorização explícita. Rollback: `git revert bf364e9` (e do commit de dependências) ou restaurar de `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
+- **Inventário F4b (read-only):** `inventario_f4b.sql` no mesmo diretório de backup — RLS/policies, grants de `anon`/`authenticated` por tabela, funções executáveis e volume estimado. Ainda não executado no SQL Editor.

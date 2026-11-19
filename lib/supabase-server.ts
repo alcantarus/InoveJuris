@@ -35,25 +35,21 @@ export const getSupabaseServer = async () => {
             get: (qbTarget: any, qbProp) => {
               if (qbProp === 'select') {
                 return (...args: any[]) => {
-                  console.log(`[Supabase Server] Querying ${table} with environment: ${currentEnv}`);
                   return qbTarget.select(...args).eq('environment', currentEnv)
                 }
               }
               if (qbProp === 'update') {
                 return (...args: any[]) => {
-                  console.log(`[Supabase Server] Updating ${table} with environment: ${currentEnv}`);
                   return qbTarget.update(...args).eq('environment', currentEnv)
                 }
               }
               if (qbProp === 'delete') {
                 return (...args: any[]) => {
-                  console.log(`[Supabase Server] Deleting ${table} with environment: ${currentEnv}`);
                   return qbTarget.delete(...args).eq('environment', currentEnv)
                 }
               }
               if (qbProp === 'insert') {
                 return (data: any, ...args: any[]) => {
-                  console.log(`[Supabase Server] Inserting into ${table} with environment: ${currentEnv}`);
                   let newData = data;
                   if (Array.isArray(data)) {
                     newData = data.map(item => ({ ...item, environment: currentEnv }))
@@ -65,7 +61,6 @@ export const getSupabaseServer = async () => {
               }
               if (qbProp === 'upsert') {
                 return (data: any, ...args: any[]) => {
-                  console.log(`[Supabase Server] Upserting into ${table} with environment: ${currentEnv}`);
                   let newData = data;
                   if (Array.isArray(data)) {
                     newData = data.map(item => ({ ...item, environment: currentEnv }))
