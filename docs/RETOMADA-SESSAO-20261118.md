@@ -195,12 +195,15 @@ Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-
 - `npx tsc --noEmit` e `npm run build`: **OK**. Ponto de restauração: `5014dee`; rollback: `git revert 8cdf51e`.
 - Scripts prontos para os itens 4–5 em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`: `forward_otim1_index_audit_logs.sql`, `rollback_otim1_index_audit_logs.sql`, `forward_otim2_analyze.sql`.
 
+### Item 4 concluído (2026-11-19)
+
+- Usuário executou `forward_otim1_index_audit_logs.sql` no SQL Editor: `Index Scan using idx_audit_logs_env_performed_at`, `Index Cond: (environment = 'production')`, 4 buffers, **Execution Time: 0,766 ms** (linha de base: 133,32 ms). Rollback: `rollback_otim1_index_audit_logs.sql`.
+
 ### Próximo passo (nesta ordem)
 
-1. Executar `forward_otim1_index_audit_logs.sql` no SQL Editor (https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/sql/new) e conferir o `EXPLAIN ANALYZE`.
-2. Executar `forward_otim2_analyze.sql` e conferir `last_analyze`/`n_live_tup`.
-3. Repetir a medição limpa com a app em uso (`queries_app.sql`) e comparar com a linha de base da seção 13.12 do parecer.
-4. Publicar o código (deploy de Preview e Production), testar login com **conta de teste**, repetir A/B/C com **cookie fresco** e conferir o console com `Ctrl+Shift+R`.
-5. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.
+1. Executar `forward_otim2_analyze.sql` no SQL Editor (https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/sql/new) e conferir `last_analyze`/`n_live_tup`.
+2. Repetir a medição limpa com a app em uso (`queries_app.sql`) e comparar com a linha de base da seção 13.12 do parecer.
+3. Publicar o código (deploy de Preview e Production), testar login com **conta de teste**, repetir A/B/C com **cookie fresco** e conferir o console com `Ctrl+Shift+R`.
+4. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.
 
 Se qualquer passo falhar: `rollback_otim1_index_audit_logs.sql` para o índice e `git revert 8cdf51e` para o código. Nenhum desses passos altera autenticação.

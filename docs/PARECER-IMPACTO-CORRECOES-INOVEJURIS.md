@@ -1017,6 +1017,8 @@ Amostra coletada após login com conta de teste, dashboard + Processos + Publica
 
 Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verificação antes/depois (`pg_indexes`, `EXPLAIN ANALYZE`, `pg_stat_user_tables`).
 
+**Item 4 executado pelo usuário em 2026-11-19 — resultado:** `Index Scan using idx_audit_logs_env_performed_at`, `Index Cond: (environment = 'production')`, `Buffers: shared hit=2 read=2`, **Execution Time: 0,766 ms** (contra 133,32 ms na linha de base — ~174× mais rápido). `Planning Time: 7,801 ms` é pago uma vez por query e tende a cair com estatísticas frescas (item 5). Nenhum outro objeto foi alterado.
+
 ### Validação pendente
 
 1. Executar item 4 e item 5 no SQL Editor, um de cada vez, e conferir a saída.
