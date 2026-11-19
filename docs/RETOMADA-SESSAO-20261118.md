@@ -149,6 +149,8 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 Nada precisa ser feito antes de desligar o computador: código, documentação e deploys já estão salvos no GitHub e no Vercel.
 
 > **Atualização 19/11:** o banco voltou (`select 1` → `1`); REST, RPC de login e rota `/api/auth/session` respondendo. Restam: login com conta de teste no navegador, A/B/C com cookie fresco e conferência visual do console. Ver seção 13.8 do parecer de impacto.
+>
+> **Levantamento de I/O (seção 13.9):** `check_database_orphans()` via REST retornou 0 órfãos em 8 FKs; `get_db_size` via anon deu 404. Script **somente leitura** pronto em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\diagnostico_readonly.sql` — executar no SQL Editor e enviar o resultado antes de qualquer mudança. Não mexer no heartbeat de 20 s nem criar acesso alternativo.
 
 ## 10. Incidente de acesso e decisão de banco (2026-11-19)
 

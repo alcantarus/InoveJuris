@@ -863,6 +863,24 @@ Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput wi
 - **Conclusão:** o acesso ao sistema não estava comprometido por código, deploy, F7-VIEWS ou limpeza. A causa foi exclusivamente o esgotamento do orçamento de I/O do Supabase. Nenhum rollback, backdoor ou mudança de autenticação foi necessário.
 - **Ainda pendente:** teste de login com conta de **teste** no navegador; A/B/C do storage com cookie fresco; conferência visual do console com hard reload; acompanhamento do **Disk IO Balance** no Observability para evitar recorrência. Não foi usada conta real nem criada sessão artificial.
 
+## 13.9 Otimização máxima e "sujeira" do banco — levantamento (2026-11-19)
+
+- **Pergunta do usuário:** otimizar o banco é a melhor alternativa? Dá para levantar se há "sujeira" gerando consumo excessivo?
+- **Resposta:** sim, é a melhor **primeira** alternativa — é gratuita, reversível e não mexe em autenticação. Mas ela tem limite: no Nano (5 MB/s, cache pequeno), mesmo um banco limpo pode voltar a estourar se o padrão de acesso continuar com 14 consultas no mount do dashboard, 5+ canais Realtime, settings no mount e heartbeat de 20 s por aba. Por isso a ordem é **medir → otimizar → só então pagar/migrar**.
+- **O que já foi medido sem custo e sem gravação:**
+  - `check_database_orphans()` via REST: **0 órfãos nas 8 verificações de FK** (financial_transactions → bank_accounts/financial_categories, contracts → clients/products/indicators, installments → contracts, products → law_areas). Não há "sujeira" de relacionamento quebrado.
+  - `get_db_size` via REST com chave publishable: **404** (privilégio de catálogo); será lido via SQL Editor.
+- **O que é "sujeira" neste contexto** (tudo verificado no script read-only):
+  1. **Tuplas mortas** (`n_dead_tup`) — linhas apagadas/atualizadas não recolhidas; `VACUUM`/`autovacuum` e `ANALYZE`.
+  2. **Índices nunca usados** (`idx_scan = 0`) — ocupam espaço e atrasam escrita.
+  3. **Índices duplicados** (mesmas colunas) — idem.
+  4. **TOAST grande** — JSONB/texto/DOCX em base64 inflam I/O.
+  5. **Tabelas de log/auditoria sem retenção** — `login_attempts`, `login_challenges`, `user_sessions`, `audit_logs`, `notifications`, `process_sync_log`, `publication_sync_log`, `process_deadline_history`, `backup_logs`, `task_history`, `marketing_logs`.
+  6. **Cache hit baixo** e **`seq_scan` alto** — sinal de falta de índice ou de cache pequeno.
+  7. **Queries caras** (`pg_stat_statements`) — frente real de consumo.
+- **Script pronto:** `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\diagnostico_readonly.sql` — somente `SELECT`, sem gravar/alterar/apagar nada. Se `extensions.pg_stat_statements` não existir, pedir aval antes de habilitar (é mudança de configuração, pequena mas não read-only).
+- **Limites assumidos:** não vou reduzir o heartbeat de 20 s nem criar acesso alternativo. Qualquer mudança decorrente do levantamento passa por parecer, backup e rollback.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
