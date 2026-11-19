@@ -1365,3 +1365,74 @@ Restam quatro dependências diretas cuja correção exige major: `next` 15 → 1
 ## 16.6 Risco residual e próximo passo
 
 A Fase 0 reduz superfície e vazamento, mas **não fecha o P0**: a chave anon continua pública e a RLS segue permissiva. O próximo passo continua sendo o inventário F4b e a revogação por tabela, com validação entre etapas. A F3 (17 funções `http`) segue dependente do chamado no Supabase Support.
+
+# 17. F4b — execução de RLS, grants e integridade (2026-11-19)
+
+Execução em branch `fase0-seguranca`, em etapas pequenas, com backup e rollback por etapa. **Autenticação não foi alterada**: heartbeat de 20 s, `app_validate_session` e tolerância de 90 s intactos. Nenhum modelo de tenant foi implantado.
+
+## 17.1 O que foi alterado
+
+| Etapa | Alteração | Resultado |
+|---|---|---|
+| F4b-0 | RLS habilitada e grants zerados em `_auth_hardening_policy_backup_20261118` e `birthday_templates_backup` | backups de policies deixaram de ser legíveis pela chave pública |
+| F4b-2a | 82 policies decorativas removidas (anuladas por policies `USING (true)`) | resta 1 policy de isolamento, em `users`; `clients` ficou com 7 |
+| F4b-1a | `log_audit_event` → `SECURITY DEFINER`, owner `postgres`, `search_path=public` | auditoria continua gravando mesmo com a escrita revogada do cliente |
+| F4b-1c1 | `INSERT/UPDATE/DELETE` em `audit_logs` revogados de `anon`/`authenticated`/`public` | `SELECT` e `service_role INSERT` mantidos |
+| F4b-1b | Rota `POST /api/settings/update`; `lib/supabase-service.ts`; `updateSetting` via `fetch` | configurações gravadas no servidor com `service_role` |
+| F4b-1b | `/api/backup/restore` e `/api/settings/audit/cleanup` migrados para `service_role` | corrigiu regressões causadas pelo `1c1` |
+| F4b-1c2 | `INSERT/UPDATE/DELETE` em `system_settings` revogados de `anon`/`authenticated`/`public` | leitura mantida; `service_role` intacto |
+
+## 17.2 Evidências
+
+- **Auditoria ativa após o `1c1`:** evento `clients/UPDATE` em `audit_logs` às **2026-11-19 12:01:52 UTC**.
+- **Policies restantes:** 1 policy de isolamento (`users / Isolamento por Organização em users`); backup com 83 `CREATE POLICY` em 40 tabelas.
+- **Grants de `system_settings` confirmados pelo SQL Editor:** `anon_insert/update/delete = false`, `anon_select = true`, `authenticated_insert = false`, `service_insert/update/select = true`.
+- **Prova funcional:** `appearance` salvo às **12:50:59** (`updated_by = 2`) e novamente às **12:59:21**, já com o `anon` sem escrita.
+- **Estáticas:** `npx tsc --noEmit` e `eslint` sem erros nos arquivos alterados.
+
+## 17.3 Deploys
+
+| Commit | Deploy | Conteúdo |
+|---|---|---|
+| `3874884` | `dpl_2ipCc5iYGBNrynn2HpPYWjJXRChM` (Production) | rota de settings, cliente de serviço, provider, restore |
+| `286de74` | `dpl_APjXUSLhcsE4Rm6bhkXXKvP7iAeA` (Production, alias `https://inove-juris.vercel.app`) | limpeza de auditoria em `service_role` |
+
+- `/login` → `200`; `/configuracoes` sem cookie → `307`.
+
+## 17.4 Rollback
+
+| Camada | Ação |
+|---|---|
+| Banco — `1c2` | `rollback_f4b1c2_revoke_system_settings.sql` |
+| Banco — `1c1` | `rollback_f4b1c1_revoke_audit_logs.sql` (volta ao estado inseguro) |
+| Banco — `1a` | reverter **depois** do `1c1`; sem isso a auditoria para |
+| Banco — `2a` | `backup_policies_tenant_20261119.sql` (recria as 83 policies) |
+| Código | `git revert 286de74` e `git revert 3874884` |
+| Deploy | promover `dpl_A5BoCyrTwcv35UXskj8eqBgeY5SP` |
+
+Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
+
+## 17.5 Efeitos colaterais conhecidos
+
+- Usuários com apenas `canAccessTestEnv` perdem a gravação de configurações: a rota exige `requireAdminContext('settings')`.
+- Abas abertas antes do deploy precisam de `F5` para carregar o código novo.
+
+## 17.6 O que a F4b-1 **não** resolve
+
+- As ~50 tabelas de domínio continuam abertas por policies `USING (true)`; apenas **6 tabelas** têm RLS efetiva (`users`, `user_sessions`, `login_attempts`, `login_challenges`, `trusted_devices`, `_auth_hardening_policy_backup_20261118`).
+- Quem tiver a anon key continua **lendo** clientes, processos, contratos, Publicações e financeiro direto pela API REST.
+- A F4b-1 fechou **integridade** (auditoria e configurações), não **isolamento de leitura**. Isso depende do `2b` + `2c`.
+
+## 17.7 Decisão pausada — identidade no banco (F4b-2b)
+
+Comparação entre **JWT próprio** e **BFF**, com números medidos no código, complexidade por peça, riscos e fases: **`docs/PARECER-JWT.md`**.
+
+- Recomendação técnica registrada: **JWT próprio** (menor mudança, risco concentrado na emissão do token).
+- O tema foi **pausado a pedido do usuário**. Nada foi implementado em autenticação.
+- O `2c` (dropar as policies `true`) **não pode ser feito sozinho** — sem identidade por requisição o app para.
+
+## 17.8 Pendências
+
+1. **Retenção de logs:** definir 90 ou 180 dias para `audit_logs`, `login_attempts`, `user_sessions`, `notifications`, `process_sync_log`, `publication_sync_log`, `backup_logs` e `task_history`.
+2. **Merge** de `fase0-seguranca` em `main`/`trabalho-com-claude`: sem autorização.
+3. **F3** (~17 funções `http*` de `supabase_admin`): aguarda o chamado no Supabase Support (`F3-20261118\SUPPORT-REQUEST.md`).

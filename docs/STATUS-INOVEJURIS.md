@@ -1,7 +1,69 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-19 (Fase 0 de segurança executada em branch `fase0-seguranca`; Fase 1A/1C fechadas).
+> Atualizado em: 2026-11-19 (Fase 0 de segurança e **F4b-1** executadas na branch `fase0-seguranca`; Fase 1A/1C fechadas; **F4b-2b pausada**).
+
+## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
+
+Executado na branch `fase0-seguranca`, em etapas pequenas, cada uma com backup/rollback e validação antes da seguinte. **Autenticação não foi alterada**: heartbeat de 20 s, `app_validate_session` e tolerância de 90 s seguem intactos. Nenhuma decisão de tenant foi tomada.
+
+### F4b-0 — proteção dos backups de policies
+- Tabelas `_auth_hardening_policy_backup_20261118` e `birthday_templates_backup` com **RLS habilitada** e **zero grants** para `anon`/`authenticated`/`public`. Deixaram de ser legíveis pela chave pública.
+
+### F4b-2a — remoção de policies decorativas
+- **82 policies** anuladas por policies `USING (true)` foram removidas; resta **1** (`users / Isolamento por Organização em users`), preservada por dependência.
+- `clients` ficou com 7 policies (inclui `Filter by organization`, hoje morta pela policy permissiva).
+- Rollback: `backup_policies_tenant_20261119.sql` (83 `CREATE POLICY` em 40 tabelas) em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
+- Nada foi dropado de tabela alguma — apenas policies que nunca eram avaliadas.
+
+### F4b-1a — trigger de auditoria como `SECURITY DEFINER`
+- `log_audit_event` convertida para `SECURITY DEFINER`, owner `postgres`, `search_path=public` (confirmado no SQL Editor).
+- Sem isso, a revogação de escrita em `audit_logs` derrubaria a auditoria de toda a aplicação.
+
+### F4b-1c1 — escrita em `audit_logs` revogada do cliente
+- `INSERT/UPDATE/DELETE` revogados de `anon`/`authenticated`/`public`; `SELECT` e o `INSERT` do `service_role` mantidos.
+- Prova de que a auditoria continua gravando: evento de `clients/UPDATE` registrado em **2026-11-19 12:01:52 UTC**.
+- Rollback: `rollback_f4b1c1_revoke_audit_logs.sql` — **atenção:** volta ao estado inseguro; o `1a` só pode ser revertido depois de reverter o `1c1`.
+
+### F4b-1b — configurações gravadas pelo servidor
+- Nova rota `POST /api/settings/update` (valida sessão/admin e grava com `service_role`).
+- `lib/supabase-service.ts`: cliente `service_role` com **falha explícita** quando a chave não existe (sem fallback silencioso para a anon key).
+- `SettingsProvider.updateSetting` passou a chamar a rota via `fetch`.
+- Regressões do `1c1` corrigidas no mesmo passo: `/api/backup/restore` e `/api/settings/audit/cleanup` também migrados para `service_role`.
+- Efeito colateral conhecido: usuário com apenas `canAccessTestEnv` perde a gravação de configurações, porque a rota exige `requireAdminContext('settings')`.
+
+### F4b-1c2 — escrita em `system_settings` revogada do cliente
+- `INSERT/UPDATE/DELETE` revogados de `anon`/`authenticated`/`public`; leitura mantida; `service_role` intacto.
+- Confirmação devolvida: `anon_insert/update/delete=false`, `anon_select=true`, `authenticated_insert=false`, `service_insert/update/select=true`.
+- Rollback: `rollback_f4b1c2_revoke_system_settings.sql`.
+
+### Validação funcional
+- **Aparência** salva em **12:50:59** (`updated_by=2`) com o `1c1` já aplicado e novamente em **12:59:21**, depois do `1c2` — ou seja, o `anon` perdeu a escrita e o sistema continua salvando pela rota de servidor.
+- `npx tsc --noEmit` e `eslint` sem erros nos arquivos alterados.
+
+### Deploys
+| Commit | Deploy | Conteúdo |
+|---|---|---|
+| `3874884` | `dpl_2ipCc5iYGBNrynn2HpPYWjJXRChM` (Production) | rota de settings + `lib/supabase-service.ts` + `SettingsProvider` + restore |
+| `286de74` | `dpl_APjXUSLhcsE4Rm6bhkXXKvP7iAeA` (Production, alias `https://inove-juris.vercel.app`) | limpeza de auditoria em `service_role` |
+
+- Verificação: `/login` → `200`; `/configuracoes` sem cookie → `307`.
+- Rollback de deploy: promover `dpl_A5BoCyrTwcv35UXskj8eqBgeY5SP`; rollback de código: `git revert 286de74` e `git revert 3874884`.
+
+### O que a F4b-1 **não** resolve
+- As ~50 tabelas de domínio continuam abertas por policies `USING (true)`. Apenas **6 tabelas** têm RLS efetiva (`users`, `user_sessions`, `login_attempts`, `login_challenges`, `trusted_devices`, `_auth_hardening_policy_backup_20261118`).
+- Quem tiver a anon key (que é pública) continua **lendo** clientes, processos, contratos e financeiro direto pela API REST.
+- O que ficou fechado foi a **integridade**: auditoria e configurações não podem mais ser forjadas, alteradas ou apagadas pelo cliente.
+
+### F4b-2b — identidade no banco (PAUSADA)
+- Comparação JWT próprio × BFF registrada em `docs/PARECER-JWT.md`.
+- Recomendação técnica: **JWT próprio**, por concentrar a mudança na emissão do token. Exige autorização explícita para tocar o login — **nada foi implementado**.
+- O `F4b-2c` (dropar as policies `true`) **só pode ocorrer junto com o `2b`**; sozinho, derrubaria clientes, prazos, Publicações, contratos e financeiro.
+
+### Pendências abertas
+- **Retenção de logs** (90 ou 180 dias) — decisão do usuário.
+- **Merge** de `fase0-seguranca` em `main`/`trabalho-com-claude` — sem autorização.
+- **F3** (~17 funções `http*` de `supabase_admin`) — depende do chamado no Supabase Support.
 
 ## Fase 1A — otimização de I/O (2026-11-19)
 - Autorização do usuário: itens 1 a 5, um de cada vez, com backup/rollback. **Fase 1B não autorizada** — heartbeat de 20 s, `app_validate_session` e tolerância de 90 s intactos. Nenhum acesso alternativo criado.
@@ -71,7 +133,7 @@
 - **F4b (reescrita de RLS) fica para decisão futura**: exige definir identidade por requisição no banco (JWT, RPCs `SECURITY DEFINER` ou GUC derivado da sessão) e escolher o modelo de tenant. Fazer isso agora pararia clientes, prazos, Publicações, contratos e financeiro.
 - Risco residual registrado: vazamento via REST com a anon key e tokens OAuth em `system_settings` não é resolvido pela F4a; depende da F4b.
 - **F4a aplicada em produção em 2026-11-18:** 402 → 0 linhas de `TRUNCATE/REFERENCES/TRIGGER` (`verify_f4a_before.json` → `verify_f4a_after.json`); CRUD inalterado (66 objetos por role). Leitura via anon key validada em 6 tabelas (`HTTP 206`); F3 continua com `42501`. Rollback em `rollback_f4a.sql`. **Nenhum deploy; nenhuma chave trocada.**
-- F4b não executada — depende de decisão de identidade/sessão e tenant.
+- **F4b-2a, F4b-1a, 1c1, 1b e 1c2 executados em 2026-11-19** (ver seção F4b no topo). A **F4b-2b (identidade/JWT)** está pausada e depende de autorização explícita para tocar o login; a **2c** (dropar as policies `true`) só pode ocorrer junto com ela.
 
 ## F5 — parecer executado em 2026-11-18
 - Seção 11 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118`: `views_current.json`, `view_columns.json`, `kpi_baseline.sql/.json`, `forward_f5.sql`, `rollback_f5.sql`, `verify_f5.sql`.

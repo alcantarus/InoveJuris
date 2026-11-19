@@ -4,6 +4,8 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 > **INCIDENTE RESOLVIDO (2026-11-19):** o Postgres do Supabase havia ficado inacessível por esgotamento do burst de I/O (baseline de 5 MB/s), com `504`/`57014` no login e `Connection terminated due to connection timeout` no SQL Editor. O usuário rodou `select 1;` e obteve `1`; REST, RPC `app_authenticate` e a rota `/api/auth/session` voltaram a responder (seção 13.8 do parecer de impacto). **Nenhum deploy foi revertido e nenhuma sessão artificial foi criada.** Mantém-se a recomendação de reduzir o tráfego/balance do disco para não recorrer.
 
+> **ATUALIZAÇÃO (2026-11-19, posterior a este documento):** a F4b-1 foi executada e publicada em Production (`dpl_APjXUSLhcsE4Rm6bhkXXKvP7iAeA`) e a F4b-2b (identidade/JWT) foi **pausada**. O estado atual está na seção **F4b** de `docs/STATUS-INOVEJURIS.md`, na seção **17** de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e em `docs/PARECER-JWT.md`. As referências a deploy abaixo são históricas.
+
 ## 1. Situação atual — produção íntegra
 
 | Item | Estado |
