@@ -386,7 +386,14 @@ BEGIN
   FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name != 'audit_logs' AND table_name != 'system_settings'
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS audit_%I ON %I', t, t);
-    EXECUTE format('CREATE TRIGGER audit_%I AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_audit_event()', t, t);
+    IF t = 'user_sessions' THEN
+      -- Heartbeats/validações atualizam last_seen_at a cada 20s. Auditar UPDATE
+      -- geraria ~80% do volume de audit_logs e WAL desnecessário. Login é
+      -- registrado explicitamente por app_authenticate (action='login').
+      EXECUTE format('CREATE TRIGGER audit_%I AFTER INSERT OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_audit_event()', t, t);
+    ELSE
+      EXECUTE format('CREATE TRIGGER audit_%I AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION log_audit_event()', t, t);
+    END IF;
   END LOOP;
 END $body$;
 

@@ -1149,7 +1149,7 @@ FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 
 **Efeito esperado:** remove ~80% das linhas e ~1,17 MB (47% do heap) de ruído; corta ~1 INSERT + 1 UPDATE de WAL por heartbeat/validação. Preserva login (explícito), INSERT/DELETE de sessão e toda a auditoria de tabelas de negócio. **Não apaga histórico existente.**
 
-**Atenção de durabilidade:** `app/setup/page.tsx`, `components/settings/SystemTab.tsx` (script copiável pela UI) e `fix_audit_triggers.sql` recriam o trigger com `UPDATE`. Se algum for rodado no futuro, a otimização é revertida. Recomenda-se ajustar esses locais na mesma mudança.
+**Atenção de durabilidade (correção e ajuste da Fase 1C):** `app/setup/page.tsx` **já exclui** `user_sessions` do loop — não precisava mudar (a afirmação anterior estava imprecisa). `components/settings/SystemTab.tsx` (script copiável pela UI), `fix_audit_triggers.sql` e `fix_audit_triggers-1.sql` recriavam o trigger com `UPDATE`; foram ajustados para usar `AFTER INSERT OR DELETE` em `user_sessions`. Os arquivos históricos `supabase_migrations.sql`/`-1.sql` preservam o DDL antigo como registro de migração e não devem ser reexecutados.
 
 **Alternativas consideradas:** (a) gravar só `changed_fields` reduz JSON mas mantém 1 INSERT por heartbeat — não resolve I/O; (b) trigger com `WHEN` pulando mudança isolada de `last_seen_at` — mais preciso, porém mais complexo; (c) arquivamento frio — desnecessário em 3 MB; (d) não mexer — estável, mas o ruído continua crescendo.
 
