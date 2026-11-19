@@ -1051,7 +1051,7 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 3. **`app_validate_session` é hoje o maior custo por chamada** (95,18 ms) e o maior volume de escrita (`tup_updated` subiu de 36 para 1.088). É exatamente a Fase 1B, que o usuário optou por **não mexer agora**. Continua intacta.
 4. **`system_settings` e aniversariantes** não mostram redução nesta amostra por causa da janela contaminada — a medição limpa dirá.
 
-**Para comparar de forma justa:** executar `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\reset_stats_medicao_limpa.sql`, usar a app por ~10 min e rodar `queries_app.sql`. O reset zera só contadores de monitoramento — nenhum dado é alterado.
+**Para comparar de forma justa:** executar `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\reset_stats_medicao_limpa.sql`, usar a app por ~10 min e rodar `queries_app.sql`. O reset zera só contadores de monitoramento — nenhum dado é alterado. `pg_stat_reset()` foi removido do script porque o SQL Editor do Supabase retorna `42501: permission denied`; apenas `extensions.pg_stat_statements_reset()` é necessário e foi executado com sucesso às **2026-11-19 09:57:07 UTC**.
 
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
