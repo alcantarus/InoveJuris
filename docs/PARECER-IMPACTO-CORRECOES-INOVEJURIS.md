@@ -1193,7 +1193,18 @@ FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 
 **Console:** `Ctrl+Shift+R` na dashboard → **0 erros e 0 warnings**. Navegação pelas cinco rotas acima → **0 erros**. Observação honesta: no **primeiro** carregamento logo após o login apareceram 8 warnings transitórios do Recharts (`width(-1)/height(-1)`) durante a transição de rota; **não se reproduziram** no hard refresh nem na navegação entre rotas. Não há erro funcional. Se voltarem a ocorrer de forma repetida, abrir parecer específico antes de qualquer ajuste — não mexer "no escuro".
 
-**`Disk IO Balance`:** não foi observado diretamente porque o painel do Supabase exige login e não havia sessão do painel neste browser (`https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/observability`). O monitoramento nas próximas horas continua com o usuário. A evidência indireta é forte: tempo de banco das queries da app caiu 81% e o cache de buffers está em 99,985%.
+**`Disk IO Balance` observado (painel Observability, 2026-11-19):** **60%**. Pela documentação do Supabase, a métrica é o **saldo restante** do burst (o menor entre throughput e IOPS): **100% = cheio, 0% = esgotado**. Portanto 60% indica que o orçamento **se recuperou** do esgotamento que causou o incidente (`0%` → throttling em 5 MB/s) e hoje tem folga, embora ainda não esteja cheio. Os demais indicadores do painel no mesmo momento:
+
+| Indicador | Valor | Leitura |
+|---|---|---|
+| `Disk IO Balance` | **60%** | Saldo restante do burst; recuperado, não esgotado |
+| `Disk Usage` | **4%** | Banco pequeno (~25 MB) — sem pressão de espaço |
+| `Peak Connections` | **22/60** | ~37% do limite de conexões |
+| `Memory` | **42%** | Sem pressão de memória |
+| `CPU` | **14%** | Sem pressão de CPU |
+| `Slow Queries` | **3** | Volume baixo; acompanhar se crescer |
+
+**Interpretação:** o gargalo era I/O de burst, não CPU/memória/conexões/espaço. Com a Fase 1C, o tempo de banco da app caiu 81% e o saldo voltou a 60%. **Recomendação:** manter a observação por 24–48 h; evitar recarregamentos em massa e operações de carga pesada nesse período; se o saldo voltar a cair de forma sustentada, o Plano B é o upgrade de compute (Micro). A captura é um retrato do momento, não uma série temporal — o ideal é confirmar a tendência na próxima leitura do painel.
 
 ### Encerramento
 
@@ -1204,7 +1215,7 @@ FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 | Fase 1B | **Não executada, não autorizada e desnecessária:** o custo de 95 ms que a motivava era o trigger de auditoria, não a validação de sessão. `app_validate_session`, heartbeat de 20 s e tolerância de 90 s permanecem intactos |
 | Realtime | Inalterado. Reduzir `realtime.list_changes` exigiria observar menos tabelas — mudança funcional não autorizada |
 
-Nenhuma alteração em autenticação, nenhum acesso alternativo, nenhum dado apagado e nenhuma implementação de tenant. Rollbacks seguem disponíveis: `rollback_otim1_index_audit_logs.sql` (índice), `rollback_otim3_audit_user_sessions.sql` (trigger), `git revert 8cdf51e` (Fase 1A) e `git revert c3eff3e` (Fase 1C). Único item em aberto: observação visual do `Disk IO Balance` no painel do Supabase.
+Nenhuma alteração em autenticação, nenhum acesso alternativo, nenhum dado apagado e nenhuma implementação de tenant. Rollbacks seguem disponíveis: `rollback_otim1_index_audit_logs.sql` (índice), `rollback_otim3_audit_user_sessions.sql` (trigger), `git revert 8cdf51e` (Fase 1A) e `git revert c3eff3e` (Fase 1C). `Disk IO Balance` em 60% no painel — sem item em aberto; resta apenas acompanhar a tendência por 24–48 h.
 
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
