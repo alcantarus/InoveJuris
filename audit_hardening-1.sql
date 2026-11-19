@@ -9,7 +9,7 @@ CREATE OR REPLACE FUNCTION public.cleanup_old_logs()
 RETURNS void AS $$
 BEGIN
   DELETE FROM public.login_attempts WHERE attempted_at < NOW() - INTERVAL '90 days';
-  DELETE FROM public.audit_logs WHERE created_at < NOW() - INTERVAL '180 days';
+  DELETE FROM public.audit_logs WHERE performed_at < NOW() - INTERVAL '180 days';
 END;
 $$ LANGUAGE plpgsql;
 

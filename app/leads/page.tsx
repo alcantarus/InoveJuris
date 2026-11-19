@@ -252,17 +252,8 @@ export default function LeadsPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/fix-db')
-      .then(res => res.json())
-      .then(data => {
-        console.log("RLS fix result:", data);
-        fetchLeads();
-      })
-      .catch(err => {
-        console.error("Error on fix-db:", err);
-        fetchLeads();
-      });
-    
+    fetchLeads();
+
     // Fetch indicators
     supabase.from('indicators').select('id, name').then((res: any) => setIndicators((res.data as {id: number, name: string}[] | null) || []));
   }, [])

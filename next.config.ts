@@ -2,6 +2,12 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Em produção, remove console.log/info/debug do bundle do cliente.
+  // Mantém error/warn (diagnóstico real) e evita vazar payload/PII no console.
+  compiler: {
+    removeConsole:
+      process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

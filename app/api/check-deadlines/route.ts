@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { authErrorResponse, requireSessionContext } from '@/lib/server-auth';
 import { formatDate, formatDateTime } from '@/lib/utils';
 
 export async function GET() {
   try {
+    await requireSessionContext();
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -33,6 +36,8 @@ export async function GET() {
 
     return NextResponse.json({ success: true, count: deadlines?.length || 0 });
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error('Error checking deadlines:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }

@@ -107,12 +107,8 @@ export const supabase = new Proxy({} as any, {
                     const newData = Array.isArray(data)
                       ? data.map((item: any) => ({ ...item, environment: currentEnv }))
                       : { ...data, environment: currentEnv };
-                    console.log(`[Supabase Proxy] DEBUG: ${prop} on ${table}:`, JSON.stringify(newData, null, 2));
                     result = target[prop](newData, ...args.slice(1));
                   } else if (prop === 'select' || prop === 'update' || prop === 'delete') {
-                    if (prop === 'update') {
-                      console.log(`[Supabase Proxy] DEBUG: update on ${table}:`, JSON.stringify(args[0], null, 2));
-                    }
                     // Inject environment filter immediately after the action method
                     result = target[prop](...args).eq('environment', currentEnv);
                   } else {

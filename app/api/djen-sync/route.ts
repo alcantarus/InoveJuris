@@ -6,7 +6,7 @@ import {
   type DjenSyncFilters,
 } from '@/lib/djen'
 import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
-import { getAppEnv } from '@/lib/env'
+import { authErrorResponse, requireSessionContext } from '@/lib/server-auth'
 
 type SupabaseClient = any
 
@@ -37,7 +37,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-async function getClient(): Promise<SupabaseClient> {
+async function getClient(environment: string): Promise<SupabaseClient> {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
 
@@ -46,7 +46,7 @@ async function getClient(): Promise<SupabaseClient> {
   })
 
   if (!serviceKey) {
-    await client.rpc('set_app_environment', { env_name: getAppEnv() })
+    await client.rpc('set_app_environment', { env_name: environment })
   }
 
   return client
@@ -75,9 +75,13 @@ async function fetchWithRetry(filters: DjenSyncFilters) {
 
 export async function POST(req: Request) {
   let logId: number | null = null
+  let environment = 'production'
   const startedAt = new Date().toISOString()
 
   try {
+    const ctx = await requireSessionContext()
+    environment = ctx.environment
+
     const body = await req.json()
     const startDate = String(body.startDate || '').trim()
     const endDate = String(body.endDate || '').trim()
@@ -115,10 +119,7 @@ export async function POST(req: Request) {
         : 5,
     }
 
-    const client = await getClient()
-    const environment = body.environment === 'test' || body.environment === 'production'
-      ? body.environment
-      : getAppEnv()
+    const client = await getClient(environment)
 
     const { data: lawyerRows, error: lawyerError } = await client
       .from('lawyers')
@@ -356,6 +357,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result)
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error)
+    if (unauthorized) return unauthorized
+
     console.error('[djen-sync] erro:', error)
     const message = isMissingTable(error)
       ? 'A tabela de Publicações ainda não existe. Aplique a migration 20261118120000_create_publications.sql no Supabase.'
@@ -364,7 +368,7 @@ export async function POST(req: Request) {
 
     if (logId != null) {
       try {
-        const client = await getClient()
+        const client = await getClient(environment)
         await client.from('publication_sync_log').update({
           sync_status: 'Erro',
           finished_at: new Date().toISOString(),

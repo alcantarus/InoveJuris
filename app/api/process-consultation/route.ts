@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { fetchDatajud } from '@/lib/datajud'
+import { authErrorResponse, requireSessionContext } from '@/lib/server-auth'
 
 export async function POST(req: Request) {
   try {
+    await requireSessionContext()
+
     const { processNumber } = await req.json()
 
     if (!processNumber) {
@@ -14,6 +17,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result)
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error)
+    if (unauthorized) return unauthorized
+
     const message = error?.message || 'Erro interno na consulta'
     console.error('[process-consultation] erro:', message)
 

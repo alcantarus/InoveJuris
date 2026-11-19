@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { authErrorResponse, requireSessionContext } from '@/lib/server-auth';
 
 export async function GET() {
   try {
+    await requireSessionContext();
+
     // 1. Connection Status
     const { data: connectionData, error: connectionError } = await supabase
       .from('system_settings')
@@ -30,6 +33,8 @@ export async function GET() {
       lastBackupDate: null // We will fetch this from system_settings in the frontend
     });
   } catch (error: any) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error('Error fetching DB status:', error);
     return NextResponse.json({ error: 'Falha ao buscar status do banco' }, { status: 500 });
   }
