@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import AdmZip from 'adm-zip';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
 import { authErrorResponse, requireAdminContext } from '@/lib/server-auth';
+import { createServiceRoleClient, ServiceRoleConfigError } from '@/lib/supabase-service';
 
 export async function POST(request: Request) {
   try {
@@ -19,8 +18,10 @@ export async function POST(request: Request) {
     const zip = new AdmZip(buffer);
     const zipEntries = zip.getEntries();
 
-    const appEnv = admin.environment;
-    const supabase = createClient(defaultUrlProd, defaultKeyProd);
+    // Restore grava em todas as tabelas, inclusive audit_logs e
+    // system_settings, que já não aceitam escrita do anon. Usa service_role
+    // com falha explícita se a chave não estiver configurada.
+    const supabase = createServiceRoleClient();
 
     // Define restoration order to respect Foreign Keys (approximate)
     const tableOrder = [
@@ -79,6 +80,15 @@ export async function POST(request: Request) {
   } catch (error: any) {
     const unauthorized = authErrorResponse(error);
     if (unauthorized) return unauthorized;
+
+    if (error instanceof ServiceRoleConfigError) {
+      console.error('Restore Error:', error.message);
+      return NextResponse.json(
+        { error: 'Servidor sem configuração de escrita.' },
+        { status: 500 }
+      );
+    }
+
     console.error('Restore Error:', error);
     return NextResponse.json({ error: error.message || 'Falha na importação' }, { status: 500 });
   }

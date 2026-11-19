@@ -2,7 +2,6 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
 import { getAppEnv } from '@/lib/env';
 
 interface SystemSettings {
@@ -73,7 +72,6 @@ const SettingsContext = createContext<SettingsContextType>({
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
 
   // Dedupe de requisições em voo. Sem isso, mount + callback do Realtime
   // podiam disparar a mesma consulta duas vezes numa janela curta (a
@@ -171,29 +169,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // Optimistic update
       setSettings((prev) => ({ ...prev, [key]: value }));
 
-      const env = getAppEnv();
-      
-      // The supabase client proxy automatically adds environment: APP_ENV to the payload
-      // We explicitly pass the environment and key to ensure onConflict works correctly
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          key,
-          value,
-          environment: env, // Explicitly include for clarity
-          updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
-          ...(user?.id ? { updated_by: user.id } : {}),
-        }, {
-          onConflict: 'key,environment'
-        });
+      // A gravação passa pelo servidor: a rota valida a sessão, define o
+      // environment e o updated_by, e usa a service role — o anon não tem
+      // mais permissão de escrita em system_settings.
+      const response = await fetch('/api/settings/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
 
-      if (error) {
-        console.error(`Error updating setting ${key}:`, JSON.stringify(error, null, 2));
+      const isJson = response.headers.get('content-type')?.includes('application/json') ?? false;
+      const payload = isJson ? await response.json().catch(() => null) : null;
+
+      // `!isJson` cobre o redirecionamento para /login (HTML 200) quando a
+      // sessão já não existe: sem isso pareceria sucesso.
+      if (!response.ok || !isJson) {
+        console.error(`Error updating setting ${key}:`, payload ?? response.status);
         // Revert optimistic update by fetching from server
         fetchSettings(true);
-        // Try to get more details from the error object
-        const details = typeof error === 'object' ? JSON.stringify(error) : String(error);
-        throw new Error(details);
+        throw new Error(payload?.error || `Falha ao salvar a configuração ${key} (${response.status}).`);
       }
     } catch (err) {
       console.error(`Error in updateSetting for ${key}:`, err);
