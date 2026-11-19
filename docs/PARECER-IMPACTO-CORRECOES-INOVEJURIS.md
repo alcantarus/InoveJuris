@@ -1153,6 +1153,30 @@ FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 
 **Alternativas consideradas:** (a) gravar só `changed_fields` reduz JSON mas mantém 1 INSERT por heartbeat — não resolve I/O; (b) trigger com `WHEN` pulando mudança isolada de `last_seen_at` — mais preciso, porém mais complexo; (c) arquivamento frio — desnecessário em 3 MB; (d) não mexer — estável, mas o ruído continua crescendo.
 
+## 13.18 Medição pós-Fase 1C (janela desde 10:25:37 UTC)
+
+`stats_reset = 2026-11-19T10:25:37.130564+00` — janela limpa, trigger já alterado.
+
+| Query | Antes da 1C (13.16) | Depois da 1C | Variação |
+|---|---|---|---|
+| `app_validate_session` | 59,48 ms (32 / 1.903,22 ms) | **6,68 ms** (56 / 374,23 ms) | **−89% por chamada** |
+| `app_heartbeat` | 42,90 ms (31 / 1.329,81 ms) | **17,53 ms** (9 / 157,78 ms) | **−59% por chamada** |
+| `realtime.list_changes` | 9,51 ms (871 / 8.279,78 ms) | 8,47 ms (147 / 1.245,54 ms) | −11% por chamada; agregado −85% (menos polls) |
+| `audit_logs` (consulta simples) | 8,00 ms | 22,48 ms | 1 chamada isolada — ruído de amostra |
+| `get_clients_with_process_summary` | 78,85 ms | 23,57 ms | 1 chamada isolada |
+| Tempo total das queries da app | ~3,71 s | **~0,69 s** | **−81%** |
+| Cache | 99,979% | **99,985%** (13.072.534 hits / 1.901 reads) | +22 leituras físicas |
+
+**Leitura:**
+
+- A queda de `app_validate_session` de 59,48 → 6,68 ms é consistente com a remoção do INSERT de auditoria que o trigger fazia a cada UPDATE de sessão (dois snapshots JSONB + índices). Mesmo `queryid` — é exatamente a mesma consulta.
+- `app_validate_session` + `app_heartbeat` ainda são 77% do tempo da app, mas agora somam **532 ms** em vez de 3,23 s.
+- **Implicação importante:** o custo de 95 ms que motivava a Fase 1B era em grande parte o trigger de auditoria, não a lógica de validação. Com 6,68 ms/chamada, **não há mais justificativa para alterar `app_validate_session`** — mantê-la intacta é a decisão correta. Fase 1B segue sem autorização e sem necessidade aparente.
+- O agregado do `realtime.list_changes` caiu, mas o número de polls também (871 → 147) e a janela pode ser mais curta; a média por chamada caiu só 11%. Não atribuir toda a queda ao trigger.
+- Contadores `pg_stat_database` não são zeráveis no Supabase (`pg_stat_reset` → 42501): os deltas globais (tup_inserted/updated) misturam janelas e não servem para comparação isolada.
+
+**Pendente:** saída de `verificar_fase1c.sql` para prova direta de que não há mais `user_sessions / UPDATE` nos últimos 15 min; login com conta de teste, A/B/C com cookie fresco, console com `Ctrl+Shift+R` e observação do `Disk IO Balance`.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
