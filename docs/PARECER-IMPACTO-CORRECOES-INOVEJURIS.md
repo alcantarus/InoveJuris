@@ -1021,6 +1021,8 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 
 **Item 5 executado pelo usuário em 2026-11-19 — resultado:** `ANALYZE` aplicado a todas as tabelas `public`; `last_analyze = 2026-11-19 09:38:11 UTC`. `n_live_tup` corrigido: `audit_logs` 2.248, `clients` 113, `publications` 56, `system_settings` 11 (antes: 57/0/0/0 e `last_analyze=null`). Na primeira tentativa foi executada apenas a consulta final do script, sem o bloco `DO $$`; a reexecução do bloco corrigiu. Nenhum dado foi alterado e não há rollback.
 
+**Código publicado em 2026-11-19:** Preview `dpl_4HU25Fp4t6oJYo9vj5UsoJsECC6h` e Production `dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC` (alias `https://inove-juris.vercel.app`). Rotas `/`, `/publicacoes`, `/processos` e `/configuracoes` retornaram `307 → /login` sem cookie. Rollback: promover `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` / `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY`, `git revert 8cdf51e` e `rollback_otim1_index_audit_logs.sql`.
+
 ### Validação pendente
 
 1. Executar item 4 e item 5 no SQL Editor, um de cada vez, e conferir a saída.

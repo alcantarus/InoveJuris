@@ -8,8 +8,8 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 | Item | Estado |
 |---|---|
-| Deploy de produção | `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
-| Deploy de preview | `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY` |
+| Deploy de produção | `dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` (Fase 1A) |
+| Deploy de preview | `dpl_4HU25Fp4t6oJYo9vj5UsoJsECC6h` (Fase 1A) |
 | Verificação HTTP nos dois ambientes | Rotas `/`, `/documentos`, `/publicacoes`, `/configuracoes`, `/relatorios` e `/fluxo-caixa` → `307` sem cookie (redirect de login), conforme esperado |
 | Views separadas por ambiente? | **Sim (F7-VIEWS).** `environment` exposto nas 5 views do dashboard; Proxy filtra todas as tabelas/views, sem lista de exceções |
 | Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` |
@@ -57,7 +57,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 ## 4. Validação positiva — concluída em 2026-11-18
 
-Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. **Os deploys de referência atuais são `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY` (preview) e `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` (produção).**
+Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. **Os deploys de referência atuais são `dpl_4HU25Fp4t6oJYo9vj5UsoJsECC6h` (preview) e `dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC` (produção).**
 
 **Atenção ao `vercel curl`:** os parâmetros do curl precisam vir depois de `--`; sem isso, o CLI cria arquivos espúrios (`-w`, `--max-time`).
 
@@ -66,7 +66,7 @@ Os três testes foram executados com cookie de sessão de teste, primeiro no pre
 ### Teste A — assinatura em `templates`
 
 ```powershell
-npx vercel curl "/api/storage/signed-url?bucket=templates&path=1772776048729_clients.docx" --deployment dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj -- --cookie "session_id=SESSION_ID; app_env=APP_ENV" --silent --show-error
+npx vercel curl "/api/storage/signed-url?bucket=templates&path=1772776048729_clients.docx" --deployment dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC -- --cookie "session_id=SESSION_ID; app_env=APP_ENV" --silent --show-error
 ```
 
 Esperado: JSON com `signedUrl` e `expiresIn: 3600`. `503` = service role não visível no deploy; `307`/`401` = sessão inválida.
@@ -74,7 +74,7 @@ Esperado: JSON com `signedUrl` e `expiresIn: 3600`. `503` = service role não vi
 ### Teste B — redirecionamento
 
 ```powershell
-npx vercel curl "/api/storage/signed-url?bucket=templates&path=1772776048729_clients.docx&redirect=1" --deployment dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj -- --cookie "session_id=SESSION_ID; app_env=APP_ENV" --silent --show-error --include
+npx vercel curl "/api/storage/signed-url?bucket=templates&path=1772776048729_clients.docx&redirect=1" --deployment dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC -- --cookie "session_id=SESSION_ID; app_env=APP_ENV" --silent --show-error --include
 ```
 
 Esperado: `HTTP/2 302` com `location: https://.../storage/v1/object/sign/templates/...`
@@ -82,7 +82,7 @@ Esperado: `HTTP/2 302` com `location: https://.../storage/v1/object/sign/templat
 ### Teste C — assinatura em `marketing`
 
 ```powershell
-npx vercel curl "/api/storage/signed-url?bucket=marketing&path=templates%2F0.025508762559267928.png" --deployment dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj -- --cookie "session_id=SESSION_ID; app_env=APP_ENV" --silent --show-error
+npx vercel curl "/api/storage/signed-url?bucket=marketing&path=templates%2F0.025508762559267928.png" --deployment dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC -- --cookie "session_id=SESSION_ID; app_env=APP_ENV" --silent --show-error
 ```
 
 Esperado: mesmo JSON do Teste A.
@@ -106,7 +106,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 - Parecer técnico antes de qualquer modificação.
 - Sistema não pode ficar parado; correção gradual, backup antes, validação entre fatias.
 - Nenhuma implementação de tenant autorizada — apenas parecer.
-- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5, F6a/F6b, chaves novas do Supabase (Ponto 2), remoção da chave legada fixa do código, bloqueio de chaves legadas no `localStorage`, correção dos erros `42703`, **F7-VIEWS (separação por `environment`) e limpeza do console**. Chaves legadas desativadas. Deploy atual: `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj`.
+- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5, F6a/F6b, chaves novas do Supabase (Ponto 2), remoção da chave legada fixa do código, bloqueio de chaves legadas no `localStorage`, correção dos erros `42703`, **F7-VIEWS (separação por `environment`) e limpeza do console**. Chaves legadas desativadas. Deploy atual: `dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC` (Fase 1A).
 - Não usar sessão de usuário real nem criar sessão artificial sem autorização.
 - Usuários reais preservados: `1`, `2`, `23`, `65`, `73`. Usuário `73` (`marcos@gmail.com`) não deve ser removido.
 - `public.users` possui `canAccessReceivables` e `canaccessreceivables` (diferem só por caixa).
