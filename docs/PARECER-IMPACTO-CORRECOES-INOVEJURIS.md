@@ -1106,6 +1106,53 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 
 **Conclusão:** a Fase 1A entregou o prometido na leitura (audit 133,32 → 9,76 ms; cache 99,979%). O problema de I/O **não é volume, é padrão de acesso**: 87% do tempo da app em validação/heartbeat e 8,28 s em Realtime. Otimizar `audit_logs` não resolve a madrugada; a alavanca real (Fase 1B) continua sem autorização.
 
+## 13.17 Confirmação: `audit_logs` — ruído de `user_sessions` (2026-11-19)
+
+Script `analise_audit_logs.sql` executado (versão corrigida, saída única). Resultado:
+
+| Origem | Linhas | % do total | JSON |
+|---|---|---|---|
+| `user_sessions / UPDATE` | **1.919** | **79,8%** | **1.168 kB** |
+| `contracts / UPDATE` | 60 | 2,5% | 100 kB |
+| `user_sessions / INSERT` | 54 | 2,2% | 16 kB |
+| `installments / UPDATE` | 49 | 2,0% | 48 kB |
+| `user_sessions / login` | 48 | 2,0% | 5.536 bytes |
+| `user_sessions / DELETE` | 10 | 0,4% | 3.301 bytes |
+| Demais tabelas | 265 | 11,0% | ~250 kB |
+
+- **Total `user_sessions`: 2.031 linhas = 84,5%** da tabela; só os UPDATEs são 1.168 kB ≈ **47% do heap**.
+- Tamanho real: **2.405 linhas**, heap 2.488 kB, índices 432 kB, **total 3.024 kB (~2,95 MiB)**. Mesmo 10× ainda cabe folgado nos 500 MB do plano.
+- Crescimento: **2.403 linhas em 2026-11**, apenas 2 em 2026-10. De 2.397 para 2.405 em poucos minutos de uso (~8 linhas).
+- Trigger confirmado: `audit_user_sessions AFTER INSERT OR DELETE OR UPDATE ON public.user_sessions FOR EACH ROW EXECUTE FUNCTION log_audit_event()`.
+- A função `log_audit_event()` já calcula `changed_fields`, **mas ainda grava `old_data` + `new_data` completos** em todo UPDATE — inclusive o heartbeat que só muda `last_seen_at`.
+- Evidência de login **não depende do trigger**: `app_authenticate` insere explicitamente `action='login'` com IP/user agent (`20261118150000_auth_session_hardening.sql`, linhas 306–313).
+
+**Ligação com o I/O:** na janela limpa, `tup_updated` +104 e `tup_inserted` +84 em ~10 min para 63 chamadas de sessão (32 validações + 31 heartbeats) — ~1,3 INSERT de auditoria por chamada. Cada UPDATE de sessão gera INSERT com dois snapshots JSONB e atualização de índices → WAL. Isso é **escrita**, que consome orçamento de I/O; a leitura já foi resolvida pelo índice da Fase 1A.
+
+**Plano proposto (Fase 1C) — não executado, aguardando autorização:**
+
+```sql
+-- Forward: parar de auditar apenas UPDATE de user_sessions
+DROP TRIGGER IF EXISTS audit_user_sessions ON public.user_sessions;
+CREATE TRIGGER audit_user_sessions
+AFTER INSERT OR DELETE ON public.user_sessions
+FOR EACH ROW EXECUTE FUNCTION log_audit_event();
+```
+
+```sql
+-- Rollback: restaurar exatamente o DDL original
+DROP TRIGGER IF EXISTS audit_user_sessions ON public.user_sessions;
+CREATE TRIGGER audit_user_sessions
+AFTER INSERT OR DELETE OR UPDATE ON public.user_sessions
+FOR EACH ROW EXECUTE FUNCTION log_audit_event();
+```
+
+**Efeito esperado:** remove ~80% das linhas e ~1,17 MB (47% do heap) de ruído; corta ~1 INSERT + 1 UPDATE de WAL por heartbeat/validação. Preserva login (explícito), INSERT/DELETE de sessão e toda a auditoria de tabelas de negócio. **Não apaga histórico existente.**
+
+**Atenção de durabilidade:** `app/setup/page.tsx`, `components/settings/SystemTab.tsx` (script copiável pela UI) e `fix_audit_triggers.sql` recriam o trigger com `UPDATE`. Se algum for rodado no futuro, a otimização é revertida. Recomenda-se ajustar esses locais na mesma mudança.
+
+**Alternativas consideradas:** (a) gravar só `changed_fields` reduz JSON mas mantém 1 INSERT por heartbeat — não resolve I/O; (b) trigger com `WHEN` pulando mudança isolada de `last_seen_at` — mais preciso, porém mais complexo; (c) arquivamento frio — desnecessário em 3 MB; (d) não mexer — estável, mas o ruído continua crescendo.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
