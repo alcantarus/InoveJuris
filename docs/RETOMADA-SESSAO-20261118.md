@@ -207,6 +207,7 @@ Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-
 
 1. Executar `reset_stats_medicao_limpa.sql` (zera só contadores), usar a app por ~10 min e rodar `queries_app.sql`; comparar com a linha de base da seção 13.12. A medição anterior ficou contaminada porque o `stats_reset` ainda era 03:32 — leitura preliminar na seção 13.14 do parecer.
 2. Publicar o código (deploy de Preview e Production), testar login com **conta de teste**, repetir A/B/C com **cookie fresco** e conferir o console com `Ctrl+Shift+R`.
-3. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.
+3. **Parecer `audit_logs` (seção 13.15):** usuário pediu otimização/avaliação. Nada implementado. Executar `analise_audit_logs.sql` (read-only) e enviar as saídas para confirmar se `user_sessions` gera ruído de heartbeat e de onde vêm as 2.248 linhas. Só depois propor mudança com forward/rollback e autorização explícita.
+4. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.
 
 Se qualquer passo falhar: `rollback_otim1_index_audit_logs.sql` para o índice e `git revert 8cdf51e` para o código. Nenhum desses passos altera autenticação.

@@ -1053,6 +1053,35 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 
 **Para comparar de forma justa:** executar `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\reset_stats_medicao_limpa.sql`, usar a app por ~10 min e rodar `queries_app.sql`. O reset zera só contadores de monitoramento — nenhum dado é alterado. `pg_stat_reset()` foi removido do script porque o SQL Editor do Supabase retorna `42501: permission denied`; apenas `extensions.pg_stat_statements_reset()` é necessário e foi executado com sucesso às **2026-11-19 09:57:07 UTC**.
 
+## 13.15 Parecer sobre `audit_logs` e solução inteligente para I/O (2026-11-19)
+
+**Pergunta:** 2 mil registros é prática adequada? Registrar tudo infla o banco? Como tornar o sistema mais ágil sem gargalos?
+
+**Resposta objetiva:**
+
+- `audit_logs` tem **2.248 linhas / ~2,6 MB** em um banco de **25 MB** (~10%). **Não é inflamento.** Em sistema jurídico, auditoria tem valor de evidência — não se apaga histórico sem política de retenção definida.
+- O problema da madrugada **não foi volume**: foi esgotamento do orçamento de I/O do plano Nano (5 MB/s de baseline), causado por **padrão de acesso**. Banco com 0 órfãos, 0 tuplas mortas e cache de 99,97% não tem "sujeira" a limpar.
+- A **leitura já foi otimizada** na Fase 1A: o índice `idx_audit_logs_env_performed_at` reduziu a consulta do dashboard de 133,32 ms para 46,63 ms de média (0,766 ms no `EXPLAIN` isolado).
+
+**Onde existe excesso legítimo de registro (a confirmar):** o trigger genérico `log_audit()` é aplicado a **todas as tabelas públicas exceto `audit_logs` e `system_settings`** — portanto `user_sessions` também é auditada. Cada UPDATE de sessão (heartbeat de 20 s + `app_validate_session`) gera um INSERT em `audit_logs` com `old_data` + `new_data` **completos**. Isso é ruído operacional, não evento de negócio, e é o que converte acesso em escrita/WAL.
+
+**Custo real medido:**
+
+| Item | Custo | Relevância para I/O |
+|---|---|---|
+| `app_validate_session` | 95,18 ms/chamada (Fase 1B, não autorizada) | Alto — maior custo unitário |
+| `realtime.list_changes` | 17,79 s agregados (5 subscriptions no servidor) | Alto — reduzir exige observar menos tabelas (mudança funcional) |
+| `audit_logs` (consulta do dashboard) | 139,88 ms em 3 chamadas | Irrelevante — já indexado |
+
+**Conclusão:** otimizar `audit_logs` **não resolve o I/O**. O alvo inteligente é a **escrita** gerada pela auditoria de sessão. Opções — nenhuma implementada:
+
+1. **Parar de auditar `user_sessions`** — remove o ruído do heartbeat sem perder evidência de negócio. Recomendado; exige autorização.
+2. **Gravar diff em vez de snapshot** — reduz o JSON por linha, mas muda o formato de `old_data`/`new_data` e pode afetar a tela de auditoria.
+3. **Retenção com arquivamento frio no Storage** — mantém a evidência fora do banco; exige política de retenção definida pelo usuário.
+4. **Particionamento mensal** — só se o volume crescer; desnecessário em 2 mil linhas.
+
+**Antes de qualquer mudança:** executar `analise_audit_logs.sql` (read-only) para confirmar quais tabelas geram mais linhas, se `user_sessions` tem trigger ativo e o tamanho real (heap + índices + TOAST). Nenhuma exclusão de histórico sem política jurídica definida. Backup/rollback antes de cada alteração.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
