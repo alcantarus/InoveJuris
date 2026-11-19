@@ -904,3 +904,38 @@ Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput wi
 - **Implicação para a decisão:** "upgrade para Micro" custa US$ 25/mês, não US$ 10. Continua sendo mais barato que dias de migração, mas deixa de ser "quase free" — reforça a Fase 1 (otimização sem custo) como primeira escolha.
 
 **Fontes consultadas em 2026-11-19:** documentação oficial Supabase (compute/disk, pricing, manage compute usage, replicação), Neon (free tier/faqs), Nhost (pricing), Appwrite (pricing/changelog), Oracle Cloud (Always Free resources) e páginas de comparação de BaaS. Limites devem ser reconfirmados no ato de qualquer decisão.
+
+# 15. Parecer NoSQL free — viabilidade para o InoveJuris (2026-11-19)
+
+- **Pergunta do usuário:** se quiser trocar o banco por um NoSQL, qual opção free "comporta todos os recursos" hoje implementados?
+- **Resposta direta:** **nenhuma**. Os recursos atuais são implementados em Postgres/Supabase — funções plpgsql (`app_authenticate`, `app_heartbeat`, `app_validate_session`, etc.), RLS, 5 views SQL, joins relacionais em 58 tabelas, `pg_cron`, publication `supabase_realtime`, Storage com URLs assinadas. Não existe NoSQL free que ofereça isso de forma transparente: a migração é uma **reescrita integral da camada de dados e das regras de negócio**, não uma troca de provider.
+
+## 15.1 O que teria que ser reescrito
+
+| Recurso atual | Equivalente NoSQL |
+|---|---|
+| 15+ funções `SECURITY DEFINER` em plpgsql | Cloud Functions / Functions do BaaS, em TypeScript/JS |
+| RLS + filtro `environment` no Proxy | regras de segurança do provedor ou filtro manual em **toda** consulta |
+| 5 views SQL dos KPIs | documentos pré-agregados ou funções de agregação |
+| Joins relacionais (processos, clientes, prazos, parcelas) | desnormalização ou múltiplas leituras por tela |
+| Realtime `postgres_changes` | listeners do Firestore / Realtime do Appwrite |
+| Storage privado + signed URLs | SDK de Storage do provedor |
+| `pg_cron` (job DataJud) | função agendada do provedor |
+| Sessões por cookie + heartbeat de 20 s | lógica explicitamente implementada na aplicação |
+
+## 15.2 Candidatas avaliadas
+
+| Opção | Free? | Veredito |
+|---|---|---|
+| **Appwrite Cloud Free** | Sim — 2 projetos, 1 database/1 bucket/2 functions por projeto, 2 GB storage, 5 GB banda, 750 mil execuções, 75 mil MAU | **BaaS NoSQL free mais completo** (Auth, document DB, Storage, Functions, Realtime). Ainda exige reescrever RPCs, views, RLS e joins; banda/storage curtos para DOCX/imagens |
+| **Firebase Spark** | Parcial — Firestore 1 GiB, 50 mil leituras e 20 mil escritas/dia, 10 GiB egress; Auth 50 mil MAU; Hosting 10 GB/360 MB dia | **Não atende "tudo free"**: na tabela oficial, **Cloud Storage e Cloud Functions aparecem como "Not applicable" no Spark**, exigindo Blaze (pago). Além disso, o padrão atual (heartbeat 20 s ≈ 4.320 escritas/dia **por aba** + 14 consultas no dashboard) consumiria a cota de operações rapidamente |
+| **PocketBase self-host** | Sim (software livre, sem custo de cloud) | Single binary Go com SQLite, Auth, Realtime, arquivos, admin UI, hooks JS e cron. Roda em VM Oracle Always Free. Não tem plpgsql, RLS nem views SQL: lógica vira hooks JS. Você opera backup/TLS/upgrades |
+| **MongoDB Atlas M0** | Sim — 512 MB compartilhado | Somente database; sem Auth, Storage, Functions ou Realtime prontos. Insuficiente sozinho |
+
+## 15.3 Recomendação
+
+**Não migrar para NoSQL com o objetivo de resolver o problema de I/O.** Isso trocaria um limite de disco por uma reescrita total e por um novo tipo de cota (por leitura/escrita), justamente com o padrão de acesso atual que já é intenso. Manter a **Fase 1 (otimização no Supabase, gratuita)** continua sendo a decisão mais segura.
+
+Se, ainda assim, a decisão for sair do Supabase: **Appwrite Cloud Free** é a opção NoSQL free mais próxima de um BaaS completo; **Firebase** só com Blaze (pago); **PocketBase** se o time aceitar operar o próprio servidor. Nenhuma delas oferece paridade automática com o que está implementado hoje.
+
+**Fontes consultadas em 2026-11-19:** Firebase Pricing (Spark × Blaze), Appwrite Pricing/Changelog, PocketBase Docs, MongoDB Atlas free tier. Limites devem ser reconfirmados no ato de qualquer decisão.
