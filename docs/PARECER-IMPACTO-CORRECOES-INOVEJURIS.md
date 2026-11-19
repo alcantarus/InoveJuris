@@ -910,7 +910,7 @@ Executado o `diagnostico_resumo.sql`. Conclusão principal: **não há "sujeira"
 
 ### Próxima medição
 
-`C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\queries_caras.sql` — consultas por tempo total, por número de chamadas, escritas (INSERT/UPDATE/DELETE), acesso a tabelas de log, contagem exata das tabelas suspeitas e tamanho total do banco. Com isso dá para separar o que é **leitura repetida** do que é **escrita constante** antes de propor qualquer mudança.
+Scripts em `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\`: `queries_caras.sql` (seções separadas) e `queries_caras_resumo.sql` (**um único JSON**). Medem tempo total, número de chamadas, escritas (INSERT/UPDATE/DELETE), acesso a tabelas de log, contagem exata das tabelas suspeitas e tamanho total do banco. Com isso dá para separar o que é **leitura repetida** do que é **escrita constante** antes de propor qualquer mudança. Correção aplicada em 19/11: `n_tup_ins` não existe em `pg_stat_database` (é `tup_inserted`); a regex de escritas usa `[[:space:]]` em vez de `\s`.
 
 **Nenhuma alteração foi feita.** Heartbeat de 20 s, acesso alternativo e contas reais continuam fora de escopo.
 
