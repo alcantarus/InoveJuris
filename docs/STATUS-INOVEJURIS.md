@@ -11,6 +11,7 @@
 - **Item 5 concluído em 2026-11-19:** `ANALYZE` em todas as tabelas `public`; `last_analyze = 09:38:11 UTC`; `n_live_tup`: `audit_logs` 2.248, `clients` 113, `publications` 56, `system_settings` 11 (antes 57/0/0/0). Nenhum dado alterado, sem rollback.
 - **Deploys da Fase 1A (2026-11-19):** Preview `dpl_4HU25Fp4t6oJYo9vj5UsoJsECC6h` e Production `dpl_325c7tN3ofH2tT8qGKsGv9fzqrXC` (alias `https://inove-juris.vercel.app`). Rotas `/`, `/publicacoes`, `/processos`, `/configuracoes` → `307 → /login` sem cookie.
 - **Rollback completo da Fase 1A:** promover `dpl_7Tidw9mST2TSU4Fo6xEhk6GiCWAj` (Production) e `dpl_AWWbfXvcZNSJaqQcz1bygGfZ5otY` (Preview), `git revert 8cdf51e` e executar `rollback_otim1_index_audit_logs.sql`.
+- **Medição pós-Fase 1A (preliminar, janela contaminada — `stats_reset` ainda 03:32):** `audit_logs` 133,32 → 46,63 ms de média (0,766 ms no `EXPLAIN` isolado); `realtime.list_changes` 6,75 ms/chamada mas 17,79 s agregados; `app_validate_session` 95,18 ms/chamada (Fase 1B, intacta); cache 99,97%. Para medição justa: `reset_stats_medicao_limpa.sql` + ~10 min de uso + `queries_app.sql`. Detalhes: seção 13.14 do parecer.
 - Pendente: executar 4 e 5 no SQL Editor (um de cada vez), repetir medição limpa, publicar o código, testar login com conta de teste, A/B/C com cookie fresco, conferir console (`Ctrl+Shift+R`) e observar `Disk IO Balance`.
 - Detalhes: seção 13.13 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`.
 

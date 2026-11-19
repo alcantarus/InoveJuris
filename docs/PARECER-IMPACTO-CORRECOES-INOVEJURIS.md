@@ -1030,6 +1030,29 @@ Os scripts usam `CREATE INDEX IF NOT EXISTS`, não apagam nada e incluem verific
 3. Deploy do código, login com conta de teste, A/B/C com cookie fresco e conferência do console com `Ctrl+Shift+R`.
 4. Observar o saldo `Disk IO Balance` nas horas seguintes.
 
+## 13.14 Medição após a Fase 1A — leitura preliminar (2026-11-19)
+
+**Ressalva:** a amostra enviada **não é uma janela limpa**. O `stats_reset` continua `2026-11-19T03:32:23.230869+00:00`, o mesmo da medição anterior — ela acumula DDL, `ANALYZE`, deploys e a própria medição anterior. Ainda assim, a direção dos números é útil:
+
+| Query | Antes (chamadas / total / média) | Depois (chamadas / total / média) | Leitura |
+|---|---|---|---|
+| `audit_logs` do dashboard | 1 / 133,32 ms / 133,32 ms | 3 / 139,88 ms / **46,63 ms** | −65% por chamada; `EXPLAIN` isolado deu 0,766 ms |
+| `realtime.list_changes` | 178 / 1.873,91 ms / 10,53 ms | 2.635 / 17.790,1 ms / **6,75 ms** | −36% por chamada, mas volume 14,8× (janela ~6× maior) |
+| `app_heartbeat` | 6 / 437,70 ms / 72,95 ms | 35 / 2.452,08 ms / 70,06 ms | Estável por chamada (não foi alterado) |
+| `app_validate_session` | 20 / 367,24 ms / 18,36 ms | 69 / **6.567,39 ms / 95,18 ms** | **Maior custo agora** — é a Fase 1B, não autorizada |
+| `system_settings` | 2 / 26,70 ms / 13,35 ms | 8 / 193,02 ms / 24,13 ms | Janela maior; sem redução visível |
+| Aniversariantes (`clients birthDate`) | 3 / 38,12 ms | 3 / 38,12 ms | Sem novas chamadas na janela |
+| Cache | 99,9% | **99,97%** | `blks_hit` 6.633.186 × `blks_read` 1.860 |
+
+**Achados:**
+
+1. **Índice confirmado:** a consulta do dashboard caiu de 133,32 ms para 46,63 ms de média (e 0,766 ms no `EXPLAIN` isolado). O `queryid` é o mesmo, então é exatamente a mesma consulta.
+2. **Realtime continua dominando em agregado** (17,79 s). Consolidar 5 canais em 1 reduziu conexões WebSocket do cliente, **mas o servidor ainda mantém 5 subscriptions** (uma por tabela), então o polling `realtime.list_changes` permanece. Reduzir de verdade exigiria observar menos tabelas — mudança de funcionalidade, **fora do autorizado**.
+3. **`app_validate_session` é hoje o maior custo por chamada** (95,18 ms) e o maior volume de escrita (`tup_updated` subiu de 36 para 1.088). É exatamente a Fase 1B, que o usuário optou por **não mexer agora**. Continua intacta.
+4. **`system_settings` e aniversariantes** não mostram redução nesta amostra por causa da janela contaminada — a medição limpa dirá.
+
+**Para comparar de forma justa:** executar `C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\reset_stats_medicao_limpa.sql`, usar a app por ~10 min e rodar `queries_app.sql`. O reset zera só contadores de monitoramento — nenhum dado é alterado.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.

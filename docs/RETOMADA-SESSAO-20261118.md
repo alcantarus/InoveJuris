@@ -205,7 +205,7 @@ Backup dos documentos antes desta atualização: `C:\InoveTecnologia\InoveJuris-
 
 ### Próximo passo (nesta ordem)
 
-1. Repetir a medição limpa com a app em uso (`queries_app.sql`) e comparar com a linha de base da seção 13.12 do parecer.
+1. Executar `reset_stats_medicao_limpa.sql` (zera só contadores), usar a app por ~10 min e rodar `queries_app.sql`; comparar com a linha de base da seção 13.12. A medição anterior ficou contaminada porque o `stats_reset` ainda era 03:32 — leitura preliminar na seção 13.14 do parecer.
 2. Publicar o código (deploy de Preview e Production), testar login com **conta de teste**, repetir A/B/C com **cookie fresco** e conferir o console com `Ctrl+Shift+R`.
 3. Observar `Disk IO Balance` nas horas seguintes e atualizar os três documentos com os resultados.
 
