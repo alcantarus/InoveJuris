@@ -836,6 +836,16 @@ Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput wi
 4. Levantar `pg_stat_statements` / `pg_stat_activity` e preparar o plano de otimização da Fase 1 (seção 14.5), com backup e rollback antes de cada mudança.
 5. Com aval do usuário, trocar a mensagem "Não foi possível validar as credenciais." por "Sistema temporariamente indisponível — tente novamente" quando o erro for `57014`/timeout — sem criar acesso alternativo.
 
+## 13.7 Prazo de reposição do orçamento de I/O — esclarecimento (2026-11-19)
+
+- **Não existe reset diário em horário fixo nem intervalo fixo de horas.** A documentação atual afirma que o budget *"refills whenever disk IO demand is at or below baseline"*; o guia de troubleshooting de memória/swap detalha que cada projeto tem uma *"baseline balance replenishment rate"*: uso abaixo dessa taxa aumenta o saldo, uso acima o reduz. Há redação mais antiga em KBs (*"burst ... every day"*, *"replenished the next day"*), interpretada aqui como **saldo diário com recarga contínua**, não como disparo de relógio.
+- **Nano (free):** baseline de **5 MB/s e 250 IOPS**. O saldo se reconstrói na razão aproximada `5 MB/s − demanda atual`. Com demanda zero são ~5 MB por segundo (≈300 MB/min, ≈18 GB/h). Exemplos **ilustrativos** — o tamanho do bucket não é publicado pela Supabase: 10 GB ≈ 34 min; 50 GB ≈ 2,8 h; 100 GB ≈ 5,7 h; um dia inteiro de baseline (5 MB/s × 86.400 s ≈ 432 GB) ≈ 24 h. Se o app continuar gerando tráfego no baseline, o saldo praticamente não sobe.
+- **Só o saldo de I/O muda com o tempo.** Não há redefinição automática das configurações do plano free, nem do `statement_timeout`, nem do limite de 500 MB de banco. A pausa de projetos free após 1 semana de inatividade é política separada, com retomada manual.
+- **Onde acompanhar:** Dashboard → **Observability** → Overview/Database → métrica **"Disk IO Balance"** (0% = esgotado, 100% = cheio); em **Infrastructure Settings** aparece o menor saldo amostrado dos últimos 7 dias. A métrica não está disponível via Metrics API, portanto não permite alerta customizado.
+- **Correção da orientação anterior:** "fechar as abas por 10–15 min" era apenas um primeiro teste, não o prazo de recarga. Na prática, deixe o app **fechado por algumas horas**. Se não voltar: upgrade de compute (Micro ≈ US$ 10/mês, 11 MB/s de baseline, 1 GB RAM, 10 GB de banco; upgrade com downtime curto) ou Support. O próprio Dashboard oferece **Restart project** (Settings → General): encerra workloads presos e pode destravar temporariamente, com downtime curto e sem apagar dados — usar somente com o sistema parado.
+- **Revalidação em 19/11:** consulta REST simples continua em **TIMEOUT** em 8 s.
+- **Fontes consultadas em 2026-11-19:** *Compute and Disk*, *High Disk I/O*, *Memory and Swap usage explained* e *Diagnose HTTP API issues* (docs.supabase.com).
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.

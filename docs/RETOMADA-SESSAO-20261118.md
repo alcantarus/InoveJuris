@@ -152,7 +152,7 @@ Nada precisa ser feito antes de desligar o computador: código, documentação e
 
 ### Passo 0 — antes de retomar qualquer item desta retomada
 
-1. Parar tentativas de login e fechar abas do app por 10–15 min (o orçamento de I/O recarrega quando a demanda fica em ou abaixo de 5 MB/s).
+1. Parar tentativas de login e **manter o app fechado por algumas horas** — 10–15 min servem só como primeiro teste. O saldo de I/O se reconstrói continuamente enquanto a demanda fica em ou abaixo de 5 MB/s; o prazo real depende de quanto foi consumido (seção 13.7 do parecer de impacto).
 2. Rodar `select 1;` em https://supabase.com/dashboard/project/jhlxzqsgmudkbjkynqdl/sql/new
 3. Se responder: repetir REST simples, rota de login, testes A/B/C com **cookie fresco** e conferência visual do console (`Ctrl+Shift+R`).
 4. Se não responder: **upgrade de compute** no Supabase ou **Help → Support** com o erro do SQL Editor, `57014`, `504`, o project ref e a mensagem de esgotamento de burst. Não há token de gestão do Supabase neste ambiente para reiniciar o projeto por API.
