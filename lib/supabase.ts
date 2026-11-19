@@ -80,12 +80,26 @@ export const supabase = new Proxy({} as any, {
         // 'geo_cache' is a global IP cache
         // 'client_onboarding_tokens' must be accessible globally for the onboarding flow
         // 'tasks' is currently not partitioned by environment
+        //
+        // Estas views nao expoem a coluna 'environment'. O filtro automatico
+        // do Proxy retornaria 42703 (column ... does not exist). As views
+        // vw_dashboard_* e vw_indicator_commission_status tem a coluna e
+        // continuam sendo filtradas normalmente.
+        const VIEWS_SEM_ENVIRONMENT = [
+          'vw_process_velocity',
+          'vw_cash_flow_forecast',
+          'vw_area_efficiency',
+          'vw_client_process_summary',
+          'process_sync_status'
+        ]
+
         if (
           table === 'users' || 
           table === 'user_sessions' || 
           table === 'geo_cache' || 
           table === 'client_onboarding_tokens' ||
-          table === 'contract_diseases'
+          table === 'contract_diseases' ||
+          VIEWS_SEM_ENVIRONMENT.includes(table)
         ) {
           return queryBuilder
         }

@@ -6,10 +6,10 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 | Item | Estado |
 |---|---|
-| Deploy de produção | `dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
-| Deploy de preview | `dpl_4f7xJnTzyjcQu8k7TLvgzhMRRGAP` — gerado após o bloqueio de chaves legadas no `localStorage` |
+| Deploy de produção | `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL` — `target: production`, status **Ready**, alias `https://inove-juris.vercel.app` |
+| Deploy de preview | `dpl_HeKYexkBYyaELZR2DN46femm2YHK` — gerado após a correção das views do dashboard |
 | Verificação HTTP nos dois ambientes | `/`, `/documentos` e `/publicacoes` retornaram `200` com cookie de teste fresco; sem cookie → `307` |
-| Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2` |
+| Código da F6a em produção? | **Sim.** Publicado no deploy `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL` |
 | Chaves do Supabase nos dois ambientes? | **Sim.** anon key `sb_publishable_...` e service role `sb_secret_...` em Preview e Production; chaves legadas **desativadas** |
 | Alteração em buckets/policies/objetos do Storage? | **Sim (F6b):** 3 buckets passaram a privados e as 17 policies foram removidas. Nenhum objeto foi apagado |
 | Git | Git 2.56 instalado via winget (executável em `C:\Program Files\Git\cmd\git.exe`); branch `trabalho-com-claude`, pushed no GitHub — HEAD atual em `git log -1` |
@@ -38,6 +38,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 | Ponto 2 — unificar chaves | Publishable + secreta em Preview e Production, com redeploy e validação | `dpl_DVUkHA4hhKzni8ENe62i8wvsM65w`, `dpl_7PA9Yead2KsQSNhjAf1dhULMap7s`, seção 12.11 do parecer |
 | Desativação das legadas + chave fixa | Legadas desativadas; `defaultKeyProd` passou a ler env; A/B/C revalidados com cookie fresco | `dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo`, `dpl_HoAt2kNRiBweZS9itN7kUipzBYor`, seções 12.12/12.13 |
 | Cache/chave custom legada | Chaves legadas no `localStorage` ignoradas e removidas; hard reload necessário no navegador | `dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2`, `dpl_4f7xJnTzyjcQu8k7TLvgzhMRRGAP`, seção 12.14 |
+| Views do dashboard (42703) | Proxy isenta views sem `environment`; select de `vw_process_velocity` corrigido | `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL`, `dpl_HeKYexkBYyaELZR2DN46femm2YHK`, seção 12.15 |
 
 ## 3. Preview da F6a
 
@@ -51,7 +52,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 ## 4. Validação positiva — concluída em 2026-11-18
 
-Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. Após o bloqueio de chaves legadas no `localStorage`, os deploys de referência são `dpl_4f7xJnTzyjcQu8k7TLvgzhMRRGAP` (preview) e `dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2` (produção).
+Os três testes foram executados com cookie de sessão de teste, primeiro no preview e depois em produção (já com buckets privados). Resultado: A e C devolveram JSON com `signedUrl` e `expiresIn: 3600`; B devolveu `302` com `Location` para a URL assinada. Os comandos abaixo ficam apenas como referência — `app_env` vale `production` e `session_id` é o UUID da sessão. Após a correção das views do dashboard, os deploys de referência são `dpl_HeKYexkBYyaELZR2DN46femm2YHK` (preview) e `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL` (produção).
 
 **Atenção ao `vercel curl`:** os parâmetros do curl precisam vir depois de `--`; sem isso, o CLI cria arquivos espúrios (`-w`, `--max-time`).
 
@@ -97,7 +98,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 - Parecer técnico antes de qualquer modificação.
 - Sistema não pode ficar parado; correção gradual, backup antes, validação entre fatias.
 - Nenhuma implementação de tenant autorizada — apenas parecer.
-- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5, F6a/F6b, chaves novas do Supabase (Ponto 2), remoção da chave legada fixa do código e bloqueio de chaves legadas no `localStorage`. Chaves legadas desativadas. Deploy atual: `dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2`.
+- Correções de segurança já em produção: F3 (`exec_sql` revogado), F4a, F5, F6a/F6b, chaves novas do Supabase (Ponto 2), remoção da chave legada fixa do código, bloqueio de chaves legadas no `localStorage` e correção dos erros `42703` nas views. Chaves legadas desativadas. Deploy atual: `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL`.
 - Não usar sessão de usuário real nem criar sessão artificial sem autorização.
 - Usuários reais preservados: `1`, `2`, `23`, `65`, `73`. Usuário `73` (`marcos@gmail.com`) não deve ser removido.
 - `public.users` possui `canAccessReceivables` e `canaccessreceivables` (diferem só por caixa).
@@ -119,7 +120,7 @@ Outras opções que estavam na mesa caso o usuário mude de ideia: passar os coo
 ## 8. Retomada em resumo
 
 1. Abrir este documento, `docs/STATUS-INOVEJURIS.md` e as seções 12.9/12.10/12.11 do parecer de impacto.
-2. Confirmar que a produção está em `dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2` e que os buckets estão privados.
+2. Confirmar que a produção está em `dpl_2i4To1n9zycciTw2cuVLuB6yjwvL` e que os buckets estão privados.
 3. Desativar as chaves legadas no Supabase e concluir a rotação F1 restante.
 4. Fazer a validação manual dos fluxos de upload/remoção e das telas (DOCX, marketing, cartões de aniversário).
 5. Registrar novas entregas nos documentos e comitar/push (Git já instalado em `C:\Program Files\Git\cmd\git.exe`).

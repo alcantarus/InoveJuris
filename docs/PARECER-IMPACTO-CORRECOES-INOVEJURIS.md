@@ -723,3 +723,19 @@ Observações: `vercel curl` avisa que bypassa o Deployment Protection da Vercel
 - Novos deploys: Production **`dpl_2vB2eVQRtA4Qm5YrhR2Uz1MaNLU2`** (alias `https://inove-juris.vercel.app`) e Preview **`dpl_4f7xJnTzyjcQu8k7TLvgzhMRRGAP`**. Verificação no deploy de produção: o chunk `6650-43dd9d69e98687d7.js` servido contém `sb_publishable_` e não contém a chave antiga.
 - Ação necessária no navegador do usuário: **hard reload (`Ctrl+Shift+R`)** para descartar o chunk em cache; se persistir, remover `custom_supabase_key_production` / `custom_supabase_url_production` no Console (`localStorage.removeItem(...)`) ou usar "restaurar padrão" em Configurações → Sistema.
 - Os erros de Kanban, KPIs, aniversariantes, GPS e WebSocket tinham a **mesma causa**; não eram falhas de RLS, grants ou das correções F3–F6.
+
+## 12.15 Erros `42703` nas views do dashboard — correção de código (2026-11-18)
+
+- Com a chave corrigida, o console passou a mostrar erros `42703` que estavam mascarados:
+  - `column vw_process_velocity.environment does not exist`;
+  - `column vw_cash_flow_forecast.environment does not exist`;
+  - `column vw_area_efficiency.environment does not exist`;
+  - `column vw_process_velocity.contract_id does not exist` (achado preexistente já registrado no item 11.3).
+- Causa: o Proxy em `lib/supabase.ts` injeta `.eq('environment', currentEnv)` em **toda** tabela consultada. Cinco views não expõem essa coluna: `vw_process_velocity`, `vw_cash_flow_forecast`, `vw_area_efficiency`, `vw_client_process_summary` e `process_sync_status`. As views `vw_dashboard_*`, `vw_indicator_commission_status` e `vw_portal_commission_details` **têm** a coluna e continuaram filtradas normalmente.
+- Correções aplicadas:
+  - Proxy passou a isentar explicitamente as cinco views sem `environment` do filtro automático.
+  - `app/page.tsx:246` passou a selecionar as colunas reais de `vw_process_velocity` (`process_id, process_number, status, created_at, last_update, days_since_last_movement`) em vez de `contract_id, client_id, law_area`.
+- Validação REST com a chave publishable: os quatro `select` usados pela tela e pelos cards retornaram `200`; a consulta com `environment=eq.production` em `vw_process_velocity` retornou `400`, confirmando o diagnóstico. `npm run build` passou.
+- Novos deploys: Production **`dpl_2i4To1n9zycciTw2cuVLuB6yjwvL`** (alias `https://inove-juris.vercel.app`) e Preview **`dpl_HeKYexkBYyaELZR2DN46femm2YHK`**.
+- **Risco residual (pendente):** as definições SQL dessas cinco views não filtram por `environment` (confirmado em `views_current.json`, snapshot da F5). Sem o filtro do Proxy, os KPIs passam a agregar registros de `production` e `test`. A correção definitiva é alterar as views no banco para expor/filtrar `environment` (ou usar `app.current_env`), em fatia própria com validação de KPIs — **não foi feito nesta rodada**.
+- Avisos restantes no console são cosméticos/ambientais: `__cf_bm` é cookie do Cloudflare e `width(-1)/height(-1)` é tamanho de contêiner de gráfico; nenhum afeta dados.
