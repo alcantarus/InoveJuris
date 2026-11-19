@@ -14,9 +14,10 @@ const getValidUrl = (url: string | undefined, fallback: string, name: string) =>
   return fallback;
 }
 
-// Production Credentials (provided by user to ensure consistent connection across all devices)
-export const defaultUrlProd = "https://jhlxzqsgmudkbjkynqdl.supabase.co"
-export const defaultKeyProd = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpobHh6cXNnbXVka2Jqa3lucWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzc3NTksImV4cCI6MjA4Nzk1Mzc1OX0.a9PyO6LDGVRhsNThECIema9DzAPCElp-7e-Dmiq4tRo"
+// Credenciais de producao lidas das variaveis de ambiente.
+// Nenhuma chave fica fixa no codigo: a chave antiga foi desativada no Supabase.
+export const defaultUrlProd = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jhlxzqsgmudkbjkynqdl.supabase.co"
+export const defaultKeyProd = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 // We now ONLY use the Production database for both environments (Logical Isolation)
 const clients = new Map<string, any>();

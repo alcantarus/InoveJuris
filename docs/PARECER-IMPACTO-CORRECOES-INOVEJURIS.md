@@ -691,3 +691,21 @@ Observações: `vercel curl` avisa que bypassa o Deployment Protection da Vercel
 - Validação nos dois deploys: Testes A/B/C OK (`signedUrl` + `expiresIn: 3600`; `302` no `redirect=1`), `/`, `/documentos` e `/publicacoes` com `200`, sem cookie com `307 → /login` e URL pública antiga com `400`. Nenhuma regressão observada.
 - As chaves legadas `eyJ...` **ainda estão ativas** no Supabase; desativá-las no painel é o próximo passo manual e deve ocorrer só depois desta validação.
 - Rollback: promover `dpl_6QkgKQDyWcFo4c45y8qSUZ1QbQ6i` em Production e `dpl_DhMwQBT242d2HNL6eEcAPLCioAbU` no Preview. A promoção de um deploy antigo não desfaz as variáveis de ambiente; como as chaves novas funcionaram, não há necessidade de restaurar as legadas.
+
+## 12.12 Desativação das chaves legadas e verificação do `pg_cron` (2026-11-18)
+
+- Antes de desativar, investigou-se o job 5 do `pg_cron`, que era o único com JWT em texto plano (`chama_supabase=true`, `tem_jwt_legado=true`). Consulta detalhada: `chamada_functions=true`, `chamada_auth=false`, `chamada_rest=false`, `bearer_com_jwt=true`, `apikey_com_jwt=false`, `prefixo_chave_supabase_v2=false`, `menciona_datajud=true`, primeiro JWT com 219 caracteres. Conclusão: trata-se do **token da API DataJud**, não de uma chave do Supabase — desativar as chaves legadas do Supabase não deveria afetá-lo.
+- Baseline do job 5 antes da desativação: `status=succeeded`, `start_time=2026-11-18 03:00:00.533347+00`, `end_time=03:00:00.601988+00`.
+- As chaves legadas `anon` e `service_role` foram desativadas pelo usuário em **Settings → API Keys**. Verificação empírica: uma chamada REST com a anon key legada retornou **`401`**, confirmando que ela foi rejeitada. O valor da chave não foi registrado em arquivo algum.
+- A chave legada foi colada no chat pelo usuário durante essa verificação; como ela já está desativada, não há validade remanescente. Registra-se apenas como prática a evitar em rodadas futuras.
+- Risco residual: a Edge Function invocada pelo job 5 pode ler a variável legada `SUPABASE_SERVICE_ROLE_KEY` do próprio ambiente. O job será verificado no próximo disparo (cerca de `03:00 UTC`); se falhar, as legadas devem ser reativadas temporariamente e a função ajustada para as novas variáveis `SUPABASE_SECRET_KEYS`.
+- Revalidação dos dois deploys após a desativação: A/B/C retornaram `401` com `{"error":"Sessão inválida."}` nos dois ambientes; `/`, `/documentos` e `/publicacoes` continuaram `200` e sem cookie `307`. A causa imediata foi a **expiração do cookie de teste**: a sessão exige heartbeat com tolerância de 90 segundos e as chamadas via `curl` não renovam `last_seen_at`.
+
+## 12.13 Achado crítico — chave legada fixa no código (2026-11-18)
+
+- Ao investigar o `401`, descobriu-se que `lib/supabase.ts` mantinha a anon key legada fixa em `defaultKeyProd`, usada por `getSupabaseConfig()` e `getSupabase()` — ou seja, por **todo o acesso a dados da aplicação**, não apenas pelo storage. A chave era exatamente a que o usuário colou no chat na verificação da desativação. Com a chave desativada no Supabase, os clientes reais deixariam de carregar dados, embora as páginas continuassem respondendo `200` (casca HTML).
+- Correção aplicada: `defaultKeyProd` passou a ler `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `defaultUrlProd` passou a ler `NEXT_PUBLIC_SUPABASE_URL` (com fallback de URL). Nenhuma chave fica mais fixa no código principal. Varredura do `.next/static` pelo sufixo da chave antiga retornou vazio; a única ocorrência do prefixo `eyJ...` no bundle é um placeholder textual na tela de setup.
+- `npm run build` passou em Next.js 15.5.12. O `.env.local` local também foi alinhado com a chave publishable.
+- Novos deploys: Production **`dpl_5qvCZ4fmEzYkcjrXugZRBFSJBEUo`** (alias `https://inove-juris.vercel.app`) e Preview **`dpl_HoAt2kNRiBweZS9itN7kUipzBYor`**.
+- Validação com sessão fresca pendente: o cookie antigo expirou pela regra de 90 s; é necessário um novo cookie de teste do navegador para repetir A/B/C nos dois deploys.
+- Pendência adicional: cerca de 25 scripts avulsos na raiz do repositório ainda contêm a mesma chave legada fixa. Não são importados pela aplicação, mas devem ser limpos na F1.
