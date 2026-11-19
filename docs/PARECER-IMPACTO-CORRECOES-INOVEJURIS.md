@@ -882,6 +882,38 @@ Mensagem exibida pelo Supabase ao usuário: *"Once exhausted, disk throughput wi
 - **Primeiro retorno recebido (apenas seção de views):** 13 views no schema `public`, todas com "0 bytes" — esperado, pois view é objeto virtual e não armazena dados. O dado relevante é que 4 views são consultadas no mount do dashboard e recalculam joins a cada carga. As 5 views da F7 são apenas parte desse total; as outras 8 ficam como ponto de revisão de segurança **separado**, sem alteração autorizada.
 - **Limites assumidos:** não vou reduzir o heartbeat de 20 s nem criar acesso alternativo. Qualquer mudança decorrente do levantamento passa por parecer, backup e rollback.
 
+## 13.10 Resultado do diagnóstico read-only — interpretação (2026-11-19)
+
+Executado o `diagnostico_resumo.sql`. Conclusão principal: **não há "sujeira" de volume que justifique o esgotamento de I/O**. O banco é pequeno (~7 MB nos 30 maiores objetos; maior tabela `audit_logs` com 2,6 MB). O problema é o **padrão de acesso** — quantidade de consultas e escritas —, não armazenamento acumulado.
+
+| Indicador | Valor | Interpretação |
+|---|---|---|
+| PostgreSQL | 17.6 (aarch64) | Versão atual |
+| `shared_buffers` / `effective_cache_size` / `work_mem` | 224 MB / 128 MB / 4 MB | Todo o dados cabe em memória; I/O não vem de leitura de disco em massa |
+| `statement_timeout` | 2 min | Explica o erro `57014` do incidente |
+| Cache hit | 91,24% (970 blocos amostrados) | Amostra pequena; não conclusiva, mas coerente com banco em cache |
+| Órfãos de FK | 0 em 8 | Nada quebrado |
+| Tuplas mortas | 0 em todas | Sem inchaço de `UPDATE`/`DELETE` pendente |
+| `last_autovacuum` / `last_analyze` | `null` em todas | Estatísticas nunca coletadas ou resetadas — **exige `ANALYZE`**, com aval |
+| `seq_scan` alto | só `schema_migrations` (78) e `subscription` (209) | Tabelas internas; nenhuma tabela da app com problema |
+| Atividade / transações paradas | apenas a própria consulta / nenhuma | Sem workload preso no momento |
+| Views | 13, todas "0 bytes" | Normal (view é virtual); 4 são consultadas no mount do dashboard |
+| TOAST | `publications` 376 kB, `system_settings` 272 kB | Pequeno; não explica o consumo |
+| `pg_stat_statements` | **1.11 disponível** | Permite medir as queries mais caras |
+
+### Armadilha evitada: NÃO apagar índices
+
+- A consulta de **índices não usados** listou até PKs (`audit_logs_pkey`, `user_sessions_pkey`, `financial_transactions_pkey`) com `idx_scan = 0`. Isso é sinal de **estatísticas resetadas**, não de índices inúteis.
+- Os índices trigram (`idx_clients_unaccent_*`, `idx_processes_unaccent_*`, `idx_contracts_unaccent_*`) são usados pelas RPCs `expand_search_all` e `get_clients_summary` via `immutable_unaccent(...) ILIKE` (`migrations/20261116131500_add_unaccent_search_indexes.sql`). Removê-los quebraria a busca sem acentos.
+- A consulta de **índices duplicados** deu 11 pares, mas todos são **falsos positivos**: 10 pertencem a `auth`/`storage` (gerenciados pela Supabase) e o par `idx_client_relationships_client` × `idx_client_relationships_primary` difere pelo `WHERE is_primary` (`migrations/20261118140000_client_legal_guardians.sql:28-31`). O mesmo vale para `users_email_key` × `users_email_partial_key`.
+- Os scripts `diagnostico_readonly.sql` e `diagnostico_resumo.sql` foram corrigidos para comparar também o predicado (`pg_get_expr(indpred, indrelid)`), eliminando esse falso positivo.
+
+### Próxima medição
+
+`C:\InoveTecnologia\InoveJuris-Backups\AUDITORIA-IO-20261119\queries_caras.sql` — consultas por tempo total, por número de chamadas, escritas (INSERT/UPDATE/DELETE), acesso a tabelas de log, contagem exata das tabelas suspeitas e tamanho total do banco. Com isso dá para separar o que é **leitura repetida** do que é **escrita constante** antes de propor qualquer mudança.
+
+**Nenhuma alteração foi feita.** Heartbeat de 20 s, acesso alternativo e contas reais continuam fora de escopo.
+
 # 14. Parecer de banco free — alternativas ao Supabase e alívio de I/O (2026-11-19)
 
 - **Pergunta do usuário:** existe outra solução equiparável ao Supabase, free e com mais recursos, que não trave dessa forma? Foi pedido um parecer que deixasse a decisão menos preocupante, sem implementação.
