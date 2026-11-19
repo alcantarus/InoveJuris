@@ -1326,7 +1326,7 @@ Execução autorizada da Fase 0 em branch `fase0-seguranca`, sem deploy de Produ
 | `shadcn` | em `dependencies` | em `devDependencies` |
 
 Artefatos SQL em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`:
-- `forward_cleanup_old_logs.sql` **aplicado pelo usuário em 2026-11-19** (`Success. No rows returned`); `rollback_cleanup_old_logs.sql` disponível; **não agendado** (nenhum job `pg_cron` criado);
+- `forward_cleanup_old_logs.sql` **aplicado pelo usuário em 2026-11-19** (`Success. No rows returned`; verificação: `anon`/`authenticated` sem execute e definição com `performed_at`); `rollback_cleanup_old_logs.sql` disponível; **não agendado** (nenhum job `pg_cron` criado);
 - `inventario_f4b.sql` e `inventario_f4b_v2.sql` (read-only: RLS/policies, grants de `anon`/`authenticated`, funções executáveis, volume por tabela).
 
 ## 16.2 Dependências
