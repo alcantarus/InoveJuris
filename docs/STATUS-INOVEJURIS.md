@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; F4b-2c, chave ECC própria, F3, alinhamento de branches e teste de pagamento/estorno pendentes).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; branches alinhadas em `995fdb7`; F4b-2c, chave ECC própria, F3 e teste de pagamento/estorno pendentes).
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 
@@ -77,7 +77,7 @@ Executado na branch `fase0-seguranca`, em etapas pequenas, cada uma com backup/r
 - Rollback: `rollback_retencao_90d.sql` (volta a 90/180 e remove o job).
 
 ### Pendências abertas
-- **Merge** — concluído até `e8a2288`; faltam `9ebe9a3`, `e910740`, `080e042` e o commit de docs em `main`/`trabalho-com-claude`.
+- **Merge** — concluído em 2026-11-20: `main`, `trabalho-com-claude` e `fase0-seguranca` alinhados em `995fdb7` (5 commits trazidos: `483009a`, `c4d806c`, `f1bac58`, `85dc94b`, `995fdb7`).
 - **Fase B da identidade** — trocar `SUPABASE_JWT_ROLE=authenticated` (depende de autorização + verificação de grants/RPCs).
 - **Chave ECC limpa** — a standby `c73f6852-eeca-455d-9549-647afae7e493` precisa ser marcada como `previously_used`/revogada para liberar a importação de chave própria.
 - **F3** (~17 funções `http*` de `supabase_admin`) — depende do chamado no Supabase Support.
@@ -638,4 +638,4 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Correção (commit `85dc94b`):** modal extraído para `components/cashflow/NewTransactionModal.tsx` com `React.memo` e estado local; `useMemo` em `filteredTransactions`; `Intl.NumberFormat` reaproveitado em `lib/utils.ts`. Lógica de gravação, validação de saldo e confirmação mantidas.
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; deploy `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`). A mesma digitação instrumentada caiu para **1.119 ms** (≈27 ms/tecla, ~14× mais rápido); perfil com 1.096 ms em `(idle)` de 1.393 ms e console sem erros. O modal zera ao fechar/reabrir. Nenhum lançamento foi submetido — sem efeito financeiro.
 - **Rollback:** promover `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` e `git revert 85dc94b`; detalhes no parecer.
-- **Pendente:** validação do usuário no celular; o restante segue igual (pagamento/estorno com autorização, alinhamento de branches, F4b-2c, chave ECC e F3).
+- **Pendente:** validação do usuário no celular; o restante segue igual (pagamento/estorno com autorização, F4b-2c, chave ECC e F3).
