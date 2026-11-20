@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import DashboardLayout from './dashboard-layout'
 import { cn, formatDate, formatCurrency, getTodayBR } from '@/lib/utils'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
@@ -69,6 +69,46 @@ import TaskKanban from '@/components/tasks/TaskKanban'
 
 const COLORS = ['#4f46e5', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
+// Derivações puras fora do componente: podem ser reaproveitadas entre renders
+// sem segurar closures desnecessárias.
+function getReceivablesForDays(installments: any[], contracts: any[], days: number) {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const futureDate = new Date();
+  futureDate.setDate(today.getDate() + days);
+  futureDate.setHours(23,59,59,999);
+
+  return installments
+    .filter((i: any) => {
+      const contract = contracts.find(c => c.id === i.contract_id);
+      if (!contract || contract.isProBono) return false;
+      
+      const [year, month, day] = i.dueDate.split('-').map(Number);
+      const dueDateLocal = new Date(year, month - 1, day);
+      dueDateLocal.setHours(0,0,0,0);
+
+      return ['Aberto', 'Parcial', 'Prorrogada', 'Atrasada'].includes(i.status) && dueDateLocal >= today && dueDateLocal <= futureDate;
+    })
+    .reduce((acc: number, i: any) => acc + (Number(i.amount) || 0) - (Number(i.amountPaid) || 0), 0);
+}
+
+// Memoização dos cards e widgets: mudanças de estado da página (privacidade,
+// insight, filtro) não precisam re-renderizar quem não depende delas.
+// Nos cards com callback de navegação, o comparador ignora a função porque ela
+// sempre executa a mesma ação — uma arrow function nova não invalida o memo.
+const MemoTodayFocusWidget = React.memo(TodayFocusWidget)
+const MemoGPSDashboardCard = React.memo(GPSDashboardCard)
+const MemoProcessVelocityCard = React.memo(ProcessVelocityCard)
+const MemoCashFlowForecastCard = React.memo(CashFlowForecastCard)
+const MemoAreaEfficiencyCard = React.memo(AreaEfficiencyCard)
+const MemoBirthdayWidget = React.memo(BirthdayWidget)
+const MemoBirthdayChecker = React.memo(BirthdayChecker)
+const MemoTaskKanban = React.memo(TaskKanban)
+const MemoGlobalActionCenter = React.memo(GlobalActionCenter)
+const MemoLiquidityGapCard = React.memo(LiquidityGapCard, (a, b) => a.gap === b.gap && a.isVisible === b.isVisible)
+const MemoStuckProcessesCard = React.memo(StuckProcessesCard, (a, b) => a.count === b.count)
+const MemoDefaultRiskCard = React.memo(DefaultRiskCard, (a, b) => a.riskAmount === b.riskAmount && a.count === b.count)
+
 const StatCard = ({ label, value, change, trend, icon: Icon, color, bg }: any) => {
   const { isVisible, toggleVisibility } = usePrivacy();
   const textContainerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +144,62 @@ const StatCard = ({ label, value, change, trend, icon: Icon, color, bg }: any) =
     </motion.div>
   );
 };
+
+const MemoStatCard = React.memo(StatCard)
+
+const DASHBOARD_SECTIONS = [
+  { id: 'visao-geral', label: 'Visão geral' },
+  { id: 'prioridades', label: 'Prioridades' },
+  { id: 'financeiro', label: 'Financeiro' },
+  { id: 'relatorios', label: 'Relatórios' },
+  { id: 'pessoas', label: 'Pessoas' },
+  { id: 'auditoria', label: 'Auditoria' },
+] as const
+
+const SectionHeader = ({ id, title, subtitle }: { id: string; title: string; subtitle?: string }) => (
+  <div id={id} className="scroll-mt-28 pt-2">
+    <div className="flex items-center gap-3">
+      <div className="h-8 w-1 rounded-full bg-indigo-600" />
+      <div>
+        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  </div>
+)
+
+// Gráficos abaixo da dobra só são montados quando chegam perto da viewport.
+// O placeholder mantém a altura para evitar salto de layout.
+const DeferredBlock = ({ children, minHeight = 420 }: { children: React.ReactNode; minHeight?: number }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (visible) return
+    const node = ref.current
+    if (!node) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setVisible(true)
+        observer.disconnect()
+      }
+    }, { rootMargin: '800px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [visible])
+
+  return (
+    <div ref={ref}>
+      {visible ? children : (
+        <div className="animate-pulse rounded-2xl bg-slate-100/70" style={{ minHeight }} />
+      )}
+    </div>
+  )
+}
 
 export default function Page() {
   const [mounted, setMounted] = useState(false)
@@ -285,44 +381,40 @@ export default function Page() {
 
     // Um único canal com cinco listeners. Antes eram cinco canais
     // independentes, cada um com seu próprio polling de realtime.list_changes.
+    // Vários eventos em sequência geravam várias buscas completas (12 consultas
+    // cada). O debounce converge isso em uma única atualização.
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    const scheduleFetch = () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => { void fetchData() }, 400)
+    }
+
     const channel = supabase
       .channel('dashboard-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'processes' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'installments' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_transactions' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'processes' }, scheduleFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, scheduleFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'installments' }, scheduleFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_transactions' }, scheduleFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, scheduleFetch)
       .subscribe()
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
       supabase.removeChannel(channel)
     }
   }, [])
 
-  if (!mounted) {
-    return (
-      <DashboardLayout>
-        <div className="animate-pulse space-y-8">
-          <div className="h-10 w-48 bg-slate-200 rounded-lg" />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-100 rounded-2xl" />)}
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
   // --- Filtering Logic ---
-  const filteredContracts = data.contracts.filter((c: any) => {
+  const filteredContracts = useMemo(() => data.contracts.filter((c: any) => {
     const matchesArea = filters.lawArea === 'all' || c.lawArea === filters.lawArea
     const matchesType = filters.contractType === 'all' || 
       (filters.contractType === 'pro-bono' && c.isProBono) ||
       (filters.contractType === 'financed' && c.isFinanced) ||
       (filters.contractType === 'normal' && !c.isProBono && !c.isFinanced)
     return matchesArea && matchesType
-  })
+  }), [data.contracts, filters.lawArea, filters.contractType])
 
-  const filteredProcesses = data.processes.filter((p: any) => {
+  const filteredProcesses = useMemo(() => data.processes.filter((p: any) => {
     // Try to link process to contract to filter by area/type
     const contract = data.contracts.find(c => c.processNumber === p.number)
     if (!contract) return filters.lawArea === 'all' && filters.contractType === 'all'
@@ -333,7 +425,7 @@ export default function Page() {
       (filters.contractType === 'financed' && contract.isFinanced) ||
       (filters.contractType === 'normal' && !contract.isProBono && !contract.isFinanced)
     return matchesArea && matchesType
-  })
+  }), [data.processes, data.contracts, filters.lawArea, filters.contractType])
 
   // --- KPI Calculations ---
   const activeProcesses = filteredProcesses.filter((p: any) => p.status !== 'Arquivado').length
@@ -366,11 +458,14 @@ export default function Page() {
     }))
 
   // 4. Law Area Distribution
-  const areaCounts: Record<string, number> = {}
-  filteredContracts.forEach((c: any) => {
-    const area = c.lawArea || 'Não Informado'
-    areaCounts[area] = (areaCounts[area] || 0) + 1
-  })
+  const areaCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    filteredContracts.forEach((c: any) => {
+      const area = c.lawArea || 'Não Informado'
+      counts[area] = (counts[area] || 0) + 1
+    })
+    return counts
+  }, [filteredContracts])
   
   // Monthly Goal from Settings
   const monthlyGoal = settings.dashboard_goals?.monthly_revenue || 150000
@@ -400,14 +495,14 @@ export default function Page() {
   const stuckInJudicial = filteredContracts.filter(c => !c.inssProtocol && c.processNumber && c.status === 'Aberto').length
 
   // Profitability by Area
-  const profitabilityByArea = Object.entries(areaCounts).map(([name, count]) => {
+  const profitabilityByArea = useMemo(() => Object.entries(areaCounts).map(([name]) => {
     const value = filteredContracts
       .filter(c => c.lawArea === name)
       .reduce((acc, c) => acc + Number(c.contractValue || 0), 0)
     return { name, value }
-  }).sort((a, b) => b.value - a.value)
+  }).sort((a, b) => b.value - a.value), [areaCounts, filteredContracts])
 
-  const totalReceivable = data.installments
+  const totalReceivable = useMemo(() => data.installments
     .filter((t: any) => {
       const contract = data.contracts.find(c => c.id === t.contract_id)
       if (!contract) return false
@@ -418,7 +513,8 @@ export default function Page() {
         (filters.contractType === 'normal' && !contract.isProBono && !contract.isFinanced)
       return matchesArea && matchesType && ['Aberto', 'Parcial', 'Prorrogada', 'Atrasada'].includes(t.status)
     })
-    .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0) - (Number(t.amountPaid) || 0), 0)
+    .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0) - (Number(t.amountPaid) || 0), 0),
+    [data.installments, data.contracts, filters.lawArea, filters.contractType])
 
   const totalReceived = data.transactions
     .filter((t: any) => {
@@ -464,7 +560,7 @@ export default function Page() {
       return acc + (end - start) / (1000 * 60 * 60 * 24)
     }, 0) / (filteredProcesses.filter(p => p.status === 'Arquivado').length || 1)
 
-  const overdueInstallmentsRaw = data.installments.filter((i: any) => {
+  const overdueInstallmentsRaw = useMemo(() => data.installments.filter((i: any) => {
     const contract = data.contracts.find(c => c.id === i.contract_id)
     if (!contract) return false
     const matchesArea = filters.lawArea === 'all' || contract.lawArea === filters.lawArea
@@ -482,7 +578,7 @@ export default function Page() {
     today.setHours(0,0,0,0)
     
     return (i.status === 'Atrasada') || (['Aberto', 'Parcial', 'Prorrogada'].includes(i.status) && dueDateLocal < today)
-  })
+  }), [data.installments, data.contracts, filters.lawArea, filters.contractType])
 
   const overdueTotal = overdueInstallmentsRaw.reduce((acc: number, i: any) => acc + (Number(i.amount) || 0) - (Number(i.amountPaid) || 0), 0)
   const defaultRate = totalReceivable > 0 ? (overdueTotal / totalReceivable) * 100 : 0
@@ -497,13 +593,13 @@ export default function Page() {
   ].filter(d => d.value > 0)
 
   // 2. Cash Flow Projection (Next 12 Months)
-  const next12Months = [...Array(12)].map((_, i) => {
+  const next12Months = useMemo(() => [...Array(12)].map((_, i) => {
     const d = new Date()
     d.setMonth(d.getMonth() + i)
     return d
-  })
+  }), [])
 
-  const cashFlowProjectionData = next12Months.map(date => {
+  const cashFlowProjectionData = useMemo(() => next12Months.map(date => {
     const monthStr = date.toLocaleString('pt-BR', { month: 'short' })
     const monthIso = date.toISOString().slice(0, 7)
 
@@ -524,16 +620,16 @@ export default function Page() {
       recorrente: recurring,
       exito: successFees 
     }
-  })
+  }), [next12Months, data.installments, data.contracts])
 
   // 3. Revenue Evolution (Filtered)
-  const last6Months = [...Array(6)].map((_, i) => {
+  const last6Months = useMemo(() => [...Array(6)].map((_, i) => {
     const d = new Date()
     d.setMonth(d.getMonth() - i)
     return d
-  }).reverse()
+  }).reverse(), [])
 
-  const revenueChartData = last6Months.map(date => {
+  const revenueChartData = useMemo(() => last6Months.map(date => {
     const monthStr = date.toLocaleString('pt-BR', { month: 'short' })
     const monthIso = date.toISOString().slice(0, 7)
 
@@ -542,31 +638,37 @@ export default function Page() {
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)
 
     return { name: monthStr.charAt(0).toUpperCase() + monthStr.slice(1), receita: total }
-  })
+  }), [last6Months, data.transactions])
 
-  const areaChartData = Object.entries(areaCounts)
+  const areaChartData = useMemo(() => Object.entries(areaCounts)
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => b.value - a.value), [areaCounts])
 
   // 5. Process Status Distribution
-  const statusCounts: Record<string, number> = {}
-  filteredProcesses.forEach((p: any) => {
-    const status = p.status || 'Não Informado'
-    statusCounts[status] = (statusCounts[status] || 0) + 1
-  })
-  const statusChartData = Object.entries(statusCounts)
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    filteredProcesses.forEach((p: any) => {
+      const status = p.status || 'Não Informado'
+      counts[status] = (counts[status] || 0) + 1
+    })
+    return counts
+  }, [filteredProcesses])
+  const statusChartData = useMemo(() => Object.entries(statusCounts)
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => b.value - a.value), [statusCounts])
 
   // 6. Installment Status Distribution
-  const instStatusCounts: Record<string, number> = {}
-  data.installments.forEach((i: any) => {
-    const status = i.status || 'Aberto'
-    instStatusCounts[status] = (instStatusCounts[status] || 0) + 1
-  })
-  const instStatusChartData = Object.entries(instStatusCounts)
+  const instStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    data.installments.forEach((i: any) => {
+      const status = i.status || 'Aberto'
+      counts[status] = (counts[status] || 0) + 1
+    })
+    return counts
+  }, [data.installments])
+  const instStatusChartData = useMemo(() => Object.entries(instStatusCounts)
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => b.value - a.value), [instStatusCounts])
 
   // 7. Churn Risk (Processes with no update in 30 days)
   const churnRiskProcesses = filteredProcesses.filter(p => {
@@ -579,7 +681,7 @@ export default function Page() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const overdueList = overdueInstallmentsRaw.map((i: any) => {
+  const overdueList = useMemo(() => overdueInstallmentsRaw.map((i: any) => {
     const contract = data.contracts.find((c: any) => c.id === i.contract_id)
     const client = data.clients.find((cl: any) => cl.id === contract?.client_id)
     return {
@@ -587,32 +689,14 @@ export default function Page() {
       clientName: client?.name || 'Cliente não identificado',
       contractId: contract?.id
     }
-  }).sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 5)
+  }).sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 5),
+  [overdueInstallmentsRaw, data.contracts, data.clients])
 
-  const receivables7Days = getReceivablesForDays(7);
-  const receivables15Days = getReceivablesForDays(15);
-  const receivables30Days = getReceivablesForDays(30);
-
-  function getReceivablesForDays(days: number) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const futureDate = new Date();
-    futureDate.setDate(today.getDate() + days);
-    futureDate.setHours(23,59,59,999);
-
-    return data.installments
-      .filter((i: any) => {
-        const contract = data.contracts.find(c => c.id === i.contract_id);
-        if (!contract || contract.isProBono) return false;
-        
-        const [year, month, day] = i.dueDate.split('-').map(Number);
-        const dueDateLocal = new Date(year, month - 1, day);
-        dueDateLocal.setHours(0,0,0,0);
-
-        return ['Aberto', 'Parcial', 'Prorrogada', 'Atrasada'].includes(i.status) && dueDateLocal >= today && dueDateLocal <= futureDate;
-      })
-      .reduce((acc: number, i: any) => acc + (Number(i.amount) || 0) - (Number(i.amountPaid) || 0), 0);
-  }
+  const { receivables7Days, receivables15Days, receivables30Days } = useMemo(() => ({
+    receivables7Days: getReceivablesForDays(data.installments, data.contracts, 7),
+    receivables15Days: getReceivablesForDays(data.installments, data.contracts, 15),
+    receivables30Days: getReceivablesForDays(data.installments, data.contracts, 30),
+  }), [data.installments, data.contracts])
 
   // Actionable Items
   const deadlinesToday = data.deadlines.filter((d: any) => {
@@ -681,6 +765,22 @@ export default function Page() {
     { label: 'Inadimplência', value: `${defaultRate.toFixed(1)}%`, change: 'Meta: < 5%', trend: defaultRate < 5 ? 'up' : 'down', icon: AlertOctagon, color: 'bg-amber-500', show: user?.canAccessContracts },
   ].filter(s => s.show !== false)
 
+  // Retorno condicional movido para depois de todos os hooks: as derivações
+  // acima rodam com listas vazias enquanto carrega, o que é barato e mantém
+  // a ordem dos hooks estável entre renders.
+  if (!mounted) {
+    return (
+      <DashboardLayout>
+        <div className="animate-pulse space-y-8">
+          <div className="h-10 w-48 bg-slate-200 rounded-lg" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-100 rounded-2xl" />)}
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -724,7 +824,7 @@ export default function Page() {
               </select>
             </div>
 
-            <BirthdayChecker />
+            <MemoBirthdayChecker />
 
             <button 
               onClick={generateRuleBasedInsight}
@@ -745,6 +845,21 @@ export default function Page() {
             </p>
           </div>
         )}
+
+        {/* Navegação entre seções */}
+        <nav className="sticky top-0 z-30 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
+          {DASHBOARD_SECTIONS.map(section => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className="shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              {section.label}
+            </a>
+          ))}
+        </nav>
+
+        <SectionHeader id="visao-geral" title="Visão geral" subtitle="Acesso rápido, prazos e indicadores do escritório" />
 
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-3">
@@ -845,22 +960,150 @@ export default function Page() {
           </motion.div>
         )}
 
-        {/* Actionable Insights */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <TodayFocusWidget />
-          <LiquidityGapCard gap={totalReceivable - overdueTotal} isVisible={isVisible('dashboard_liquidity')} toggleVisibility={() => toggleVisibility('dashboard_liquidity')} />
-          <StuckProcessesCard count={stuckInProtocol + stuckInJudicial} onAction={() => window.location.href = '/processos'} />
-          <DefaultRiskCard riskAmount={overdueTotal} count={overdueInstallmentsRaw.length} onAction={() => window.location.href = '/contas-a-receber'} />
-          <GPSDashboardCard />
-          <ProcessVelocityCard />
-          <CashFlowForecastCard />
-          <AreaEfficiencyCard />
+        {/* Business Pulse */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Goal & Metrics */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Monthly Goal Card */}
+            {user?.canAccessContracts && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+                  <Target size={180} />
+                </div>
+                
+                <div className="flex items-center justify-between mb-8 relative z-10">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <Target className="text-indigo-600" size={20} />
+                      Meta Mensal
+                      <button 
+                        onClick={() => toggleVisibility('dashboard_goal')}
+                        className="text-slate-400 hover:text-slate-600 transition-colors ml-2"
+                      >
+                        {isVisible('dashboard_goal') ? <Eye size={18} /> : <EyeOff size={18} />}
+                      </button>
+                    </h3>
+                    <p className="text-slate-500 text-sm mt-1">Progresso baseado em recebimentos reais</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                      {isVisible('dashboard_goal') ? `${goalProgress.toFixed(1)}%` : '•••%'}
+                    </span>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">da meta de {formatCurrency(monthlyGoal, isVisible('dashboard_goal'))}</p>
+                  </div>
+                </div>
+
+                <div className="relative h-6 bg-slate-100 rounded-full overflow-hidden mb-4">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${goalProgress}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className={cn(
+                      "h-full transition-all duration-1000 relative",
+                      goalProgress > 100 ? "bg-emerald-500" : goalProgress > 80 ? "bg-emerald-500" : goalProgress > 40 ? "bg-indigo-500" : "bg-amber-500"
+                    )}
+                  >
+                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)' }} />
+                  </motion.div>
+                  {/* Markers */}
+                  <div className="absolute inset-0 flex justify-between px-1">
+                    <div className="w-0.5 h-full bg-white/50" style={{ left: '25%' }} />
+                    <div className="w-0.5 h-full bg-white/50" style={{ left: '50%' }} />
+                    <div className="w-0.5 h-full bg-white/50" style={{ left: '75%' }} />
+                  </div>
+                </div>
+
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span>R$ 0</span>
+                  <span>{formatCurrency(monthlyGoal * 0.5, isVisible('dashboard_goal'))}</span>
+                  <span>{formatCurrency(monthlyGoal, isVisible('dashboard_goal'))}</span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Key Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stats.map((stat, i) => (
+                <MemoStatCard key={stat.label} {...stat} />
+              ))}
+            </div>
+          </div>
+
+          {/* Right Column: AI Insights */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-3xl shadow-xl text-white relative overflow-hidden flex flex-col"
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+              <Sparkles size={150} />
+            </div>
+            
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+                  <BrainCircuit size={20} className="text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold tracking-wider uppercase text-indigo-200">Parecer Virtual</h3>
+                  <p className="text-[10px] text-indigo-400 font-mono uppercase tracking-widest">System Analysis Active</p>
+                </div>
+              </div>
+              <button 
+                onClick={generateRuleBasedInsight}
+                disabled={isGeneratingInsight}
+                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all active:scale-95"
+              >
+                {isGeneratingInsight ? <Loader2 size={16} className="animate-spin text-indigo-300" /> : <RotateCcw size={16} className="text-indigo-300" />}
+              </button>
+            </div>
+
+            <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar font-mono text-xs">
+              {aiInsight ? (
+                <div className="text-indigo-100 leading-relaxed whitespace-pre-wrap">
+                  {aiInsight.split('\n').map((line, i) => (
+                    <p key={i} className="mb-3 last:mb-0 border-l-2 border-indigo-500/30 pl-3">{line}</p>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full py-8 gap-4 opacity-50">
+                  <Sparkles size={32} />
+                  <p className="text-[10px] font-mono uppercase tracking-widest">Aguardando dados...</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+              <span>Status: Online</span>
+              <span className="flex items-center gap-1.5 text-emerald-500">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Feed
+              </span>
+            </div>
+          </motion.div>
         </div>
 
-        {/* Task Kanban */}
+        <SectionHeader id="prioridades" title="Prioridades de hoje" subtitle="Indicadores que exigem atenção imediata" />
+
+        {/* Actionable Insights */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MemoTodayFocusWidget />
+          <MemoLiquidityGapCard gap={totalReceivable - overdueTotal} isVisible={isVisible('dashboard_liquidity')} toggleVisibility={() => toggleVisibility('dashboard_liquidity')} />
+          <MemoStuckProcessesCard count={stuckInProtocol + stuckInJudicial} onAction={() => window.location.href = '/processos'} />
+          <MemoDefaultRiskCard riskAmount={overdueTotal} count={overdueInstallmentsRaw.length} onAction={() => window.location.href = '/contas-a-receber'} />
+          <MemoGPSDashboardCard />
+          <MemoProcessVelocityCard />
+          <MemoCashFlowForecastCard />
+          <MemoAreaEfficiencyCard />
+        </div>
+
+        {/* Task Kanban — o título é renderizado pelo próprio componente */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">Fluxo de Compromissos</h2>
-          <TaskKanban />
+          <MemoTaskKanban />
         </div>
 
         {/* Bottlenecks (Prioritized) */}
@@ -936,8 +1179,10 @@ export default function Page() {
           )}
         </div>
 
+        <SectionHeader id="financeiro" title="Financeiro" subtitle="Atrasos, recebimentos e projeções" />
+
         {/* Lists Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Upcoming Deadlines */}
           
           {/* Overdue Installments */}
@@ -1032,135 +1277,8 @@ export default function Page() {
           )}
         </div>
 
-        {/* Business Pulse */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Goal & Metrics */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Monthly Goal Card */}
-            {user?.canAccessContracts && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
-                  <Target size={180} />
-                </div>
-                
-                <div className="flex items-center justify-between mb-8 relative z-10">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                      <Target className="text-indigo-600" size={20} />
-                      Meta Mensal
-                      <button 
-                        onClick={() => toggleVisibility('dashboard_goal')}
-                        className="text-slate-400 hover:text-slate-600 transition-colors ml-2"
-                      >
-                        {isVisible('dashboard_goal') ? <Eye size={18} /> : <EyeOff size={18} />}
-                      </button>
-                    </h3>
-                    <p className="text-slate-500 text-sm mt-1">Progresso baseado em recebimentos reais</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-bold text-slate-900 tracking-tight">
-                      {isVisible('dashboard_goal') ? `${goalProgress.toFixed(1)}%` : '•••%'}
-                    </span>
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">da meta de {formatCurrency(monthlyGoal, isVisible('dashboard_goal'))}</p>
-                  </div>
-                </div>
-
-                <div className="relative h-6 bg-slate-100 rounded-full overflow-hidden mb-4">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${goalProgress}%` }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className={cn(
-                      "h-full transition-all duration-1000 relative",
-                      goalProgress > 100 ? "bg-emerald-500" : goalProgress > 80 ? "bg-emerald-500" : goalProgress > 40 ? "bg-indigo-500" : "bg-amber-500"
-                    )}
-                  >
-                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)' }} />
-                  </motion.div>
-                  {/* Markers */}
-                  <div className="absolute inset-0 flex justify-between px-1">
-                    <div className="w-0.5 h-full bg-white/50" style={{ left: '25%' }} />
-                    <div className="w-0.5 h-full bg-white/50" style={{ left: '50%' }} />
-                    <div className="w-0.5 h-full bg-white/50" style={{ left: '75%' }} />
-                  </div>
-                </div>
-
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  <span>R$ 0</span>
-                  <span>{formatCurrency(monthlyGoal * 0.5, isVisible('dashboard_goal'))}</span>
-                  <span>{formatCurrency(monthlyGoal, isVisible('dashboard_goal'))}</span>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Key Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat, i) => (
-                <StatCard key={stat.label} {...stat} />
-              ))}
-            </div>
-          </div>
-
-          {/* Right Column: AI Insights */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-3xl shadow-xl text-white relative overflow-hidden flex flex-col"
-          >
-            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              <Sparkles size={150} />
-            </div>
-            
-            <div className="flex items-center justify-between mb-6 relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
-                  <BrainCircuit size={20} className="text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-wider uppercase text-indigo-200">Parecer Virtual</h3>
-                  <p className="text-[10px] text-indigo-400 font-mono uppercase tracking-widest">System Analysis Active</p>
-                </div>
-              </div>
-              <button 
-                onClick={generateRuleBasedInsight}
-                disabled={isGeneratingInsight}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all active:scale-95"
-              >
-                {isGeneratingInsight ? <Loader2 size={16} className="animate-spin text-indigo-300" /> : <RotateCcw size={16} className="text-indigo-300" />}
-              </button>
-            </div>
-
-            <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar font-mono text-xs">
-              {aiInsight ? (
-                <div className="text-indigo-100 leading-relaxed whitespace-pre-wrap">
-                  {aiInsight.split('\n').map((line, i) => (
-                    <p key={i} className="mb-3 last:mb-0 border-l-2 border-indigo-500/30 pl-3">{line}</p>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full py-8 gap-4 opacity-50">
-                  <Sparkles size={32} />
-                  <p className="text-[10px] font-mono uppercase tracking-widest">Aguardando dados...</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-              <span>Status: Online</span>
-              <span className="flex items-center gap-1.5 text-emerald-500">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Feed
-              </span>
-            </div>
-          </motion.div>
-        </div>
-
         {/* Actionable Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1226,6 +1344,8 @@ export default function Page() {
             </div>
           </motion.div>
         </div>
+
+        <SectionHeader id="relatorios" title="Análise e relatórios" subtitle="Pareceres, riscos e demonstrativos" />
 
         {/* AI Insights & Risk Analysis */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1329,6 +1449,8 @@ export default function Page() {
           </motion.div>
         </div>
 
+        <DeferredBlock minHeight={420}>
+
         {/* Charts Row 1: Revenue & Mix */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Revenue Evolution */}
@@ -1420,6 +1542,10 @@ export default function Page() {
             </motion.div>
           )}
         </div>
+
+        </DeferredBlock>
+
+        <DeferredBlock minHeight={420}>
 
         {/* Charts Row 2: Cash Flow & Profitability */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1527,6 +1653,10 @@ export default function Page() {
           )}
         </div>
 
+        </DeferredBlock>
+
+        <DeferredBlock minHeight={420}>
+
         {/* Charts Row 3: Distribution */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Law Area Distribution */}
@@ -1624,6 +1754,10 @@ export default function Page() {
             </div>
           </motion.div>
         </div>
+
+        </DeferredBlock>
+
+        <DeferredBlock minHeight={420}>
 
         {/* Charts Row 4: Efficiency & INSS Success */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1729,8 +1863,14 @@ export default function Page() {
           </motion.div>
         </div>
 
+        </DeferredBlock>
+
+        <SectionHeader id="pessoas" title="Pessoas" subtitle="Aniversariantes e equipe" />
+
         {/* Aniversariantes (secundário) */}
-        <BirthdayWidget />
+        <MemoBirthdayWidget />
+
+        <SectionHeader id="auditoria" title="Auditoria" subtitle="Últimas alterações registradas" />
 
         {/* Recent Activities Row */}
         {user?.canAccessAudit && (
@@ -1786,7 +1926,7 @@ export default function Page() {
         )}
 
       </div>
-      <GlobalActionCenter />
+      <MemoGlobalActionCenter />
     </DashboardLayout>
   )
 }
