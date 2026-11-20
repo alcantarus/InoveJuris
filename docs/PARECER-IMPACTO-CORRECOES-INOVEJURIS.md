@@ -1423,16 +1423,29 @@ Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
 - Quem tiver a anon key continua **lendo** clientes, processos, contratos, Publicações e financeiro direto pela API REST.
 - A F4b-1 fechou **integridade** (auditoria e configurações), não **isolamento de leitura**. Isso depende do `2b` + `2c`.
 
-## 17.7 Decisão pausada — identidade no banco (F4b-2b)
+## 17.7 Identidade no banco (F4b-2b) — Fase A concluída e validada
 
-Comparação entre **JWT próprio** e **BFF**, com números medidos no código, complexidade por peça, riscos e fases: **`docs/PARECER-JWT.md`**.
+Comparação entre **JWT próprio** e **BFF**, com números medidos no código, complexidade por peça, riscos e fases: **`docs/PARECER-JWT.md`** (seções 12 e 13).
 
-- Recomendação técnica registrada: **JWT próprio** (menor mudança, risco concentrado na emissão do token).
-- O tema foi **pausado a pedido do usuário**. Nada foi implementado em autenticação.
-- O `2c` (dropar as policies `true`) **não pode ser feito sozinho** — sem identidade por requisição o app para.
+- Recomendação técnica registrada: **JWT próprio** (menor mudança, risco concentrado na emissão do token). BFF descartado.
+- Usuário autorizou a **Fase A**: token com `role=anon` (mesmo privilégio atual). **Nenhuma policy alterada.**
+- Commits `9ebe9a3` (emissão/transporte/renovação), `e910740` (preflight no PostgREST) e `080e042` (aceita ES256 JWK ou HS256 legado), enviados em `fase0-seguranca`.
+- `forward_f4b2a_token_payload.sql` aplicado no SQL Editor: `organization_id` no payload e `user` no heartbeat (`true`/`true`).
+- `SUPABASE_JWT_SECRET` salva na Vercel; deploy `dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu` (Ready, `/login` 200, `/configuracoes` 307).
+- Token validado: `HS256`, `role=anon`, `sub=2`, `organization_id` e `environment=production`, `exp=iat+600`. Logs do deploy sem `[jwt]` e sem erros.
+- **Fase B (`role=authenticated`) não executada.** Exige autorização e verificação ao vivo dos grants de `authenticated` nas 34 tabelas/views e nas 30 RPCs — o snapshot F0 não contém grants de funções.
+- **2c** (dropar as policies `true`) **não pode ser feito sozinho** — sem identidade por requisição o app para.
+- Chave ECC própria pendente: a standby `c73f6852-eeca-455d-9549-647afae7e493` bloqueia a importação e precisa ser marcada como `previously_used`/revogada.
 
-## 17.8 Pendências
+## 17.8 Retenção de logs — concluída
 
-1. **Retenção de logs:** definir 90 ou 180 dias para `audit_logs`, `login_attempts`, `user_sessions`, `notifications`, `process_sync_log`, `publication_sync_log`, `backup_logs` e `task_history`.
-2. **Merge** de `fase0-seguranca` em `main`/`trabalho-com-claude`: sem autorização.
-3. **F3** (~17 funções `http*` de `supabase_admin`): aguarda o chamado no Supabase Support (`F3-20261118\SUPPORT-REQUEST.md`).
+- Usuário escolheu **tudo em 90 dias**. Antes: `audit_logs` 2.465 (0 vencidos em 90/180 dias), `login_attempts` 17 (14 vencidos), nenhum job.
+- `forward_retencao_90d.sql`: `cleanup_old_logs()` em 90/90 dias, `SECURITY DEFINER`, sem `execute` público e job `cleanup-old-logs-90d` ativo (`jobid=8`, `15 3 * * *`, 03:15 UTC / 00:15 BRT).
+- Rollback: `rollback_retencao_90d.sql` em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
+
+## 17.9 Pendências
+
+1. **Fase B da identidade:** trocar `SUPABASE_JWT_ROLE=authenticated` após autorização e verificação de grants/RPCs.
+2. **Chave ECC própria:** resolver a standby `c73f6852-eeca-455d-9549-647afae7e493` e importar JWK privado, substituindo `SUPABASE_JWT_SECRET`.
+3. **Merge** de `9ebe9a3`/`e910740`/`080e042` (e docs) em `main`/`trabalho-com-claude`.
+4. **F3** (~17 funções `http*` de `supabase_admin`): aguarda o chamado no Supabase Support (`F3-20261118\SUPPORT-REQUEST.md`).

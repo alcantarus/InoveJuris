@@ -1,8 +1,8 @@
 # Parecer — identidade no banco (JWT) para o InoveJuris
 
-> **Status: PAUSADO.** Documento de análise, escrito em 2026-11-19.
-> **Nada foi alterado** em código, banco ou deploy por este parecer.
-> O tema depende de autorização explícita do usuário para tocar a autenticação.
+> **Status: FASE A CONCLUÍDA E VALIDADA em 2026-11-19.** Fase B pendente.
+> Documento de análise escrito em 2026-11-19; a execução está registrada na seção 12.
+> A Fase B depende de autorização explícita do usuário para trocar o `role` do token.
 
 ## 0. Resumo
 
@@ -145,3 +145,56 @@ Só depois disso entra a Fase B.
   requisição, clientes, prazos, Publicações, contratos e financeiro param.
 - Enquanto isso não for decidido, o risco residual permanece: **a anon key continua pública e
   as ~50 tabelas continuam abertas para leitura via REST**.
+
+## 12. Execução da Fase A (2026-11-19) — concluída e validada
+
+**Autorização do usuário:** "Autorizo a Fase A (Recomendado)" — token com `role=anon`,
+nenhuma policy alterada.
+
+| Peça (seção 2) | Estado |
+|---|---|
+| 1. Emitir o token | ✅ `/api/auth/session` (login, `validate`, `heartbeat`), `lib/jwt.ts`, `jose@6.1.3` |
+| 2. Transportar e renovar | ✅ `lib/session-token.ts` (memória), `lib/supabase.ts` (`Authorization` + Realtime), `SessionMonitor` (20 s) |
+| 3. Trocar as policies | ⏳ Fases B/C — não iniciado |
+| 4. Fechar o `anon` | ⏳ F4b-2c — depende de 3 |
+
+**Trava de segurança (`e910740`):** o token só é devolvido ao navegador depois que um
+`GET /rest/v1/system_settings?select=key&limit=1` com o próprio token responde `200` no
+PostgREST (cache de 10 min para sucesso, 1 min para falha). Chave inválida → nenhum token
+emitido e o app segue exatamente como antes.
+
+**Chave de assinatura:** o painel mostra Current ES256 (`kid 83b7ae9a…`, privada não
+exportável) e a standby `c73f6852-eeca-455d-9549-647afae7e493` impediu criar outra. Para
+destravar sem parar, o código `080e042` passou a aceitar também `SUPABASE_JWT_SECRET`
+(HS256 legado, ainda verificado pelo PostgREST). Variável salva na Vercel; a migração para
+uma chave ECC própria importada ficou pendente.
+
+**Deploy:** `dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu`, alias `https://inove-juris.vercel.app`,
+`/login` 200 e `/configuracoes` 307.
+
+**Evidência do token (decodificado pelo usuário):** `alg=HS256`, `role=anon`, `sub=2`,
+`organization_id=eaf29983-1998-40a4-bd07-03ea09b4adfa`, `environment=production`,
+`session_id` presente, `iat`/`exp` com 600 s de diferença. O fato de o token ter chegado ao
+navegador prova que o preflight do PostgREST o aceitou. Logs do deploy novo sem `[jwt]` e sem
+`"level":"error"`.
+
+**SQL aditivo:** `forward_f4b2a_token_payload.sql` aplicado no SQL Editor (payload com
+`organization_id` e heartbeat devolvendo o usuário); rollback em
+`rollback_f4b2a_token_payload.sql`.
+
+**Rollback da Fase A:** remover `SUPABASE_JWT_SECRET` na Vercel + redeploy; deploy pré-Fase A
+`dpl_3Z5EZi41FQPWPSZsviw2SLfyM6fs`.
+
+## 13. Fase B — pré-requisitos levantados (não executada)
+
+- Antes de `SUPABASE_JWT_ROLE=authenticated`, conferir os grants de `authenticated` nas
+  34 tabelas/views e nas 30 RPCs usadas pelo app.
+- O snapshot F0 (`C:\InoveTecnologia\InoveJuris-Backups\F0-20261118\grants_rollback.json`)
+  tem **465 grants para `authenticated` em 67 objetos** (SELECT/INSERT/UPDATE/DELETE em 66,
+  TRUNCATE/REFERENCES/TRIGGER em 67) e **nenhum grant de função**. A verificação das RPCs
+  precisa ser feita ao vivo no SQL Editor — consultar `information_schema.role_routine_grants`
+  e `pg_proc.proacl` para as 30 funções chamadas pelo cliente.
+- Atenção: `audit_logs` e `system_settings` já tiveram a escrita revogada de `authenticated`
+  nas F4b-1c1/1c2 — é o estado desejado, não regressão.
+- Exceções a validar: onboarding público, views do dashboard, tabelas sem `organization_id`
+  e reconexão do Realtime quando o token vence.

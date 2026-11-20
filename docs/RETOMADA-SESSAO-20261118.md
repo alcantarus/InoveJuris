@@ -4,7 +4,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 > **INCIDENTE RESOLVIDO (2026-11-19):** o Postgres do Supabase havia ficado inacessível por esgotamento do burst de I/O (baseline de 5 MB/s), com `504`/`57014` no login e `Connection terminated due to connection timeout` no SQL Editor. O usuário rodou `select 1;` e obteve `1`; REST, RPC `app_authenticate` e a rota `/api/auth/session` voltaram a responder (seção 13.8 do parecer de impacto). **Nenhum deploy foi revertido e nenhuma sessão artificial foi criada.** Mantém-se a recomendação de reduzir o tráfego/balance do disco para não recorrer.
 
-> **ATUALIZAÇÃO (2026-11-19, posterior a este documento):** a F4b-1 foi executada e publicada em Production (`dpl_APjXUSLhcsE4Rm6bhkXXKvP7iAeA`) e a F4b-2b (identidade/JWT) foi **pausada**. O estado atual está na seção **F4b** de `docs/STATUS-INOVEJURIS.md`, na seção **17** de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e em `docs/PARECER-JWT.md`. As referências a deploy abaixo são históricas.
+> **ATUALIZAÇÃO (2026-11-19, posterior a este documento):** a F4b-1 foi executada e publicada em Production; a retenção de logs passou a 90 dias com job ativo; a **F4b-2b Fase A (JWT com `role=anon`) foi concluída e validada** (`dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu`). Fase B (`role=authenticated`), chave ECC própria e F4b-2c seguem pendentes. Estado atual na seção **F4b** de `docs/STATUS-INOVEJURIS.md`, na seção **17** de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e nas seções **12/13** de `docs/PARECER-JWT.md`. As referências a deploy abaixo são históricas.
 
 ## 1. Situação atual — produção íntegra
 
@@ -223,3 +223,27 @@ Se qualquer passo falhar: `rollback_otim1_index_audit_logs.sql` para o índice e
 - **Fase 1A e Fase 1C fechadas.** Fase 1B não executada, não autorizada e sem necessidade após a queda de 59,48 → 6,68 ms em `app_validate_session`. Heartbeat de 20 s, validação de sessão e tolerância de 90 s intactos. Realtime inalterado.
 - **Rollbacks:** `rollback_otim1_index_audit_logs.sql`, `rollback_otim3_audit_user_sessions.sql`, `git revert 8cdf51e` (1A) e `git revert c3eff3e` (1C).
 - **`Disk IO Balance` = 60%** (saldo restante do burst; 0% = esgotado). Junto: `Disk Usage` 4%, `Peak Connections` 22/60, `Memory` 42%, `CPU` 14%, `Slow Queries` 3. O orçamento se recuperou do incidente e há folga; acompanhar a tendência por 24–48 h e evitar carga pesada nesse período.
+
+## 13. F4b — Fase A da identidade e retenção (2026-11-19)
+
+### 13.1 Retenção de logs (concluída)
+- Usuário escolheu **tudo em 90 dias**. Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`: `verify_retencao_antes.sql`, `forward_retencao_90d.sql`, `rollback_retencao_90d.sql`.
+- Antes: `audit_logs` 2.465 (0 vencidos em 90/180 dias), `login_attempts` 17 (14 vencidos), nenhum job. Depois: job `8`, `cleanup-old-logs-90d`, `15 3 * * *`, `active=true`.
+- A limpeza manual remove as 14 linhas antigas; o `pg_cron` faz o resto diariamente às 00:15 BRT.
+
+### 13.2 Payload de sessão (concluído)
+- `forward_f4b2a_token_payload.sql`: devolução `payload_tem_organizacao=true`, `heartbeat_devolve_usuario=true`.
+- Não mexe em validade de sessão, tolerância de 90 s nem intervalo de heartbeat de 20 s. Rollback: `rollback_f4b2a_token_payload.sql`.
+
+### 13.3 Fase A da identidade (concluída e validada)
+- Autorização explícita: token com `role=anon`; **nenhuma policy alterada**.
+- Commits: `9ebe9a3` (emissão/transporte), `e910740` (preflight), `080e042` (ES256 JWK ou HS256 legado).
+- Painel Supabase: Current ES256 (`kid 83b7ae9a…`, privada não exportável), HS256 antiga em *Previously used* e standby `c73f6852-eeca-455d-9549-647afae7e493` bloqueando nova standby. Por isso `SUPABASE_JWT_SECRET` foi usada como ponte.
+- Vercel: `SUPABASE_JWT_SECRET` em Production/Preview/Development. Deploy final `dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu`, alias `https://inove-juris.vercel.app`, `/login` 200, `/configuracoes` 307.
+- Validação: token `HS256`, `role=anon`, `sub=2`, `organization_id=eaf29983-1998-40a4-bd07-03ea09b4adfa`, `environment=production`, `session_id` presente, 10 min de validade. Logs sem `[jwt]` e sem erros.
+- Rollback: remover `SUPABASE_JWT_SECRET` + redeploy; deploy pré-Fase A `dpl_3Z5EZi41FQPWPSZsviw2SLfyM6fs`.
+
+### 13.4 Pendências da identidade
+- Fase B: trocar `SUPABASE_JWT_ROLE=authenticated` exige autorização e conferência prévia dos grants de `authenticated` nas 34 tabelas/views e nas 30 RPCs. O snapshot F0 tem 465 grants para `authenticated` em 67 objetos e **nenhum grant de função** — verificar as RPCs ao vivo no SQL Editor.
+- Chave ECC própria: marcar a standby antiga como `previously_used`/revogada, importar JWK privado, promover a Current e trocar a variável no Vercel.
+- F4b-2c (dropar policies `true`) somente após a identidade completa.

@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-19 (Fase 0 de segurança e **F4b-1** executadas na branch `fase0-seguranca`; Fase 1A/1C fechadas; **F4b-2b pausada**).
+> Atualizado em: 2026-11-19 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fase A concluída e validada**; Fase B e F4b-2c pendentes).
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 
@@ -55,14 +55,31 @@ Executado na branch `fase0-seguranca`, em etapas pequenas, cada uma com backup/r
 - Quem tiver a anon key (que é pública) continua **lendo** clientes, processos, contratos e financeiro direto pela API REST.
 - O que ficou fechado foi a **integridade**: auditoria e configurações não podem mais ser forjadas, alteradas ou apagadas pelo cliente.
 
-### F4b-2b — identidade no banco (PAUSADA)
-- Comparação JWT próprio × BFF registrada em `docs/PARECER-JWT.md`.
-- Recomendação técnica: **JWT próprio**, por concentrar a mudança na emissão do token. Exige autorização explícita para tocar o login — **nada foi implementado**.
-- O `F4b-2c` (dropar as policies `true`) **só pode ocorrer junto com o `2b`**; sozinho, derrubaria clientes, prazos, Publicações, contratos e financeiro.
+### F4b-2b — identidade no banco (FASE A CONCLUÍDA E VALIDADA em 2026-11-19)
+- Autorização explícita do usuário para a **Fase A**: token JWT com `role=anon` (mesmo privilégio de hoje). **Nenhuma policy foi alterada.**
+- Comparação JWT próprio × BFF registrada em `docs/PARECER-JWT.md`. BFF descartado; JWT próprio continua sendo a recomendação técnica.
+- Implementação na branch `fase0-seguranca`:
+  - `9ebe9a3` — emissão do token em `/api/auth/session` (login, validação e heartbeat), transporte em `lib/supabase.ts` (header `Authorization` + Realtime), token em memória em `lib/session-token.ts`, renovado no heartbeat de 20 s. Dependência `jose@6.1.3`.
+  - `e910740` — trava de preflight: o token só chega ao navegador depois que o próprio PostgREST confirma que o aceita. Chave errada → app segue sem token, sem queda.
+  - `080e042` — aceita `SUPABASE_JWT_PRIVATE_JWK` (ES256) ou `SUPABASE_JWT_SECRET` (HS256 legado, ainda aceito para verificação).
+- SQL aditivo aplicado pelo usuário no SQL Editor (arquivos externos em `FASE0-20261119`, **não** em `supabase/migrations`):
+  - `forward_f4b2a_token_payload.sql` — `organization_id` em `_auth_user_payload` e `user` no retorno de `app_heartbeat`. Devolução: `payload_tem_organizacao=true`, `heartbeat_devolve_usuario=true`. Não altera validade, tolerância de 90 s nem intervalo de 20 s.
+- Assinatura: `SUPABASE_JWT_SECRET` (HS256 como ponte) salva na Vercel em Production, Preview e Development. A chave ECC própria por importação ficou para depois por causa da standby `c73f6852-eeca-455d-9549-647afae7e493`.
+- Deploy final: `dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu` — Ready, alias `https://inove-juris.vercel.app`; `/login` `200`, `/configuracoes` `307`.
+- **Validação do token (2026-11-19):** `alg=HS256`, `role=anon`, `sub=2`, `organization_id=eaf29983-1998-40a4-bd07-03ea09b4adfa`, `environment=production`, `session_id` presente, `exp=iat+600` (10 min). O token só chegou ao navegador porque o preflight do PostgREST o aceitou. Logs do deploy novo: nenhum `[jwt]` e nenhum `"level":"error"`; os avisos de 13:52/13:53 UTC (`dpl_BivwWM4NH2ZUnPtmvLy1hppFNzAi`) são de builds anteriores.
+- Rollback imediato da Fase A: remover `SUPABASE_JWT_SECRET` na Vercel e republicar; ou promover `dpl_3Z5EZi41FQPWPSZsviw2SLfyM6fs` (código sem chave). Rollback do payload: `rollback_f4b2a_token_payload.sql`.
+- **Fase B não executada:** trocar `SUPABASE_JWT_ROLE=authenticated` exige autorização explícita e conferência prévia dos grants de `authenticated` nas 34 tabelas/views e nas 30 RPCs. O snapshot F0 (`grants_rollback.json`) cobre 67 objetos × `anon`/`authenticated` (465 grants por role) e **não contém grants de funções** — as RPCs precisam de verificação ao vivo antes da troca.
+- **F4b-2c** (dropar as policies `true`) continua dependente da identidade completa; sozinha derrubaria clientes, prazos, Publicações, contratos e financeiro.
+
+### Retenção de logs — concluída em 2026-11-19
+- Usuário escolheu **tudo em 90 dias**. Antes: `audit_logs` 2.465 (0 vencidos em 90/180 dias), `login_attempts` 17 (14 vencidos em 90 dias), nenhum job.
+- `forward_retencao_90d.sql` aplicado: `cleanup_old_logs()` passou a 90/90 dias, `SECURITY DEFINER`, sem `execute` para `anon`/`authenticated`/`public`, e job `cleanup-old-logs-90d` ativo (`jobid=8`, `15 3 * * *` = 00:15 BRT).
+- Rollback: `rollback_retencao_90d.sql` (volta a 90/180 e remove o job).
 
 ### Pendências abertas
-- **Retenção de logs** (90 ou 180 dias) — decisão do usuário.
-- **Merge** de `fase0-seguranca` em `main`/`trabalho-com-claude` — sem autorização.
+- **Merge** — concluído até `e8a2288`; faltam `9ebe9a3`, `e910740`, `080e042` e o commit de docs em `main`/`trabalho-com-claude`.
+- **Fase B da identidade** — trocar `SUPABASE_JWT_ROLE=authenticated` (depende de autorização + verificação de grants/RPCs).
+- **Chave ECC limpa** — a standby `c73f6852-eeca-455d-9549-647afae7e493` precisa ser marcada como `previously_used`/revogada para liberar a importação de chave própria.
 - **F3** (~17 funções `http*` de `supabase_admin`) — depende do chamado no Supabase Support.
 
 ## Fase 1A — otimização de I/O (2026-11-19)
@@ -133,7 +150,7 @@ Executado na branch `fase0-seguranca`, em etapas pequenas, cada uma com backup/r
 - **F4b (reescrita de RLS) fica para decisão futura**: exige definir identidade por requisição no banco (JWT, RPCs `SECURITY DEFINER` ou GUC derivado da sessão) e escolher o modelo de tenant. Fazer isso agora pararia clientes, prazos, Publicações, contratos e financeiro.
 - Risco residual registrado: vazamento via REST com a anon key e tokens OAuth em `system_settings` não é resolvido pela F4a; depende da F4b.
 - **F4a aplicada em produção em 2026-11-18:** 402 → 0 linhas de `TRUNCATE/REFERENCES/TRIGGER` (`verify_f4a_before.json` → `verify_f4a_after.json`); CRUD inalterado (66 objetos por role). Leitura via anon key validada em 6 tabelas (`HTTP 206`); F3 continua com `42501`. Rollback em `rollback_f4a.sql`. **Nenhum deploy; nenhuma chave trocada.**
-- **F4b-2a, F4b-1a, 1c1, 1b e 1c2 executados em 2026-11-19** (ver seção F4b no topo). A **F4b-2b (identidade/JWT)** está pausada e depende de autorização explícita para tocar o login; a **2c** (dropar as policies `true`) só pode ocorrer junto com ela.
+- **F4b-2a, F4b-1a, 1c1, 1b e 1c2 executados em 2026-11-19** (ver seção F4b no topo). A **F4b-2b Fase A (identidade/JWT com `role=anon`) foi concluída e validada**; a Fase B (`role=authenticated`) e a **2c** (dropar as policies `true`) seguem pendentes e dependem de autorização explícita.
 
 ## F5 — parecer executado em 2026-11-18
 - Seção 11 de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md`. Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\F5-20261118`: `views_current.json`, `view_columns.json`, `kpi_baseline.sql/.json`, `forward_f5.sql`, `rollback_f5.sql`, `verify_f5.sql`.
