@@ -118,6 +118,58 @@ const TransactionActions = ({
   )
 }
 
+const CategoryDistributionChart = React.memo(function CategoryDistributionChart({
+  title,
+  data,
+  color,
+  iconColor,
+  visible,
+}: {
+  title: string
+  data: any[]
+  color: string
+  iconColor: string
+  visible: boolean
+}) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <PieChartIcon size={20} className={iconColor} />
+        {title}
+      </h3>
+      <div className="h-64 mb-4">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" tickFormatter={(value) => visible ? value : '•••'} />
+            <YAxis dataKey="category_name" type="category" width={100} tick={{ fontSize: 10 }} />
+            <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0), visible)} />
+            <Bar dataKey="total_amount" fill={color} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="max-h-40 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+        <table className="w-full text-xs table-fixed">
+          <thead>
+            <tr className="border-b text-slate-500">
+              <th className="text-left py-1 pr-2">Categoria</th>
+              <th className="text-right py-1 pl-2 w-[110px] sm:w-[130px]">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item: any, index: number) => (
+              <tr key={index} className="border-b border-slate-100 last:border-0">
+                <td className="py-1.5 pr-2 truncate" title={item.category_name}>{item.category_name}</td>
+                <td className="text-right py-1.5 pl-2 whitespace-nowrap tabular-nums">{formatCurrency(Number(item.total_amount), visible)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+})
+
 export default function MovimentacoesPage() {
   const { isVisible, toggleVisibility } = usePrivacy()
   const { user } = useAuth()
@@ -486,6 +538,8 @@ export default function MovimentacoesPage() {
     }
   }
 
+  const chartValuesVisible = isVisible('cashflow_all')
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -526,76 +580,20 @@ export default function MovimentacoesPage() {
 
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <PieChartIcon size={20} className="text-emerald-500" />
-              Distribuição de Entradas
-            </h3>
-            <div className="h-64 mb-4">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <BarChart data={processedIncomeData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={(value) => isVisible('cashflow_all') ? value : '•••'} />
-                  <YAxis dataKey="category_name" type="category" width={100} tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0), isVisible('cashflow_all'))} />
-                  <Bar dataKey="total_amount" fill="#10b981" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="max-h-40 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
-              <table className="w-full text-xs table-fixed">
-                <thead>
-                  <tr className="border-b text-slate-500">
-                    <th className="text-left py-1 pr-2">Categoria</th>
-                    <th className="text-right py-1 pl-2 w-[110px] sm:w-[130px]">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processedIncomeData.map((item: any, index: number) => (
-                    <tr key={index} className="border-b border-slate-100 last:border-0">
-                      <td className="py-1.5 pr-2 truncate" title={item.category_name}>{item.category_name}</td>
-                      <td className="text-right py-1.5 pl-2 whitespace-nowrap tabular-nums">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <PieChartIcon size={20} className="text-rose-500" />
-              Distribuição de Despesas
-            </h3>
-            <div className="h-64 mb-4">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <BarChart data={processedExpenseData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={(value) => isVisible('cashflow_all') ? value : '•••'} />
-                  <YAxis dataKey="category_name" type="category" width={100} tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0), isVisible('cashflow_all'))} />
-                  <Bar dataKey="total_amount" fill="#f43f5e" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="max-h-40 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
-              <table className="w-full text-xs table-fixed">
-                <thead>
-                  <tr className="border-b text-slate-500">
-                    <th className="text-left py-1 pr-2">Categoria</th>
-                    <th className="text-right py-1 pl-2 w-[110px] sm:w-[130px]">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processedExpenseData.map((item: any, index: number) => (
-                    <tr key={index} className="border-b border-slate-100 last:border-0">
-                      <td className="py-1.5 pr-2 truncate" title={item.category_name}>{item.category_name}</td>
-                      <td className="text-right py-1.5 pl-2 whitespace-nowrap tabular-nums">{formatCurrency(Number(item.total_amount), isVisible('cashflow_all'))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <CategoryDistributionChart
+            title="Distribuição de Entradas"
+            data={processedIncomeData}
+            color="#10b981"
+            iconColor="text-emerald-500"
+            visible={chartValuesVisible}
+          />
+          <CategoryDistributionChart
+            title="Distribuição de Despesas"
+            data={processedExpenseData}
+            color="#f43f5e"
+            iconColor="text-rose-500"
+            visible={chartValuesVisible}
+          />
         </div>
 
         {/* Filters & Actions */}

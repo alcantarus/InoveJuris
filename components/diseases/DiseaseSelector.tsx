@@ -27,13 +27,20 @@ export function DiseaseSelector({ selectedDiseases, onDiseaseSelect, onDiseaseRe
       return
     }
 
-    const fetchDiseases = async () => {
+    let cancelled = false
+    const timer = setTimeout(async () => {
       const { data } = await supabase
         .rpc('search_diseases', { p_term: searchTerm, p_limit: 5 })
-      setSuggestions(data || [])
-      setIsOpen(true)
+      if (!cancelled) {
+        setSuggestions(data || [])
+        setIsOpen(true)
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-    fetchDiseases()
   }, [searchTerm])
 
   return (

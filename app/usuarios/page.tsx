@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { 
@@ -344,11 +344,22 @@ export default function UsuariosPage() {
     }
   }
 
-  const filteredUsers = users.filter(u => {
-    const term = removeAccents(searchTerm).toLowerCase()
-    return removeAccents(u.name.toLowerCase()).includes(term) ||
-           removeAccents(u.email.toLowerCase()).includes(term)
-  })
+  const normalizedUserSearch = useMemo(() => removeAccents(searchTerm).toLowerCase(), [searchTerm])
+
+  const usersWithSearchFields = useMemo(() => users.map(user => ({
+    user,
+    searchFields: [
+      removeAccents(user.name.toLowerCase()),
+      removeAccents(user.email.toLowerCase()),
+    ],
+  })), [users])
+
+  const filteredUsers = useMemo(() => {
+    if (!normalizedUserSearch) return users
+    return usersWithSearchFields
+      .filter(entry => entry.searchFields.some(field => field.includes(normalizedUserSearch)))
+      .map(entry => entry.user)
+  }, [usersWithSearchFields, normalizedUserSearch, users])
 
   if (!mounted) return null
 

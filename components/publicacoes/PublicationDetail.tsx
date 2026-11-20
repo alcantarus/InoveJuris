@@ -36,6 +36,67 @@ interface PublicationDetailProps {
   onChanged: () => void
 }
 
+const PublicationSummary = React.memo(function PublicationSummary({ publication }: { publication: PublicationItem }) {
+  const pageLabel = publication.page
+    ? `p. ${publication.page}`
+    : publication.communicationNumber
+      ? `Comunicação nº ${publication.communicationNumber}`
+      : '—'
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Disponibilidade</p>
+          <p className="mt-1 text-sm font-semibold text-slate-800">
+            {publication.publicationDate ? formatDate(publication.publicationDate) : '—'}
+          </p>
+        </div>
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Câmara</p>
+          <p className="mt-1 text-sm font-semibold text-slate-800">{publication.chamber || '—'}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Página</p>
+          <p className="mt-1 text-sm font-semibold text-slate-800">{pageLabel}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Importância</p>
+          <p className="mt-1 text-sm font-semibold text-indigo-700">
+            {publication.importance || (publication.suggestedDays ? `${publication.suggestedDays} dia(s) · sugestão` : 'Não classificada')}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-1 text-sm">
+        <p className="font-mono text-xs font-bold text-slate-800">{publication.processNumber || 'Sem CNJ'}</p>
+        <p className="text-slate-600">
+          <strong className="text-slate-800">{publication.court || 'Tribunal não informado'}</strong>
+          {publication.unit ? ` · ${publication.unit}` : ''}
+        </p>
+        <p className="text-xs text-slate-500">
+          Origem: {publication.source} · Situação: <strong>{publication.status}</strong>
+          {publication.responsibleName !== 'Não atribuído' && ` · Responsável: ${publication.responsibleName}`}
+        </p>
+        {publication.clientName && <p className="text-xs text-slate-500">Cliente: {publication.clientName}</p>}
+      </div>
+
+      {publication.recipients.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-slate-700 mb-1">Destinatários</p>
+          <div className="flex flex-wrap gap-1.5">
+            {publication.recipients.slice(0, 8).map((recipient, index) => (
+              <span key={`${recipient.name}-${index}`} className="px-2 py-1 rounded-lg bg-slate-100 text-[11px] text-slate-600">
+                {recipient.lawyer ? `${recipient.lawyer}${recipient.oab ? ` · OAB ${recipient.oab}/${recipient.ufOab || ''}` : ''}` : recipient.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+})
+
 export function PublicationDetail({ publication, processes, lawyers, onClose, onChanged }: PublicationDetailProps) {
   const { user } = useAuth()
   const [mode, setMode] = useState<Mode>('view')
@@ -214,12 +275,6 @@ export function PublicationDetail({ publication, processes, lawyers, onClose, on
     }
   }
 
-  const pageLabel = publication.page
-    ? `p. ${publication.page}`
-    : publication.communicationNumber
-      ? `Comunicação nº ${publication.communicationNumber}`
-      : '—'
-
   return (
     <Modal
       isOpen={Boolean(publication)}
@@ -228,54 +283,7 @@ export function PublicationDetail({ publication, processes, lawyers, onClose, on
       className="max-w-3xl"
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Disponibilidade</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">
-              {publication.publicationDate ? formatDate(publication.publicationDate) : '—'}
-            </p>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Câmara</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">{publication.chamber || '—'}</p>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Página</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">{pageLabel}</p>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Importância</p>
-            <p className="mt-1 text-sm font-semibold text-indigo-700">
-              {publication.importance || (publication.suggestedDays ? `${publication.suggestedDays} dia(s) · sugestão` : 'Não classificada')}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-1 text-sm">
-          <p className="font-mono text-xs font-bold text-slate-800">{publication.processNumber || 'Sem CNJ'}</p>
-          <p className="text-slate-600">
-            <strong className="text-slate-800">{publication.court || 'Tribunal não informado'}</strong>
-            {publication.unit ? ` · ${publication.unit}` : ''}
-          </p>
-          <p className="text-xs text-slate-500">
-            Origem: {publication.source} · Situação: <strong>{publication.status}</strong>
-            {publication.responsibleName !== 'Não atribuído' && ` · Responsável: ${publication.responsibleName}`}
-          </p>
-          {publication.clientName && <p className="text-xs text-slate-500">Cliente: {publication.clientName}</p>}
-        </div>
-
-        {publication.recipients.length > 0 && (
-          <div>
-            <p className="text-xs font-bold text-slate-700 mb-1">Destinatários</p>
-            <div className="flex flex-wrap gap-1.5">
-              {publication.recipients.slice(0, 8).map((recipient, index) => (
-                <span key={`${recipient.name}-${index}`} className="px-2 py-1 rounded-lg bg-slate-100 text-[11px] text-slate-600">
-                  {recipient.lawyer ? `${recipient.lawyer}${recipient.oab ? ` · OAB ${recipient.oab}/${recipient.ufOab || ''}` : ''}` : recipient.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        <PublicationSummary publication={publication} />
 
         <div>
           <button

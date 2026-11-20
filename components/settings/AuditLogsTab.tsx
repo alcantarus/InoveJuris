@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Card } from '../ui/Card';
 import { Search, Filter, Download, User, Settings, Database, ShieldAlert, Clock, ArrowRight } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -19,6 +19,40 @@ interface AuditLog {
   performer_name?: string;
 }
 
+const tableTranslations: Record<string, string> = {
+  'users': 'Usuários',
+  'clients': 'Clientes',
+  'processes': 'Processos',
+  'contracts': 'Contratos',
+  'installments': 'Financeiro',
+  'products': 'Produtos',
+  'indicators': 'Indicadores',
+  'bank_accounts': 'Contas Bancárias',
+  'financial_categories': 'Categorias Financeiras',
+  'financial_transactions': 'Fluxo de Caixa',
+  'law_areas': 'Área do Direito'
+};
+
+const actionTranslations: Record<string, string> = {
+  'INSERT': 'Inclusão',
+  'UPDATE': 'Alteração',
+  'DELETE': 'Exclusão'
+};
+
+const ptBRDateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
+function formatDateTimeBR(value: string): string {
+  const parsed = new Date(value)
+  return isNaN(parsed.getTime()) ? '-' : ptBRDateTimeFormatter.format(parsed)
+}
+
 const AuditLogCardField = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="min-w-0">
     <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
@@ -30,26 +64,6 @@ export function AuditLogsTab() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const tableTranslations: Record<string, string> = {
-    'users': 'Usuários',
-    'clients': 'Clientes',
-    'processes': 'Processos',
-    'contracts': 'Contratos',
-    'installments': 'Financeiro',
-    'products': 'Produtos',
-    'indicators': 'Indicadores',
-    'bank_accounts': 'Contas Bancárias',
-    'financial_categories': 'Categorias Financeiras',
-    'financial_transactions': 'Fluxo de Caixa',
-    'law_areas': 'Área do Direito'
-  };
-
-  const actionTranslations: Record<string, string> = {
-    'INSERT': 'Inclusão',
-    'UPDATE': 'Alteração',
-    'DELETE': 'Exclusão'
-  };
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -79,15 +93,23 @@ export function AuditLogsTab() {
     fetchLogs();
   }, []);
 
-  const filteredLogs = logs.filter(log => {
+  const logsWithSearchFields = useMemo(() => logs.map(log => {
     const table = tableTranslations[log.table_name] || log.table_name;
     const action = actionTranslations[log.action] || log.action;
+    return {
+      log,
+      searchFields: [table, action, log.performer_name || '']
+        .map(value => removeAccents(value.toLowerCase())),
+    };
+  }), [logs]);
+
+  const filteredLogs = useMemo(() => {
     const search = removeAccents(searchTerm).toLowerCase();
-    
-    return removeAccents(table.toLowerCase()).includes(search) || 
-           removeAccents(action.toLowerCase()).includes(search) || 
-           removeAccents(log.performer_name?.toLowerCase() || '').includes(search);
-  });
+    if (!search) return logs;
+    return logsWithSearchFields
+      .filter(entry => entry.searchFields.some(field => field.includes(search)))
+      .map(entry => entry.log);
+  }, [logsWithSearchFields, searchTerm, logs]);
 
   return (
     <div className="space-y-6">
@@ -165,7 +187,7 @@ export function AuditLogsTab() {
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-600">
                       <div className="flex items-center gap-2">
                         <Clock size={14} className="text-slate-400" />
-                        {new Date(log.performed_at).toLocaleString('pt-BR')}
+                        {formatDateTimeBR(log.performed_at)}
                       </div>
                     </td>
                   </tr>
@@ -196,7 +218,7 @@ export function AuditLogsTab() {
                   <AuditLogCardField label="Data/Hora">
                     <div className="flex items-start gap-2">
                       <Clock size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                      <span className="break-words min-w-0">{new Date(log.performed_at).toLocaleString('pt-BR')}</span>
+                      <span className="break-words min-w-0">{formatDateTimeBR(log.performed_at)}</span>
                     </div>
                   </AuditLogCardField>
                 </div>
