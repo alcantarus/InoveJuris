@@ -681,3 +681,18 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Publicação:** commit `f016df4` nas três branches; deploy `dpl_H9nD3nV1FXH9vSXVq6aZ9rsKegZT` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Validação visual:** **concluída e confirmada pelo usuário em 2026-11-20** — ordem exibida: Corte de Cabelo / Dinho → Pagto Painho Mega Sena → Mega Sena Anderson → Mega Sena de Painho.
 - **Rollback:** `git revert f016df4`; parecer e originais em `C:\InoveTecnologia\InoveJuris-Backups\ORDEM-20261120\`.
+
+## Correção — Atalhos derrubavam a sessão no celular (2026-11-20)
+
+- **Sintoma:** os atalhos de acesso rápido da Dashboard funcionavam no desktop, mas no celular qualquer toque encerrava a sessão e voltava para `/login`.
+- **Causa:** `components/SessionMonitor.tsx` enviava `close_session` no `pagehide` sempre que `visibilityState === 'hidden'`. No celular, a navegação interna (qualquer `<a href>`) passa por `hidden` antes de descarregar, então o aviso era interpretado como "fechou a aba" e o servidor chamava `app_logout_all_user_sessions`, encerrando **todas** as sessões do usuário.
+- **Correção:**
+  - listener de clique (fase de captura) marca navegação interna e **não** envia o aviso nesse caso;
+  - em aparelhos com ponteiro grosso (celular/tablet) o aviso não é enviado de forma alguma — o `pagehide` também ocorre ao trocar de app/bloquear a tela; vale a tolerância de 90 s do servidor;
+  - desktop mantém o comportamento aprovado (fechar aba encerra imediatamente).
+- **Atalhos ampliados:** +Publicações (`/publicacoes`), +Prazos (`/prazos`), +Contratos (`/contratos`), respeitando `canAccessPublicacoes`, `canAccessPrazos` e `canAccessContracts`.
+- **Sem alteração de banco**, cookies, heartbeat de 20 s, `app_validate_session` ou tolerância de 90 s.
+- **Validação:** `tsc` e `build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `a2614ca` nas três branches; deploy `dpl_FKeXyhUwAExGPgCFRVMGVc6oF16G` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Pendente:** confirmação do usuário no celular.
+- **Rollback:** `git revert a2614ca`; originais em `C:\InoveTecnologia\InoveJuris-Backups\MOBILE-20261120\`.
