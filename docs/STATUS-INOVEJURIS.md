@@ -704,3 +704,25 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - Ordem mantida, com **Relatórios imediatamente ao lado de Contratos**: Novo Cliente · Novo Processo · Publicações · Prazos · Lançar Receita · Nova Despesa · Contratos · Relatórios.
 - **Publicação:** commit `cac3177` nas três branches; deploy `dpl_D1jyC5nQx2cDFaxYvDv9KxEnT3QL` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Rollback:** `git revert cac3177`.
+
+## Auditoria de digitação lenta — Fase 1 (2026-11-20)
+
+- **Escopo aprovado pelo usuário:** ganho global (`lib/utils.ts`) + os 2 pontos críticos (`app/contratos/page.tsx`, `app/relatorios/page.tsx`). Fases 2-4 **não aprovadas**.
+- **Parecer:** `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-20261120\PARECER-AUDITORIA-DIGITACAO-20261120.md` (16 pontos mapeados).
+- **`lib/utils.ts`:** formatadores `ptBRDateFormatter`, `ptBRTimeFormatter` e `enCAFormatter` no escopo do módulo, reaproveitados por `formatDate`, `formatDateTime`, `getTodayBR` e `getTodayBRString`. Mesmo padrão já usado para `formatCurrency`.
+- **`app/contratos/page.tsx`:**
+  - `filteredContracts` agora é `useMemo` com `[contracts, productMap, normalizedSearchTerm, filter, sortConfig, nextInstallmentByContract]`;
+  - `term` e o mapa de produtos calculados uma vez (antes, `products.find` por contrato);
+  - `nextInstallment` pré-calculado em `Map`s memoizados — antes eram 4 `filter().sort()` de parcelas **dentro do comparador de ordenação**, a cada tecla;
+  - mantidas as duas variantes de status (3 para ordenação, 4 com `Estornado` para exibição), preservando o comportamento;
+  - totais (recebível/recebido/quantidade) agora em `useMemo`;
+  - lookup de produto nas três tabelas trocado por `Map`.
+- **`app/relatorios/page.tsx`:**
+  - `filteredAReceberData` e `reportRows` memoizados; `now` calculado uma vez por filtragem;
+  - KPIs de A Receber e GPS agregados em `useMemo` (antes, `new Date()` e `reduce` por render);
+  - removido o atraso indexado `index * 0.05` do `motion.tr` (stagger reanimava a tabela).
+- **Não alterado:** regras financeiras, RPC de quitação, banco, RLS, autenticação, variáveis de ambiente. `getReportColumns` não foi memoizado de propósito: ele contém handlers de quitação e memoizá-lo poderia capturar closure obsoleta em operação com efeito financeiro.
+- **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `20ab962` nas três branches; deploy `dpl_9wssWT2NUjUpWsbQCkfJuicX6vLZ` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Rollback:** `git revert 20ab962`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-20261120\` (`utils.orig.ts`, `contratos-page.orig.tsx`, `relatorios-page.orig.tsx`).
+- **Pendente:** medição/validação antes e depois em Contratos e Relatórios. Somente após essa confirmação propor Fase 2.
