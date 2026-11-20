@@ -1423,7 +1423,7 @@ Arquivos em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
 - Quem tiver a anon key continua **lendo** clientes, processos, contratos, Publicações e financeiro direto pela API REST.
 - A F4b-1 fechou **integridade** (auditoria e configurações), não **isolamento de leitura**. Isso depende do `2b` + `2c`.
 
-## 17.7 Identidade no banco (F4b-2b) — Fase A concluída e validada
+## 17.7 Identidade no banco (F4b-2b) — Fases A e B executadas; validação funcional pendente
 
 Comparação entre **JWT próprio** e **BFF**, com números medidos no código, complexidade por peça, riscos e fases: **`docs/PARECER-JWT.md`** (seções 12 e 13).
 
@@ -1433,8 +1433,9 @@ Comparação entre **JWT próprio** e **BFF**, com números medidos no código, 
 - `forward_f4b2a_token_payload.sql` aplicado no SQL Editor: `organization_id` no payload e `user` no heartbeat (`true`/`true`).
 - `SUPABASE_JWT_SECRET` salva na Vercel; deploy `dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu` (Ready, `/login` 200, `/configuracoes` 307).
 - Token validado: `HS256`, `role=anon`, `sub=2`, `organization_id` e `environment=production`, `exp=iat+600`. Logs do deploy sem `[jwt]` e sem erros.
-- **Fase B (`role=authenticated`) não executada.** Exige autorização e verificação ao vivo dos grants de `authenticated` nas 34 tabelas/views e nas 30 RPCs — o snapshot F0 não contém grants de funções.
-- **2c** (dropar as policies `true`) **não pode ser feito sozinho** — sem identidade por requisição o app para.
+- **Fase B autorizada e executada:** `SUPABASE_JWT_ROLE=authenticated` em Production, Preview e Development. Pré-verificação: `verify_faseb_grants.sql` (48/48 tabelas/views e RPCs críticas com `execute` para `authenticated`), `verify_faseb_policies.sql` (179 policies; rótulos `PROBLEMA` eram falsos positivos) e `verify_faseb_focado.sql` (52 tabelas/views usadas pelo app, `bloqueios=0`, `audit_logs` legível como `authenticated`). Deploy `dpl_4LKhoEm2NjjKWJ4AHvCT7QLzKM1D`, `/login` 200 e `/configuracoes` 307. **Nenhuma policy alterada.**
+- **Regressão corrigida em 19/11:** `forward_f4b2a_token_payload.sql` reescreveu `_auth_user_payload` e removeu o `or is_superadmin` introduzido pela Camada A, ocultando Prazos, Calendário e Publicações. Não foi efeito da Fase B: o payload vem de `app_validate_session`, no servidor, sem o token do navegador. Correção aplicada (`forward_corrige_payload_superadmin.sql`) e conferida: `organizacao_preservada=true`, `or_superadmin_restaurado=true`, `ocorrencias_or_superadmin=22`. Parecer e rollback em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
+- **2c** (dropar as policies `true`) **não pode ser feito sozinho** — exige a validação funcional da Fase B e a aplicação de policies em lotes, com rollback por lote.
 - Chave ECC própria pendente: a standby `c73f6852-eeca-455d-9549-647afae7e493` bloqueia a importação e precisa ser marcada como `previously_used`/revogada.
 
 ## 17.8 Retenção de logs — concluída
@@ -1445,7 +1446,9 @@ Comparação entre **JWT próprio** e **BFF**, com números medidos no código, 
 
 ## 17.9 Pendências
 
-1. **Fase B da identidade:** trocar `SUPABASE_JWT_ROLE=authenticated` após autorização e verificação de grants/RPCs.
-2. **Chave ECC própria:** resolver a standby `c73f6852-eeca-455d-9549-647afae7e493` e importar JWK privado, substituindo `SUPABASE_JWT_SECRET`.
-3. **Merge** de `9ebe9a3`/`e910740`/`080e042` (e docs) em `main`/`trabalho-com-claude`.
+1. **Validação funcional da Fase B:** confirmar `role=authenticated` no token efetivo (ler apenas as claims `role`, `sub`, `organization_id`, `environment` e `exp`, sem expor o token), conferir as rotas no navegador, uma operação de pagamento/estorno e os logs do deploy por `[jwt]`/`"level":"error"`. Confirmar também o retorno de Prazos, Calendário e Publicações na Sidebar após a correção do payload.
+2. **F4b-2c:** somente depois da validação acima; aplicar policies em lotes de 5 tabelas com rollback por lote.
+3. **Chave ECC própria:** resolver a standby `c73f6852-eeca-455d-9549-647afae7e493` e importar JWK privado, substituindo `SUPABASE_JWT_SECRET`.
 4. **F3** (~17 funções `http*` de `supabase_admin`): aguarda o chamado no Supabase Support (`F3-20261118\SUPPORT-REQUEST.md`).
+
+**Concluído:** o merge de `9ebe9a3`/`e910740`/`080e042` e da documentação em `main`/`trabalho-com-claude` foi enviado em `484291f`.

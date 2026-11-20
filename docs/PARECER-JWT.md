@@ -185,16 +185,25 @@ navegador prova que o preflight do PostgREST o aceitou. Logs do deploy novo sem 
 **Rollback da Fase A:** remover `SUPABASE_JWT_SECRET` na Vercel + redeploy; deploy pré-Fase A
 `dpl_3Z5EZi41FQPWPSZsviw2SLfyM6fs`.
 
-## 13. Fase B — pré-requisitos levantados (não executada)
+## 13. Fase B — pré-requisitos e execução (2026-11-19)
 
-- Antes de `SUPABASE_JWT_ROLE=authenticated`, conferir os grants de `authenticated` nas
-  34 tabelas/views e nas 30 RPCs usadas pelo app.
+- Pré-verificação concluída no SQL Editor: `verify_faseb_grants.sql` (48/48 tabelas/views com
+  os mesmos grants de `anon`; RPCs críticas, inclusive pagamento/estorno e `app_*`, com
+  `execute` para `authenticated`) e `verify_faseb_policies.sql` (179 policies no total).
+- `verify_faseb_focado.sql` eliminou os falsos positivos do filtro amplo: das 52 tabelas/views
+  usadas por `supabase.from(...)`, **nenhuma** fica sem policy aplicável a `authenticated`.
+  `audit_logs` continua legível pela policy `TO public ... using (auth.role() = 'authenticated')`.
+- `SUPABASE_JWT_ROLE=authenticated` configurada na Vercel em Production, Preview e
+  Development. Deploy `dpl_4LKhoEm2NjjKWJ4AHvCT7QLzKM1D`, alias
+  `https://inove-juris.vercel.app`; `/login` 200, `/configuracoes` 307. Nenhuma policy alterada.
 - O snapshot F0 (`C:\InoveTecnologia\InoveJuris-Backups\F0-20261118\grants_rollback.json`)
-  tem **465 grants para `authenticated` em 67 objetos** (SELECT/INSERT/UPDATE/DELETE em 66,
-  TRUNCATE/REFERENCES/TRIGGER em 67) e **nenhum grant de função**. A verificação das RPCs
-  precisa ser feita ao vivo no SQL Editor — consultar `information_schema.role_routine_grants`
-  e `pg_proc.proacl` para as 30 funções chamadas pelo cliente.
-- Atenção: `audit_logs` e `system_settings` já tiveram a escrita revogada de `authenticated`
-  nas F4b-1c1/1c2 — é o estado desejado, não regressão.
-- Exceções a validar: onboarding público, views do dashboard, tabelas sem `organization_id`
-  e reconexão do Realtime quando o token vence.
+  tem **465 grants para `authenticated` em 67 objetos** e nenhum grant de função; as RPCs
+  foram conferidas ao vivo. `audit_logs` e `system_settings` seguem sem escrita direta
+  (F4b-1c1/1c2) — estado desejado.
+- **Regressão de payload corrigida no mesmo dia:** `forward_f4b2a_token_payload.sql` havia
+  removido o `or is_superadmin` de `_auth_user_payload`, ocultando Prazos/Calendário/Publicações.
+  Correção em `forward_corrige_payload_superadmin.sql`, com parecer e rollback no diretório
+  `FASE0-20261119`. Conferência: `organizacao_preservada=true`, `or_superadmin_restaurado=true`,
+  `ocorrencias_or_superadmin=22`.
+- Ainda pendente: confirmação visual das rotas no navegador, logs do novo deploy, F4b-2c,
+  troca para chave ECC própria e F3.

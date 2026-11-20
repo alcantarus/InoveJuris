@@ -4,7 +4,7 @@ Documento único para retomar o trabalho após desligar o computador. Tudo o que
 
 > **INCIDENTE RESOLVIDO (2026-11-19):** o Postgres do Supabase havia ficado inacessível por esgotamento do burst de I/O (baseline de 5 MB/s), com `504`/`57014` no login e `Connection terminated due to connection timeout` no SQL Editor. O usuário rodou `select 1;` e obteve `1`; REST, RPC `app_authenticate` e a rota `/api/auth/session` voltaram a responder (seção 13.8 do parecer de impacto). **Nenhum deploy foi revertido e nenhuma sessão artificial foi criada.** Mantém-se a recomendação de reduzir o tráfego/balance do disco para não recorrer.
 
-> **ATUALIZAÇÃO (2026-11-19, posterior a este documento):** a F4b-1 foi executada e publicada em Production; a retenção de logs passou a 90 dias com job ativo; a **F4b-2b Fase A (JWT com `role=anon`) foi concluída e validada** (`dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu`). Fase B (`role=authenticated`), chave ECC própria e F4b-2c seguem pendentes. Estado atual na seção **F4b** de `docs/STATUS-INOVEJURIS.md`, na seção **17** de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e nas seções **12/13** de `docs/PARECER-JWT.md`. As referências a deploy abaixo são históricas.
+> **ATUALIZAÇÃO (2026-11-19, posterior a este documento):** a F4b-1 foi executada e publicada em Production; a retenção de logs passou a 90 dias com job ativo; a **Fase A (JWT com `role=anon`)** foi concluída e validada (`dpl_9FZNmjmnNT3JV1GJvTE2Wg92KEfu`); a **Fase B (`role=authenticated`)** foi autorizada e publicada (`dpl_4LKhoEm2NjjKWJ4AHvCT7QLzKM1D`), com pré-verificação de grants e policies sem bloqueios. No mesmo dia, uma regressão em `_auth_user_payload` (perda do `or is_superadmin`) que ocultou Prazos/Calendário/Publicações foi corrigida e conferida no banco (`ocorrencias_or_superadmin=22`). Chave ECC própria e F4b-2c seguem pendentes. Estado atual na seção **Fase B** de `docs/STATUS-INOVEJURIS.md`, na seção **17** de `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` e nas seções **12/13** de `docs/PARECER-JWT.md`. As referências a deploy abaixo são históricas.
 
 ## 1. Situação atual — produção íntegra
 
@@ -243,7 +243,9 @@ Se qualquer passo falhar: `rollback_otim1_index_audit_logs.sql` para o índice e
 - Validação: token `HS256`, `role=anon`, `sub=2`, `organization_id=eaf29983-1998-40a4-bd07-03ea09b4adfa`, `environment=production`, `session_id` presente, 10 min de validade. Logs sem `[jwt]` e sem erros.
 - Rollback: remover `SUPABASE_JWT_SECRET` + redeploy; deploy pré-Fase A `dpl_3Z5EZi41FQPWPSZsviw2SLfyM6fs`.
 
-### 13.4 Pendências da identidade
-- Fase B: trocar `SUPABASE_JWT_ROLE=authenticated` exige autorização e conferência prévia dos grants de `authenticated` nas 34 tabelas/views e nas 30 RPCs. O snapshot F0 tem 465 grants para `authenticated` em 67 objetos e **nenhum grant de função** — verificar as RPCs ao vivo no SQL Editor.
+### 13.4 Identidade — Fase B concluída e pendências
+- **Fase B executada em 2026-11-19:** `SUPABASE_JWT_ROLE=authenticated` na Vercel (Production/Preview/Development) e deploy `dpl_4LKhoEm2NjjKWJ4AHvCT7QLzKM1D`. Pré-verificação: `verify_faseb_grants.sql` (48/48 tabelas/views e RPCs críticas OK) e `verify_faseb_focado.sql` (52 tabelas/views do app, `bloqueios=0`, `audit_logs` legível como `authenticated`). Nenhuma policy alterada.
+- **Regressão corrigida:** o script que adicionou `organization_id` ao payload removeu o `or is_superadmin` de `_auth_user_payload`, ocultando Prazos/Calendário/Publicações. Correção aplicada e conferida (`ocorrencias_or_superadmin=22`); parecer, forward e rollback em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
 - Chave ECC própria: marcar a standby antiga como `previously_used`/revogada, importar JWK privado, promover a Current e trocar a variável no Vercel.
-- F4b-2c (dropar policies `true`) somente após a identidade completa.
+- F4b-2c (dropar policies `true`) somente após a identidade completa e após a validação funcional da Fase B.
+- Validação funcional da Fase B ainda pendente: role no token efetivo, rotas no navegador e logs do deploy.
