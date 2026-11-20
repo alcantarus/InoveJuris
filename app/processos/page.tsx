@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import DashboardLayout from '../dashboard-layout'
 import {
@@ -556,19 +556,42 @@ export default function ProcessosPage() {
     }
   }
 
-  const normalizedSearchTerm = normalizeSearchText(searchTerm)
-  const areaOptions = Array.from(new Set(processes.map(p => p.type).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))
-  const statusOptions = Array.from(new Set(processes.map(p => p.status).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))
-  const responsibleOptions = Array.from(new Set(processes.map(p => {
-    if (p.lawyer_id == null) return ''
-    const lawyer = lawyers.find(l => Number(l.id) === Number(p.lawyer_id))
-    return lawyer?.name || lawyer?.users?.name || ''
-  }).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))
+  const normalizedSearchTerm = useMemo(() => normalizeSearchText(searchTerm), [searchTerm])
 
-  const filteredProcesses = processes.filter(p => {
+  const lawyerById = useMemo(() => {
+    const map = new Map<number, typeof lawyers[number]>()
+    for (const lawyer of lawyers) {
+      if (!map.has(Number(lawyer.id))) map.set(Number(lawyer.id), lawyer)
+    }
+    return map
+  }, [lawyers])
+
+  const responsibleByProcess = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const process of processes) {
+      if (process.lawyer_id == null) continue
+      const lawyer = lawyerById.get(Number(process.lawyer_id))
+      map.set(process.id, lawyer?.name || lawyer?.users?.name || '')
+    }
+    return map
+  }, [processes, lawyerById])
+
+  const areaOptions = useMemo(
+    () => Array.from(new Set(processes.map(p => p.type).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')),
+    [processes]
+  )
+  const statusOptions = useMemo(
+    () => Array.from(new Set(processes.map(p => p.status).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')),
+    [processes]
+  )
+  const responsibleOptions = useMemo(
+    () => Array.from(new Set(responsibleByProcess.values())).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')),
+    [responsibleByProcess]
+  )
+
+  const filteredProcesses = useMemo(() => processes.filter(p => {
     const partyNames = normalizeParties(p.parties).map(part => part.name).join(' ')
-    const lawyer = p.lawyer_id != null ? lawyers.find(l => Number(l.id) === Number(p.lawyer_id)) : null
-    const responsible = lawyer?.name || lawyer?.users?.name || ''
+    const responsible = responsibleByProcess.get(p.id) || ''
     const matchesSearch = !normalizedSearchTerm ||
       normalizeSearchText(p.number).includes(normalizedSearchTerm) ||
       normalizeSearchText(p.client).includes(normalizedSearchTerm) ||
@@ -588,19 +611,21 @@ export default function ProcessosPage() {
       if (urgencyFilter === '7d' && (days < 0 || days > 7)) return false
     }
     return true
-  })
+  }), [processes, responsibleByProcess, normalizedSearchTerm, areaFilter, statusFilter, responsibleFilter, urgencyFilter])
 
   // Contagens reais de prazos (a antiga getNearestDeadlineStatus era um stub).
-  const expiredCount = processes.filter(p => {
-    const next = getNextDeadline(p)
-    return next ? daysUntilDate(next.deadline_date) < 0 : false
-  }).length
-  const criticalCount = processes.filter(p => {
-    const next = getNextDeadline(p)
-    if (!next) return false
-    const days = daysUntilDate(next.deadline_date)
-    return days >= 0 && days <= 7
-  }).length
+  const { expiredCount, criticalCount } = useMemo(() => {
+    let expired = 0
+    let critical = 0
+    for (const process of processes) {
+      const next = getNextDeadline(process)
+      if (!next) continue
+      const days = daysUntilDate(next.deadline_date)
+      if (days < 0) expired += 1
+      else if (days <= 7) critical += 1
+    }
+    return { expiredCount: expired, criticalCount: critical }
+  }, [processes])
 
   return (
     <DashboardLayout>

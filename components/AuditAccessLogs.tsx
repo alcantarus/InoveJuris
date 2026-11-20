@@ -35,6 +35,20 @@ import {
 import { getAppEnv } from '@/lib/env'
 import { getTodayBR } from '@/lib/utils'
 
+const ptBRDateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
+function formatDateTimeBR(date: string): string {
+  const parsed = new Date(date)
+  return isNaN(parsed.getTime()) ? '-' : ptBRDateTimeFormatter.format(parsed)
+}
+
 async function authAction(action: string, payload: Record<string, unknown> = {}) {
   const response = await fetch('/api/auth/session', {
     method: 'POST',
@@ -164,49 +178,53 @@ export function AuditAccessLogs() {
     return { label: 'Ativa', color: 'text-emerald-600 bg-emerald-50', icon: <CheckCircle2 size={14} /> }
   }
 
-  const filteredLogs = logs.filter(log => {
-    const term = searchTerm.toLowerCase()
-    const matchesSearch = (
-      log.user?.name?.toLowerCase().includes(term) ||
-      log.user?.email?.toLowerCase().includes(term) ||
-      log.ip_address?.toLowerCase().includes(term) ||
-      log.environment?.toLowerCase().includes(term) ||
-      log.location?.toLowerCase().includes(term)
-    )
-    
-    const matchesUser = userFilter === 'all' || log.user_id.toString() === userFilter
-    
-    // Date filter
+  const filteredLogs = useMemo(() => {
     const now = new Date()
-    const loginDate = new Date(log.login_at)
-    let matchesDate = true
-    if (dateRange === 'today') matchesDate = loginDate.toDateString() === now.toDateString()
-    else if (dateRange === '7days') matchesDate = (now.getTime() - loginDate.getTime()) <= 7 * 24 * 60 * 60 * 1000
-    else if (dateRange === '30days') matchesDate = (now.getTime() - loginDate.getTime()) <= 30 * 24 * 60 * 60 * 1000
-
-    return matchesSearch && matchesUser && matchesDate
-  })
-
-  const filteredFailed = failedAttempts.filter(attempt => {
     const term = searchTerm.toLowerCase()
-    const matchesSearch = (
-      attempt.email.toLowerCase().includes(term) ||
-      attempt.ip_address.toLowerCase().includes(term) ||
-      attempt.reason.toLowerCase().includes(term)
-    )
-    
-    const matchesType = eventType === 'all' || attempt.reason.toLowerCase().includes(eventType.toLowerCase())
+    return logs.filter(log => {
+      const matchesSearch = (
+        log.user?.name?.toLowerCase().includes(term) ||
+        log.user?.email?.toLowerCase().includes(term) ||
+        log.ip_address?.toLowerCase().includes(term) ||
+        log.environment?.toLowerCase().includes(term) ||
+        log.location?.toLowerCase().includes(term)
+      )
 
-    // Date filter
+      const matchesUser = userFilter === 'all' || log.user_id.toString() === userFilter
+
+      // Date filter
+      const loginDate = new Date(log.login_at)
+      let matchesDate = true
+      if (dateRange === 'today') matchesDate = loginDate.toDateString() === now.toDateString()
+      else if (dateRange === '7days') matchesDate = (now.getTime() - loginDate.getTime()) <= 7 * 24 * 60 * 60 * 1000
+      else if (dateRange === '30days') matchesDate = (now.getTime() - loginDate.getTime()) <= 30 * 24 * 60 * 60 * 1000
+
+      return matchesSearch && matchesUser && matchesDate
+    })
+  }, [logs, searchTerm, userFilter, dateRange])
+
+  const filteredFailed = useMemo(() => {
     const now = new Date()
-    const attemptDate = new Date(attempt.attempted_at)
-    let matchesDate = true
-    if (dateRange === 'today') matchesDate = attemptDate.toDateString() === now.toDateString()
-    else if (dateRange === '7days') matchesDate = (now.getTime() - attemptDate.getTime()) <= 7 * 24 * 60 * 60 * 1000
-    else if (dateRange === '30days') matchesDate = (now.getTime() - attemptDate.getTime()) <= 30 * 24 * 60 * 60 * 1000
+    const term = searchTerm.toLowerCase()
+    return failedAttempts.filter(attempt => {
+      const matchesSearch = (
+        attempt.email.toLowerCase().includes(term) ||
+        attempt.ip_address.toLowerCase().includes(term) ||
+        attempt.reason.toLowerCase().includes(term)
+      )
 
-    return matchesSearch && matchesType && matchesDate
-  })
+      const matchesType = eventType === 'all' || attempt.reason.toLowerCase().includes(eventType.toLowerCase())
+
+      // Date filter
+      const attemptDate = new Date(attempt.attempted_at)
+      let matchesDate = true
+      if (dateRange === 'today') matchesDate = attemptDate.toDateString() === now.toDateString()
+      else if (dateRange === '7days') matchesDate = (now.getTime() - attemptDate.getTime()) <= 7 * 24 * 60 * 60 * 1000
+      else if (dateRange === '30days') matchesDate = (now.getTime() - attemptDate.getTime()) <= 30 * 24 * 60 * 60 * 1000
+
+      return matchesSearch && matchesType && matchesDate
+    })
+  }, [failedAttempts, searchTerm, eventType, dateRange])
 
   const metrics = useMemo(() => {
     const now = new Date()
@@ -289,8 +307,8 @@ export function AuditAccessLogs() {
           log.user?.email || '',
           log.environment === 'production' ? 'Produção' : 'Teste',
           status,
-          new Date(log.login_at).toLocaleString('pt-BR'),
-          new Date(log.last_seen_at).toLocaleString('pt-BR'),
+          formatDateTimeBR(log.login_at),
+          formatDateTimeBR(log.last_seen_at),
           log.ip_address || '',
           log.location || 'Desconhecido',
           log.user_agent.replace(/,/g, ' ') // Remove commas to avoid CSV issues
@@ -315,7 +333,7 @@ export function AuditAccessLogs() {
       const rows = filteredFailed.map(attempt => {
         return [
           attempt.email,
-          new Date(attempt.attempted_at).toLocaleString('pt-BR'),
+          formatDateTimeBR(attempt.attempted_at),
           attempt.ip_address,
           attempt.reason,
           attempt.user_agent.replace(/,/g, ' ')
@@ -573,10 +591,10 @@ export function AuditAccessLogs() {
                         <td className="p-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 text-slate-700 mb-1">
                             <Clock size={14} className="text-slate-400" />
-                            {new Date(log.login_at).toLocaleString('pt-BR')}
+                            {formatDateTimeBR(log.login_at)}
                           </div>
                           <div className="text-xs text-slate-500">
-                            Visto: {new Date(log.last_seen_at).toLocaleString('pt-BR')}
+                            Visto: {formatDateTimeBR(log.last_seen_at)}
                           </div>
                         </td>
                         <td className="p-4 whitespace-nowrap">
@@ -647,10 +665,10 @@ export function AuditAccessLogs() {
                     <AuditCardField label="Login / Último Acesso">
                       <div className="flex items-start gap-1.5 text-slate-700 break-words">
                         <Clock size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                        {new Date(log.login_at).toLocaleString('pt-BR')}
+                        {formatDateTimeBR(log.login_at)}
                       </div>
                       <div className="text-xs text-slate-500 break-words mt-1">
-                        Visto: {new Date(log.last_seen_at).toLocaleString('pt-BR')}
+                        Visto: {formatDateTimeBR(log.last_seen_at)}
                       </div>
                     </AuditCardField>
                     <AuditCardField label="IP / Local / Dispositivo">
@@ -721,7 +739,7 @@ export function AuditAccessLogs() {
                       <td className="p-4 whitespace-nowrap">
                         <div className="flex items-center gap-1.5 text-slate-700">
                           <Clock size={14} className="text-slate-400" />
-                          {new Date(attempt.attempted_at).toLocaleString('pt-BR')}
+                          {formatDateTimeBR(attempt.attempted_at)}
                         </div>
                       </td>
                       <td className="p-4 whitespace-nowrap">
@@ -753,7 +771,7 @@ export function AuditAccessLogs() {
                   <AuditCardField label="Data / Hora">
                     <div className="flex items-start gap-1.5 text-slate-700 break-words">
                       <Clock size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                      {new Date(attempt.attempted_at).toLocaleString('pt-BR')}
+                      {formatDateTimeBR(attempt.attempted_at)}
                     </div>
                   </AuditCardField>
                   <AuditCardField label="Motivo">

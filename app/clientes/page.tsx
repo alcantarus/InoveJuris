@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { ClientStatsWidget } from '@/components/tasks/ClientStatsWidget'
@@ -28,7 +28,7 @@ import {
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
-import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPIS, cn, formatCEP, formatPhone, removeAccents, normalizeSearchText } from '@/lib/utils'
+import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPIS, cn, formatCEP, formatPhone, removeAccents, normalizeSearchText, formatDate, formatCurrency } from '@/lib/utils'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
@@ -305,14 +305,14 @@ export default function ClientesPage() {
   
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  const filteredClients = clients.filter(client => {
+  const filteredClients = useMemo(() => clients.filter(client => {
     if (!selectedFilter) return true;
     if (selectedFilter === 'total') return true;
     if (selectedFilter === 'minors') return client.isMinor;
     if (selectedFilter === 'assisted') return (client.guardians?.length ?? 0) > 0 || !!client.legalRepresentative;
     if (selectedFilter === 'health') return !!(client.name && client.email && client.document);
     return true;
-  });
+  }), [clients, selectedFilter]);
 
   const toggleSelectAll = () => {
     if (selectedClients.length === filteredClients.length) {
@@ -810,12 +810,12 @@ export default function ClientesPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredClients.map((client, index) => (
+                  filteredClients.map((client) => (
                     <motion.tr 
                       key={client.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
+                      transition={{ duration: 0.15 }}
                       className="hover:bg-slate-50 transition-colors group cursor-pointer"
                       onClick={() => setSelectedClient(client)}
                     >
@@ -848,7 +848,7 @@ export default function ClientesPage() {
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span className="text-xs font-medium text-slate-600">
-                          {client.next_follow_up_at ? new Date(client.next_follow_up_at).toLocaleDateString() : '-'}
+                          {client.next_follow_up_at ? formatDate(client.next_follow_up_at) : '-'}
                         </span>
                       </td>
                       <td className="px-4 py-4 text-center">
@@ -863,12 +863,12 @@ export default function ClientesPage() {
                         <div className="flex flex-col items-start leading-tight">
                           {client.total_overdue! > 0 ? (
                             <>
-                              <span className="text-sm text-rose-600 font-bold">R$ {client.total_overdue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="text-sm text-rose-600 font-bold">{formatCurrency(client.total_overdue || 0)}</span>
                               <span className="text-[10px] text-rose-500 uppercase font-medium">Atrasado</span>
                             </>
                           ) : client.total_receivable! > 0 ? (
                             <>
-                              <span className="text-sm text-amber-600 font-bold">R$ {client.total_receivable?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="text-sm text-amber-600 font-bold">{formatCurrency(client.total_receivable || 0)}</span>
                               <span className="text-[10px] text-amber-500 uppercase font-medium">A receber</span>
                             </>
                           ) : (

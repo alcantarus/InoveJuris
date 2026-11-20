@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { 
@@ -29,6 +29,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { formatCPF, formatCNPJ, formatPhone, cn, formatDate, formatCurrency, removeAccents } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
+import { PaymentFields } from '@/components/indicadores/PaymentFields'
 
 interface Indicator {
   id: number
@@ -358,15 +359,13 @@ export default function IndicadoresPage() {
   }
 
   const [commissionStatus, setCommissionStatus] = useState<any[]>([])
-  const [paymentValues, setPaymentValues] = useState<Record<number, string>>({})
-  const [paymentDescriptions, setPaymentDescriptions] = useState<Record<number, string>>({})
+  const [paymentResetKey, setPaymentResetKey] = useState(0)
 
   const handleOpenCommissions = async (indicator: Indicator) => {
     setSelectedIndicator(indicator)
     setIndicatorContracts([])
     setCommissionStatus([])
-    setPaymentValues({})
-    setPaymentDescriptions({})
+    setPaymentResetKey(prev => prev + 1)
     
     if (isSupabaseConfigured) {
       const [contractsRes, statusRes] = await Promise.all([
@@ -395,8 +394,8 @@ export default function IndicadoresPage() {
     setCommissionsModalOpen(true)
   }
 
-  const handleAddPayment = async (contractId: number) => {
-    const amountPaid = paymentValues[contractId] ? parseFloat(paymentValues[contractId].replace(/\./g, '').replace(',', '.')) : 0
+  const handleAddPayment = async (contractId: number, value: string, paymentDescription: string) => {
+    const amountPaid = value ? parseFloat(value.replace(/\./g, '').replace(',', '.')) : 0
     if (!amountPaid || amountPaid <= 0) return toast.error('Informe um valor válido')
 
     // Find remaining balance
@@ -416,7 +415,7 @@ export default function IndicadoresPage() {
       contract_id: contractId,
       indicator_id: selectedIndicator.id,
       amount_paid: amountPaid,
-      description: paymentDescriptions[contractId] || ''
+      description: paymentDescription || ''
     }
     console.log('Inserting commission payment:', payload)
 
@@ -425,16 +424,9 @@ export default function IndicadoresPage() {
     if (error) return alert('Erro ao registrar pagamento')
     
     toast.success('Pagamento registrado!')
-    setPaymentValues(prev => ({ ...prev, [contractId]: '' }))
-    setPaymentDescriptions(prev => ({ ...prev, [contractId]: '' }))
+    setPaymentResetKey(prev => prev + 1)
     handleOpenCommissions(selectedIndicator!)
   }
-
-  const formatCurrencyMask = (value: string) => {
-    const numericValue = value.replace(/\D/g, '');
-    const floatValue = parseFloat(numericValue) / 100;
-    return isNaN(floatValue) ? '0,00' : floatValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  };
 
   const handleToggleCommissionStatus = async (contractId: number, currentStatus: boolean) => {
     if (!isSupabaseConfigured) return
@@ -454,12 +446,14 @@ export default function IndicadoresPage() {
     }
   }
 
-  const filteredIndicators = indicators.filter(i => {
+  const filteredIndicators = useMemo(() => {
     const term = removeAccents(searchTerm).toLowerCase()
-    return removeAccents(i.name.toLowerCase()).includes(term) ||
-           (i.cpf && removeAccents(i.cpf).includes(term)) ||
-           removeAccents(i.email.toLowerCase()).includes(term)
-  })
+    return indicators.filter(i =>
+      removeAccents(i.name.toLowerCase()).includes(term) ||
+      (i.cpf && removeAccents(i.cpf).includes(term)) ||
+      removeAccents(i.email.toLowerCase()).includes(term)
+    )
+  }, [indicators, searchTerm])
 
   if (!mounted) return null
 
@@ -856,28 +850,11 @@ export default function IndicadoresPage() {
                                   Cancelado
                                 </span>
                               ) : row.hasBalance ? (
-                                <div className="flex flex-col gap-2">
-                                  <input 
-                                    type="text" 
-                                    placeholder="R$ 0,00" 
-                                    className="w-32 px-2 py-1 border rounded"
-                                    value={paymentValues[contract.id] || ''}
-                                    onChange={e => setPaymentValues(prev => ({ ...prev, [contract.id]: formatCurrencyMask(e.target.value) }))}
-                                  />
-                                  <input 
-                                    type="text" 
-                                    placeholder="Descrição" 
-                                    className="w-32 px-2 py-1 border rounded text-xs"
-                                    value={paymentDescriptions[contract.id] || ''}
-                                    onChange={e => setPaymentDescriptions(prev => ({ ...prev, [contract.id]: e.target.value }))}
-                                  />
-                                  <button 
-                                    className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
-                                    onClick={() => handleAddPayment(contract.id)}
-                                  >
-                                    Pagar
-                                  </button>
-                                </div>
+                                <PaymentFields
+                                  key={`${contract.id}-${paymentResetKey}`}
+                                  contractId={contract.id}
+                                  onPay={handleAddPayment}
+                                />
                               ) : (
                                 <span className="text-emerald-700 font-semibold text-sm">Quitado</span>
                               )}
@@ -930,28 +907,12 @@ export default function IndicadoresPage() {
                               Cancelado
                             </span>
                           ) : row.hasBalance ? (
-                            <div className="flex flex-col gap-2">
-                              <input
-                                type="text"
-                                placeholder="R$ 0,00"
-                                className="w-full min-h-[40px] px-2 py-2 border rounded text-sm"
-                                value={paymentValues[contract.id] || ''}
-                                onChange={e => setPaymentValues(prev => ({ ...prev, [contract.id]: formatCurrencyMask(e.target.value) }))}
-                              />
-                              <input
-                                type="text"
-                                placeholder="Descrição"
-                                className="w-full min-h-[40px] px-2 py-2 border rounded text-xs"
-                                value={paymentDescriptions[contract.id] || ''}
-                                onChange={e => setPaymentDescriptions(prev => ({ ...prev, [contract.id]: e.target.value }))}
-                              />
-                              <button
-                                className="w-full min-h-[40px] px-3 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
-                                onClick={() => handleAddPayment(contract.id)}
-                              >
-                                Pagar
-                              </button>
-                            </div>
+                            <PaymentFields
+                              key={`${contract.id}-${paymentResetKey}`}
+                              contractId={contract.id}
+                              mobile
+                              onPay={handleAddPayment}
+                            />
                           ) : (
                             <span className="text-emerald-700 font-semibold text-sm">Quitado</span>
                           )}
