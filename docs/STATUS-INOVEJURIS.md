@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; **isolamento de ambientes e ordem cronológica dos lançamentos corrigidos e validados visualmente pelo usuário**; branches alinhadas na ponta desta entrega; pendências de segurança restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; **isolamento de ambientes e ordem cronológica dos lançamentos corrigidos e validados visualmente pelo usuário**; branches alinhadas em `c9faaa4`; **auditoria de digitação lenta (Fases 1 a 4) validada e encerrada**; **teste financeiro ponta a ponta realizado com sucesso pelo usuário**; pendência de segurança restante **F4b-2c/chave ECC própria**, a retomar somente com autorização explícita — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
 >
 > **Fechamento do dia 2026-11-20:** resumo único, deploys, validações, pendências e rollback em `docs/RESUMO-DIA-20261120.md`.
 
@@ -631,7 +631,7 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Achado na validação:** instrumentação no navegador mostrou que as chamadas `/rest/v1/...` ainda enviavam `Authorization: Bearer <chave publicável>` (1 segmento), e não o JWT (3 segmentos). O `supabase-js` preenche o Bearer antes de chamar `sessionAwareFetch`, que só injetava o token se o header estivesse ausente. Ou seja, a Fase B estava configurada, mas **inerte** nas consultas do app. Parecer: `PARECER-TOKEN-NAO-INJETADO-20261119.md` em `C:\InoveTecnologia\InoveJuris-Backups\FASE0-20261119\`.
 - **Correção aplicada em `lib/supabase.ts`:** quando há token de sessão, o Bearer da chave publicável é substituído pelo JWT (`if (token) headers.set('Authorization', ...)`); o header `apikey` permanece intacto. `npx tsc --noEmit` e `npm run build` OK. Rollback exato: restaurar `if (!headers.has('Authorization'))`.
 - **Publicada e validada em 19/11:** commit `c4d806c`, deploy `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` (`READY`, alias `https://inove-juris.vercel.app`). Instrumentação no navegador confirmou o `Authorization` com 3 segmentos e claims `HS256`, `role=authenticated`, `sub=2`, `organization_id`, `environment=production`, `exp-iat=600`, sobrepondo o Bearer de 53 caracteres/1 segmento da chave publicável. Sidebar e rotas de leitura OK; console sem erros. Logs de runtime não retidos no plano Hobby (0 registros).
-- **Pendente:** pagamento/estorno de teste com autorização explícita; F4b-2c, chave ECC própria e F3.
+- **Atualizado em 2026-11-20:** teste de pagamento/estorno **realizado com sucesso pelo usuário**, com autorização explícita; nenhum pagamento foi executado pelo agente. Restam F4b-2c, chave ECC própria e F3.
 
 ## Correção de performance — digitação no fluxo de caixa — 2026-11-20
 
@@ -640,14 +640,14 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Correção (commit `85dc94b`):** modal extraído para `components/cashflow/NewTransactionModal.tsx` com `React.memo` e estado local; `useMemo` em `filteredTransactions`; `Intl.NumberFormat` reaproveitado em `lib/utils.ts`. Lógica de gravação, validação de saldo e confirmação mantidas.
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; deploy `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`). A mesma digitação instrumentada caiu para **1.119 ms** (≈27 ms/tecla, ~14× mais rápido); perfil com 1.096 ms em `(idle)` de 1.393 ms e console sem erros. O modal zera ao fechar/reabrir. Nenhum lançamento foi submetido — sem efeito financeiro.
 - **Rollback:** promover `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` e `git revert 85dc94b`; detalhes no parecer.
-- **Pendente:** validação do usuário no celular; o restante segue igual (pagamento/estorno com autorização, F4b-2c, chave ECC e F3).
+- **Atualizado em 2026-11-20:** validação do usuário recebida; teste financeiro ponta a ponta concluído com sucesso. Restam F4b-2c, chave ECC e F3.
 
 ## Adiamento das pendências restantes — 2026-11-20
 
 - **Decisão do usuário:** por falta de tempo e horário avançado, os passos restantes ficam para outra oportunidade. **Nenhum deles foi executado** nesta sessão; não houve alteração em banco, variáveis, autenticação ou deploy além do já publicado.
 - **Handoff completo:** `docs/HANDOFF-PENDENCIAS-20261120.md` — estado congelado, estimativas de cada item, risco residual, sequência de retomada e rollbacks.
-- **Itens adiados:** (1) validação da digitação no celular; (2) teste de pagamento/estorno, só com autorização explícita; (3) F4b-2c em ≈11 lotes de 5 tabelas; (4) chave ECC própria; (5) F3 no Supabase Support.
-- **Risco residual assumido:** policies `USING (true)` ainda liberam acesso pela chave publicável (o JWT já é enviado, mas ainda não filtra por tenant); 17 funções `http` seguem executáveis; assinatura HS256 como ponte; fluxo financeiro não testado ponta a ponta desde a Fase B. Sistema funcional e sem erros — são lacunas silenciosas, não falhas visíveis.
+- **Itens adiados naquele momento:** (1) validação da digitação no celular; (2) teste de pagamento/estorno, só com autorização explícita; (3) F4b-2c em ≈11 lotes de 5 tabelas; (4) chave ECC própria; (5) F3 no Supabase Support. **Itens 1 e 2 concluídos com sucesso em 2026-11-20** (ver fechamento no fim deste documento).
+- **Risco residual assumido:** policies `USING (true)` ainda liberam acesso pela chave publicável (o JWT já é enviado, mas ainda não filtra por tenant); 17 funções `http` seguem executáveis; assinatura HS256 como ponte. O fluxo financeiro, que era o quarto risco, foi **testado ponta a ponta com sucesso em 2026-11-20** pelo usuário. Sistema funcional e sem erros — são lacunas silenciosas, não falhas visíveis.
 - **Estado congelado:** produção `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`); `fase0-seguranca`, `main` e `trabalho-com-claude` alinhadas na ponta desta entrega (hash no `git log`).
 
 ## Dashboard — performance e organização visual (2026-11-20)
@@ -771,4 +771,16 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
 - **Publicação:** commit `282b3ad` nas três branches; deploy `dpl_HvVBpU9Esj88cdXePndR26Dgwdb9` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Rollback:** `git revert 282b3ad`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE4-20261120\`.
-- **Pendente:** medição/validação antes e depois nas 5 telas da Fase 4. Após essa confirmação, a auditoria de digitação lenta está concluída.
+- **Validação do usuário:** **confirmada em 2026-11-20** — Fase 4 aprovada e **auditoria de digitação lenta encerrada**.
+
+## Fechamento de 2026-11-20 — preparação para a próxima sessão
+
+- **Auditoria de digitação lenta:** Fases 1 a 4 executadas, publicadas e validadas pelo usuário. Auditoria **encerrada**; nenhuma fase restante. Parecer mestre em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-20261120\PARECER-AUDITORIA-DIGITACAO-20261120.md`.
+- **Teste financeiro ponta a ponta:** **realizado com sucesso pelo usuário em 2026-11-20**, com autorização explícita. O agente não executou pagamento nem estorno e não alterou nenhuma regra/código financeiro para o teste. Não precisa ser repetido.
+- **Estado publicado:** deploy `dpl_HvVBpU9Esj88cdXePndR26Dgwdb9` (`READY`, alias `https://inove-juris.vercel.app`); `fase0-seguranca`, `main` e `trabalho-com-claude` alinhadas em `c9faaa4`.
+- **Única tarefa em aberto:** retomada de **F4b-2c** (substituir as policies `USING (true)` em lotes) e da **chave ECC própria (ES256)**, com a standby `c73f6852-eeca-455d-9549-647afae7e493` ainda bloqueando a importação. Hoje a assinatura segue HS256 (`SUPABASE_JWT_SECRET`) como ponte.
+- **Ao solicitar continuidade:** apresentar **uma única decisão** ao usuário — autorizar ou não a retomada de F4b-2c/chave ECC própria. Não iniciar alteração de autenticação, banco, policies ou Permissões sem essa autorização.
+- **Fora de escopo por decisão anterior:** implementação de tenant (somente parecer); F3 (depende do Supabase Support); formulário de permissões de Usuários e editor de arte de Marketing (mantidos por segurança/comportamento).
+- **Regras que seguem valendo:** heartbeat de 20 s, `app_validate_session` e tolerância de 90 s intactos; scripts SQL executados pelo usuário no SQL Editor; credenciais/tokens/chaves privadas nunca no chat ou em documentos; nomenclatura **Publicações** (nunca "Intimações"); pagamento/estorno com efeito real somente com autorização explícita.
+- **Rollbacks da auditoria:** Fase 1 `git revert 20ab962`; Fase 2 `git revert f53e690`; Fase 3 `git revert f902814`; Fase 4 `git revert 282b3ad`. Originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE1-20261120\`, `PERF-AUDIT-FASE2-20261120\`, `PERF-AUDIT-FASE3-20261120\` e `PERF-AUDIT-FASE4-20261120\`.
+- **Não versionado, não alterado:** `docs/RELATORIO-BACKUP-RESTORE-SUPABASE-20261120.md` (documento do próprio usuário, deixado como estava).
