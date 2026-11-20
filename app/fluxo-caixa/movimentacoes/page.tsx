@@ -40,6 +40,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { NewTransactionModal, type NewTransactionData } from '@/components/cashflow/NewTransactionModal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { getAppEnv } from '@/lib/env'
 import { useAuth } from '@/lib/auth'
 import { formatDate, formatCurrency, removeAccents } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
@@ -190,19 +191,19 @@ export default function MovimentacoesPage() {
           p_end_date: endDate || '2100-01-01',
           p_account_id: accountFilter === 'all' ? null : Number(accountFilter),
           p_category_id: categoryFilter === 'all' ? null : Number(categoryFilter),
-          p_environment: 'production'
+          p_environment: getAppEnv()
         }),
         supabase.rpc('get_financial_chart_data', {
           p_start_date: startDate || '1900-01-01',
           p_end_date: endDate || '2100-01-01',
           p_type: 'income',
-          p_environment: 'production'
+          p_environment: getAppEnv()
         }),
         supabase.rpc('get_financial_chart_data', {
           p_start_date: startDate || '1900-01-01',
           p_end_date: endDate || '2100-01-01',
           p_type: 'expense',
-          p_environment: 'production'
+          p_environment: getAppEnv()
         })
       ])
       
