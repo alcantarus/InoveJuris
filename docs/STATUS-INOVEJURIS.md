@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; branches alinhadas em `995fdb7`; F4b-2c, chave ECC própria, F3 e teste de pagamento/estorno pendentes).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; branches alinhadas na ponta desta entrega; pendências restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 
@@ -639,3 +639,11 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; deploy `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`). A mesma digitação instrumentada caiu para **1.119 ms** (≈27 ms/tecla, ~14× mais rápido); perfil com 1.096 ms em `(idle)` de 1.393 ms e console sem erros. O modal zera ao fechar/reabrir. Nenhum lançamento foi submetido — sem efeito financeiro.
 - **Rollback:** promover `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` e `git revert 85dc94b`; detalhes no parecer.
 - **Pendente:** validação do usuário no celular; o restante segue igual (pagamento/estorno com autorização, F4b-2c, chave ECC e F3).
+
+## Adiamento das pendências restantes — 2026-11-20
+
+- **Decisão do usuário:** por falta de tempo e horário avançado, os passos restantes ficam para outra oportunidade. **Nenhum deles foi executado** nesta sessão; não houve alteração em banco, variáveis, autenticação ou deploy além do já publicado.
+- **Handoff completo:** `docs/HANDOFF-PENDENCIAS-20261120.md` — estado congelado, estimativas de cada item, risco residual, sequência de retomada e rollbacks.
+- **Itens adiados:** (1) validação da digitação no celular; (2) teste de pagamento/estorno, só com autorização explícita; (3) F4b-2c em ≈11 lotes de 5 tabelas; (4) chave ECC própria; (5) F3 no Supabase Support.
+- **Risco residual assumido:** policies `USING (true)` ainda liberam acesso pela chave publicável (o JWT já é enviado, mas ainda não filtra por tenant); 17 funções `http` seguem executáveis; assinatura HS256 como ponte; fluxo financeiro não testado ponta a ponta desde a Fase B. Sistema funcional e sem erros — são lacunas silenciosas, não falhas visíveis.
+- **Estado congelado:** produção `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`); `fase0-seguranca`, `main` e `trabalho-com-claude` alinhadas na ponta desta entrega (hash no `git log`).
