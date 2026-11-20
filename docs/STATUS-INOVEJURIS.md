@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-19 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fase A concluída e validada**; Fase B e F4b-2c pendentes).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; F4b-2c, chave ECC própria, F3, alinhamento de branches e teste de pagamento/estorno pendentes).
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 
@@ -630,3 +630,12 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Correção aplicada em `lib/supabase.ts`:** quando há token de sessão, o Bearer da chave publicável é substituído pelo JWT (`if (token) headers.set('Authorization', ...)`); o header `apikey` permanece intacto. `npx tsc --noEmit` e `npm run build` OK. Rollback exato: restaurar `if (!headers.has('Authorization'))`.
 - **Publicada e validada em 19/11:** commit `c4d806c`, deploy `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` (`READY`, alias `https://inove-juris.vercel.app`). Instrumentação no navegador confirmou o `Authorization` com 3 segmentos e claims `HS256`, `role=authenticated`, `sub=2`, `organization_id`, `environment=production`, `exp-iat=600`, sobrepondo o Bearer de 53 caracteres/1 segmento da chave publicável. Sidebar e rotas de leitura OK; console sem erros. Logs de runtime não retidos no plano Hobby (0 registros).
 - **Pendente:** pagamento/estorno de teste com autorização explícita; F4b-2c, chave ECC própria e F3.
+
+## Correção de performance — digitação no fluxo de caixa — 2026-11-20
+
+- **Sintoma:** digitar valor/descrição em "Novo Lançamento Financeiro" (`/fluxo-caixa/movimentacoes`) levava ~385 ms por tecla no navegador de teste (41 caracteres = 15.765 ms). O perfil de CPU era dominado por React/layout: a página inteira (gráficos + tabela) re-renderizava a cada tecla.
+- **Parecer e medição:** `PARECER-DIGITACAO-LENTA-20261120.md` em `C:\InoveTecnologia\InoveJuris-Backups\PERF-20261120\`. Nenhuma policy, grant, autenticação ou variável de ambiente foi alterada.
+- **Correção (commit `85dc94b`):** modal extraído para `components/cashflow/NewTransactionModal.tsx` com `React.memo` e estado local; `useMemo` em `filteredTransactions`; `Intl.NumberFormat` reaproveitado em `lib/utils.ts`. Lógica de gravação, validação de saldo e confirmação mantidas.
+- **Validação:** `npx tsc --noEmit` e `npm run build` OK; deploy `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`). A mesma digitação instrumentada caiu para **1.119 ms** (≈27 ms/tecla, ~14× mais rápido); perfil com 1.096 ms em `(idle)` de 1.393 ms e console sem erros. O modal zera ao fechar/reabrir. Nenhum lançamento foi submetido — sem efeito financeiro.
+- **Rollback:** promover `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` e `git revert 85dc94b`; detalhes no parecer.
+- **Pendente:** validação do usuário no celular; o restante segue igual (pagamento/estorno com autorização, alinhamento de branches, F4b-2c, chave ECC e F3).
