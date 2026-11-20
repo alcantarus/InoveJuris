@@ -113,13 +113,54 @@ export function SessionMonitor() {
 
   // Aviso de fechamento da aba/janela. O sendBeacon funciona durante o
   // descarregamento e envia os cookies httpOnly da sessão ao servidor.
+  //
+  // Cuidado: no celular/tablet o navegador também dispara pagehide quando o
+  // usuário navega para outra página do sistema, troca de app, bloqueia a tela
+  // ou abre o teclado. Nesses casos o aviso NÃO deve ser enviado, senão
+  // `app_logout_all_user_sessions` encerra a sessão em todos os dispositivos.
+  // Para esses cenários vale a tolerância de 90 s do servidor.
   useEffect(() => {
     if (isLoginPage || !user) return;
 
     let closeNotified = false;
+    let navigatingInsideApp = false;
+    let navigationResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Ponteiro grosso = celular/tablet. Nesses aparelhos não há sinal
+    // confiável que diferencie "fechou a aba" de "trocou de app".
+    const isTouchDevice =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+
+    const markInternalNavigation = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      const target = event.target as Element | null;
+      const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      if (anchor.target && anchor.target !== '_self') return;
+      if (anchor.hasAttribute('download')) return;
+
+      try {
+        const url = new URL(anchor.href, window.location.href);
+        if (url.origin === window.location.origin && url.href !== window.location.href) {
+          navigatingInsideApp = true;
+          // Se a navegação for cancelada, volta a permitir o aviso de fechamento.
+          if (navigationResetTimer) clearTimeout(navigationResetTimer);
+          navigationResetTimer = setTimeout(() => {
+            navigatingInsideApp = false;
+          }, 5000);
+        }
+      } catch {
+        // href inválido: ignora
+      }
+    };
 
     const notifyClose = () => {
       if (closeNotified) return;
+      if (isTouchDevice) return; // celular/tablet: usa a tolerância de 90 s
+      if (navigatingInsideApp) return; // navegação interna não é fechamento
       closeNotified = true;
 
       const payload = JSON.stringify({ action: 'close_session' });
@@ -155,14 +196,20 @@ export function SessionMonitor() {
     };
     const handlePageShow = (event: PageTransitionEvent) => {
       // Retorno do BFCache: a aba voltou a existir e pode gerar novo aviso.
-      if (event.persisted) closeNotified = false;
+      if (event.persisted) {
+        closeNotified = false;
+        navigatingInsideApp = false;
+      }
     };
 
+    document.addEventListener('click', markInternalNavigation, true);
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pageshow', handlePageShow);
 
     return () => {
+      if (navigationResetTimer) clearTimeout(navigationResetTimer);
+      document.removeEventListener('click', markInternalNavigation, true);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pageshow', handlePageShow);

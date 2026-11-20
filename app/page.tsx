@@ -32,7 +32,10 @@ import {
   Scale,
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  Newspaper,
+  CalendarClock,
+  Briefcase
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -866,8 +869,11 @@ export default function Page() {
           {[
             { label: 'Novo Cliente', icon: Users, href: '/clientes', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', show: user?.canAccessClients },
             { label: 'Novo Processo', icon: FileText, href: '/processos', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', show: user?.canAccessProcesses },
+            { label: 'Publicações', icon: Newspaper, href: '/publicacoes', color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', show: user?.canAccessPublicacoes },
+            { label: 'Prazos', icon: CalendarClock, href: '/prazos', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', show: user?.canAccessPrazos },
             { label: 'Lançar Receita', icon: DollarSign, href: '/contas-a-receber', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', show: user?.canAccessReceivables },
             { label: 'Nova Despesa', icon: TrendingDown, href: '/fluxo-caixa', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', show: user?.canAccessCashFlow },
+            { label: 'Contratos', icon: Briefcase, href: '/contratos', color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100', show: user?.canAccessContracts },
             { label: 'Relatórios', icon: PieChartIcon, href: '/relatorios', color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100', show: user?.canAccessReports },
           ].filter(a => a.show !== false).map((action, i) => (
             <motion.a
