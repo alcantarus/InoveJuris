@@ -114,6 +114,26 @@ interface Product {
   law_areas?: { name: string }
 }
 
+const OPEN_INSTALLMENT_STATUSES = ['Aberto', 'Atrasada', 'Prorrogada']
+const DISPLAY_INSTALLMENT_STATUSES = ['Aberto', 'Atrasada', 'Prorrogada', 'Estornado']
+
+function getNextInstallmentByDueDate(
+  installments: Installment[] | undefined,
+  statuses: readonly string[]
+): Installment | undefined {
+  let next: Installment | undefined
+  let minTime = Infinity
+  for (const installment of installments || []) {
+    if (!statuses.includes(installment.status)) continue
+    const time = new Date(installment.dueDate).getTime()
+    if (time < minTime) {
+      minTime = time
+      next = installment
+    }
+  }
+  return next
+}
+
 function CurrencyInput({ value, onChange, disabled, className, placeholder }: any) {
   const [displayValue, setDisplayValue] = useState('')
 
@@ -1165,68 +1185,96 @@ export default function FinanceiroPage() {
     }
   }
 
-  const filteredContracts = contracts.filter(c => {
-    const clientName = c.clients?.name || ''
-    const product = products.find(p => p.id === c.product_id)
-    const productName = product?.name || ''
-    
-    const term = removeAccents(searchTerm).toLowerCase()
-    const matchesSearch = removeAccents(clientName.toLowerCase() || '').includes(term) || 
-                          removeAccents(productName.toLowerCase() || '').includes(term)
-    
-    if (filter === 'Todos') return matchesSearch
-    if (filter === 'Pendentes Assinatura') return matchesSearch && !c.contractSigned
-    if (filter === 'Salário-Maternidade') return matchesSearch && productName.includes('Salário-Maternidade')
-    if (filter === 'Outros') return matchesSearch && !productName.includes('Salário-Maternidade')
-    return matchesSearch
-  }).sort((a, b) => {
-    if (sortConfig.key) {
-      let valueA: any, valueB: any;
-      if (sortConfig.key === 'client') {
-        valueA = a.clients?.name || '';
-        valueB = b.clients?.name || '';
-      } else if (sortConfig.key === 'data') {
-        valueA = a.launchDate;
-        valueB = b.launchDate;
-      } else if (sortConfig.key === 'valor') {
-        valueA = a.contractValue;
-        valueB = b.contractValue;
-      } else if (sortConfig.key === 'vencimento') {
-        const nextA = a.installments
-          ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
-          .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0];
-        const nextB = b.installments
-          ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
-          .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0];
-        valueA = nextA ? nextA.dueDate : '9999-12-31';
-        valueB = nextB ? nextB.dueDate : '9999-12-31';
-      } else if (sortConfig.key === 'receber') {
-        valueA = a.amountReceivable;
-        valueB = b.amountReceivable;
+  const productMap = useMemo(() => {
+    const map = new Map<number, Product>()
+    for (const product of products) {
+      if (!map.has(product.id)) map.set(product.id, product)
+    }
+    return map
+  }, [products])
+
+  const normalizedSearchTerm = useMemo(
+    () => removeAccents(searchTerm).toLowerCase(),
+    [searchTerm]
+  )
+
+  const nextInstallmentByContract = useMemo(() => {
+    const map = new Map<number, Installment | undefined>()
+    for (const contract of contracts) {
+      map.set(contract.id, getNextInstallmentByDueDate(contract.installments, OPEN_INSTALLMENT_STATUSES))
+    }
+    return map
+  }, [contracts])
+
+  const displayInstallmentByContract = useMemo(() => {
+    const map = new Map<number, Installment | undefined>()
+    for (const contract of contracts) {
+      map.set(contract.id, getNextInstallmentByDueDate(contract.installments, DISPLAY_INSTALLMENT_STATUSES))
+    }
+    return map
+  }, [contracts])
+
+  const filteredContracts = useMemo(() => {
+    const term = normalizedSearchTerm
+    const matched = contracts.filter(c => {
+      const clientName = c.clients?.name || ''
+      const productName = c.product_id != null ? (productMap.get(c.product_id)?.name || '') : ''
+
+      const matchesSearch = removeAccents(clientName.toLowerCase() || '').includes(term) ||
+                            removeAccents(productName.toLowerCase() || '').includes(term)
+
+      if (filter === 'Todos') return matchesSearch
+      if (filter === 'Pendentes Assinatura') return matchesSearch && !c.contractSigned
+      if (filter === 'Salário-Maternidade') return matchesSearch && productName.includes('Salário-Maternidade')
+      if (filter === 'Outros') return matchesSearch && !productName.includes('Salário-Maternidade')
+      return matchesSearch
+    })
+
+    return matched.sort((a, b) => {
+      if (sortConfig.key) {
+        let valueA: any, valueB: any;
+        if (sortConfig.key === 'client') {
+          valueA = a.clients?.name || '';
+          valueB = b.clients?.name || '';
+        } else if (sortConfig.key === 'data') {
+          valueA = a.launchDate;
+          valueB = b.launchDate;
+        } else if (sortConfig.key === 'valor') {
+          valueA = a.contractValue;
+          valueB = b.contractValue;
+        } else if (sortConfig.key === 'vencimento') {
+          const nextA = nextInstallmentByContract.get(a.id)
+          const nextB = nextInstallmentByContract.get(b.id)
+          valueA = nextA ? nextA.dueDate : '9999-12-31';
+          valueB = nextB ? nextB.dueDate : '9999-12-31';
+        } else if (sortConfig.key === 'receber') {
+          valueA = a.amountReceivable;
+          valueB = b.amountReceivable;
+        }
+
+        if (valueA < valueB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valueA > valueB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
       }
 
-      if (valueA < valueB) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (valueA > valueB) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    }
+      const nextA = nextInstallmentByContract.get(a.id)
+      const nextB = nextInstallmentByContract.get(b.id)
+      const timeA = nextA ? new Date(nextA.dueDate).getTime() : Infinity
+      const timeB = nextB ? new Date(nextB.dueDate).getTime() : Infinity
 
-    const nextA = a.installments
-      ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
-      .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0]
-    const nextB = b.installments
-      ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada')
-      .sort((i1, i2) => new Date(i1.dueDate).getTime() - new Date(i2.dueDate).getTime())[0]
-
-    const timeA = nextA ? new Date(nextA.dueDate).getTime() : Infinity
-    const timeB = nextB ? new Date(nextB.dueDate).getTime() : Infinity
-
-    return timeA - timeB
-  })
+      return timeA - timeB
+    })
+  }, [contracts, productMap, normalizedSearchTerm, filter, sortConfig, nextInstallmentByContract])
 
   // Calculate totals from contracts
-  const totalReceivable = contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceivable), 0)
-  const totalReceived = contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceived), 0)
-  const totalContracts = contracts.filter(c => c.status !== 'Cancelado').length
+  const totals = useMemo(() => ({
+    receivable: contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceivable), 0),
+    received: contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceived), 0),
+    count: contracts.filter(c => c.status !== 'Cancelado').length,
+  }), [contracts])
+  const totalReceivable = totals.receivable
+  const totalReceived = totals.received
+  const totalContracts = totals.count
 
   const mrrValue = useMemo(() => {
     const today = new Date();
@@ -1475,9 +1523,7 @@ export default function FinanceiroPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredContracts.map((contract, index) => {
                   // Calculate next due date
-                  const nextInstallment = contract.installments
-                    ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada' || i.status === 'Estornado')
-                    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
+                  const nextInstallment = displayInstallmentByContract.get(contract.id)
                   
                   const isQuitado = contract.status === 'Quitado' || (Number(contract.contractValue || 0) > 0 && Number(contract.amountReceived || 0) >= Number(contract.contractValue || 0));
                   
@@ -1565,7 +1611,7 @@ export default function FinanceiroPage() {
                         )}
                       </div>
                       <div className="text-sm text-slate-500">
-                        {products.find(p => p.id === contract.product_id)?.name || 'Produto não vinculado'}
+                        {contract.product_id != null ? (productMap.get(contract.product_id)?.name || 'Produto não vinculado') : 'Produto não vinculado'}
                       </div>
                       {contract.lawyer_id && (
                         <div className="text-[10px] font-medium text-slate-400 mt-0.5 flex items-center gap-1">
@@ -1704,9 +1750,7 @@ export default function FinanceiroPage() {
             </table>
             <div className="md:hidden divide-y divide-slate-100">
               {filteredContracts.map((contract, index) => {
-                const nextInstallment = contract.installments
-                  ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada' || i.status === 'Estornado')
-                  .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
+                const nextInstallment = displayInstallmentByContract.get(contract.id)
                 
                 const isQuitado = contract.status === 'Quitado' || (Number(contract.contractValue || 0) > 0 && Number(contract.amountReceived || 0) >= Number(contract.contractValue || 0));
                 
@@ -1764,7 +1808,7 @@ export default function FinanceiroPage() {
                       </span>
                     </div>
                     <div className="text-sm text-slate-600">
-                      <span className="font-medium text-slate-500">Produto:</span> {products.find(p => p.id === contract.product_id)?.name || 'Produto não vinculado'}
+                      <span className="font-medium text-slate-500">Produto:</span> {contract.product_id != null ? (productMap.get(contract.product_id)?.name || 'Produto não vinculado') : 'Produto não vinculado'}
                     </div>
                     <div className="text-sm text-slate-600">
                       <span className="font-medium text-slate-500">Data:</span> {formatDate(contract.launchDate)}
@@ -2527,9 +2571,7 @@ export default function FinanceiroPage() {
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-slate-100">
                 {filteredContracts.map((contract, index) => {
-                  const nextInstallment = contract.installments
-                    ?.filter(i => i.status === 'Aberto' || i.status === 'Atrasada' || i.status === 'Prorrogada' || i.status === 'Estornado')
-                    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
+                  const nextInstallment = displayInstallmentByContract.get(contract.id)
                   
                   const isQuitado = contract.status === 'Quitado' || (Number(contract.contractValue || 0) > 0 && Number(contract.amountReceived || 0) >= Number(contract.contractValue || 0));
                   

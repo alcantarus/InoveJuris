@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'motion/react'
 import { ModuleHeader } from '@/components/ModuleHeader'
@@ -439,11 +439,14 @@ function RelatoriosPageContent() {
     }
   };
 
-  const getFilteredAReceberData = () => {
+  const filteredAReceberData = useMemo(() => {
+    const now = new Date()
+    const queryText = aReceberSearch ? aReceberSearch.toLowerCase() : ''
+    const tagQuery = aReceberTagFilter ? aReceberTagFilter.toLowerCase() : ''
+
     const filtered = aReceberData.filter(item => {
       // 0. Search filter
-      if (aReceberSearch) {
-        const queryText = aReceberSearch.toLowerCase();
+      if (queryText) {
         const clientName = (item.contracts?.clients?.name || '').toLowerCase();
         const processNum = (item.contracts?.processNumber || '').toLowerCase();
         if (!clientName.includes(queryText) && !processNum.includes(queryText)) {
@@ -452,19 +455,16 @@ function RelatoriosPageContent() {
       }
 
       // 1. Tag filter
-      if (aReceberTagFilter) {
+      if (tagQuery) {
         const tags = item.contracts?.clients?.tags || [];
-        const hasTag = tags.some((t: string) => t.toLowerCase().includes(aReceberTagFilter.toLowerCase()));
+        const hasTag = tags.some((t: string) => t.toLowerCase().includes(tagQuery));
         if (!hasTag) return false;
       }
 
       // 2. Status Filter
-      if (aReceberStatusFilter === 'pending') {
-        const isOverdue = new Date(item.dueDate) < new Date();
-        if (isOverdue) return false;
-      } else if (aReceberStatusFilter === 'overdue') {
-        const isOverdue = new Date(item.dueDate) < new Date();
-        if (!isOverdue) return false;
+      if (aReceberStatusFilter === 'pending' || aReceberStatusFilter === 'overdue') {
+        const isOverdue = new Date(item.dueDate) < now;
+        if (aReceberStatusFilter === 'pending' ? isOverdue : !isOverdue) return false;
       }
 
       return true;
@@ -476,10 +476,10 @@ function RelatoriosPageContent() {
       const dateB = new Date(b.dueDate).getTime();
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
     });
-  };
+  }, [aReceberData, aReceberSearch, aReceberTagFilter, aReceberStatusFilter, sortOrder]);
 
   // Filtro compartilhado pela tabela desktop e pelos cards mobile.
-  const getReportRows = (): any[] => {
+  const reportRows = useMemo((): any[] => {
     if (activeReport === 'deadlines') return deadlineData
     if (activeReport === 'childbirth') {
       return childbirthData.filter(item => {
@@ -502,9 +502,9 @@ function RelatoriosPageContent() {
       })
     }
     if (activeReport === 'recebimentos') return recebimentosData
-    if (activeReport === 'a-receber') return getFilteredAReceberData()
+    if (activeReport === 'a-receber') return filteredAReceberData
     return commissionData
-  }
+  }, [activeReport, deadlineData, childbirthData, childbirthFilter, birthdayData, gpsData, gpsFilter, recebimentosData, filteredAReceberData, commissionData])
 
   // Colunas compartilhadas: a mesma célula alimenta o <td> e o card mobile.
   const getReportColumns = (item: any): ReportColumn[] => {
@@ -828,7 +828,48 @@ function RelatoriosPageContent() {
     ]
   }
 
-  const reportRows = getReportRows()
+  // Agregações calculadas uma vez por mudança de dados (evita new Date() por linha).
+  const aReceberKpis = useMemo(() => {
+    const now = new Date()
+    const remaining = (item: any) => Number(item.amount || 0) - Number(item.amountPaid || 0)
+
+    const vencendoEsteMes = aReceberData.filter(item => {
+      if (!item.dueDate) return false;
+      const d = new Date(item.dueDate);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((acc, item) => acc + remaining(item), 0);
+
+    const totalEmAtraso = aReceberData.filter(item => {
+      if (!item.dueDate) return false;
+      const d = new Date(item.dueDate);
+      const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return dDate < nowDate;
+    }).reduce((acc, item) => acc + remaining(item), 0);
+
+    const totalResiduais = aReceberData.filter(item => {
+      const paid = Number(item.amountPaid || 0);
+      const total = Number(item.amount || 0);
+      return paid > 0 && paid < total;
+    }).reduce((acc, item) => acc + remaining(item), 0);
+
+    return {
+      totalPendente: aReceberData.reduce((acc, item) => acc + remaining(item), 0),
+      vencendoEsteMes,
+      totalEmAtraso,
+      totalResiduais,
+    }
+  }, [aReceberData])
+
+  const gpsKpis = useMemo(() => {
+    const active = gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado')
+    return {
+      totalPendente: active.reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0),
+      totalPago: active.reduce((acc, item) => acc + (item.gps_paid_value || 0), 0),
+      totalGeral: active.reduce((acc, item) => acc + (item.gps_value || 0), 0),
+      totalGps: gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0),
+    }
+  }, [gpsData])
 
   // Re-sort when sortOrder changes
   useEffect(() => {
@@ -1631,29 +1672,7 @@ function RelatoriosPageContent() {
           {activeReport === 'a-receber' && (
             <div className="p-4 sm:p-6 pb-2 space-y-4">
               {(() => {
-                const totalPendente = aReceberData.reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
-                
-                const vencendoEsteMes = aReceberData.filter(item => {
-                  if (!item.dueDate) return false;
-                  const d = new Date(item.dueDate);
-                  const now = new Date();
-                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
-
-                const totalEmAtraso = aReceberData.filter(item => {
-                  if (!item.dueDate) return false;
-                  const d = new Date(item.dueDate);
-                  const now = new Date();
-                  const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-                  const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                  return dDate < nowDate;
-                }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
-
-                const totalResiduais = aReceberData.filter(item => {
-                  const paid = Number(item.amountPaid || 0);
-                  const total = Number(item.amount || 0);
-                  return paid > 0 && paid < total;
-                }).reduce((acc, item) => acc + (Number(item.amount || 0) - Number(item.amountPaid || 0)), 0);
+                const { totalPendente, vencendoEsteMes, totalEmAtraso, totalResiduais } = aReceberKpis;
 
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1899,18 +1918,13 @@ function RelatoriosPageContent() {
 
           {activeReport === 'gps' && (
             (() => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const tomorrow = new Date(today);
-              tomorrow.setDate(today.getDate() + 1);
-              
               return (
                 <div className="p-4 sm:p-6 pb-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
-                      { title: 'Total Pendente', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value - (item.gps_paid_value || 0)), 0), color: '#f43f5e', active: true },
-                      { title: 'Total Pago', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_paid_value || 0), 0), color: '#10b981', active: false },
-                      { title: 'Total Geral', value: gpsData.filter(item => item.status?.toLowerCase().trim() !== 'cancelado').reduce((acc, item) => acc + (item.gps_value || 0), 0), color: '#6366f1', active: false }
+                      { title: 'Total Pendente', value: gpsKpis.totalPendente, color: '#f43f5e', active: true },
+                      { title: 'Total Pago', value: gpsKpis.totalPago, color: '#10b981', active: false },
+                      { title: 'Total Geral', value: gpsKpis.totalGeral, color: '#6366f1', active: false }
                     ].map((item, index) => (
                       <div key={index} className={`bg-white p-4 rounded-2xl shadow-sm border ${item.active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200'} flex items-center justify-between`}>
                         <div className="flex flex-col">
@@ -1921,7 +1935,7 @@ function RelatoriosPageContent() {
                           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                             <PieChart>
                               <Pie
-                                data={[{ value: item.value }, { value: Math.max(0, gpsData.reduce((acc, i) => acc + (i.gps_value || 0), 0) - item.value) }]}
+                                data={[{ value: item.value }, { value: Math.max(0, gpsKpis.totalGps - item.value) }]}
                                 innerRadius={15}
                                 outerRadius={19}
                                 paddingAngle={0}
@@ -2032,13 +2046,13 @@ function RelatoriosPageContent() {
                     </td>
                   </tr>
                 ) : (
-                  reportRows.map((item: any, index) => {
+                  reportRows.map((item: any) => {
                     const columns = getReportColumns(item)
                     return (
                       <motion.tr
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
+                        transition={{ duration: 0.15 }}
                         key={item.id}
                         className={cn(
                           "hover:bg-slate-50/50 transition-colors",

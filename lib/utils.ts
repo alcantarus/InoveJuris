@@ -5,18 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function getTodayBR(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-}
-
-export function getTodayBRString(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-}
-
 const brlCurrencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
+
+const ptBRDateFormatter = new Intl.DateTimeFormat('pt-BR')
+const ptBRTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+  hour: '2-digit',
+  minute: '2-digit',
+})
+const enCAFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo',
+})
+
+export function getTodayBR(): string {
+  return enCAFormatter.format(new Date());
+}
+
+export function getTodayBRString(): string {
+  return enCAFormatter.format(new Date());
+}
 
 export function formatCurrency(value: number, isVisible: boolean = true): string {
   if (!isVisible) return 'R$ •••••'
@@ -41,7 +50,7 @@ export function formatDate(date: string | Date): string {
   }
   
   if (isNaN(d.getTime())) return 'Data inválida';
-  return d.toLocaleDateString('pt-BR');
+  return ptBRDateFormatter.format(d);
 }
 
 export function formatDateTime(dateStr: string): string {
@@ -64,7 +73,7 @@ export function formatDateTime(dateStr: string): string {
   }
   
   if (isNaN(date.getTime())) return 'Data inválida';
-  return date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return ptBRDateFormatter.format(date) + ' às ' + ptBRTimeFormatter.format(date);
 }
 
 export function removeAccents(str: string): string {
