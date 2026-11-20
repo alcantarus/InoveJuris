@@ -668,3 +668,14 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Publicação:** commit `c29dc84` nas três branches; deploy `dpl_GQe4b6y6m1jeeGDnnF13wE6ZhoBC` (`READY`, alias `https://inove-juris.vercel.app`). Produção inalterada; teste deve passar a mostrar 35.600,00 / 600,00 / 35.000,00.
 - **Pendente:** confirmação visual do usuário no ambiente de teste.
 - **Rollback:** `git revert c29dc84`; parecer em `C:\InoveTecnologia\InoveJuris-Backups\ENV-20261120\`.
+
+## Ordem cronológica dos lançamentos (2026-11-20)
+
+- **Sintoma:** lançamentos do mesmo dia apareciam embaralhados na lista de Movimentações.
+- **Causa:** ordenação apenas por `date` (DATE, sem hora) — todos os lançamentos do dia empatavam e o banco devolvia em ordem arbitrária. O sistema já tem `created_at` (TIMESTAMPTZ) e `id` (IDENTITY); faltava usá-los.
+- **Correção:** `.order('date', false).order('created_at', false).order('id', false)` em `app/fluxo-caixa/movimentacoes/page.tsx` e `app/fluxo-caixa/page.tsx`.
+- **Nenhuma alteração no banco:** nenhuma tabela, coluna, índice ou dado foi modificado. Índice `(environment, date desc, created_at desc, id desc)` fica apenas como opção futura de desempenho, não executado.
+- **Validação:** `tsc` e `build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `f016df4` nas três branches; deploy `dpl_H9nD3nV1FXH9vSXVq6aZ9rsKegZT` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Pendente:** confirmação visual da ordem pelo usuário.
+- **Rollback:** `git revert f016df4`; parecer e originais em `C:\InoveTecnologia\InoveJuris-Backups\ORDEM-20261120\`.
