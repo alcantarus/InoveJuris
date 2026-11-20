@@ -1,7 +1,9 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; branches alinhadas na ponta desta entrega; pendências de segurança restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; **isolamento de ambientes e ordem cronológica dos lançamentos corrigidos**; branches alinhadas na ponta desta entrega; pendências de segurança restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
+>
+> **Fechamento do dia 2026-11-20:** resumo único, deploys, validações, pendências e rollback em `docs/RESUMO-DIA-20261120.md`.
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 
