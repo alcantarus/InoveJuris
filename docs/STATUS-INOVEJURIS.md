@@ -725,4 +725,21 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
 - **Publicação:** commit `20ab962` nas três branches; deploy `dpl_9wssWT2NUjUpWsbQCkfJuicX6vLZ` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Rollback:** `git revert 20ab962`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-20261120\` (`utils.orig.ts`, `contratos-page.orig.tsx`, `relatorios-page.orig.tsx`).
-- **Pendente:** medição/validação antes e depois em Contratos e Relatórios. Somente após essa confirmação propor Fase 2.
+- **Validação do usuário:** **confirmada em 2026-11-20** — Fase 1 aprovada, autorizada a seguir para Fase 2.
+
+## Auditoria de digitação lenta — Fase 2 (2026-11-20)
+
+- **Escopo aprovado pelo usuário:** Clientes, Processos, Indicadores e Auditoria de acesso. Fases 3-4 continuam não aprovadas.
+- **`app/clientes/page.tsx`:** `filteredClients` memoizado; `motion.tr` sem stagger indexado; datas e valores das colunas passaram a usar `formatDate`/`formatCurrency` (formatadores globais da Fase 1) em vez de `Intl`/`toLocaleString` por linha.
+- **`app/processos/page.tsx`:** `normalizedSearchTerm`, opções de área/status/responsável, `filteredProcesses` e contagens de prazos memoizados. O lookup de advogados por processo passou de `lawyers.find` dentro do filtro para um `Map` pré-construído. As duas contagens passaram a ser calculadas em um único laço.
+- **`app/indicadores/page.tsx`:**
+  - novos campos de pagamento em `components/indicadores/PaymentFields.tsx`, componente `React.memo` com estado **local** — digitar no valor/descrição não re-renderiza as duas tabelas;
+  - máscara de valor usa `Intl.NumberFormat` no escopo do módulo (antes criava um formatador por tecla);
+  - `filteredIndicators` memoizado.
+  - **Lógica financeira preservada:** mesmo cálculo de `amountPaid`, mesma validação contra o saldo, mesmo payload e mesma RPC/insert em `commission_payments`. O valor e a descrição agora são passados como parâmetros ao confirmar; um contador de reset limpa os campos após pagamento ou troca de indicador.
+- **`components/AuditAccessLogs.tsx`:** `filteredLogs` e `filteredFailed` memoizados com um único `now` por filtragem; formatador de data/hora pt-BR compartilhado nas linhas (com proteção contra data inválida). Gráficos e `metrics` já eram memoizados.
+- **Não alterado:** banco, RLS, autenticação, variáveis de ambiente, regras financeiras. Nenhum pagamento foi executado.
+- **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `f53e690` nas três branches; deploy `dpl_H5biEvSxQeneKgZXdpbmMcPrFr9y` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Rollback:** `git revert f53e690`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE2-20261120\`.
+- **Pendente:** medição/validação antes e depois nas 4 telas. Somente após essa confirmação propor Fase 3.
