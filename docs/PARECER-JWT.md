@@ -1,6 +1,6 @@
 # Parecer — identidade no banco (JWT) para o InoveJuris
 
-> **Status: FASE A CONCLUÍDA E VALIDADA em 2026-11-19.** Fase B pendente.
+> **Status: FASE A CONCLUÍDA E VALIDADA e FASE B EXECUTADA em 2026-11-19.** Correção de injeção do JWT aplicada em `lib/supabase.ts`, pendente de deploy.
 > Documento de análise escrito em 2026-11-19; a execução está registrada na seção 12.
 > A Fase B depende de autorização explícita do usuário para trocar o `role` do token.
 
@@ -205,5 +205,6 @@ navegador prova que o preflight do PostgREST o aceitou. Logs do deploy novo sem 
   Correção em `forward_corrige_payload_superadmin.sql`, com parecer e rollback no diretório
   `FASE0-20261119`. Conferência: `organizacao_preservada=true`, `or_superadmin_restaurado=true`,
   `ocorrencias_or_superadmin=22`.
-- Ainda pendente: confirmação visual das rotas no navegador, logs do novo deploy, F4b-2c,
-  troca para chave ECC própria e F3.
+- **Validação funcional (19/11):** Sidebar com Prazos/Calendário/Publicações confirmada; token da API lido só pelas claims (`HS256`, `role=authenticated`, `sub=2`, `organization_id`, `environment=production`, `exp-iat=600`); rotas de leitura (Dashboard, Clientes, Prazos, Calendário, Publicações, Configurações) abertas sem erro do app.
+- **Achado e correção (19/11):** as chamadas `/rest/v1/...` ainda enviavam `Authorization: Bearer <chave publicável>` (1 segmento) em vez do JWT (3 segmentos). O `supabase-js` preenche o Bearer antes de chamar `sessionAwareFetch`, que só injetava o token se o header estivesse ausente — a Fase B estava configurada, mas **inerte** nas consultas do app. Correção em `lib/supabase.ts`: `if (token) headers.set('Authorization', ...)`, com `apikey` intacto; `tsc`/`build` OK. Parecer: `PARECER-TOKEN-NAO-INJETADO-20261119.md`.
+- Ainda pendente: publicar a correção e confirmar o JWT de 3 segmentos nas requisições REST, pagamento/estorno de teste (autorização explícita), logs do deploy, F4b-2c, troca para chave ECC própria e F3.

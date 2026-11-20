@@ -24,13 +24,16 @@ export const defaultKeyProd = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 const clients = new Map<string, any>();
 
 // Token de sessão (F4b-2b / Fase A). Sem token, a requisição sai como hoje.
-// O header só é injetado se ainda não existir — o supabase-js respeita isso.
+// Com token, o Bearer da chave publicável é substituído pelo JWT de sessão.
 const sessionAwareFetch: typeof fetch = (input, init) => {
   const token = typeof window === 'undefined' ? null : getSessionToken()
   if (!token) return fetch(input as any, init)
 
   const headers = new Headers(init?.headers)
-  if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+  // O supabase-js preenche Authorization com a chave publicável ANTES de chamar
+  // este fetch. Quando há token de sessão, ele deve substituir esse Bearer —
+  // caso contrário a requisição chega ao PostgREST como anon.
+  if (token) headers.set('Authorization', `Bearer ${token}`)
   return fetch(input as any, { ...init, headers })
 }
 
