@@ -742,4 +742,18 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
 - **Publicação:** commit `f53e690` nas três branches; deploy `dpl_H5biEvSxQeneKgZXdpbmMcPrFr9y` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Rollback:** `git revert f53e690`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE2-20261120\`.
-- **Pendente:** medição/validação antes e depois nas 4 telas. Somente após essa confirmação propor Fase 3.
+- **Validação do usuário:** **confirmada em 2026-11-20** — Fase 2 aprovada, autorizada a Fase 3.
+
+## Auditoria de digitação lenta — Fase 3 (2026-11-20)
+
+- **Escopo aprovado pelo usuário:** Contas a Receber, Auditoria, Documentos, Leads e Marketing. Fase 4 segue não aprovada.
+- **`app/contas-a-receber/page.tsx`:** `SortIcon` saiu do corpo do componente (antes era recriado a cada tecla) e agora recebe `sortConfig` por prop; `getTodayBR()` passou a ser chamado uma vez por render; os quatro KPIs (total, atraso, recebido e a receber) foram unificados em `receivableKpis` memoizado, com as mesmas fórmulas de antes.
+- **`app/auditoria/page.tsx`:** `JSON.stringify(log.changed_fields)` e a normalização de acentos passaram a ser feitos uma vez por log em `logsWithSearchFields`; `filteredLogs` memoizado. A busca continua testando os mesmos três campos individualmente (tabela, usuário e campos alterados).
+- **`app/documentos/page.tsx`:** os três filtros inline (modelos, clientes e segundo cliente) foram substituídos por listas memoizadas. Os textos de busca e os nomes normalizados são calculados uma vez; digitar em um campo não recomputa os outros dois.
+- **`app/leads/page.tsx`:** `counts` (antes seis varreduras) e `filteredLeads` (filtro + ordenação com datas) memoizados. `isLeadAtrasadoOuHoje` virou função de módulo e as datas/flags de atraso são pré-computadas uma vez por lead em `leadTiming`, reaproveitadas pelo filtro, pela ordenação e pelas contagens. Critérios e ordem inalterados.
+- **`components/settings/MarketingTab.tsx`:** cards de artes e mensagens extraídos para `TemplateCards`/`MessageCards` (`React.memo`), com `fetchData`, `deleteTemplate` e `deleteMessage` estabilizados por `useCallback`. O editor de mensagem virou `MessageEditor` (`React.memo` + estado local do texto), seguindo o modelo de `PaymentFields`; `saveMessage` agora recebe o texto como parâmetro. **Nenhuma chave de IA, credencial ou dado de pagamento foi alterado.** O editor de arte permanece no pai (depende do preview em tempo real) — ajuste residual para Fase 4.
+- **Não alterado:** banco, RLS, autenticação, variáveis de ambiente, regras financeiras, fluxo de pagamento/estorno.
+- **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `f902814` nas três branches; deploy `dpl_EygiPypFuW6HRRHcqGQLPJU3p3Pm` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Rollback:** `git revert f902814`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE3-20261120\`.
+- **Pendente:** medição/validação antes e depois nas 5 telas. Somente após essa confirmação propor Fase 4.
