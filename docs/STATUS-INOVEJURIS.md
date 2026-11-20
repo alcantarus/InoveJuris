@@ -756,4 +756,19 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
 - **Publicação:** commit `f902814` nas três branches; deploy `dpl_EygiPypFuW6HRRHcqGQLPJU3p3Pm` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Rollback:** `git revert f902814`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE3-20261120\`.
-- **Pendente:** medição/validação antes e depois nas 5 telas. Somente após essa confirmação propor Fase 4.
+- **Validação do usuário:** **confirmada em 2026-11-20** — Fase 3 aprovada, autorizada a Fase 4.
+
+## Auditoria de digitação lenta — Fase 4 (2026-11-20) — encerramento
+
+- **Escopo aprovado pelo usuário:** os 5 pontos restantes do parecer. Auditoria encerrada.
+- **`components/diseases/DiseaseSelector.tsx`:** a RPC `search_diseases` passou a ser chamada após 300 ms de pausa na digitação, com cancelamento do timer e descarte de respostas antigas. Antes havia uma consulta por tecla.
+- **`components/settings/AuditLogsTab.tsx`:** dicionários de tradução e formatador de data/hora levados para o escopo do módulo; campos de busca normalizados uma vez por log; `filteredLogs` memoizado. Mesmos critérios de busca.
+- **`app/usuarios/page.tsx`:** `filteredUsers` memoizado com nome/e-mail normalizados uma vez por usuário. **Formulário de permissões mantido intacto no pai** — mexer nesses campos seria alterar regras de acesso, fora do escopo desta correção de performance.
+- **`components/publicacoes/PublicationDetail.tsx`:** cabeçalho, metadados e destinatários extraídos para `PublicationSummary` (`React.memo`). Toda a lógica de decisão e criação de prazo permaneceu no componente original — nenhuma confirmação expressa, payload ou regra de prazo foi alterada.
+- **`app/fluxo-caixa/movimentacoes/page.tsx`:** os dois gráficos de distribuição viraram `CategoryDistributionChart` (`React.memo`); a visibilidade é passada como booleano estável. Os dados já vinham de `useMemo`. Nenhum valor, filtro ou lançamento foi alterado.
+- **`components/settings/MarketingTab.tsx` (residual da Fase 3):** revisado e **mantido sem alteração**. Com o editor de arte aberto a lista de cards não é renderizada e o preview depende do estado do formulário a cada tecla; isolar esse estado mudaria o comportamento do preview. Risco maior que o ganho.
+- **Não alterado:** banco, RLS, autenticação, permissões, variáveis de ambiente, chaves de IA, regras de prazo e fluxo financeiro.
+- **Validação:** `npx tsc --noEmit` e `npm run build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `282b3ad` nas três branches; deploy `dpl_HvVBpU9Esj88cdXePndR26Dgwdb9` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Rollback:** `git revert 282b3ad`; originais em `C:\InoveTecnologia\InoveJuris-Backups\PERF-AUDIT-FASE4-20261120\`.
+- **Pendente:** medição/validação antes e depois nas 5 telas da Fase 4. Após essa confirmação, a auditoria de digitação lenta está concluída.
