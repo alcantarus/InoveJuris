@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; branches alinhadas na ponta desta entrega; pendências restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; branches alinhadas na ponta desta entrega; pendências de segurança restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 
@@ -647,3 +647,13 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Itens adiados:** (1) validação da digitação no celular; (2) teste de pagamento/estorno, só com autorização explícita; (3) F4b-2c em ≈11 lotes de 5 tabelas; (4) chave ECC própria; (5) F3 no Supabase Support.
 - **Risco residual assumido:** policies `USING (true)` ainda liberam acesso pela chave publicável (o JWT já é enviado, mas ainda não filtra por tenant); 17 funções `http` seguem executáveis; assinatura HS256 como ponte; fluxo financeiro não testado ponta a ponta desde a Fase B. Sistema funcional e sem erros — são lacunas silenciosas, não falhas visíveis.
 - **Estado congelado:** produção `dpl_CKcrymP74sp29R5FiQbpifjntjVf` (`READY`, alias `https://inove-juris.vercel.app`); `fase0-seguranca`, `main` e `trabalho-com-claude` alinhadas na ponta desta entrega (hash no `git log`).
+
+## Dashboard — performance e organização visual (2026-11-20)
+
+- **Autorização:** usuário pediu para "continuar e ajustar tudo" após o diagnóstico. Parecer, backup e rollback registrados **antes** da edição em `C:\InoveTecnologia\InoveJuris-Backups\DASHBOARD-20261120\PARECER-DASHBOARD-20261120.md`; original em `app-page.orig.tsx`.
+- **Baseline medido:** 10.236 px de altura, 50 cards, 18 gráficos Recharts, 30 chamadas REST no load (12 com 1,2–2,0 s), troca de filtro com long tasks de 175 + 139 + 104 ms (~418 ms) e 223 ms de tempo próprio da página; nenhum `useMemo`/`React.memo`.
+- **Alterações (somente `app/page.tsx`):** debounce de 400 ms no Realtime; `useMemo` em filtros, agregações e séries dos gráficos; `React.memo` nos cards/widgets com comparadores estáveis para callbacks de navegação; montagem tardia dos gráficos abaixo da dobra via `IntersectionObserver` (rootMargin 800 px); grids corrigidos (8 indicadores em 4×2, KPIs em 3×2, listas financeiras em 2 colunas); 6 seções nomeadas com navegação âncora fixa; título duplicado "Fluxo de Compromissos" removido (o componente `TaskKanban` continua dono do título).
+- **Validação técnica:** `npx tsc --noEmit` sem erros; `npm run build` OK; `tsconfig.tsbuildinfo` restaurado; chunk do build contém os novos rótulos e o `IntersectionObserver`.
+- **Deploy:** commit `41f0191` enviado para `fase0-seguranca`, `main` e `trabalho-com-claude` (locais e remotas, alinhadas); produção `dpl_7a86NJWEyxK7YRoBdfYmJaSToJQL` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Pendente:** medição interativa e validação no celular. A sessão do navegador integrado foi perdida ao trocar de aba (o app redirecionou para `/login`); como credenciais não são manuseadas no chat, a conferência visual precisa ser feita pelo usuário logado. **Não houve erro visível nem alteração de autenticação, banco ou variáveis.**
+- **Rollback:** promover `dpl_CKcrymP74sp29R5FiQbpifjntjVf`; `git revert 41f0191`; ou restaurar `DASHBOARD-20261120\app-page.orig.tsx`.
