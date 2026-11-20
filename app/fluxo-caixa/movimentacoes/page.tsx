@@ -173,7 +173,12 @@ export default function MovimentacoesPage() {
         return
       }
 
-      let query = supabase.from('financial_transactions').select('*, bank_accounts!account_id(name), financial_categories(name)').order('date', { ascending: false })
+      let query = supabase
+        .from('financial_transactions')
+        .select('*, bank_accounts!account_id(name), financial_categories(name)')
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
 
       if (startDate) {
         query = query.gte('date', startDate)
