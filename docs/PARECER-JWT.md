@@ -1,6 +1,6 @@
 # Parecer — identidade no banco (JWT) para o InoveJuris
 
-> **Status: FASE A CONCLUÍDA E VALIDADA e FASE B EXECUTADA em 2026-11-19.** Correção de injeção do JWT aplicada em `lib/supabase.ts`, pendente de deploy.
+> **Status: FASE A CONCLUÍDA E VALIDADA e FASE B EXECUTADA E VALIDADA em 2026-11-19.** Correção de injeção do JWT publicada em `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf`.
 > Documento de análise escrito em 2026-11-19; a execução está registrada na seção 12.
 > A Fase B depende de autorização explícita do usuário para trocar o `role` do token.
 
@@ -207,4 +207,5 @@ navegador prova que o preflight do PostgREST o aceitou. Logs do deploy novo sem 
   `ocorrencias_or_superadmin=22`.
 - **Validação funcional (19/11):** Sidebar com Prazos/Calendário/Publicações confirmada; token da API lido só pelas claims (`HS256`, `role=authenticated`, `sub=2`, `organization_id`, `environment=production`, `exp-iat=600`); rotas de leitura (Dashboard, Clientes, Prazos, Calendário, Publicações, Configurações) abertas sem erro do app.
 - **Achado e correção (19/11):** as chamadas `/rest/v1/...` ainda enviavam `Authorization: Bearer <chave publicável>` (1 segmento) em vez do JWT (3 segmentos). O `supabase-js` preenche o Bearer antes de chamar `sessionAwareFetch`, que só injetava o token se o header estivesse ausente — a Fase B estava configurada, mas **inerte** nas consultas do app. Correção em `lib/supabase.ts`: `if (token) headers.set('Authorization', ...)`, com `apikey` intacto; `tsc`/`build` OK. Parecer: `PARECER-TOKEN-NAO-INJETADO-20261119.md`.
-- Ainda pendente: publicar a correção e confirmar o JWT de 3 segmentos nas requisições REST, pagamento/estorno de teste (autorização explícita), logs do deploy, F4b-2c, troca para chave ECC própria e F3.
+- **Publicação e validação (19/11):** commit `c4d806c`, deploy `dpl_G1MthzfBKKgh76ToAVFQ2bN5vXXf` (`READY`, alias `https://inove-juris.vercel.app`). O Bearer de 53 caracteres/1 segmento passou a ser substituído por JWT de 3 segmentos com `role=authenticated` (claims lidas no navegador, sem expor o token). Sidebar e rotas OK, console sem erros; logs de runtime não retidos no plano Hobby.
+- Ainda pendente: pagamento/estorno de teste (autorização explícita), F4b-2c, troca para chave ECC própria e F3.
