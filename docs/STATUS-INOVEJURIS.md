@@ -657,3 +657,14 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Deploy:** commit `41f0191` enviado para `fase0-seguranca`, `main` e `trabalho-com-claude` (locais e remotas, alinhadas); produção `dpl_7a86NJWEyxK7YRoBdfYmJaSToJQL` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Pendente:** medição interativa e validação no celular. A sessão do navegador integrado foi perdida ao trocar de aba (o app redirecionou para `/login`); como credenciais não são manuseadas no chat, a conferência visual precisa ser feita pelo usuário logado. **Não houve erro visível nem alteração de autenticação, banco ou variáveis.**
 - **Rollback:** promover `dpl_CKcrymP74sp29R5FiQbpifjntjVf`; `git revert 41f0191`; ou restaurar `DASHBOARD-20261120\app-page.orig.tsx`.
+
+## Correção — Movimentações respeitando o ambiente (2026-11-20)
+
+- **Sintoma:** cards Entradas/Saídas/Saldo e gráficos de distribuição apareciam idênticos em Produção e Teste.
+- **Causa:** `app/fluxo-caixa/movimentacoes/page.tsx` chamava `get_financial_summary` e `get_financial_chart_data` com `p_environment: 'production'` fixo. O Proxy de `lib/supabase.ts` isola tabelas, mas **não intercepta RPCs**.
+- **Prova (somente leitura):** produção = 168.496,57 / 100.114,61; test = 35.600,00 / 600,00 (43 entradas, 4 saídas). A tela de teste mostrava os números de produção. **Não houve duplicação nem alteração de dados.**
+- **Correção:** import de `getAppEnv` e 3× `p_environment: getAppEnv()`. Apenas frontend.
+- **Validação:** `tsc` e `build` OK; `tsconfig.tsbuildinfo` restaurado.
+- **Publicação:** commit `c29dc84` nas três branches; deploy `dpl_GQe4b6y6m1jeeGDnnF13wE6ZhoBC` (`READY`, alias `https://inove-juris.vercel.app`). Produção inalterada; teste deve passar a mostrar 35.600,00 / 600,00 / 35.000,00.
+- **Pendente:** confirmação visual do usuário no ambiente de teste.
+- **Rollback:** `git revert c29dc84`; parecer em `C:\InoveTecnologia\InoveJuris-Backups\ENV-20261120\`.
