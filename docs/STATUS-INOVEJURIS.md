@@ -696,3 +696,11 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Publicação:** commit `a2614ca` nas três branches; deploy `dpl_FKeXyhUwAExGPgCFRVMGVc6oF16G` (`READY`, alias `https://inove-juris.vercel.app`).
 - **Pendente:** confirmação do usuário no celular.
 - **Rollback:** `git revert a2614ca`; originais em `C:\InoveTecnologia\InoveJuris-Backups\MOBILE-20261120\`.
+
+### Ajuste de layout dos atalhos — uma única linha (2026-11-20)
+
+- Os 8 atalhos passaram de `flex-wrap` para grade responsiva (`2 → 3 → 4 → 8` colunas, esta última a partir de `xl`), garantindo **uma só linha** no desktop.
+- Cards compactados (ícone 14 px, padding reduzido, texto `text-xs` com truncamento e `title` para o nome completo).
+- Ordem mantida, com **Relatórios imediatamente ao lado de Contratos**: Novo Cliente · Novo Processo · Publicações · Prazos · Lançar Receita · Nova Despesa · Contratos · Relatórios.
+- **Publicação:** commit `cac3177` nas três branches; deploy `dpl_D1jyC5nQx2cDFaxYvDv9KxEnT3QL` (`READY`, alias `https://inove-juris.vercel.app`).
+- **Rollback:** `git revert cac3177`.
