@@ -81,10 +81,11 @@
 
 ## 4. Pendências para a próxima sessão
 
-### Validações visuais (dependem do usuário logado)
-1. Confirmar no **ambiente de teste**, após `Ctrl+Shift+R`, os valores **35.600,00 / 600,00 / 35.000,00**.
-2. Confirmar na lista de Movimentações a ordem dos 4 lançamentos de hoje (item 2.4).
-3. O navegador integrado perde a sessão e redireciona para `/login`; credenciais não são manuseadas no chat.
+### Validações visuais — CONCLUÍDAS E CONFIRMADAS pelo usuário em 2026-11-20
+1. ✅ Ambiente de teste exibindo **35.600,00 / 600,00 / 35.000,00** (isolamento das RPCs correto).
+2. ✅ Lista de Movimentações na ordem: **Corte de Cabelo / Dinho → Pagto Painho Mega Sena → Mega Sena Anderson → Mega Sena de Painho** (ordem cronológica inversa correta).
+
+> Observação operacional: o navegador integrado perde a sessão e redireciona para `/login`; credenciais não são manuseadas no chat. As validações foram feitas pelo usuário em seu navegador.
 
 ### Segurança — adiadas por decisão explícita do usuário
 - **F4b-2c** — dropar as policies `USING (true)`; depende de identidade completa.
@@ -123,4 +124,4 @@ Nenhuma mudança de banco foi feita nas entregas 2.3 e 2.4.
 - `docs/PARECER-JWT.md` — JWT próprio × BFF.
 - `C:\InoveTecnologia\InoveJuris-Backups\` — pareceres, originais, SQLs de forward/rollback e evidências (pastas `PERF-20261120`, `DASHBOARD-20261120`, `ENV-20261120`, `ORDEM-20261120`, `FASE0-20261119`, `F3-20261118` e outras).
 
-**Encerramento:** tudo salvo e versionado em 2026-11-20. Retomar amanhã pelas duas validações visuais da seção 4.
+**Encerramento:** tudo salvo e versionado em 2026-11-20. As duas validações visuais da seção 4 foram **concluídas e confirmadas pelo usuário no mesmo dia** — todas as entregas do dia estão fechadas. Retomar amanhã somente se houver novo trabalho ou decisão sobre as pendências de segurança adiadas.

@@ -1,7 +1,7 @@
 # InoveJuris — Status e Handoff
 
 > Documento de continuidade gerado para retomar o trabalho em futuras sessões.
-> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; **isolamento de ambientes e ordem cronológica dos lançamentos corrigidos**; branches alinhadas na ponta desta entrega; pendências de segurança restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
+> Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; **isolamento de ambientes e ordem cronológica dos lançamentos corrigidos e validados visualmente pelo usuário**; branches alinhadas na ponta desta entrega; pendências de segurança restantes **adiadas por decisão do usuário** — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
 >
 > **Fechamento do dia 2026-11-20:** resumo único, deploys, validações, pendências e rollback em `docs/RESUMO-DIA-20261120.md`.
 
@@ -668,7 +668,7 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Correção:** import de `getAppEnv` e 3× `p_environment: getAppEnv()`. Apenas frontend.
 - **Validação:** `tsc` e `build` OK; `tsconfig.tsbuildinfo` restaurado.
 - **Publicação:** commit `c29dc84` nas três branches; deploy `dpl_GQe4b6y6m1jeeGDnnF13wE6ZhoBC` (`READY`, alias `https://inove-juris.vercel.app`). Produção inalterada; teste deve passar a mostrar 35.600,00 / 600,00 / 35.000,00.
-- **Pendente:** confirmação visual do usuário no ambiente de teste.
+- **Validação visual:** **concluída e confirmada pelo usuário em 2026-11-20** — ambiente de teste exibindo 35.600,00 / 600,00 / 35.000,00.
 - **Rollback:** `git revert c29dc84`; parecer em `C:\InoveTecnologia\InoveJuris-Backups\ENV-20261120\`.
 
 ## Ordem cronológica dos lançamentos (2026-11-20)
@@ -679,5 +679,5 @@ git push -u origin main         # ou: git push origin trabalho-com-claude:main
 - **Nenhuma alteração no banco:** nenhuma tabela, coluna, índice ou dado foi modificado. Índice `(environment, date desc, created_at desc, id desc)` fica apenas como opção futura de desempenho, não executado.
 - **Validação:** `tsc` e `build` OK; `tsconfig.tsbuildinfo` restaurado.
 - **Publicação:** commit `f016df4` nas três branches; deploy `dpl_H9nD3nV1FXH9vSXVq6aZ9rsKegZT` (`READY`, alias `https://inove-juris.vercel.app`).
-- **Pendente:** confirmação visual da ordem pelo usuário.
+- **Validação visual:** **concluída e confirmada pelo usuário em 2026-11-20** — ordem exibida: Corte de Cabelo / Dinho → Pagto Painho Mega Sena → Mega Sena Anderson → Mega Sena de Painho.
 - **Rollback:** `git revert f016df4`; parecer e originais em `C:\InoveTecnologia\InoveJuris-Backups\ORDEM-20261120\`.
