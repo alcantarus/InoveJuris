@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Type, AlertCircle, CheckCircle2, Sparkles, Upload, Loader2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -34,6 +34,177 @@ interface BirthdayMessage {
   is_active: boolean;
 }
 
+const TemplateCards = React.memo(function TemplateCards({
+  templates,
+  onEdit,
+  onDelete,
+}: {
+  templates: BirthdayTemplate[]
+  onEdit: (template: BirthdayTemplate) => void
+  onDelete: (id: string) => void
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {templates.length === 0 ? (
+        <div className="col-span-full text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+          Nenhuma arte cadastrada. Clique em &quot;Nova Arte&quot; para começar.
+        </div>
+      ) : (
+        templates.map(template => (
+          <div key={template.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+            <div className="aspect-square relative bg-slate-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={storageUrl(template.image_url, 'marketing')} alt={template.name} className="w-full h-full object-cover" />
+
+              {/* Preview overlay */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div
+                  className="absolute"
+                  style={{
+                    top: template.name_y,
+                    left: template.name_x,
+                    transform: template.text_align === 'center' ? 'translate(-50%, -50%)' : template.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
+                    color: template.text_color,
+                    fontSize: template.name_size,
+                    textAlign: template.text_align,
+                    width: 'fit-content',
+                    maxWidth: template.name_max_width || '80%',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                    lineHeight: '1.1'
+                  }}
+                >
+                  <span className="font-serif font-bold uppercase tracking-tight leading-none block">NOME</span>
+                </div>
+                <div
+                  className="absolute"
+                  style={{
+                    top: template.msg_y,
+                    left: template.msg_x,
+                    transform: template.text_align === 'center' ? 'translate(-50%, -50%)' : template.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
+                    color: template.text_color,
+                    fontSize: template.msg_size,
+                    textAlign: template.text_align,
+                    width: 'fit-content',
+                    maxWidth: template.msg_max_width || '70%',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                    lineHeight: template.line_height || '1.4'
+                  }}
+                >
+                  <span className="font-sans font-medium">Mensagem de aniversário...</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-slate-900 truncate">{template.name}</h4>
+                <span className={`text-xs px-2 py-1 rounded-full ${template.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {template.is_active ? 'Ativo' : 'Inativo'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => onEdit(template)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 transition-colors">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(template.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+})
+
+const MessageCards = React.memo(function MessageCards({
+  messages,
+  onEdit,
+  onDelete,
+}: {
+  messages: BirthdayMessage[]
+  onEdit: (message: BirthdayMessage) => void
+  onDelete: (id: string) => void
+}) {
+  return (
+    <div className="space-y-3">
+      {messages.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+          Nenhuma mensagem cadastrada. Clique em &quot;Nova Mensagem&quot; para começar.
+        </div>
+      ) : (
+        messages.map(msg => (
+          <div key={msg.id} className="flex items-start justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors">
+            <div className="pr-8">
+              <p className="text-slate-700 leading-relaxed">{msg.content}</p>
+              <span className={`inline-block mt-2 text-xs px-2 py-1 rounded-full ${msg.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                {msg.is_active ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => onEdit(msg)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 transition-colors">
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button onClick={() => onDelete(msg.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+})
+
+const MessageEditor = React.memo(function MessageEditor({
+  initialContent,
+  isEditing,
+  onSave,
+  onCancel,
+}: {
+  initialContent: string
+  isEditing: boolean
+  onSave: (content: string) => void
+  onCancel: () => void
+}) {
+  const [content, setContent] = useState(initialContent)
+
+  return (
+    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">
+      <h4 className="font-medium text-slate-900 mb-4">
+        {isEditing ? 'Editar Mensagem' : 'Nova Mensagem'}
+      </h4>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Conteúdo da Mensagem</label>
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          rows={4}
+          className="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          placeholder="Digite a mensagem de felicitação..."
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => onSave(content)}
+          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center gap-2"
+        >
+          <Save className="w-4 h-4" />
+          Salvar Mensagem
+        </button>
+      </div>
+    </div>
+  )
+})
+
 export function MarketingTab() {
   const [activeSubTab, setActiveSubTab] = useState<'templates' | 'messages'>('templates');
   const [templates, setTemplates] = useState<BirthdayTemplate[]>([]);
@@ -62,7 +233,7 @@ export function MarketingTab() {
     toast.success('Chave salva localmente!');
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setDbError(false);
     try {
@@ -96,7 +267,7 @@ export function MarketingTab() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -274,7 +445,7 @@ export function MarketingTab() {
     }
   };
 
-  const deleteTemplate = async (id: string) => {
+  const deleteTemplate = useCallback(async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este template?')) return;
     try {
       const { error } = await supabase.from('birthday_templates').delete().eq('id', id);
@@ -284,17 +455,18 @@ export function MarketingTab() {
     } catch (error: any) {
       toast.error('Erro ao excluir: ' + error.message);
     }
-  };
+  }, [fetchData]);
 
-  const saveMessage = async () => {
-    if (!editingMessage?.content) {
+  const saveMessage = async (content: string) => {
+    if (!editingMessage) return;
+    if (!content) {
       toast.error('O conteúdo da mensagem é obrigatório.');
       return;
     }
 
     try {
       const payload = {
-        content: editingMessage.content,
+        content,
         is_active: editingMessage.is_active !== false
       };
 
@@ -314,7 +486,7 @@ export function MarketingTab() {
     }
   };
 
-  const deleteMessage = async (id: string) => {
+  const deleteMessage = useCallback(async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
     try {
       const { error } = await supabase.from('birthday_messages').delete().eq('id', id);
@@ -324,7 +496,7 @@ export function MarketingTab() {
     } catch (error: any) {
       toast.error('Erro ao excluir: ' + error.message);
     }
-  };
+  }, [fetchData]);
 
   const seedMessages = async () => {
     if (!confirm('Isso adicionará várias mensagens padrão ao sistema. Deseja continuar?')) return;
@@ -806,77 +978,11 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {templates.length === 0 ? (
-                  <div className="col-span-full text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                    Nenhuma arte cadastrada. Clique em &quot;Nova Arte&quot; para começar.
-                  </div>
-                ) : (
-                  templates.map(template => (
-                    <div key={template.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative bg-slate-100">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={storageUrl(template.image_url, 'marketing')} alt={template.name} className="w-full h-full object-cover" />
-                        
-                        {/* Preview overlay */}
-                        <div className="absolute inset-0 pointer-events-none">
-
-                          <div 
-                            className="absolute"
-                            style={{
-                              top: template.name_y, 
-                              left: template.name_x, 
-                              transform: template.text_align === 'center' ? 'translate(-50%, -50%)' : template.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
-                              color: template.text_color, 
-                              fontSize: template.name_size, 
-                              textAlign: template.text_align, 
-                              width: 'fit-content',
-                              maxWidth: template.name_max_width || '80%',
-                              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                              lineHeight: '1.1'
-                            }}
-                          >
-                            <span className="font-serif font-bold uppercase tracking-tight leading-none block">NOME</span>
-                          </div>
-                          <div 
-                            className="absolute"
-                            style={{
-                              top: template.msg_y, 
-                              left: template.msg_x, 
-                              transform: template.text_align === 'center' ? 'translate(-50%, -50%)' : template.text_align === 'right' ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
-                              color: template.text_color, 
-                              fontSize: template.msg_size, 
-                              textAlign: template.text_align, 
-                              width: 'fit-content',
-                              maxWidth: template.msg_max_width || '70%',
-                              textShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                              lineHeight: template.line_height || '1.4'
-                            }}
-                          >
-                            <span className="font-sans font-medium">Mensagem de aniversário...</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-4 flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-slate-900 truncate">{template.name}</h4>
-                          <span className={`text-xs px-2 py-1 rounded-full ${template.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                            {template.is_active ? 'Ativo' : 'Inativo'}
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditingTemplate(template)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 transition-colors">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => deleteTemplate(template.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <TemplateCards
+                templates={templates}
+                onEdit={setEditingTemplate}
+                onDelete={deleteTemplate}
+              />
             )}
           </div>
         )}
@@ -907,65 +1013,19 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
             </div>
 
             {editingMessage !== null ? (
-              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">
-                <h4 className="font-medium text-slate-900 mb-4">
-                  {editingMessage.id ? 'Editar Mensagem' : 'Nova Mensagem'}
-                </h4>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Conteúdo da Mensagem</label>
-                  <textarea 
-                    value={editingMessage.content || ''}
-                    onChange={e => setEditingMessage({...editingMessage, content: e.target.value})}
-                    rows={4}
-                    className="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="Digite a mensagem de felicitação..."
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button 
-                    onClick={() => setEditingMessage(null)}
-                    className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={saveMessage}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    Salvar Mensagem
-                  </button>
-                </div>
-              </div>
+              <MessageEditor
+                key={editingMessage.id || 'new'}
+                initialContent={editingMessage.content || ''}
+                isEditing={!!editingMessage.id}
+                onSave={saveMessage}
+                onCancel={() => setEditingMessage(null)}
+              />
             ) : (
-              <div className="space-y-3">
-                {messages.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                    Nenhuma mensagem cadastrada. Clique em &quot;Nova Mensagem&quot; para começar.
-                  </div>
-                ) : (
-                  messages.map(msg => (
-                    <div key={msg.id} className="flex items-start justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors">
-                      <div className="pr-8">
-                        <p className="text-slate-700 leading-relaxed">{msg.content}</p>
-                        <span className={`inline-block mt-2 text-xs px-2 py-1 rounded-full ${msg.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                          {msg.is_active ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <button onClick={() => setEditingMessage(msg)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 transition-colors">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => deleteMessage(msg.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <MessageCards
+                messages={messages}
+                onEdit={setEditingMessage}
+                onDelete={deleteMessage}
+              />
             )}
           </div>
         )}

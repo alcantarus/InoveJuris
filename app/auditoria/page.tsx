@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { 
@@ -149,13 +149,22 @@ export default function AuditoriaPage() {
     fetchLogs()
   }, [tableFilter, actionFilter])
 
-  const filteredLogs = logs.filter(log => {
-    const translatedTable = tableTranslations[log.table_name] || log.table_name
+  const logsWithSearchFields = useMemo(() => logs.map(log => ({
+    log,
+    searchFields: [
+      tableTranslations[log.table_name] || log.table_name,
+      log.performer_name || '',
+      JSON.stringify(log.changed_fields || {}),
+    ].map(value => removeAccents(String(value).toLowerCase())),
+  })), [logs])
+
+  const filteredLogs = useMemo(() => {
     const term = removeAccents(searchTerm).toLowerCase()
-    return removeAccents(translatedTable.toLowerCase()).includes(term) ||
-      removeAccents(log.performer_name?.toLowerCase() || '').includes(term) ||
-      removeAccents(JSON.stringify(log.changed_fields || {}).toLowerCase()).includes(term)
-  })
+    if (!term) return logs
+    return logsWithSearchFields
+      .filter(entry => entry.searchFields.some(field => field.includes(term)))
+      .map(entry => entry.log)
+  }, [logsWithSearchFields, searchTerm, logs])
 
   const formatValue = (val: any) => {
     if (val === null || val === undefined) return <span className="text-slate-400 italic">nulo</span>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { MessageSquare, Plus, Phone, Calendar, Trash2, UserPlus, Filter, Edit2, Zap, ChevronRight } from 'lucide-react'
@@ -64,6 +64,9 @@ const getLeadRowTone = (lead: Lead, expanded: boolean) => cn(
   lead.score === '🔥' && !expanded ? 'bg-orange-50/30' : '',
   !expanded && lead.status === 'Em Atendimento' && getNextActionInfo(lead).isOverdue ? 'bg-rose-50/30' : ''
 )
+
+const isLeadAtrasadoOuHoje = (lead: Lead) =>
+  lead.status === 'Em Atendimento' && (!lead.next_action_date || new Date(lead.next_action_date) <= new Date())
 
 const MobileField = ({ label, children, className }: { label: string, children: React.ReactNode, className?: string }) => (
   <div className={cn('min-w-0', className)}>
@@ -541,36 +544,49 @@ export default function LeadsPage() {
     setContractPromptLead(lead);
   }
 
-  const isLeadAtrasadoOuHoje = (l: Lead) => {
-    return l.status === 'Em Atendimento' && (!l.next_action_date || new Date(l.next_action_date) <= new Date());
-  };
+  const leadTiming = useMemo(() => {
+    const map = new Map<string, { overdue: boolean, nextActionAt: number }>()
+    for (const lead of leads) {
+      map.set(lead.id, {
+        overdue: isLeadAtrasadoOuHoje(lead),
+        nextActionAt: lead.next_action_date ? new Date(lead.next_action_date).getTime() : 0,
+      })
+    }
+    return map
+  }, [leads])
 
-  const counts: Record<string, number> = {
-    'Requer Atenção Hoje': leads.filter(isLeadAtrasadoOuHoje).length,
-    'Todos': leads.length,
-    'Em Atendimento': leads.filter(l => l.status === 'Em Atendimento').length,
-    'Atendido': leads.filter(l => l.status === 'Atendido').length,
-    'Descartado': leads.filter(l => l.status === 'Descartado').length,
-    'Stand-by': leads.filter(l => l.status === 'Stand-by').length,
-  };
+  const counts = useMemo<Record<string, number>>(() => {
+    const byStatus: Record<string, number> = {}
+    let attention = 0
+    for (const lead of leads) {
+      byStatus[lead.status] = (byStatus[lead.status] || 0) + 1
+      if (leadTiming.get(lead.id)?.overdue) attention += 1
+    }
+    return {
+      'Requer Atenção Hoje': attention,
+      'Todos': leads.length,
+      'Em Atendimento': byStatus['Em Atendimento'] || 0,
+      'Atendido': byStatus['Atendido'] || 0,
+      'Descartado': byStatus['Descartado'] || 0,
+      'Stand-by': byStatus['Stand-by'] || 0,
+    }
+  }, [leads, leadTiming])
 
-  const filteredLeads = leads.filter(l => {
+  const filteredLeads = useMemo(() => leads.filter(lead => {
     if (filter === 'Todos') return true;
-    if (filter === 'Requer Atenção Hoje') return isLeadAtrasadoOuHoje(l);
-    return l.status === filter;
+    if (filter === 'Requer Atenção Hoje') return leadTiming.get(lead.id)?.overdue;
+    return lead.status === filter;
   }).sort((a, b) => {
       // 1. Atrasados / Hoje primeiro (se em atendimento)
-      const isAtrasadoA = isLeadAtrasadoOuHoje(a);
-      const isAtrasadoB = isLeadAtrasadoOuHoje(b);
-      
+      const isAtrasadoA = leadTiming.get(a.id)?.overdue;
+      const isAtrasadoB = leadTiming.get(b.id)?.overdue;
+
       if (isAtrasadoA && !isAtrasadoB) return -1;
       if (!isAtrasadoA && isAtrasadoB) return 1;
 
       // 2. Depois pela data da próxima ação
-      const da = a.next_action_date ? new Date(a.next_action_date).getTime() : 0;
-      const db = b.next_action_date ? new Date(b.next_action_date).getTime() : 0;
-      return da - db;
-  });
+      return (leadTiming.get(a.id)?.nextActionAt ?? 0) - (leadTiming.get(b.id)?.nextActionAt ?? 0);
+  }), [leads, filter, leadTiming])
 
   const inputClass = "w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
 

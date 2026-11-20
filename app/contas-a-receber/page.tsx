@@ -15,6 +15,11 @@ import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ContractStatementModal } from '@/components/contas-a-receber/ContractStatementModal'
 
+function SortIcon({ columnKey, sortConfig }: { columnKey: string, sortConfig: { key: string | null, direction: 'asc' | 'desc' } | null }) {
+  if (sortConfig?.key !== columnKey) return <span className="ml-1 text-slate-300">↕</span>;
+  return sortConfig.direction === 'asc' ? <span className="ml-1 text-indigo-600">↑</span> : <span className="ml-1 text-indigo-600">↓</span>;
+}
+
 export default function ContasAReceberPage() {
   const { isVisible, toggleVisibility } = usePrivacy()
   const [contracts, setContracts] = useState<any[]>([])
@@ -56,10 +61,7 @@ export default function ContasAReceberPage() {
     setSortConfig({ key, direction });
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortConfig?.key !== columnKey) return <span className="ml-1 text-slate-300">↕</span>;
-    return sortConfig.direction === 'asc' ? <span className="ml-1 text-indigo-600">↑</span> : <span className="ml-1 text-indigo-600">↓</span>;
-  };
+  const todayBR = getTodayBR()
 
   const sortedContracts = React.useMemo(() => {
     let sortableContracts = [...contracts];
@@ -282,21 +284,37 @@ export default function ContasAReceberPage() {
         normalizeSearchText(c.processNumber).includes(normalizedSearch) ||
         normalizeSearchText(c.client_name).includes(normalizedSearch)
       if (!matchesSearch) return false
-      const today = getTodayBR()
       if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
       if (filterType === 'Quitados') return c.contract_status === 'Quitado'
-      if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
-      if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === today && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
+      if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < todayBR && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
+      if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === todayBR && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
       return true
     })
-  }, [sortedContracts, searchTerm, filterType])
+  }, [sortedContracts, searchTerm, filterType, todayBR])
 
   const getInstallmentFlags = (i: any) => {
-    const today = getTodayBR()
-    const isLate = i.dueDate < today && i.status !== 'Quitado' && i.status !== 'Cancelada'
-    const daysLate = isLate ? Math.floor((new Date(today).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0
+    const isLate = i.dueDate < todayBR && i.status !== 'Quitado' && i.status !== 'Cancelada'
+    const daysLate = isLate ? Math.floor((new Date(todayBR).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0
     return { isLate, daysLate }
   }
+
+  const receivableKpis = React.useMemo(() => {
+    const active = contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado')
+    return {
+      totalToReceive: active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0),
+      totalOverdue: active
+        .filter(c => c.next_due_date && c.next_due_date < todayBR)
+        .reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0),
+      totalReceived: !selectedContract
+        ? contracts.reduce((acc, c) => acc + Number(c.amount_received || 0), 0)
+        : installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0),
+      totalOpen: !selectedContract
+        ? active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
+        : installments
+            .filter(i => i.status !== 'Quitado' && i.status !== 'Cancelada')
+            .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0),
+    }
+  }, [contracts, installments, selectedContract, todayBR])
 
   const openContract = (c: any) => setSelectedContract({
     id: c.contract_id,
@@ -434,7 +452,7 @@ export default function ContasAReceberPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KPICard 
             title="Total a Receber" 
-            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado').reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0), isVisible('receivable_total'))} 
+            value={formatCurrency(receivableKpis.totalToReceive, isVisible('receivable_total'))} 
             icon={DollarSign} 
             color="indigo" 
             isVisible={isVisible('receivable_total')}
@@ -442,7 +460,7 @@ export default function ContasAReceberPage() {
           />
           <KPICard 
             title="Total em Atraso" 
-            value={formatCurrency(contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado' && c.next_due_date && c.next_due_date < getTodayBR()).reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0), isVisible('receivable_overdue'))} 
+            value={formatCurrency(receivableKpis.totalOverdue, isVisible('receivable_overdue'))} 
             icon={AlertCircle} 
             color="rose" 
             isVisible={isVisible('receivable_overdue')}
@@ -487,12 +505,7 @@ export default function ContasAReceberPage() {
                 </button>
               </div>
               <p className="text-2xl font-bold">
-                {formatCurrency(
-                  !selectedContract 
-                    ? contracts.reduce((acc, c) => acc + Number(c.amount_received || 0), 0)
-                    : installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0),
-                  isVisible('receivable_summary_received')
-                )}
+                {formatCurrency(receivableKpis.totalReceived, isVisible('receivable_summary_received'))}
               </p>
             </div>
           </div>
@@ -509,16 +522,7 @@ export default function ContasAReceberPage() {
                 </button>
               </div>
               <p className="text-2xl font-bold">
-                {formatCurrency(
-                  !selectedContract 
-                    ? contracts
-                        .filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado')
-                        .reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
-                    : installments
-                        .filter(i => i.status !== 'Quitado' && i.status !== 'Cancelada')
-                        .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0),
-                  isVisible('receivable_summary_to_receive')
-                )}
+                {formatCurrency(receivableKpis.totalOpen, isVisible('receivable_summary_to_receive'))}
               </p>
             </div>
           </div>
@@ -600,10 +604,10 @@ export default function ContasAReceberPage() {
             <table className="w-full text-sm text-left min-w-[800px]">
               <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-xs">
                 <tr>
-                  <th className="p-4 cursor-pointer" onClick={() => handleSort('client_name')}>Cliente / Processo <SortIcon columnKey="client_name" /></th>
+                  <th className="p-4 cursor-pointer" onClick={() => handleSort('client_name')}>Cliente / Processo <SortIcon sortConfig={sortConfig} columnKey="client_name" /></th>
                   <th className="p-4 text-right">
                     <div className="flex items-center justify-end gap-1 cursor-pointer" onClick={() => handleSort('contract_value')}>
-                      Valor Contrato <SortIcon columnKey="contract_value" />
+                      Valor Contrato <SortIcon sortConfig={sortConfig} columnKey="contract_value" />
                       <button 
                         onClick={(e) => { e.stopPropagation(); toggleVisibility('receivable_table_value'); }} 
                         className="p-1 text-slate-400 hover:text-indigo-600 transition-colors ml-1"
@@ -615,7 +619,7 @@ export default function ContasAReceberPage() {
                   </th>
                   <th className="p-4 text-right">
                     <div className="flex items-center justify-end gap-1 cursor-pointer" onClick={() => handleSort('amount_received')}>
-                      Recebido <SortIcon columnKey="amount_received" />
+                      Recebido <SortIcon sortConfig={sortConfig} columnKey="amount_received" />
                       <button 
                         onClick={(e) => { e.stopPropagation(); toggleVisibility('receivable_table_received'); }} 
                         className="p-1 text-slate-400 hover:text-indigo-600 transition-colors ml-1"
@@ -627,7 +631,7 @@ export default function ContasAReceberPage() {
                   </th>
                   <th className="p-4 text-right">
                     <div className="flex items-center justify-end gap-1 cursor-pointer" onClick={() => handleSort('amount_to_receive')}>
-                      A Receber <SortIcon columnKey="amount_to_receive" />
+                      A Receber <SortIcon sortConfig={sortConfig} columnKey="amount_to_receive" />
                       <button 
                         onClick={(e) => { e.stopPropagation(); toggleVisibility('receivable_table_to_receive'); }} 
                         className="p-1 text-slate-400 hover:text-indigo-600 transition-colors ml-1"
@@ -637,8 +641,8 @@ export default function ContasAReceberPage() {
                       </button>
                     </div>
                   </th>
-                  <th className="p-4 cursor-pointer" onClick={() => handleSort('next_due_date')}>Próx. Vencimento <SortIcon columnKey="next_due_date" /></th>
-                  <th className="p-4 cursor-pointer" onClick={() => handleSort('contract_status')}>Situação <SortIcon columnKey="contract_status" /></th>
+                  <th className="p-4 cursor-pointer" onClick={() => handleSort('next_due_date')}>Próx. Vencimento <SortIcon sortConfig={sortConfig} columnKey="next_due_date" /></th>
+                  <th className="p-4 cursor-pointer" onClick={() => handleSort('contract_status')}>Situação <SortIcon sortConfig={sortConfig} columnKey="contract_status" /></th>
                   <th className="p-4">Ações</th>
                 </tr>
               </thead>

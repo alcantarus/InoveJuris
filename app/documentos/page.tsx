@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import DashboardLayout from '../dashboard-layout'
 import { ModuleHeader } from '@/components/ModuleHeader'
 import { FileText, Upload, X, Save, Download, ShieldAlert, BookOpen, Trash2, Search, CheckCircle2, User, FileCheck, ArrowRight, Wrench, ChevronUp, ChevronDown } from 'lucide-react'
@@ -226,6 +226,46 @@ export default function DocumentosPage() {
   const [templateSearch, setTemplateSearch] = useState('')
   const [clientSearch, setClientSearch] = useState('')
   const [client2Search, setClient2Search] = useState('')
+
+  const normalizedTemplateSearch = useMemo(() => normalizeSearchText(templateSearch), [templateSearch])
+  const normalizedClientSearch = useMemo(() => normalizeSearchText(clientSearch), [clientSearch])
+  const normalizedClient2Search = useMemo(() => normalizeSearchText(client2Search), [client2Search])
+
+  const templatesWithNames = useMemo(
+    () => templates.map(template => ({ template, name: normalizeSearchText(template.name) })),
+    [templates]
+  )
+  const clientsWithNames = useMemo(
+    () => clients.map(client => ({ client, name: normalizeSearchText(client.name) })),
+    [clients]
+  )
+
+  const filteredTemplates = useMemo(
+    () => templatesWithNames
+      .filter(({ template, name }) =>
+        (selectedCategory === 'Todos' || (template.category || 'Geral') === selectedCategory) &&
+        (!normalizedTemplateSearch || name.includes(normalizedTemplateSearch))
+      )
+      .map(entry => entry.template),
+    [templatesWithNames, selectedCategory, normalizedTemplateSearch]
+  )
+
+  const filteredClients = useMemo(
+    () => clientsWithNames
+      .filter(({ name }) => !normalizedClientSearch || name.includes(normalizedClientSearch))
+      .map(entry => entry.client),
+    [clientsWithNames, normalizedClientSearch]
+  )
+
+  const filteredSecondaryClients = useMemo(
+    () => clientsWithNames
+      .filter(({ client, name }) =>
+        client.id !== selectedClientId &&
+        (!normalizedClient2Search || name.includes(normalizedClient2Search))
+      )
+      .map(entry => entry.client),
+    [clientsWithNames, selectedClientId, normalizedClient2Search]
+  )
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0]
@@ -892,10 +932,7 @@ export default function DocumentosPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {templates
-                    .filter(t => selectedCategory === 'Todos' || (t.category || 'Geral') === selectedCategory)
-                    .filter(t => !normalizeSearchText(templateSearch) || normalizeSearchText(t.name).includes(normalizeSearchText(templateSearch)))
-                    .map(t => (
+                  {filteredTemplates.map(t => (
                     <button 
                       key={t.id} 
                       onClick={() => setSelectedTemplateId(t.id)}
@@ -943,7 +980,7 @@ export default function DocumentosPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {clients.filter(c => !normalizeSearchText(clientSearch) || normalizeSearchText(c.name).includes(normalizeSearchText(clientSearch))).map(c => (
+                  {filteredClients.map(c => (
                     <button 
                       key={c.id} 
                       onClick={() => setSelectedClientId(c.id)}
@@ -1004,7 +1041,7 @@ export default function DocumentosPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {clients.filter(c => c.id !== selectedClientId && (!normalizeSearchText(client2Search) || normalizeSearchText(c.name).includes(normalizeSearchText(client2Search)))).map(c => (
+                  {filteredSecondaryClients.map(c => (
                     <button 
                       key={c.id} 
                       onClick={() => setSelectedClient2Id(c.id)}
