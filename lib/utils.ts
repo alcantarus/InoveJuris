@@ -13,12 +13,14 @@ export function getTodayBRString(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
+const brlCurrencyFormatter = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
 export function formatCurrency(value: number, isVisible: boolean = true): string {
   if (!isVisible) return 'R$ •••••'
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value)
+  return brlCurrencyFormatter.format(value)
 }
 
 export function formatDate(date: string | Date): string {

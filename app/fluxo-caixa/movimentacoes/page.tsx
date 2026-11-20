@@ -38,9 +38,10 @@ import {
 } from 'recharts'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
+import { NewTransactionModal, type NewTransactionData } from '@/components/cashflow/NewTransactionModal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { formatDate, formatCurrency, removeAccents, getTodayBR } from '@/lib/utils'
+import { formatDate, formatCurrency, removeAccents } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
 import { useMemo } from 'react'
@@ -128,22 +129,11 @@ export default function MovimentacoesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
   const [pendingTransaction, setPendingTransaction] = useState<any>(null)
+  const [pendingSubmitData, setPendingSubmitData] = useState<NewTransactionData | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [accountFilter, setAccountFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  
-  const [displayAmount, setDisplayAmount] = useState('R$ 0,00')
-  
-  const [formData, setFormData] = useState({
-    date: getTodayBR(),
-    amount: 0,
-    type: 'expense' as 'income' | 'expense' | 'transfer',
-    account_id: '',
-    category_id: '',
-    description: '',
-    destination_account_id: ''
-  })
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -273,32 +263,28 @@ export default function MovimentacoesPage() {
     return result.sort((a: any, b: any) => Number(b.total_amount) - Number(a.total_amount));
   }, [chartDataIncome]);
 
+  const filteredTransactions = useMemo(() => {
+    const term = removeAccents(searchTerm).toLowerCase()
+    return transactions.filter(t => {
+      const matchesSearch = removeAccents(t.description.toLowerCase()).includes(term)
+      const matchesType = typeFilter === 'all' || t.type === typeFilter
+      const matchesAccount = accountFilter === 'all' || t.account_id.toString() === accountFilter
+      const matchesCategory = categoryFilter === 'all' || (t.category_id && t.category_id.toString() === categoryFilter)
+      return matchesSearch && matchesType && matchesAccount && matchesCategory
+    })
+  }, [transactions, searchTerm, typeFilter, accountFilter, categoryFilter])
+
   if (!mounted) return null
 
-  const filteredTransactions = transactions.filter(t => {
-    const term = removeAccents(searchTerm).toLowerCase()
-    const matchesSearch = removeAccents(t.description.toLowerCase()).includes(term)
-    const matchesType = typeFilter === 'all' || t.type === typeFilter
-    const matchesAccount = accountFilter === 'all' || t.account_id.toString() === accountFilter
-    const matchesCategory = categoryFilter === 'all' || (t.category_id && t.category_id.toString() === categoryFilter)
-    return matchesSearch && matchesType && matchesAccount && matchesCategory
-  })
-
-  const handlePreSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.account_id) {
-      alert('Selecione uma conta bancária.')
-      return
-    }
-
-    if (formData.type === 'expense' || formData.type === 'transfer') {
-      const selectedAccount = accounts.find(a => a.id.toString() === formData.account_id?.toString());
+  const handlePreSubmit = (submission: NewTransactionData) => {
+    if (submission.type === 'expense' || submission.type === 'transfer') {
+      const selectedAccount = accounts.find(a => a.id.toString() === submission.account_id?.toString());
       if (selectedAccount) {
         const currentBalance = Number(selectedAccount.current_balance || 0);
-        const amountToDeduct = Number(formData.amount);
+        const amountToDeduct = Number(submission.amount);
         
         if (currentBalance < amountToDeduct) {
+          setPendingSubmitData(submission)
           setPendingTransaction({
             accountName: selectedAccount.name,
             currentBalance: currentBalance
@@ -309,20 +295,21 @@ export default function MovimentacoesPage() {
       }
     }
 
-    executeTransaction();
+    executeTransaction(submission);
   }
 
-  const executeTransaction = async () => {
+  const executeTransaction = async (submission: NewTransactionData) => {
     setConfirmModalOpen(false);
+    setPendingSubmitData(null)
     
     const transactionData = {
-      date: formData.date,
-      amount: Number(formData.amount),
-      type: formData.type,
-      account_id: formData.account_id ? String(formData.account_id) : null,
-      category_id: formData.category_id ? String(formData.category_id) : null,
-      description: formData.description,
-      destination_account_id: formData.type === 'transfer' ? (formData.destination_account_id ? String(formData.destination_account_id) : null) : null,
+      date: submission.date,
+      amount: Number(submission.amount),
+      type: submission.type,
+      account_id: submission.account_id ? String(submission.account_id) : null,
+      category_id: submission.category_id ? String(submission.category_id) : null,
+      description: submission.description,
+      destination_account_id: submission.type === 'transfer' ? (submission.destination_account_id ? String(submission.destination_account_id) : null) : null,
       created_by: user?.id ? String(user.id) : null
     }
 
@@ -347,13 +334,13 @@ export default function MovimentacoesPage() {
       const data = result.data
 
       // 2. Update Account Balance(s)
-      if (formData.type === 'income') {
-        await supabase.rpc('update_account_balance', { acc_id: String(formData.account_id), amount_change: Number(formData.amount) })
-      } else if (formData.type === 'expense') {
-        await supabase.rpc('update_account_balance', { acc_id: String(formData.account_id), amount_change: -Number(formData.amount) })
-      } else if (formData.type === 'transfer') {
-        await supabase.rpc('update_account_balance', { acc_id: String(formData.account_id), amount_change: -Number(formData.amount) })
-        await supabase.rpc('update_account_balance', { acc_id: String(formData.destination_account_id), amount_change: Number(formData.amount) })
+      if (submission.type === 'income') {
+        await supabase.rpc('update_account_balance', { acc_id: String(submission.account_id), amount_change: Number(submission.amount) })
+      } else if (submission.type === 'expense') {
+        await supabase.rpc('update_account_balance', { acc_id: String(submission.account_id), amount_change: -Number(submission.amount) })
+      } else if (submission.type === 'transfer') {
+        await supabase.rpc('update_account_balance', { acc_id: String(submission.account_id), amount_change: -Number(submission.amount) })
+        await supabase.rpc('update_account_balance', { acc_id: String(submission.destination_account_id), amount_change: Number(submission.amount) })
       }
 
       const updateBalance = async (id: string, change: number) => {
@@ -363,25 +350,15 @@ export default function MovimentacoesPage() {
         }
       }
 
-      if (formData.type === 'income') await updateBalance(String(formData.account_id), Number(formData.amount))
-      if (formData.type === 'expense') await updateBalance(String(formData.account_id), -Number(formData.amount))
-      if (formData.type === 'transfer') {
-        await updateBalance(String(formData.account_id), -Number(formData.amount))
-        await updateBalance(String(formData.destination_account_id), Number(formData.amount))
+      if (submission.type === 'income') await updateBalance(String(submission.account_id), Number(submission.amount))
+      if (submission.type === 'expense') await updateBalance(String(submission.account_id), -Number(submission.amount))
+      if (submission.type === 'transfer') {
+        await updateBalance(String(submission.account_id), -Number(submission.amount))
+        await updateBalance(String(submission.destination_account_id), Number(submission.amount))
       }
 
       if (data) setTransactions(prev => [data[0], ...prev])
       setIsModalOpen(false)
-      setFormData({
-        date: getTodayBR(),
-        amount: 0,
-        type: 'expense',
-        account_id: '',
-        category_id: '',
-        description: '',
-        destination_account_id: ''
-      })
-      setDisplayAmount('R$ 0,00')
       
       // Refresh accounts to get new balances
       const { data: newAccs } = await supabase.from('bank_accounts').select('*').order('name')
@@ -810,155 +787,13 @@ export default function MovimentacoesPage() {
           </div>
         </div>
 
-        <Modal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          title="Novo Lançamento Financeiro"
-        >
-          <form onSubmit={handlePreSubmit} className="space-y-5">
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, type: 'income' })}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 transition-all",
-                  formData.type === 'income' ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-100 text-slate-500"
-                )}
-              >
-                <TrendingUp size={20} />
-                <span className="text-xs font-bold">Receita</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, type: 'expense' })}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 transition-all",
-                  formData.type === 'expense' ? "border-rose-500 bg-rose-50 text-rose-700" : "border-slate-100 text-slate-500"
-                )}
-              >
-                <TrendingDown size={20} />
-                <span className="text-xs font-bold">Despesa</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, type: 'transfer' })}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 transition-all",
-                  formData.type === 'transfer' ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-100 text-slate-500"
-                )}
-              >
-                <ArrowRightLeft size={20} />
-                <span className="text-xs font-bold">Transferência</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-                <input 
-                  required
-                  type="date" 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
-                  value={formData.date}
-                  onChange={e => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Valor</label>
-                <input 
-                  required
-                  type="text" 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
-                  value={displayAmount}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '')
-                    const numberValue = Number(value) / 100
-                    setDisplayAmount(formatCurrency(numberValue, true))
-                    setFormData({ ...formData, amount: numberValue })
-                  }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-              <input 
-                required
-                type="text" 
-                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                value={formData.description}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Ex: Pagamento Aluguel, Honorários Cliente X"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {formData.type === 'transfer' ? 'Conta de Origem' : 'Conta Bancária'}
-                </label>
-                <select 
-                  required
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={formData.account_id}
-                  onChange={e => setFormData({ ...formData, account_id: e.target.value })}
-                >
-                  <option value="">Selecione...</option>
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {formData.type === 'transfer' ? (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Conta de Destino</label>
-                  <select 
-                    required
-                    className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                    value={formData.destination_account_id}
-                    onChange={e => setFormData({ ...formData, destination_account_id: e.target.value })}
-                  >
-                    <option value="">Selecione...</option>
-                    {accounts.filter(a => a.id.toString() !== formData.account_id).map(acc => (
-                      <option key={acc.id} value={acc.id}>{acc.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                  <select 
-                    className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                    value={formData.category_id}
-                    onChange={e => setFormData({ ...formData, category_id: e.target.value })}
-                  >
-                    <option value="">Sem categoria</option>
-                    {categories.filter(c => c.type === formData.type).map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-4 flex gap-3">
-              <button 
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit"
-                className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-md"
-              >
-                Salvar Lançamento
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <NewTransactionModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          accounts={accounts}
+          categories={categories}
+          onSubmit={handlePreSubmit}
+        />
 
         <Modal
           isOpen={confirmModalOpen}
@@ -987,7 +822,7 @@ export default function MovimentacoesPage() {
               </button>
               <button 
                 type="button"
-                onClick={executeTransaction}
+                onClick={() => { if (pendingSubmitData) executeTransaction(pendingSubmitData) }}
                 className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-xl font-semibold hover:bg-rose-700 transition-colors shadow-md"
               >
                 Sim, Continuar
