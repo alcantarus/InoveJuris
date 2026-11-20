@@ -865,7 +865,7 @@ export default function Page() {
         <SectionHeader id="visao-geral" title="Visão geral" subtitle="Acesso rápido, prazos e indicadores do escritório" />
 
         {/* Quick Actions */}
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8">
           {[
             { label: 'Novo Cliente', icon: Users, href: '/clientes', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', show: user?.canAccessClients },
             { label: 'Novo Processo', icon: FileText, href: '/processos', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', show: user?.canAccessProcesses },
@@ -879,19 +879,20 @@ export default function Page() {
             <motion.a
               key={action.label}
               href={action.href}
+              title={action.label}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl border shadow-sm hover:shadow-md transition-all active:scale-95",
+                "flex min-w-0 items-center justify-center gap-1 px-1.5 py-2.5 rounded-xl border shadow-sm hover:shadow-md transition-all active:scale-95",
                 "bg-white hover:bg-slate-50",
                 action.border
               )}
             >
-              <div className={cn("p-1.5 rounded-lg", action.bg, action.color)}>
-                <action.icon size={16} />
+              <div className={cn("shrink-0 rounded-md p-0.5", action.bg, action.color)}>
+                <action.icon size={14} />
               </div>
-              <span className="text-sm font-semibold text-slate-700">{action.label}</span>
+              <span className="truncate text-xs font-semibold text-slate-700">{action.label}</span>
             </motion.a>
           ))}
         </div>
