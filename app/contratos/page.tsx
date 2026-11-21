@@ -40,6 +40,7 @@ import { supabase, isSupabaseConfigured, processContractCancellation } from '@/l
 import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor, getTodayBR, isContractQuitado } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
+import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
 
 interface Contract {
   id: number
@@ -1540,7 +1541,11 @@ export default function FinanceiroPage() {
                         contract.status?.toLowerCase().trim() === 'cancelado' && "line-through text-slate-400"
                       )}>
                         {contract.clients?.name || 'Cliente não vinculado'}
-                        <span className="text-xs text-slate-400 font-normal">#{contract.contractNumber}</span>
+                        <ContractNumberBadge
+                          contractNumber={contract.contractNumber}
+                          processNumber={contract.processNumber}
+                          contractId={contract.id}
+                        />
                         {contract.isProBono && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
                             Pro Bono
@@ -1755,7 +1760,15 @@ export default function FinanceiroPage() {
                 return (
                   <div key={contract.id} className={cn("p-4 space-y-3", rowColors)}>
                     <div className="flex justify-between items-start">
-                      <div className="font-semibold text-slate-900">{contract.clients?.name || 'Cliente não vinculado'}</div>
+                      <div>
+                        <div className="font-semibold text-slate-900">{contract.clients?.name || 'Cliente não vinculado'}</div>
+                        <ContractNumberBadge
+                          contractNumber={contract.contractNumber}
+                          processNumber={contract.processNumber}
+                          contractId={contract.id}
+                          className="mt-1"
+                        />
+                      </div>
                       <span className={cn("px-2 py-1 rounded-full text-xs font-medium", badgeColors)}>
                         {rowStatus}
                       </span>
@@ -1823,6 +1836,12 @@ export default function FinanceiroPage() {
             <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex gap-3">
               <DollarSign className="text-indigo-600 mt-0.5 shrink-0" size={20} />
               <div>
+                <ContractNumberBadge
+                  contractNumber={formData.contractNumber}
+                  processNumber={formData.processNumber}
+                  contractId={formData.id}
+                  className="mb-2"
+                />
                 <p className="text-sm text-indigo-900 font-medium">
                   Parcela {paymentData.index !== null && installments[paymentData.index] ? installments[paymentData.index].installmentNumber : ''}
                 </p>
@@ -2562,7 +2581,15 @@ export default function FinanceiroPage() {
                   return (
                     <div key={contract.id} className="p-4 space-y-3">
                       <div className="flex justify-between items-start">
-                        <div className="font-semibold text-slate-900">{contract.clients?.name}</div>
+                        <div>
+                          <div className="font-semibold text-slate-900">{contract.clients?.name}</div>
+                          <ContractNumberBadge
+                            contractNumber={contract.contractNumber}
+                            processNumber={contract.processNumber}
+                            contractId={contract.id}
+                            className="mt-1"
+                          />
+                        </div>
                         <span className={cn("px-2 py-1 rounded-full text-xs font-semibold", badgeColors)}>
                           {rowStatus}
                         </span>

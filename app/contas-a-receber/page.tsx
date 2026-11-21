@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ContractStatementModal } from '@/components/contas-a-receber/ContractStatementModal'
+import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
 
 function SortIcon({ columnKey, sortConfig }: { columnKey: string, sortConfig: { key: string | null, direction: 'asc' | 'desc' } | null }) {
   if (sortConfig?.key !== columnKey) return <span className="ml-1 text-slate-300">↕</span>;
@@ -675,10 +676,12 @@ export default function ContasAReceberPage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {c.processNumber}
-                        {c.contracts?.contractNumber && ` - Contrato: ${c.contracts.contractNumber}`}
-                      </div>
+                      <ContractNumberBadge
+                        contractNumber={c.contracts?.contractNumber}
+                        processNumber={c.processNumber}
+                        contractId={c.contract_id}
+                        className="mt-1"
+                      />
                     </td>
                     <td className="p-4 text-right text-slate-900">{formatCurrency(c.contract_value, isVisible('receivable_table_value'))}</td>
                     <td className="p-4 text-right">
@@ -749,10 +752,12 @@ export default function ContasAReceberPage() {
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-100 text-cyan-800 border border-cyan-200">Financiado</span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 break-all mt-0.5">
-                          {c.processNumber}
-                          {c.contracts?.contractNumber && ` - Contrato: ${c.contracts.contractNumber}`}
-                        </div>
+                        <ContractNumberBadge
+                          contractNumber={c.contracts?.contractNumber}
+                          processNumber={c.processNumber}
+                          contractId={c.contract_id}
+                          className="mt-0.5"
+                        />
                       </div>
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-semibold shrink-0",
@@ -821,7 +826,16 @@ export default function ContasAReceberPage() {
           <div className="space-y-6">
             <button className="text-slate-500 hover:text-slate-700 flex items-center gap-1" onClick={() => setSelectedContract(null)}>&larr; Voltar para Contratos</button>
             <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-lg font-bold break-all">Contrato: {selectedContract?.processNumber} - {selectedContract?.clients?.name}</h2>
+              <div>
+                <ContractNumberBadge
+                  contractNumber={selectedContract?.contracts?.contractNumber}
+                  processNumber={selectedContract?.processNumber}
+                  contractId={selectedContract?.id}
+                />
+                <h2 className="mt-1.5 text-lg font-bold break-all">
+                  {selectedContract?.clients?.name || 'Cliente não informado'}
+                </h2>
+              </div>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
                 {selectedInstallments.length > 0 && (
                   <button 
@@ -1414,6 +1428,8 @@ export default function ContasAReceberPage() {
           onClose={() => setStatementModalOpen(false)} 
           contractId={selectedContract?.id}
           contractTitle={`${selectedContract?.processNumber || 'Sem Processo'} - ${selectedContract?.clients?.name || 'Sem Cliente'}`}
+          contractNumber={selectedContract?.contracts?.contractNumber}
+          processNumber={selectedContract?.processNumber}
         />
       </div>
     </DashboardLayout>

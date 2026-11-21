@@ -5,6 +5,7 @@ import { Download } from 'lucide-react'
 import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
+import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
 import { toast } from 'react-hot-toast'
 
 interface ContractStatementModalProps {
@@ -12,6 +13,8 @@ interface ContractStatementModalProps {
   onClose: () => void
   contractId: number
   contractTitle: string
+  contractNumber?: string | number | null
+  processNumber?: string | null
 }
 
 const StatementCardField = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -21,7 +24,7 @@ const StatementCardField = ({ label, children }: { label: string; children: Reac
   </div>
 )
 
-export function ContractStatementModal({ isOpen, onClose, contractId, contractTitle }: ContractStatementModalProps) {
+export function ContractStatementModal({ isOpen, onClose, contractId, contractTitle, contractNumber, processNumber }: ContractStatementModalProps) {
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -114,8 +117,15 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Extrato de Recebimentos">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Detalhes do Extrato</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Detalhes do Extrato</p>
+            <ContractNumberBadge
+              contractNumber={contractNumber}
+              processNumber={processNumber}
+              contractId={contractId}
+            />
+          </div>
           <button 
             onClick={() => toast.success('Funcionalidade de exportação em desenvolvimento')}
             className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-md transition"
