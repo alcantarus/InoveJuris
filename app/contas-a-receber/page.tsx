@@ -1173,24 +1173,45 @@ export default function ContasAReceberPage() {
                   <input type="text" value={paymentDescription} onChange={(e) => setPaymentDescription(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20" />
                 </div>
                 <button className="w-full bg-emerald-600 text-white p-3 rounded-lg font-bold hover:bg-emerald-700 transition" onClick={async () => {
-                  const { error } = await supabase.rpc('process_installment_payment', {
-                    p_installment_id: activeInstallment.id,
-                    p_amount_paid: receiveAmount,
-                    p_date: getTodayBR(),
-                    p_interest: 0,
-                    p_fine: 0,
-                    p_description: paymentDescription,
-                    p_account_id: paymentAccount,
-                    p_category_id: paymentCategory,
-                    p_user_id: user?.id
-                  })
+                  const valor = Number(receiveAmount)
+                  const saldo = Number(activeInstallment.amount || 0) - Number(activeInstallment.amountPaid || 0)
+                  const isPartial = valor > 0 && valor < saldo - 0.01
+
+                  const { error } = isPartial
+                    ? await supabase.rpc('rpc_recebimento_com_desdobramento', {
+                        p_installment_id: activeInstallment.id,
+                        p_valor_principal_pago: valor,
+                        p_valor_juros: 0,
+                        p_valor_multa: 0,
+                        p_date: getTodayBR(),
+                        p_description: paymentDescription,
+                        p_account_id: paymentAccount,
+                        p_category_id: paymentCategory,
+                        p_user_id: user?.id
+                      })
+                    : await supabase.rpc('process_installment_payment', {
+                        p_installment_id: activeInstallment.id,
+                        p_amount_paid: valor,
+                        p_date: getTodayBR(),
+                        p_interest: 0,
+                        p_fine: 0,
+                        p_description: paymentDescription,
+                        p_account_id: paymentAccount,
+                        p_category_id: paymentCategory,
+                        p_user_id: user?.id
+                      })
+
                   if (error) {
                     toast.error('Erro ao processar pagamento')
                     console.error(error)
                   } else {
-                    toast.success('Pagamento processado com sucesso!')
+                    toast.success(isPartial ? 'Pagamento parcial processado com desdobramento!' : 'Pagamento processado com sucesso!')
                     setReceiveModalOpen(false)
-                    if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
+                    if (selectedContract?.id) {
+                      fetchInstallmentsForContract(selectedContract.id)
+                      fetchContracts()
+                      fetchDashboardMetrics()
+                    }
                   }
                 }}>Confirmar Recebimento</button>
               </div>
