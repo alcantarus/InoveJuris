@@ -431,6 +431,20 @@ export default function FinanceiroPage() {
     fetchData()
   }, [])
 
+  const reloadContracts = async () => {
+    const { data, error } = await supabase
+      .from('contracts')
+      .select('*, clients(name), indicators(name), installments(*)')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error reloading contracts:', error)
+      return
+    }
+
+    setContracts(data || [])
+  }
+
   const calculatedCommission = (Number(formData.base_comissao || 0) * Number(formData.commissionPercent || 0)) / 100
 
   const generateInstallments = () => {
@@ -597,6 +611,22 @@ export default function FinanceiroPage() {
       return
     }
 
+    // Segunda via de cancelamento: usa o mesmo fluxo transacional da lista
+    if (editingContract && formData.status === 'Cancelado' && String(editingContract.status || '').toLowerCase() !== 'cancelado') {
+      try {
+        await processContractCancellation(
+          editingContract.id,
+          'Cancelamento solicitado na edição do contrato.',
+          user?.id || null
+        )
+        await reloadContracts()
+        setIsModalOpen(false)
+      } catch (error: any) {
+        alert(`Erro ao cancelar contrato: ${error?.message || 'Tente novamente.'}`)
+      }
+      return
+    }
+
     const isMaternidade = formData.product?.toLowerCase().includes('maternidade')
 
     if (isMaternidade && !formData.childbirthDate) {
@@ -613,7 +643,7 @@ export default function FinanceiroPage() {
     // Determine contract status based on installments
     let contractStatus = formData.status || 'Aberto'
     if (contractStatus !== 'Cancelado') {
-      const allCanceled = currentInstallments.length > 0 && currentInstallments.every(i => i.status === 'Cancelado')
+      const allCanceled = currentInstallments.length > 0 && currentInstallments.every(i => ['cancelado', 'cancelada'].includes(String(i.status || '').toLowerCase()))
       const allPaid = currentInstallments.length > 0 && currentInstallments.every(i => i.status === 'Quitado' || i.status === 'Cancelado') && currentInstallments.some(i => i.status === 'Quitado')
       const somePaid = currentInstallments.some(i => i.amountPaid > 0)
       const hasEstornado = currentInstallments.some(i => {
@@ -896,16 +926,8 @@ export default function FinanceiroPage() {
           user?.id || null
         )
 
-        // Update local state
-        const updatedObs = contractToCancel.observations 
-          ? `${contractToCancel.observations}\n\n[CANCELAMENTO]: ${cancelReason}` 
-          : `[CANCELAMENTO]: ${cancelReason}`
-
-        setContracts(prev => prev.map(c => 
-          c.id === contractToCancel.id 
-            ? { ...c, status: 'Cancelado', observations: updatedObs } 
-            : c
-        ))
+        // Recarrega do banco: status, parcelas e valores vêm da função transacional
+        await reloadContracts()
 
         setCancelModalOpen(false)
         setContractToCancel(null)
@@ -913,9 +935,7 @@ export default function FinanceiroPage() {
     } catch (error: any) {
       console.error('Error canceling contract:', error)
       // Tenta extrair detalhes do erro, caso seja um objeto complexo
-      const errorMessage = typeof error === 'object' && error !== null 
-        ? JSON.stringify(error) 
-        : (error.message || 'Tente novamente.');
+      const errorMessage = error?.message || (typeof error === 'string' ? error : 'Tente novamente.')
       setCancelError(`Erro ao cancelar contrato: ${errorMessage}`)
     }
   }
@@ -954,95 +974,28 @@ export default function FinanceiroPage() {
 
           if (rpcError) throw rpcError
 
-          // 2. Wait a short delay for DB triggers to settle
-          // This prevents the "Aberto" status from overwriting our "Estornado" status
-          await new Promise(resolve => setTimeout(resolve, 800));
+          // 2. Recarrega o estado real do banco: o gatilho v4 já gravou Estornado
+          await reloadContracts()
 
-          // 3. Force status to 'Estornado' for the installment in the database
-          await supabase
+          const { data: syncedInsts } = await supabase
             .from('installments')
-            .update({ 
-              status: 'Estornado', 
-              '"amountPaid"': 0,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', inst.id)
+            .select('*')
+            .eq('contract_id', inst.contract_id)
+            .order('installmentNumber')
 
-          // 4. Force contract status to 'Estornado' in the database
-          await supabase
-            .from('contracts')
-            .update({ 
-              status: 'Estornado',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', inst.contract_id)
+          if (syncedInsts) setInstallments(syncedInsts)
 
-          // 5. Update local state immediately
-          const forcedInsts = installments.map((i, idx) => 
-            idx === estornoIndex ? { ...i, status: 'Estornado', amountPaid: 0 } : i
-          )
-          setInstallments(forcedInsts)
-          
           if (rpcData) {
-            const { new_received, new_receivable } = rpcData
-            
             setFormData(prev => ({
               ...prev,
-              amountReceived: new_received,
-              amountReceivable: new_receivable,
-              status: 'Estornado'
+              amountReceived: rpcData.new_received,
+              amountReceivable: rpcData.new_receivable,
+              status: rpcData.new_status
             }))
-
-            setContracts(prev => prev.map(c => 
-              c.id === inst.contract_id 
-                ? { 
-                    ...c, 
-                    amountReceived: new_received, 
-                    amountReceivable: new_receivable, 
-                    status: 'Estornado', 
-                    installments: forcedInsts 
-                  } 
-                : c
-            ))
           }
 
-          // 6. Sync with DB after a longer delay to ensure all triggers finished
-          setTimeout(async () => {
-            const { data: syncedInsts } = await supabase
-              .from('installments')
-              .select('*')
-              .eq('contract_id', inst.contract_id)
-              .order('installmentNumber')
-            
-            if (syncedInsts) {
-              // Ensure we don't accidentally revert to 'Aberto' if we just estornou
-              const updatedInsts = syncedInsts.map((si: any) => {
-                if (si.id === inst.id) {
-                  return { ...si, status: 'Estornado', amountPaid: 0 };
-                }
-                return si;
-              });
-              setInstallments(updatedInsts);
-              
-              // Also sync contract status
-              const { data: syncedContract } = await supabase
-                .from('contracts')
-                .select('status, amountReceived, amountReceivable')
-                .eq('id', inst.contract_id)
-                .single();
-              
-              if (syncedContract) {
-                setFormData(prev => ({
-                  ...prev,
-                  status: syncedContract.status === 'Aberto' ? 'Estornado' : syncedContract.status,
-                  amountReceived: syncedContract.amountReceived,
-                  amountReceivable: syncedContract.amountReceivable
-                }));
-              }
-            }
-          }, 2000)
-
           setEstornoModalOpen(false)
+          toast.success('Parcela estornada com sucesso!')
         } catch (err: any) {
           console.error('Error processing estorno:', err)
           alert(`Erro ao processar estorno: ${err.message || 'Erro desconhecido'}`)
@@ -1542,8 +1495,8 @@ export default function FinanceiroPage() {
                                       });
                   
                   let rowStatus = 'Normal';
-                  if (isEstornado) rowStatus = 'Estornado';
-                  else if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
+                  if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
+                  else if (isEstornado) rowStatus = 'Estornado';
                   else if (isProrrogado) rowStatus = 'Prorrogado';
                   else if (contract.isProBono) rowStatus = 'Pro Bono';
                   else if (contract.isFinanced) rowStatus = 'Financiado';
@@ -1769,8 +1722,8 @@ export default function FinanceiroPage() {
                                     });
                 
                 let rowStatus = 'Normal';
-                if (isEstornado) rowStatus = 'Estornado';
-                else if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
+                if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
+                else if (isEstornado) rowStatus = 'Estornado';
                 else if (isProrrogado) rowStatus = 'Prorrogado';
                 else if (contract.isProBono) rowStatus = 'Pro Bono';
                 else if (contract.isFinanced) rowStatus = 'Financiado';
@@ -2043,10 +1996,9 @@ export default function FinanceiroPage() {
                     value={formData.status || 'Aberto'}
                     onChange={e => {
                       if (e.target.value === 'Cancelado') {
-                        const allowedStatuses = ['Aberto', 'Atrasada']
-                        const hasNonCancellable = installments.some(i => !allowedStatuses.includes(i.status) || (i.amountPaid || 0) > 0)
-                        if (hasNonCancellable) {
-                          alert('Não é possível cancelar este contrato pois existem parcelas já recebidas, quitadas, estornadas ou prorrogadas.')
+                        const hasReceived = installments.some(i => (Number(i.amountPaid) || 0) > 0)
+                        if (hasReceived) {
+                          alert('Não é possível cancelar este contrato pois existem parcelas já recebidas. Estorne os pagamentos antes.')
                           return
                         }
                       }
@@ -2056,7 +2008,7 @@ export default function FinanceiroPage() {
                     <option value="Aberto">Aberto</option>
                     <option value="Parcial">Parcial</option>
                     <option value="Quitado">Quitado</option>
-                    <option value="Cancelado" disabled={installments.some(i => !['Aberto', 'Atrasada'].includes(i.status) || (i.amountPaid || 0) > 0)}>Cancelado</option>
+                    <option value="Cancelado" disabled={installments.some(i => (Number(i.amountPaid) || 0) > 0)}>Cancelado</option>
                   </select>
                 </div>
                 <div>
@@ -2590,8 +2542,8 @@ export default function FinanceiroPage() {
                                       });
                   
                   let rowStatus = 'Normal';
-                  if (isEstornado) rowStatus = 'Estornado';
-                  else if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
+                  if (contract.status === 'Cancelado') rowStatus = 'Cancelado';
+                  else if (isEstornado) rowStatus = 'Estornado';
                   else if (isProrrogado) rowStatus = 'Prorrogado';
                   else if (contract.isProBono) rowStatus = 'Pro Bono';
                   else if (contract.isFinanced) rowStatus = 'Financiado';

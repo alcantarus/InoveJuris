@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Download } from 'lucide-react'
 import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 
 interface ContractStatementModalProps {
@@ -68,7 +68,8 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     const mappedPayments = (payments || []).map((p: any) => ({
       ...p,
       installments: installments?.find((i: any) => i.id === p.installment_id),
-      isGenerated: false
+      isGenerated: false,
+      isReversal: String(p.type || '').toLowerCase() === 'reversal'
     }))
 
     // 4. Adiciona parcelas quitadas que não possuem pagamentos registrados no histórico
@@ -77,11 +78,13 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
       if (i.status === 'Quitado' && !mappedPayments.find((p: any) => p.installment_id === i.id)) {
         mappedPayments.push({
           id: `gen-${i.id}`,
+          type: 'payment',
           amount: i.paid_amount || i.value,
           payment_date: i.due_date, // Usando data de vencimento se não houver data de pagamento
           financial_categories: { name: 'Recebimento (Parcela Quitada)' },
           installments: i,
-          isGenerated: true
+          isGenerated: true,
+          isReversal: false
         })
       }
     })
@@ -100,8 +103,13 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     }
   }, [isOpen, contractId, fetchPayments])
 
-  const totalReceived = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)
-  const uniqueInstallments = new Set(payments.map(p => p.installments?.installmentNumber)).size
+  const totalReceived = payments.reduce(
+    (acc, p) => acc + (p.isReversal ? -1 : 1) * Number(p.amount || 0),
+    0
+  )
+  const uniqueInstallments = new Set(
+    payments.filter(p => !p.isReversal).map(p => p.installments?.installmentNumber)
+  ).size
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Extrato de Recebimentos">
@@ -151,8 +159,12 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                     <tr key={p.id} className="hover:bg-slate-50/50">
                       <td className="p-3 text-slate-600">{formatDate(p.payment_date)}</td>
                       <td className="p-3 font-medium text-slate-900">{p.installments?.installmentNumber || '-'}</td>
-                      <td className="p-3 text-slate-600">{p.financial_categories?.name || '-'}</td>
-                      <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(p.amount)}</td>
+                      <td className="p-3 text-slate-600">
+                        {p.isReversal ? 'Estorno' : (p.financial_categories?.name || '-')}
+                      </td>
+                      <td className={cn('p-3 text-right font-bold', p.isReversal ? 'text-red-600' : 'text-emerald-600')}>
+                        {p.isReversal ? '− ' : ''}{formatCurrency(p.amount)}
+                      </td>
                     </tr>
                   ))}
                   {payments.length === 0 && (
@@ -171,9 +183,13 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                   <div key={p.id} className="p-4 space-y-3">
                     <StatementCardField label="Data">{formatDate(p.payment_date)}</StatementCardField>
                     <StatementCardField label="Parcela">{p.installments?.installmentNumber || '-'}</StatementCardField>
-                    <StatementCardField label="Categoria">{p.financial_categories?.name || '-'}</StatementCardField>
+                    <StatementCardField label="Categoria">
+                      {p.isReversal ? 'Estorno' : (p.financial_categories?.name || '-')}
+                    </StatementCardField>
                     <StatementCardField label="Valor">
-                      <span className="font-bold text-emerald-600">{formatCurrency(p.amount)}</span>
+                      <span className={cn('font-bold', p.isReversal ? 'text-red-600' : 'text-emerald-600')}>
+                        {p.isReversal ? '− ' : ''}{formatCurrency(p.amount)}
+                      </span>
                     </StatementCardField>
                   </div>
                 ))

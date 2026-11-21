@@ -186,11 +186,39 @@ export const isSupabaseConfigured = true
 
 /**
  * Robust wrapper for contract cancellation.
- * Tries executing via DB RPC process_contract_cancellation, 
- * and automatically falls back to secure client-side transactions if needed.
+ * Uses the transactional DB function process_contract_cancellation.
+ * The client-side fallback only runs on installations where the function
+ * does not exist yet.
  */
 export async function processContractCancellation(contractId: number, reason: string, userId: number | null) {
-  // Fetch status first to check if it's 'Prorrogado' (known issue in RPC)
+  if (!reason || !reason.trim()) {
+    throw new Error('O motivo do cancelamento é obrigatório.');
+  }
+
+  // Caminho oficial: função transacional no banco
+  const { data, error } = await supabase.rpc('process_contract_cancellation', {
+    p_contract_id: contractId,
+    p_reason: reason.trim(),
+    p_user_id: userId ?? null
+  });
+
+  if (!error) {
+    return data ?? { success: true };
+  }
+
+  const errorText = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
+  const functionMissing =
+    error.code === 'PGRST202' ||
+    error.code === '42883' ||
+    errorText.includes('could not find the function');
+
+  if (!functionMissing) {
+    // Erro de negócio (ex.: parcelas recebidas) ou de banco: não mascarar
+    throw new Error(error.message || 'Falha ao cancelar o contrato.');
+  }
+
+  // Banco sem a função (instalação antiga): fallback controlado
+  console.warn('[processContractCancellation] RPC ausente, usando fallback local.');
   const { data: contract, error: contractFetchError } = await supabase
     .from('contracts')
     .select('observations, status')
@@ -200,17 +228,11 @@ export async function processContractCancellation(contractId: number, reason: st
   if (contractFetchError) throw contractFetchError;
   if (!contract) throw new Error('Contrato não encontrado.');
 
-  // Always use fallback to avoid RPC restrictions
-  return await performFallbackCancellation(contractId, reason, userId, contract);
+  return await performFallbackCancellation(contractId, reason.trim(), userId, contract);
 }
 
 async function performFallbackCancellation(contractId: number, reason: string, userId: number | null, contract: any) {
   const normalizedStatus = (contract.status || '').toString().trim().toLowerCase();
-
-  // Defensiva: se o contrato já estiver cancelado, não tenta atualizar novamente
-  if (normalizedStatus === 'cancelado' || normalizedStatus === 'cancelada') {
-    return { success: true };
-  }
 
   // Evita transições inválidas que disparam proteção no banco (ex.: quitado -> outro status)
   if (normalizedStatus === 'quitado') {
@@ -219,7 +241,7 @@ async function performFallbackCancellation(contractId: number, reason: string, u
 
   const { data: insts, error: fetchError } = await supabase
     .from('installments')
-    .select('*')
+    .select('id, amountPaid, status')
     .eq('contract_id', contractId);
 
   if (fetchError) {
@@ -227,48 +249,53 @@ async function performFallbackCancellation(contractId: number, reason: string, u
     throw fetchError;
   }
 
-  const hasPayments = insts?.some((i: any) => (Number(i.amountPaid) || 0) > 0);
+  const hasPayments = (insts || []).some((i: any) => (Number(i.amountPaid) || 0) > 0);
   if (hasPayments) {
     console.warn('[processContractCancellation] Blocked due to payments');
-    throw new Error('Não é possível cancelar um contrato com parcelas recebidas.');
+    throw new Error('Não é possível cancelar um contrato com parcelas recebidas. Estorne os pagamentos antes.');
   }
 
+  const alreadyCancelled = normalizedStatus === 'cancelado' || normalizedStatus === 'cancelada';
   const oldObs = contract.observations || '';
-  const updatedObs = oldObs
-    ? `${oldObs}\n\n[CANCELAMENTO]: ${reason}`
-    : `[CANCELAMENTO]: ${reason}`;
+  const updatedObs = alreadyCancelled
+    ? oldObs
+    : (oldObs ? `${oldObs}\n\n[CANCELAMENTO]: ${reason}` : `[CANCELAMENTO]: ${reason}`);
 
-  const { error: contractUpdateError } = await supabase
+  const { data: updatedContracts, error: contractUpdateError } = await supabase
     .from('contracts')
     .update({
       status: 'Cancelado',
+      amountReceivable: 0,
       observations: updatedObs,
       commissionValue: 0,
       commissionPaid: false,
       updated_by: userId
     })
-    .eq('id', contractId);
+    .eq('id', contractId)
+    .select('id');
 
-  if (contractUpdateError) {
-    const msg = contractUpdateError.message || JSON.stringify(contractUpdateError);
-    // Se o banco indicar que já está cancelado (condição de corrida/estado inconsistente), trata como sucesso
-    if (/cancelad/i.test(msg)) {
-      console.warn('[processContractCancellation] Contract appears already canceled in DB, treating as success:', contractUpdateError);
-      return { success: true };
-    }
-    throw contractUpdateError;
+  if (contractUpdateError) throw contractUpdateError;
+  if (!updatedContracts || updatedContracts.length === 0) {
+    throw new Error('Nenhum contrato foi atualizado. Verifique se ele ainda existe.');
   }
 
-  const { error: installmentsUpdateError } = await supabase
-    .from('installments')
-    .update({
-      status: 'Cancelada',
-      updated_by: userId
-    })
-    .eq('contract_id', contractId);
+  const idsToCancel = (insts || [])
+    .filter((i: any) => !['quitado', 'cancelada', 'cancelado'].includes(String(i.status || '').trim().toLowerCase()))
+    .map((i: any) => i.id);
 
-  if (installmentsUpdateError) throw installmentsUpdateError;
+  if (idsToCancel.length > 0) {
+    const { data: updatedInsts, error: installmentsUpdateError } = await supabase
+      .from('installments')
+      .update({ status: 'Cancelada', updated_by: userId })
+      .in('id', idsToCancel)
+      .select('id');
 
-  return { success: true };
+    if (installmentsUpdateError) throw installmentsUpdateError;
+    if (!updatedInsts || updatedInsts.length !== idsToCancel.length) {
+      throw new Error('Falha ao cancelar todas as parcelas. Nenhuma alteração foi concluída.');
+    }
+  }
+
+  return { success: true, installments_updated: idsToCancel.length };
 }
 

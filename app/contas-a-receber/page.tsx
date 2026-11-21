@@ -286,14 +286,16 @@ export default function ContasAReceberPage() {
       if (!matchesSearch) return false
       if (filterType === 'Abertos') return c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
       if (filterType === 'Quitados') return c.contract_status === 'Quitado'
-      if (filterType === 'Atrasados') return c.next_due_date && c.next_due_date < todayBR && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
+      if (filterType === 'Atrasados') return Number(c.overdue_amount || 0) > 0 && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
       if (filterType === 'Vence Hoje') return c.next_due_date && c.next_due_date === todayBR && c.contract_status !== 'Quitado' && c.contract_status !== 'Cancelado'
       return true
     })
   }, [sortedContracts, searchTerm, filterType, todayBR])
 
   const getInstallmentFlags = (i: any) => {
-    const isLate = i.dueDate < todayBR && i.status !== 'Quitado' && i.status !== 'Cancelada'
+    const status = String(i.status || '').toLowerCase()
+    const naoAtrasam = ['quitado', 'cancelada', 'cancelado', 'estornado', 'prorrogada', 'prorrogado']
+    const isLate = i.dueDate < todayBR && !naoAtrasam.includes(status)
     const daysLate = isLate ? Math.floor((new Date(todayBR).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0
     return { isLate, daysLate }
   }
@@ -303,15 +305,14 @@ export default function ContasAReceberPage() {
     return {
       totalToReceive: active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0),
       totalOverdue: active
-        .filter(c => c.next_due_date && c.next_due_date < todayBR)
-        .reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0),
+        .reduce((acc, c) => acc + Number(c.overdue_amount || 0), 0),
       totalReceived: !selectedContract
         ? contracts.reduce((acc, c) => acc + Number(c.amount_received || 0), 0)
         : installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0),
       totalOpen: !selectedContract
         ? active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
         : installments
-            .filter(i => i.status !== 'Quitado' && i.status !== 'Cancelada')
+            .filter(i => !['quitado','cancelada','cancelado','estornado','prorrogada','prorrogado'].includes(String(i.status || '').toLowerCase()))
             .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0),
     }
   }, [contracts, installments, selectedContract, todayBR])
@@ -1400,6 +1401,8 @@ export default function ContasAReceberPage() {
                     setEstornoReason('')
                     setEstornoAccountId('')
                     if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
+                    fetchContracts()
+                    fetchDashboardMetrics()
                   }
               }}>Confirmar Estorno</button>
             </div>
