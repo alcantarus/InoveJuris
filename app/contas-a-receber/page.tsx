@@ -190,7 +190,7 @@ export default function ContasAReceberPage() {
 
     for (const installmentId of selectedInstallments) {
       const installment = installments.find(i => i.id === installmentId);
-      if (!installment) continue;
+      if (!installment || !isBatchEligible(installment.status)) continue;
 
       try {
         const { error } = await supabase.rpc('process_installment_payment', {
@@ -263,6 +263,11 @@ export default function ContasAReceberPage() {
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     )
   }
+
+  // Somente parcelas com saldo em aberto entram no recebimento em lote.
+  const isBatchEligible = (status?: string) =>
+    !['quitado', 'cancelada', 'cancelado', 'estornado', 'estornada']
+      .includes((status || '').toLowerCase())
 
   // Regras compartilhadas entre a tabela (desktop) e os cards (mobile).
   const getContractRowStatus = (c: any) => {
@@ -872,10 +877,10 @@ export default function ContasAReceberPage() {
                       <input 
                         type="checkbox" 
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
-                        checked={selectedInstallments.length === installments.filter(i => i.status !== 'Quitado' && i.status !== 'Cancelada').length && installments.length > 0}
+                        checked={installments.some(i => isBatchEligible(i.status)) && selectedInstallments.length === installments.filter(i => isBatchEligible(i.status)).length}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedInstallments(installments.filter(i => i.status !== 'Quitado' && i.status !== 'Cancelada').map(i => i.id))
+                            setSelectedInstallments(installments.filter(i => isBatchEligible(i.status)).map(i => i.id))
                           } else {
                             setSelectedInstallments([])
                           }
@@ -943,7 +948,7 @@ export default function ContasAReceberPage() {
                           type="checkbox" 
                           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50" 
                           checked={selectedInstallments.includes(i.id)} 
-                          disabled={i.status === 'Quitado' || i.status === 'Cancelada'}
+                          disabled={!isBatchEligible(i.status)}
                           onChange={() => toggleSelection(i.id)} 
                         />
                       </td>
@@ -1038,7 +1043,7 @@ export default function ContasAReceberPage() {
                             type="checkbox"
                             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 h-5 w-5 shrink-0"
                             checked={selectedInstallments.includes(i.id)}
-                            disabled={isClosed}
+                            disabled={!isBatchEligible(i.status)}
                             onChange={() => toggleSelection(i.id)}
                           />
                           <span className="font-semibold text-slate-900">Parcela {i.installmentNumber}</span>
