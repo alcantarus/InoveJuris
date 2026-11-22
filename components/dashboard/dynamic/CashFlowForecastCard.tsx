@@ -4,9 +4,11 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TrendingUp, Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { Modal } from '@/components/Modal'
 
 export function CashFlowForecastCard() {
+  usePrivacyVersion()
   const [forecast, setForecast] = useState(0)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)

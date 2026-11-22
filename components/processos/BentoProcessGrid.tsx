@@ -2,6 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import { motion } from 'motion/react'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { getNextDeadline, getResponsibleName } from '@/lib/processes'
 import {
   ArrowUpRight,
@@ -46,6 +47,7 @@ interface BentoProcessGridProps {
 }
 
 export function BentoProcessGrid({ processes, onEdit, onDelete, onSync, syncingId, lawyers, isVisible }: BentoProcessGridProps) {
+  usePrivacyVersion()
   const showValues = isVisible ? isVisible('process_all') : true
 
   return (

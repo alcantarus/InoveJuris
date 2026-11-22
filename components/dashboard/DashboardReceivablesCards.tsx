@@ -3,6 +3,7 @@
 import React from 'react'
 import { AlertTriangle, TrendingUp, Users, Calendar } from 'lucide-react'
 import { formatCurrency, formatDate, formatPercent } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function DashboardReceivablesCards({ 
@@ -14,6 +15,7 @@ export default function DashboardReceivablesCards({
   receivablesForecast: any[], 
   topDefaulters: any[] 
 }) {
+  usePrivacyVersion()
   // 1. Termômetro de Inadimplência
   const metrics = receivablesMetrics[0] || {}
   const totalPendingAmount = Number(metrics.total_pending || 0)

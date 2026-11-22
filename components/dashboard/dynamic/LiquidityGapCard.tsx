@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 
 export const LiquidityGapCard = ({ gap, isVisible, toggleVisibility }: { gap: number, isVisible: boolean, toggleVisibility: () => void }) => {
+  usePrivacyVersion();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [details, setDetails] = useState<any[]>([]);

@@ -29,9 +29,11 @@ import { useAuth } from '@/lib/auth'
 import { getAppEnv } from '@/lib/env'
 import { storageUrl, uploadStorageFile } from '@/lib/storage-client'
 import { formatCurrency, formatDate, cn, getTodayBR } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { motion } from 'motion/react'
 
 export default function ClientProfilePage() {
+  usePrivacyVersion()
   const params = useParams()
   const router = useRouter()
   const { user } = useAuth()

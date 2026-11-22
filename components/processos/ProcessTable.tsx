@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, CalendarClock, Edit2, ExternalLink, LockKeyhole, RefreshCw, Trash2 } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { daysUntilDate, getNextDeadline, getResponsibleName, isActiveProcess } from '@/lib/processes'
 
 interface Process {
@@ -114,6 +115,7 @@ function MobileField({ label, children }: { label: string; children: React.React
 }
 
 export function ProcessTable({ processes, lawyers, isVisible, syncingId, onEdit, onDelete, onSync }: ProcessTableProps) {
+  usePrivacyVersion()
   const showValues = isVisible ? isVisible('process_all') : true
 
   return (

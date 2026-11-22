@@ -29,6 +29,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, validatePIS, formatPIS, cn, formatCEP, formatPhone, removeAccents, normalizeSearchText, formatDate, formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
@@ -248,6 +249,7 @@ const useDebounce = (value: string, delay: number) => {
 };
 
 export default function ClientesPage() {
+  usePrivacyVersion()
   const { user } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')

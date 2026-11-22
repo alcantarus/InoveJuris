@@ -5,6 +5,7 @@ import { Download } from 'lucide-react'
 import { Modal } from '@/components/Modal'
 import { supabase } from '@/lib/supabase'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
 import { toast } from 'react-hot-toast'
 
@@ -25,6 +26,7 @@ const StatementCardField = ({ label, children }: { label: string; children: Reac
 )
 
 export function ContractStatementModal({ isOpen, onClose, contractId, contractTitle, contractNumber, processNumber }: ContractStatementModalProps) {
+  usePrivacyVersion()
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 

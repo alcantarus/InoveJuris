@@ -85,7 +85,18 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleGlobalVisibility = () => {
-    setGlobalHidden(prev => !prev);
+    const next = !globalHidden;
+    // Atualiza o store SINCRONAMENTE, antes do render seguinte. Se isso
+    // ficasse só no useEffect, os componentes que leem o contexto renderizariam
+    // com globalHidden atualizado mas com formatCurrency ainda consultando o
+    // valor antigo do store — deixando números mascarados após "Exibir valores".
+    setPrivacyGloballyHidden(next);
+    // "Exibir valores" deve mostrar tudo: descarta overrides individuais
+    // antigos que, de outra forma, continuariam mascarando alguns cards.
+    if (!next) {
+      setVisibilityMap({});
+    }
+    setGlobalHidden(next);
   };
 
   return (

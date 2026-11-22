@@ -38,7 +38,7 @@ import {
 import { motion } from 'motion/react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { formatDate, cn, formatCurrency, getTodayBR } from '@/lib/utils'
+import { formatDate, cn, formatCurrency, formatCurrencyWith, getTodayBR } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import Link from 'next/link'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
@@ -329,7 +329,7 @@ export default function FluxoCaixaPage() {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} 
-                    tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`} 
+                    tickFormatter={(value) => formatCurrencyWith(value, n => `R$ ${n >= 1000 ? (n/1000).toFixed(0) + 'k' : n}`)} 
                     domain={[0, 8000]}
                   />
                   <Tooltip 

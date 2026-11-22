@@ -4,6 +4,7 @@ import React, { useRef } from 'react'
 import { motion } from 'motion/react'
 import { Users, DollarSign, Clock, BarChart3, Eye, EyeOff } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 
 interface DashboardExtraCardsProps {
@@ -17,6 +18,7 @@ import { getAppEnv } from '@/lib/env'
 // ... (outros imports)
 
 export default function DashboardExtraCards({ data, isVisible, toggleVisibility, user }: DashboardExtraCardsProps) {
+  usePrivacyVersion()
   const newClientsRef = useRef<HTMLDivElement>(null);
   const financeRef = useRef<HTMLDivElement>(null);
   const workloadRef = useRef<HTMLDivElement>(null);

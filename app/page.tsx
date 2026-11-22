@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import DashboardLayout from './dashboard-layout'
-import { cn, formatDate, formatCurrency, formatPercent, formatPercentValue, getTodayBR } from '@/lib/utils'
+import { cn, formatDate, formatCurrency, formatCurrencyWith, formatPercent, formatPercentValue, getTodayBR } from '@/lib/utils'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 import { 
   Users, 
@@ -1499,7 +1499,7 @@ export default function Page() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(value) => formatCurrencyWith(value, n => `R$ ${n/1000}k`)} />
                     <Tooltip 
                       cursor={{ stroke: '#10b981', strokeWidth: 1 }}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
@@ -1594,7 +1594,7 @@ export default function Page() {
                   <BarChart data={cashFlowProjectionData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrencyWith(value, n => `R$ ${n/1000}k`)} />
                     <Tooltip 
                       cursor={{ fill: '#f8fafc' }}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}

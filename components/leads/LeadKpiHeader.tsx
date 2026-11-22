@@ -1,12 +1,14 @@
 import React from 'react'
 import { Users, Clock, Target } from 'lucide-react'
 import { cn, formatPercent } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 
 interface KpiProps {
   leads: any[]
 }
 
 export function LeadKpiHeader({ leads }: KpiProps) {
+  usePrivacyVersion()
   // Simple calculation for MVP
   const activeLeads = leads.filter(l => l.status === 'Em Atendimento' || l.status === 'Stand-by').length
   const atendidio = leads.filter(l => l.status === 'Atendido').length

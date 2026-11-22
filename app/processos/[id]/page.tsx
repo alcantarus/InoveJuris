@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import DashboardLayout from '@/app/dashboard-layout'
 import { cn, formatCurrency, formatDate, formatDateTime, getTodayBR } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { daysUntilDate, getNextDeadline, getResponsibleName, normalizeParties } from '@/lib/processes'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { getAppEnv } from '@/lib/env'
@@ -48,6 +49,7 @@ function DataField({ label, value, icon: Icon }: { label: string; value: React.R
 }
 
 export default function ProcessoDetalhePage() {
+  usePrivacyVersion()
   const params = useParams<{ id: string }>()
   const { user } = useAuth()
   const [process, setProcess] = useState<any>(null)

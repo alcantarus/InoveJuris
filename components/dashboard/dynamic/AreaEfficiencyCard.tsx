@@ -4,9 +4,11 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BarChart3, Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { Modal } from '@/components/Modal'
 
 export function AreaEfficiencyCard() {
+  usePrivacyVersion()
   const [efficiency, setEfficiency] = useState<any[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)

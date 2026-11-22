@@ -1,6 +1,7 @@
 import React from 'react'
 import { ArrowUpRight, BriefcaseBusiness, Clock3, LockKeyhole, Wallet } from 'lucide-react'
 import { formatCurrency, getTodayBR } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 import { KPICard } from '@/components/ui/KPICard'
 
 const INACTIVE_STATUSES = ['arquivado', 'concluído', 'concluido', 'baixado', 'encerrado', 'cancelado']
@@ -27,6 +28,7 @@ function daysUntil(date: string | null): number {
  * secundária, sem poluir os KPIs principais.
  */
 export function StrategicCockpit({ processes, isVisible }: { processes: any[], isVisible?: (key: string) => boolean }) {
+  usePrivacyVersion()
   const showValues = isVisible ? isVisible('process_all') : true
 
   const active = processes.filter(p => !INACTIVE_STATUSES.includes(String(p.status || '').toLowerCase().trim()))

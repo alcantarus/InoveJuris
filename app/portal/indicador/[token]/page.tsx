@@ -7,8 +7,12 @@ import { KPICard } from '@/components/portal/KPICard'
 import { CommissionTable } from '@/components/portal/CommissionTable'
 import { CommissionChart } from '@/components/portal/CommissionChart'
 import { DollarSign, TrendingUp } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
+import { GlobalPrivacyToggle } from '@/components/GlobalPrivacyToggle'
 
 export default function PortalIndicadorPage() {
+  usePrivacyVersion()
   const { token } = useParams()
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -114,22 +118,26 @@ export default function PortalIndicadorPage() {
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-8">
         <Header name={indicatorName} />
+
+        <div className="flex justify-end">
+          <GlobalPrivacyToggle compact />
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KPICard 
             title="Total de Comissões" 
-            value={`R$ ${totalCommissions.toFixed(2)}`} 
+            value={formatCurrency(totalCommissions)} 
             icon={<DollarSign size={20} />}
           />
           <KPICard 
             title="Total Pago" 
-            value={`R$ ${totalPaid.toFixed(2)}`} 
+            value={formatCurrency(totalPaid)} 
             icon={<DollarSign size={20} />}
             trend="Saldo atualizado"
           />
           <KPICard 
             title="Total a Receber" 
-            value={`R$ ${totalRemaining.toFixed(2)}`} 
+            value={formatCurrency(totalRemaining)} 
             icon={<TrendingUp size={20} />}
             trend="Saldo atualizado"
           />

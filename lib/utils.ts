@@ -38,6 +38,19 @@ export function formatCurrency(value: number, isVisible: boolean = true): string
 }
 
 /**
+ * Para rótulos de eixo de gráfico (ex.: "R$ 12k"), que têm formatação própria.
+ * Aplica a mesma regra de privacidade antes de chamar o formatador customizado.
+ */
+export function formatCurrencyWith(
+  value: number,
+  formatter: (numericValue: number) => string,
+  isVisible: boolean = true,
+): string {
+  if (!isVisible || isPrivacyGloballyHidden()) return MASKED_CURRENCY
+  return formatter(value)
+}
+
+/**
  * Usado em campos de digitação (CurrencyInput, modais de lançamento).
  * Ignora o modo privacidade global para não impedir a edição do valor.
  */

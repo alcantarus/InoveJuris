@@ -1,11 +1,14 @@
 'use client'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { formatCurrency } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 
 interface CommissionChartProps {
   data: any[]
 }
 
 export function CommissionChart({ data }: CommissionChartProps) {
+  usePrivacyVersion()
   const chartData = data.map(item => ({
     name: `Contrato ${item.contract_id}`,
     commission: Number(item.total_commission)
@@ -24,7 +27,7 @@ export function CommissionChart({ data }: CommissionChartProps) {
               cursor={{ fill: '#f8fafc' }}
               contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
               formatter={(value: any) => 
-                typeof value === 'number' ? [`R$ ${value.toFixed(2)}`, 'Comissão'] : [value, 'Comissão']
+                typeof value === 'number' ? [formatCurrency(value), 'Comissão'] : [value, 'Comissão']
               }
             />
             <Bar dataKey="commission" radius={[8, 8, 0, 0]} barSize={40}>

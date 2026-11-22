@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import { cn, formatCurrency, formatPercent } from '@/lib/utils'
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion'
 
 interface Commission {
   contract_id: number
@@ -22,6 +23,7 @@ interface CommissionTableProps {
 }
 
 export function CommissionTable({ data }: CommissionTableProps) {
+  usePrivacyVersion()
   const [expandedRows, setExpandedRows] = useState<number[]>([])
 
   const toggleRow = (contractId: number) => {

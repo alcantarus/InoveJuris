@@ -1,6 +1,7 @@
 import React from 'react';
 import { LucideIcon, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion';
 
 interface KPICardProps {
   title: string;
@@ -21,6 +22,7 @@ export function KPICard({
   isVisible = true,
   onToggleVisibility
 }: KPICardProps) {
+  usePrivacyVersion();
   const colorClasses = {
     indigo: 'bg-indigo-50 text-indigo-600',
     emerald: 'bg-emerald-50 text-emerald-600',

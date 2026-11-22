@@ -1,9 +1,11 @@
 import React from 'react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { usePrivacyVersion } from '@/lib/usePrivacyVersion';
 import { AlertOctagon, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const DefaultRiskCard = ({ riskAmount, count, onAction }: { riskAmount: number, count: number, onAction: () => void }) => {
+  usePrivacyVersion();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
