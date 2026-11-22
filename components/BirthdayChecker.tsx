@@ -101,20 +101,7 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
     setSentCards(newSent)
     localStorage.setItem(`sent_birthdays_${todayStr}`, JSON.stringify(newSent))
     
-    // Salva o log no Supabase
-    try {
-      const type = clientId.startsWith('indicator_') ? 'birthday_card_indicator' : 
-                   clientId.startsWith('maternity_') ? 'maternity_card' : 'birthday_card_client'
-      const numericId = parseInt(clientId.replace(/\D/g, ''), 10)
-      
-      await supabase.from('marketing_logs').insert([{
-        client_id: numericId,
-        type: type
-      }])
-    } catch (e) {
-      console.error('Erro ao salvar log no Supabase:', e)
-    }
-    
+    // O log de marketing é gravado pelo BirthdayCardGenerator (fonte única).
     setSelectedClient(null)
   }
 

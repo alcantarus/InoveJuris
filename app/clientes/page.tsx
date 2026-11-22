@@ -1586,19 +1586,8 @@ export default function ClientesPage() {
           onClose={() => setSelectedBirthdayClient(null)}
           clientName={selectedBirthdayClient?.name || ''}
           clientId={selectedBirthdayClient ? `client_${selectedBirthdayClient.id}` : ''}
-          onGenerated={async (id) => {
-            // Log generation if needed, similar to BirthdayChecker
-            try {
-              const numericId = parseInt(id.replace(/\D/g, ''), 10)
-              if (numericId && !isNaN(numericId)) {
-                await supabase.from('marketing_logs').insert([{
-                  client_id: numericId,
-                  type: 'birthday_card_client'
-                }])
-              }
-            } catch (e) {
-              console.error('Erro ao salvar log no Supabase:', e)
-            }
+          onGenerated={() => {
+            // O log é gravado pelo BirthdayCardGenerator (uma única vez).
             setSelectedBirthdayClient(null)
           }}
         />

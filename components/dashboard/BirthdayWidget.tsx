@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Gift, ImageIcon, Printer, PartyPopper, MessageCircle } from 'lucide-react'
 import { BirthdayCardGenerator } from '../BirthdayCardGenerator'
@@ -57,22 +56,7 @@ export default function BirthdayWidget() {
     setSentCards(newSent)
     localStorage.setItem(`sent_birthdays_${todayStr}`, JSON.stringify(newSent))
     
-    // Registrar log no Supabase
-    try {
-      const type = clientId.startsWith('indicator_') ? 'birthday_card_indicator' : 
-                   clientId.startsWith('maternity_') ? 'maternity_card' : 'birthday_card_client'
-      const numericId = parseInt(clientId.replace(/\D/g, ''), 10)
-      
-      if (numericId && !isNaN(numericId)) {
-        await supabase.from('marketing_logs').insert([{
-          client_id: numericId,
-          type: type
-        }])
-      }
-    } catch (e) {
-      console.error('Erro ao salvar log no Supabase:', e)
-    }
-    
+    // O log de marketing é gravado pelo BirthdayCardGenerator (fonte única).
     setSelectedClient(null)
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } })
   }

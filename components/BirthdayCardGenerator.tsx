@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useRef, useState, useEffect } from 'react'
-import html2canvas from 'html2canvas'
-import { Download, X, Loader2, Image as ImageIcon, Type, User, Sparkles, Check, ChevronRight, PartyPopper } from 'lucide-react'
+import React, { useCallback, useRef, useState, useEffect } from 'react'
+import { Download, X, Loader2, Image as ImageIcon, Type, User, Check, PartyPopper, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storageUrl } from '@/lib/storage-client'
 import { motion, AnimatePresence } from 'motion/react'
@@ -111,6 +110,45 @@ interface BirthdayCardGeneratorProps {
   isOpen?: boolean
 }
 
+type CardLogType = 'birthday_card_client' | 'birthday_card_indicator' | 'birthday_card_maternity'
+
+/** Interpreta os IDs prefixados usados pelas telas de aniversariantes. */
+function resolveLogTarget(clientId: string): { id: number | null; type: CardLogType } {
+  const prefixes: Array<[string, CardLogType]> = [
+    ['indicator_', 'birthday_card_indicator'],
+    ['maternity_', 'birthday_card_maternity'],
+    ['client_', 'birthday_card_client'],
+  ]
+
+  for (const [prefix, type] of prefixes) {
+    if (clientId.startsWith(prefix)) {
+      const id = Number(clientId.slice(prefix.length))
+      return { id: Number.isInteger(id) && id > 0 ? id : null, type }
+    }
+  }
+
+  const id = Number(clientId)
+  return { id: Number.isInteger(id) && id > 0 ? id : null, type: 'birthday_card_client' }
+}
+
+function isIOSDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
+
+/** Converte data URL em Blob sem await, preservando o gesto do clique no iOS. */
+function blobFromDataUrl(dataUrl: string): Blob {
+  const [header, payload] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)?.[1] || 'image/png'
+  const binary = atob(payload)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
+
 export function BirthdayCardGenerator({ 
   clientName, 
   clientId, 
@@ -120,6 +158,11 @@ export function BirthdayCardGenerator({
   isOpen = true
 }: BirthdayCardGeneratorProps) {
   const cardRef = useRef<HTMLDivElement>(null)
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null)
+  const backgroundReadyRef = useRef(false)
+  const [canShareFile, setCanShareFile] = useState(false)
+  const [isArtReady, setIsArtReady] = useState(false)
+  const [artError, setArtError] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [templates, setTemplates] = useState<BirthdayTemplate[]>(FALLBACK_TEMPLATES)
   const [messages, setMessages] = useState<string[]>(FALLBACK_MESSAGES)
@@ -140,41 +183,41 @@ export function BirthdayCardGenerator({
 
   useEffect(() => {
     async function loadConfig() {
-      console.log('Iniciando loadConfig no BirthdayCardGenerator...');
       try {
         setIsLoadingData(true)
-        
-        // Tenta buscar templates do banco
+
+        // Apenas temas ativos. O environment é injetado pelo cliente Supabase.
         const { data: dbTemplates, error: tError } = await supabase
           .from('birthday_templates')
           .select('*')
-          
+          .eq('is_active', true)
+
+        if (tError) {
+          console.error('Erro ao buscar templates de aniversário:', tError)
+        }
+
         if (!tError && dbTemplates && dbTemplates.length > 0) {
-          console.log('Template selecionado:', dbTemplates[0]);
           setTemplates(dbTemplates)
           setSelectedTemplate(dbTemplates[0])
         }
 
-        // Tenta buscar mensagens do banco
         const { data: dbMessages, error: mError } = await supabase
           .from('birthday_messages')
           .select('content')
-          .eq('is_active', true) // Filtra apenas mensagens ativas
-          
+          .eq('is_active', true)
+
         if (mError) {
           console.error('Erro ao buscar mensagens do banco:', mError)
         }
 
         if (!mError && dbMessages && dbMessages.length > 0) {
           const msgContents = dbMessages.map((m: any) => m.content)
-          console.log('Mensagens que serão exibidas no UI:', msgContents);
           setMessages(msgContents)
           setSelectedMessage(msgContents[0])
         } else {
           setMessages(FALLBACK_MESSAGES)
           setSelectedMessage(FALLBACK_MESSAGES[0])
         }
-
       } catch (error) {
         console.error('Erro ao carregar configurações de aniversário:', error)
         // Mantém os fallbacks em caso de erro
@@ -186,128 +229,206 @@ export function BirthdayCardGenerator({
     loadConfig()
   }, [])
 
+  // Detecta compartilhamento de arquivo (Web Share API nível 2).
+  useEffect(() => {
+    setCanShareFile(
+      typeof navigator !== 'undefined' &&
+      typeof navigator.share === 'function' &&
+      typeof navigator.canShare === 'function'
+    )
+  }, [])
+
+  // Pré-carrega a arte para que "Compartilhar" e "Baixar" não precisem esperar
+  // uma imagem no clique — no iOS isso consumiria o gesto do usuário.
+  useEffect(() => {
+    backgroundReadyRef.current = false
+    backgroundImageRef.current = null
+    setIsArtReady(false)
+    setArtError(false)
+
+    const url = storageUrl(selectedTemplate.image_url, 'marketing')
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+
+    image.onload = () => {
+      backgroundImageRef.current = image
+      backgroundReadyRef.current = true
+      setIsArtReady(true)
+    }
+    image.onerror = () => {
+      backgroundImageRef.current = null
+      backgroundReadyRef.current = false
+      setIsArtReady(false)
+      setArtError(true)
+    }
+    image.src = url
+
+    return () => {
+      image.onload = null
+      image.onerror = null
+    }
+  }, [selectedTemplate.image_url])
+
+  // Desenho do PNG mantido exatamente como antes. A única diferença é usar a
+  // imagem pré-carregada, em vez de criar uma nova Image dentro do clique.
+  const renderCard = useCallback((): { dataUrl: string; blob: Blob } => {
+    if (!backgroundReadyRef.current || !backgroundImageRef.current) {
+      throw new Error('A arte do cartão ainda não foi carregada. Aguarde um instante e tente novamente.')
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 1080
+    canvas.height = 1080
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Não foi possível criar contexto de canvas')
+
+    ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height)
+
+    // Configurações de texto
+    ctx.fillStyle = selectedTemplate.text_color || '#ffffff'
+    ctx.textAlign = selectedTemplate.text_align || 'center'
+
+    // Desenhar Nome
+    const nameSize = parseInt(selectedTemplate.name_size || '36') * 3
+    ctx.font = `bold ${nameSize}px ${selectedTemplate.name_font || 'serif'}`
+    const nameX = (parseInt(selectedTemplate.name_x || '50') / 100) * canvas.width
+    const nameY = (parseInt(selectedTemplate.name_y || '40') / 100) * canvas.height
+    ctx.fillText(displayName.toUpperCase(), nameX, nameY)
+
+    // Desenhar Mensagem
+    if (!isGhostMode) {
+      const msgSize = parseInt(selectedTemplate.msg_size || '14') * 3
+      ctx.font = `${msgSize}px ${selectedTemplate.msg_font || 'sans-serif'}`
+      const msgX = (parseInt(selectedTemplate.msg_x || '50') / 100) * canvas.width
+      const msgY = (parseInt(selectedTemplate.msg_y || '60') / 100) * canvas.height
+
+      const maxWidth = (parseInt(selectedTemplate.msg_max_width || '80') / 100) * canvas.width
+      const words = (selectedMessage || '').split(' ')
+      let line = ''
+      let y = msgY
+      const lineHeight = msgSize * 1.4
+
+      for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' '
+        const metrics = ctx.measureText(testLine)
+        if (metrics.width > maxWidth && i > 0) {
+          ctx.fillText(line, msgX, y)
+          line = words[i] + ' '
+          y += lineHeight
+        } else {
+          line = testLine
+        }
+      }
+      ctx.fillText(line, msgX, y)
+    }
+
+    let dataUrl: string
+    try {
+      dataUrl = canvas.toDataURL('image/png', 1.0)
+    } catch {
+      throw new Error('Esta arte não permite exportação. Escolha outro tema ou contate o administrador.')
+    }
+
+    return { dataUrl, blob: blobFromDataUrl(dataUrl) }
+  }, [displayName, selectedTemplate, selectedMessage, isGhostMode])
+
+  const fileName = `aniversario-${(displayName || 'cliente').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`
+
+  // Um único registro por geração. As telas que abrem o modal não gravam mais
+  // log: o componente é a fonte única (environment é injectado pelo cliente).
+  const registerLog = useCallback(async () => {
+    const { id, type } = resolveLogTarget(clientId)
+    if (id === null) {
+      console.warn('[BirthdayCardGenerator] ID inválido para log:', clientId)
+      return
+    }
+
+    const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedTemplate.id)
+    const { error } = await supabase.from('marketing_logs').insert([{
+      client_id: id,
+      template_id: isValidUUID ? selectedTemplate.id : null,
+      type,
+    }])
+
+    if (error) console.error('Erro ao salvar log de marketing:', error)
+  }, [clientId, selectedTemplate.id])
+
+  const celebrateAndNotify = useCallback(() => {
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#4f46e5', '#8b5cf6', '#ec4899', '#10b981']
+    })
+    if (onSuccess) onSuccess(clientId)
+    if (onGenerated) onGenerated(clientId)
+  }, [clientId, onSuccess, onGenerated])
+
   const handleDownload = async () => {
     if (!cardRef.current) return
 
     try {
       setIsGenerating(true)
-      
-      // Criar canvas em memória
-      const canvas = document.createElement('canvas')
-      canvas.width = 1080
-      canvas.height = 1080
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Não foi possível criar contexto de canvas')
+      const { dataUrl } = renderCard()
 
-      // Carregar imagem de fundo
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.src = storageUrl(selectedTemplate.image_url, 'marketing')
-      await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = reject
-      })
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-      // Configurações de texto
-      ctx.fillStyle = selectedTemplate.text_color || '#ffffff'
-      ctx.textAlign = selectedTemplate.text_align || 'center'
-      
-      // Desenhar Nome
-      const nameSize = parseInt(selectedTemplate.name_size || '36') * 3
-      ctx.font = `bold ${nameSize}px ${selectedTemplate.name_font || 'serif'}`
-      const nameX = (parseInt(selectedTemplate.name_x || '50') / 100) * canvas.width
-      const nameY = (parseInt(selectedTemplate.name_y || '40') / 100) * canvas.height
-      ctx.fillText(displayName.toUpperCase(), nameX, nameY)
-
-      // Desenhar Mensagem
-      if (!isGhostMode) {
-        const msgSize = parseInt(selectedTemplate.msg_size || '14') * 3
-        ctx.font = `${msgSize}px ${selectedTemplate.msg_font || 'sans-serif'}`
-        const msgX = (parseInt(selectedTemplate.msg_x || '50') / 100) * canvas.width
-        const msgY = (parseInt(selectedTemplate.msg_y || '60') / 100) * canvas.height
-        
-        // Quebra de linha simples para a mensagem
-        const maxWidth = (parseInt(selectedTemplate.msg_max_width || '80') / 100) * canvas.width
-        const words = (selectedMessage || '').split(' ')
-        let line = ''
-        let y = msgY
-        const lineHeight = msgSize * 1.4
-
-        for (let i = 0; i < words.length; i++) {
-          const testLine = line + words[i] + ' '
-          const metrics = ctx.measureText(testLine)
-          if (metrics.width > maxWidth && i > 0) {
-            ctx.fillText(line, msgX, y)
-            line = words[i] + ' '
-            y += lineHeight
-          } else {
-            line = testLine
-          }
-        }
-        ctx.fillText(line, msgX, y)
-      }
-
-      // Download
-      const dataUrl = canvas.toDataURL('image/png', 1.0)
       const link = document.createElement('a')
       link.href = dataUrl
-      const safeName = (displayName || 'cliente').toLowerCase().replace(/[^a-z0-9]/g, '')
-      link.download = `aniversario-${safeName}.png`
+      link.download = fileName
       link.click()
-      
-      // Registrar no log de marketing
-      try {
-        const isIndicator = clientId.startsWith('indicator_')
-        const isMaternity = clientId.startsWith('maternity_') || clientId === 'new'
-        
-        const numericIdStr = clientId.replace(/\D/g, '')
-        const numericId = numericIdStr ? parseInt(numericIdStr, 10) : null
-        
-        // Ensure template_id is a valid UUID, otherwise pass null
-        const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedTemplate.id)
-        
-        let logType = 'birthday_card_client'
-        if (isIndicator) logType = 'birthday_card_indicator'
-        if (isMaternity) logType = 'birthday_card_maternity'
 
-        if (numericId !== null && !isNaN(numericId)) {
-          const { error: logError } = await supabase.from('marketing_logs').insert([{
-            client_id: numericId,
-            template_id: isValidUUID ? selectedTemplate.id : null,
-            type: logType
-          }])
-          
-          if (logError) {
-            console.error('Erro do Supabase ao salvar log:', logError)
-          }
-        } else {
-          console.warn('Não foi possível registrar log: ID numérico inválido', clientId)
-        }
-      } catch (logError) {
-        console.error('Erro ao salvar log de marketing:', logError)
-      }
+      void registerLog()
+      celebrateAndNotify()
 
-      // Confetti Effect
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#4f46e5', '#8b5cf6', '#ec4899', '#10b981']
-      })
-      
-      toast.success('Cartão gerado com sucesso!', {
-        description: `O cartão de ${displayName || 'cliente'} foi baixado.`,
+      toast.success('Cartão gerado!', {
+        description: isIOSDevice()
+          ? 'No iPhone, o arquivo pode estar em Arquivos → Downloads. Use Compartilhar para enviar ou salvar.'
+          : 'O arquivo foi salvo no destino de downloads do navegador.',
         icon: <PartyPopper className="w-5 h-5 text-indigo-600" />
       })
-
-      // Chama o callback de sucesso
-      if (onSuccess) onSuccess(clientId)
-      if (onGenerated) onGenerated(clientId)
     } catch (error) {
-      console.error('Erro detalhado ao gerar cartão:', error)
+      console.error('Erro ao gerar cartão:', error)
       toast.error('Erro ao gerar cartão', {
         description: error instanceof Error ? error.message : 'Não foi possível gerar a imagem.'
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleShare = async () => {
+    if (!cardRef.current) return
+
+    try {
+      setIsGenerating(true)
+      const { blob } = renderCard()
+      const file = new File([blob], fileName, { type: 'image/png' })
+
+      // Apenas o arquivo: no iOS, WhatsApp pode descartar a imagem quando
+      // vem acompanhada de texto/título na mesma chamada.
+      if (!navigator.canShare?.({ files: [file] })) {
+        toast.error('Compartilhamento indisponível', {
+          description: 'Este navegador não oferece a opção. Use Baixar Cartão.'
+        })
+        return
+      }
+
+      try {
+        await navigator.share({ files: [file] })
+      } catch (shareError) {
+        // Usuário fechou a folha: não é falha.
+        if ((shareError as DOMException)?.name === 'AbortError') return
+        throw shareError
+      }
+
+      void registerLog()
+      celebrateAndNotify()
+      toast.success('Cartão compartilhado!', {
+        icon: <PartyPopper className="w-5 h-5 text-indigo-600" />
+      })
+    } catch (error) {
+      console.error('Erro ao compartilhar cartão:', error)
+      toast.error('Erro ao compartilhar cartão', {
+        description: error instanceof Error ? error.message : 'Não foi possível compartilhar a imagem.'
       })
     } finally {
       setIsGenerating(false)
@@ -468,15 +589,40 @@ export function BirthdayCardGenerator({
           )}
 
           <div className="p-8 border-t border-slate-100 bg-white shrink-0">
+            <div className="flex flex-col sm:flex-row gap-3">
+            {canShareFile && (
+              <button
+                onClick={handleShare}
+                disabled={isGenerating || isLoadingData || !isArtReady}
+                className="flex-1 flex items-center justify-center px-6 py-4 text-base font-bold text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 hover:-translate-y-0.5"
+              >
+                {!isArtReady ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Carregando arte...
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-5 h-5 mr-2" />
+                    Compartilhar
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={handleDownload}
-              disabled={isGenerating || isLoadingData}
-              className="w-full flex items-center justify-center px-6 py-4 text-base font-bold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5"
+              disabled={isGenerating || isLoadingData || !isArtReady}
+              className="flex-1 flex items-center justify-center px-6 py-4 text-base font-bold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Gerando Imagem...
+                </>
+              ) : !isArtReady ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Carregando arte...
                 </>
               ) : (
                 <>
@@ -485,6 +631,12 @@ export function BirthdayCardGenerator({
                 </>
               )}
             </button>
+            </div>
+            {artError && (
+              <p className="mt-3 text-center text-xs text-rose-600">
+                Não foi possível carregar a arte deste tema. Escolha outro tema ou contate o administrador.
+              </p>
+            )}
           </div>
         </div>
 

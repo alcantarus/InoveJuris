@@ -1117,18 +1117,8 @@ export default function IndicadoresPage() {
           onClose={() => setSelectedBirthdayIndicator(null)}
           clientName={selectedBirthdayIndicator?.name || ''}
           clientId={selectedBirthdayIndicator ? `indicator_${selectedBirthdayIndicator.id}` : ''}
-          onGenerated={async (id) => {
-            try {
-              const numericId = parseInt(id.replace(/\D/g, ''), 10)
-              if (numericId && !isNaN(numericId)) {
-                await supabase.from('marketing_logs').insert([{
-                  client_id: numericId,
-                  type: 'birthday_card_indicator'
-                }])
-              }
-            } catch (e) {
-              console.error('Erro ao salvar log no Supabase:', e)
-            }
+          onGenerated={() => {
+            // O log é gravado pelo BirthdayCardGenerator (uma única vez).
             setSelectedBirthdayIndicator(null)
           }}
         />
