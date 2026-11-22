@@ -366,7 +366,23 @@ Validação em `test`, janela 22/11/2026 a 22/12/2026 (`docs/VALIDACAO-B11-PREVI
 | `funcao_usa_saldo_em_vez_de_valor_bruto` | `false` |
 | `regra_funcao_atual` | `qtd 0`, `total_bruto 0` |
 
-Conclusão: dois defeitos distintos. A tela contava a parcela `Estornado` de 10.000 (já corrigida no front); a RPC ignorava `Prorrogada` e somava valor bruto (correção pendente de execução). A parcela `Cancelada` do contrato 136 já era corretamente excluída pelo status.
+Conclusão: dois defeitos distintos. A tela contava a parcela `Estornado` de 10.000 (já corrigida no front); a RPC ignorava `Prorrogada` e somava valor bruto. A parcela `Cancelada` do contrato 136 já era corretamente excluída pelo status.
+
+### 7.5 B11 — correção da RPC aplicada
+
+Executado `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql`. Verificação:
+
+| Indicador | Resultado |
+|---|---|
+| `inclui_prorrogada_e_parcial` | `true` |
+| `usa_saldo` | `true` |
+| `status_recebiveis_explicitos_e_sem_estornado` | `true` |
+| `filtra_environment` | `true` |
+| `previsao_30d_por_ambiente.test` | `qtd 1`, `total 2.000` |
+| `previsao_30d_por_ambiente.production` | `qtd 9`, `total 26.544,20` (informativo) |
+| `objetos_em_backup` | `3` |
+
+Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por ambiente). A função é global ao schema, então uma única execução já corrigiu `test` e `production`. **Nenhum dado financeiro foi alterado nem nenhum teste financeiro foi feito em produção.** Resta conferir na tela de homologação se o KPI passou a exibir 2.000 após o deploy do front.
 
 ---
 
@@ -377,12 +393,12 @@ Conclusão: dois defeitos distintos. A tela contava a parcela `Estornado` de 10.
    - `app/contas-a-receber/page.tsx` — filtro trocado de `neq(Quitado)/neq(Cancelada)` por `.in('status', ['Aberto','Parcial','Atrasada','Prorrogada'])`, removing `Estornado`;
    - `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql` — backup da definição e do resultado anterior, troca do corpo da RPC (inclui `Prorrogada`/`Parcial`, usa saldo, exclui estornos e contratos cancelados, normaliza `environment`), verificação final;
    - `supabase/migrations/20261121150000_fix_future_receivables_projection.sql` — versão de repositório.
-   **Aguardando execução do SQL e conferência do KPI na tela.**
+   **SQL executado com verificação limpa (seção 7.5); resta apenas conferir o valor na tela de homologação após o deploy.**
 3. ~~Decidir sobre o botão de recebimento no módulo Contratos~~ **Concluído:** o botão já não existia; removido o código morto (estado `paymentData`/`paymentModalOpen`, handlers `handleOpenPayment`/`handleConfirmPayment`, modal "Baixa de Título / Liquidação" e o carregamento de `financial_categories`). O estorno continua disponível e passou a usar diretamente a primeira conta bancária.
 4. ~~Decidir a imputação bancária do lote~~ **Concluído e validado pelo usuário:** "Receber Selecionados" agora abre o modal **"Recebimento em Lote"**, com seleção obrigatória de **Conta** e **Categoria**. Cada parcela usa `process_installment_payment` com 9 argumentos (`p_account_id`, `p_category_id`, `p_date`, `p_description = 'Recebimento em lote - parcela <id>'`, `p_interest = 0`, `p_fine = 0`), igual ao recebimento individual. O `confirm()` nativo foi substituído pelo próprio modal; ao concluir, recarrega parcelas, contratos e KPIs.
 5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
 6. ~~B20 e B21~~ **Concluído em produção:** script executado, verificação limpa; ver seção 7.3. Proteção de DELETE de quitados mantida em `prevent_update_delete_paid_contract_trigger`.
-7. **Nenhum item do diagnóstico original resta sem tratativa.** B11 foi validado e corrigido no front; a RPC aguarda execução do script. Se o KPI "Previsão 30 dias" ainda mostrar 12.000 em homologação, verificar deploy da Vercel (o front corrigido está no commit desta rodada).
+7. **Nenhum item do diagnóstico original resta sem tratativa.** B11 validado, corrigido no front e na RPC. Se o KPI "Previsão 30 dias" ainda mostrar 12.000 em homologação, verificar deploy da Vercel (o front corrigido está no commit `65eecae`).
 8. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
 
 ---
