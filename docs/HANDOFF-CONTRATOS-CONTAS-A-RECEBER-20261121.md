@@ -335,6 +335,22 @@ SELECT jsonb_build_object(
 
 Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` são informativos. Se `reversoes_producao` subir de 3, o estorno pela tela gravou corretamente.
 
+### 7.3 B20/B21 — endurecimento de status (produção)
+
+Executado `docs/ENDURECIMENTO-STATUS-CONTRATOS-20261121.sql` com sucesso. Resultado final:
+
+| Indicador | Resultado |
+|---|---|
+| `status_fora_da_lista` | `null` |
+| `check_status_definicao` | `CHECK ((status = ANY (ARRAY['Aberto','Parcial','Quitado','Cancelado','Estornado','Prorrogado'])))` |
+| `gatilho_update_of_status_presente` | `true` |
+| `gatilho_duplicado_presente` | `false` |
+| `gatilhos_chamando_funcao_protecao` | `1` |
+| `gatilho_delete_paid_presente` | `true` |
+| `objetos_em_backup` | `13` |
+
+Distribuição de status após a execução: `Aberto 12`, `Parcial 6`, `Quitado 61`, `Cancelado 10`, `Estornado 3`, `Prorrogado 33`. Backup em `backup_contracts_status_endurecimento_20261121`. A remoção do gatilho amplo encerra o ruído de erro `P0001` duplicado observado no diagnóstico do B14.
+
 ---
 
 ## 8. Pendências
@@ -344,7 +360,7 @@ Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` 
 3. ~~Decidir sobre o botão de recebimento no módulo Contratos~~ **Concluído:** o botão já não existia; removido o código morto (estado `paymentData`/`paymentModalOpen`, handlers `handleOpenPayment`/`handleConfirmPayment`, modal "Baixa de Título / Liquidação" e o carregamento de `financial_categories`). O estorno continua disponível e passou a usar diretamente a primeira conta bancária.
 4. ~~Decidir a imputação bancária do lote~~ **Concluído:** "Receber Selecionados" agora abre o modal **"Recebimento em Lote"**, com seleção obrigatória de **Conta** e **Categoria**. Cada parcela usa `process_installment_payment` com 9 argumentos (`p_account_id`, `p_category_id`, `p_date`, `p_description = 'Recebimento em lote - parcela <id>'`, `p_interest = 0`, `p_fine = 0`), igual ao recebimento individual. O `confirm()` nativo foi substituído pelo próprio modal; ao concluir, recarrega parcelas, contratos e KPIs. **Ainda não testado em homologação pelo usuário.**
 5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
-6. ~~B20 e B21~~ **Script entregue para execução pelo usuário:** `docs/ENDURECIMENTO-STATUS-CONTRATOS-20261121.sql` — cria `check_contract_status` com a lista canônica incluindo `Prorrogado`, faz backup das definições e da distribuição de status, aborta se houver status fora da lista ou se os gatilhos não forem os esperados, remove `trg_contracts_status_protection` e mantém `trg_protect_contracts_status` (`BEFORE UPDATE OF status`). A proteção de DELETE continua em `prevent_update_delete_paid_contract_trigger`. **Aguardando execução/resultado.**
+6. ~~B20 e B21~~ **Concluído em produção:** script executado, verificação limpa; ver seção 7.3. Proteção de DELETE de quitados mantida em `prevent_update_delete_paid_contract_trigger`.
 7. **Item do diagnóstico não tratado nesta rodada**:
    - **B11** — `get_future_receivables_projection` ignora `Prorrogada` (`supabase/migrations/20260618140000_create_projection_function.sql:17`).
 8. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
