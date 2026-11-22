@@ -404,6 +404,7 @@ Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por a
 10. ~~Aviso inconsistente em Contratos~~ **Concluído:** o texto agora diz que recebimentos são exclusivos de Contas a Receber e que estornos podem ser feitos nos dois módulos.
 11. ~~Limpeza do git~~ **Concluído:** `tsconfig.tsbuildinfo` revertido (artefato de build) e `docs/RELATORIO-BACKUP-RESTORE-SUPABASE-20261120.md` versionado. Observação de segurança mantida: a senha do Postgres vazou em chat/script e precisa ser rotacionada (item fora do escopo destas correções).
 12. **Migrations duplicadas (`-1`/`-2`)** — mantidas como estão, registradas em `docs/STATUS-INOVEJURIS.md`. Não mexer sem confirmar em `schema_migrations` quais foram aplicadas.
+13. ~~Baixa escondida em Relatórios~~ **Concluído:** removidos o handler `handleQuitarAReceberItem` e a coluna "Ações"/botão "Quitar" do relatório "A Receber" em `app/relatorios/page.tsx`, além do import `toast` que ficou órfão. O handler chamava `process_installment_payment` com `p_account_id`/`p_category_id`/`p_user_id` nulos, furtando a regra de que recebimento só acontece em Contas a Receber. Após a remoção, a RPC é chamada apenas em `app/contas-a-receber/page.tsx` (lote e individual), ambas com conta/categoria informadas; não restou nenhum `p_*_id: null` no código. `npx tsc --noEmit` passou.
 
 ---
 

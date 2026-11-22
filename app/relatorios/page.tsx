@@ -29,7 +29,6 @@ import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
-import { toast } from 'sonner'
 
 interface ChildbirthReportItem {
   id: number
@@ -412,33 +411,6 @@ function RelatoriosPageContent() {
     }
   }
 
-  const handleQuitarAReceberItem = async (item: any) => {
-    try {
-      const remaining = Number(item.amount || 0) - Number(item.amountPaid || 0);
-      if (remaining <= 0) {
-        toast.warning('Esta parcela já está quitada.');
-        return;
-      }
-      const { error } = await supabase.rpc('process_installment_payment', {
-        p_installment_id: item.id,
-        p_amount_paid: remaining,
-        p_account_id: null,
-        p_category_id: null,
-        p_date: new Date().toISOString().split('T')[0],
-        p_description: `Quitação via Relatório A Receber`,
-        p_user_id: null,
-        p_interest: 0,
-        p_fine: 0
-      });
-      if (error) throw error;
-      toast.success('Parcela quitada com sucesso!');
-      fetchAReceberData();
-    } catch (err: any) {
-      console.error('Erro ao quitar parcela:', err);
-      toast.error('Erro ao quitar parcela: ' + (err.message || 'Erro desconhecido'));
-    }
-  };
-
   const filteredAReceberData = useMemo(() => {
     const now = new Date()
     const queryText = aReceberSearch ? aReceberSearch.toLowerCase() : ''
@@ -569,20 +541,6 @@ function RelatoriosPageContent() {
             )}>
               {isOverdue ? 'Atrasado' : 'Pendente'}
             </span>
-          )
-        },
-        {
-          key: 'actions',
-          label: 'Ações',
-          cellClassName: 'text-right',
-          value: (
-            <button
-              onClick={() => handleQuitarAReceberItem(item)}
-              className="px-3 py-1 min-h-[40px] md:min-h-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
-              title="Quitar saldo restante"
-            >
-              Quitar
-            </button>
           )
         }
       ]
