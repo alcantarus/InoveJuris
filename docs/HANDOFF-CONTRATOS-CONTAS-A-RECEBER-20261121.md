@@ -382,7 +382,7 @@ Executado `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql`. Verificação:
 | `previsao_30d_por_ambiente.production` | `qtd 9`, `total 26.544,20` (informativo) |
 | `objetos_em_backup` | `3` |
 
-Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por ambiente). A função é global ao schema, então uma única execução já corrigiu `test` e `production`. **Nenhum dado financeiro foi alterado nem nenhum teste financeiro foi feito em produção.** Resta conferir na tela de homologação se o KPI passou a exibir 2.000 após o deploy do front.
+Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por ambiente). A função é global ao schema, então uma única execução já corrigiu `test` e `production`. **Nenhum dado financeiro foi alterado nem nenhum teste financeiro foi feito em produção.** Aceite final confirmado pelo usuário na tela de homologação: o KPI "Previsão 30 dias" passou de `12.000,00` para **`2.000,00`**.
 
 ---
 
@@ -393,12 +393,12 @@ Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por a
    - `app/contas-a-receber/page.tsx` — filtro trocado de `neq(Quitado)/neq(Cancelada)` por `.in('status', ['Aberto','Parcial','Atrasada','Prorrogada'])`, removing `Estornado`;
    - `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql` — backup da definição e do resultado anterior, troca do corpo da RPC (inclui `Prorrogada`/`Parcial`, usa saldo, exclui estornos e contratos cancelados, normaliza `environment`), verificação final;
    - `supabase/migrations/20261121150000_fix_future_receivables_projection.sql` — versão de repositório.
-   **SQL executado com verificação limpa (seção 7.5); resta apenas conferir o valor na tela de homologação após o deploy.**
+   **SQL executado com verificação limpa (seção 7.5) e KPI conferido na tela de homologação: 2.000,00.**
 3. ~~Decidir sobre o botão de recebimento no módulo Contratos~~ **Concluído:** o botão já não existia; removido o código morto (estado `paymentData`/`paymentModalOpen`, handlers `handleOpenPayment`/`handleConfirmPayment`, modal "Baixa de Título / Liquidação" e o carregamento de `financial_categories`). O estorno continua disponível e passou a usar diretamente a primeira conta bancária.
 4. ~~Decidir a imputação bancária do lote~~ **Concluído e validado pelo usuário:** "Receber Selecionados" agora abre o modal **"Recebimento em Lote"**, com seleção obrigatória de **Conta** e **Categoria**. Cada parcela usa `process_installment_payment` com 9 argumentos (`p_account_id`, `p_category_id`, `p_date`, `p_description = 'Recebimento em lote - parcela <id>'`, `p_interest = 0`, `p_fine = 0`), igual ao recebimento individual. O `confirm()` nativo foi substituído pelo próprio modal; ao concluir, recarrega parcelas, contratos e KPIs.
 5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
 6. ~~B20 e B21~~ **Concluído em produção:** script executado, verificação limpa; ver seção 7.3. Proteção de DELETE de quitados mantida em `prevent_update_delete_paid_contract_trigger`.
-7. **Nenhum item do diagnóstico original resta sem tratativa.** B11 validado, corrigido no front e na RPC. Se o KPI "Previsão 30 dias" ainda mostrar 12.000 em homologação, verificar deploy da Vercel (o front corrigido está no commit `65eecae`).
+7. ~~Deploy/ conferência do KPI~~ **Concluído:** KPI conferido em homologação, valor correto de 2.000,00. **Nenhuma pendência do diagnóstico original permanece aberta.**
 8. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
 
 ---
