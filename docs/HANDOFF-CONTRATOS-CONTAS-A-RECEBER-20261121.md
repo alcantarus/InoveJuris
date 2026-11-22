@@ -334,7 +334,7 @@ Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` 
 
 ## 8. Pendências
 
-1. **Reexecutar o aceite de produção** após a correção da função de desdobramento (a função é global). O marcador `v7 20261121` foi mantido no corpo para não alterar `funcoes_fora_do_padrao`.
+1. ~~Reexecutar o aceite de produção~~ **Concluído:** após a correção do desdobramento, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `correcao_acumulacao_presente = 1`, `reversoes_producao = 3`. O marcador `v7 20261121` foi mantido no corpo para não alterar o indicador.
 2. **Validar o KPI "Previsão 30 dias"** em homologação (adiado pelo usuário) — relacionado ao B11.
 3. **Decidir sobre o botão de recebimento no módulo Contratos**: remover/desabilitar para reforçar a regra de que baixa só acontece em Contas a Receber.
 4. **Decidir a imputação bancária do lote** — os lançamentos usam `account_id`/`category_id` nulos e descrição "(Outros)". Não alterado para não mudar fluxo financeiro sem autorização.
