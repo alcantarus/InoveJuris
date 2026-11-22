@@ -351,18 +351,38 @@ Executado `docs/ENDURECIMENTO-STATUS-CONTRATOS-20261121.sql` com sucesso. Result
 
 Distribuição de status após a execução: `Aberto 12`, `Parcial 6`, `Quitado 61`, `Cancelado 10`, `Estornado 3`, `Prorrogado 33`. Backup em `backup_contracts_status_endurecimento_20261121`. A remoção do gatilho amplo encerra o ruído de erro `P0001` duplicado observado no diagnóstico do B14.
 
+### 7.4 B11 — validação do KPI "Previsão 30 dias" (homologação)
+
+Validação em `test`, janela 22/11/2026 a 22/12/2026 (`docs/VALIDACAO-B11-PREVISAO-30-DIAS-20261121.sql`):
+
+| Indicador | Resultado |
+|---|---|
+| `parcelas_no_periodo` | 3 |
+| `por_status` | `Cancelada 1 / 1.500`, `Estornado 1 / 10.000`, `Prorrogada 1 / 2.000` |
+| `regra_tela` | `qtd 2`, `total 12.000` |
+| `regra_correta` | `qtd 1`, `total 2.000` |
+| `diferenca_tela_menos_correta` | `10.000` |
+| `funcao_ignora_prorrogada` | `true` |
+| `funcao_usa_saldo_em_vez_de_valor_bruto` | `false` |
+| `regra_funcao_atual` | `qtd 0`, `total_bruto 0` |
+
+Conclusão: dois defeitos distintos. A tela contava a parcela `Estornado` de 10.000 (já corrigida no front); a RPC ignorava `Prorrogada` e somava valor bruto (correção pendente de execução). A parcela `Cancelada` do contrato 136 já era corretamente excluída pelo status.
+
 ---
 
 ## 8. Pendências
 
 1. ~~Reexecutar o aceite de produção~~ **Concluído:** após a correção do desdobramento, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `correcao_acumulacao_presente = 1`, `reversoes_producao = 3`. O marcador `v7 20261121` foi mantido no corpo para não alterar o indicador.
-2. **Validando o KPI "Previsão 30 dias"** — relacionado ao B11. Script somente leitura entregue: `docs/VALIDACAO-B11-PREVISAO-30-DIAS-20261121.sql`. Atenção: a tela **não** usa `get_future_receivables_projection`; ela consulta `installments` diretamente (`app/contas-a-receber/page.tsx:378-388`), excluindo só `Quitado`/`Cancelada`. A função SQL é usada por outros consumidores e ignora `Prorrogada`/`Parcial` e soma valor bruto.
+2. ~~Validar o KPI "Previsão 30 dias"~~ **Concluído; correção entregue:** validação em `test` (janela 22/11 a 22/12) mostrou `regra_tela.total = 12.000` contra `regra_correta.total = 2.000` — superestimativa de 10.000 pela parcela `Estornado`. A RPC também foi confirmada com o B11 (`funcao_ignora_prorrogada = true`, `funcao_usa_saldo = false`). Correções:
+   - `app/contas-a-receber/page.tsx` — filtro trocado de `neq(Quitado)/neq(Cancelada)` por `.in('status', ['Aberto','Parcial','Atrasada','Prorrogada'])`, removing `Estornado`;
+   - `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql` — backup da definição e do resultado anterior, troca do corpo da RPC (inclui `Prorrogada`/`Parcial`, usa saldo, exclui estornos e contratos cancelados, normaliza `environment`), verificação final;
+   - `supabase/migrations/20261121150000_fix_future_receivables_projection.sql` — versão de repositório.
+   **Aguardando execução do SQL e conferência do KPI na tela.**
 3. ~~Decidir sobre o botão de recebimento no módulo Contratos~~ **Concluído:** o botão já não existia; removido o código morto (estado `paymentData`/`paymentModalOpen`, handlers `handleOpenPayment`/`handleConfirmPayment`, modal "Baixa de Título / Liquidação" e o carregamento de `financial_categories`). O estorno continua disponível e passou a usar diretamente a primeira conta bancária.
 4. ~~Decidir a imputação bancária do lote~~ **Concluído e validado pelo usuário:** "Receber Selecionados" agora abre o modal **"Recebimento em Lote"**, com seleção obrigatória de **Conta** e **Categoria**. Cada parcela usa `process_installment_payment` com 9 argumentos (`p_account_id`, `p_category_id`, `p_date`, `p_description = 'Recebimento em lote - parcela <id>'`, `p_interest = 0`, `p_fine = 0`), igual ao recebimento individual. O `confirm()` nativo foi substituído pelo próprio modal; ao concluir, recarrega parcelas, contratos e KPIs.
 5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
 6. ~~B20 e B21~~ **Concluído em produção:** script executado, verificação limpa; ver seção 7.3. Proteção de DELETE de quitados mantida em `prevent_update_delete_paid_contract_trigger`.
-7. **Item do diagnóstico não tratado nesta rodada**:
-   - **B11** — `get_future_receivables_projection` ignora `Prorrogada` (`supabase/migrations/20260618140000_create_projection_function.sql:17`).
+7. **Nenhum item do diagnóstico original resta sem tratativa.** B11 foi validado e corrigido no front; a RPC aguarda execução do script. Se o KPI "Previsão 30 dias" ainda mostrar 12.000 em homologação, verificar deploy da Vercel (o front corrigido está no commit desta rodada).
 8. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
 
 ---

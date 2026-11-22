@@ -376,13 +376,15 @@ export default function ContasAReceberPage() {
     setReceivedThisMonth(totalReceived);
 
     // Previsão 30 dias
+    // Apenas parcelas ainda recebíveis. Usar IN (em vez de excluir casos
+    // conhecidos) evita contar Estornado. Cancelada/Quitado ficam de fora;
+    // o fluxo de cancelamento já marca as parcelas do contrato como Cancelada.
     const { data: installmentsData } = await supabase
       .from('installments')
       .select('amount, amountPaid')
       .gte('dueDate', todayStr)
       .lte('dueDate', thirtyDaysStr)
-      .neq('status', 'Quitado')
-      .neq('status', 'Cancelada');
+      .in('status', ['Aberto', 'Parcial', 'Atrasada', 'Prorrogada']);
 
     const totalForecast = installmentsData?.reduce((acc: number, i: any) => acc + (Number(i.amount || 0) - Number(i.amountPaid || 0)), 0) || 0;
     setForecast30d(totalForecast);
