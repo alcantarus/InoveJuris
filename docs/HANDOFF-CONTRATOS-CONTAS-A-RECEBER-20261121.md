@@ -33,7 +33,7 @@
 | 4 pagamentos sem caixa | 27/28 alinhados ao caixa existente (tx 16/17); 153/103 com registro sem saldo e `account_id` do pagamento ajustado para `NULL`; `environment` normalizado |
 | Sobrecarga legada de 7 argumentos | Removida |
 | Baixa/recebimento de parcelas | **Somente pelo módulo Contas a Receber**. O módulo Contratos não deve ser usado para receber |
-| Conta/categoria no lote | Atualmente `p_bank_account_id = null` e categoria "Outros" — decisão de imputação bancária ainda pendente |
+| Conta/categoria no lote | **Aprovado e implementado:** o botão "Receber Selecionados" abre modal pedindo Conta e Categoria; o lote usa a RPC de 9 argumentos |
 | `Quitado → Estornado` (parcela) | Permitido (B14) — bloqueio do gatilho corrigido globalmente |
 
 ---
@@ -342,19 +342,19 @@ Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` 
 1. ~~Reexecutar o aceite de produção~~ **Concluído:** após a correção do desdobramento, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `correcao_acumulacao_presente = 1`, `reversoes_producao = 3`. O marcador `v7 20261121` foi mantido no corpo para não alterar o indicador.
 2. **Validar o KPI "Previsão 30 dias"** em homologação (adiado pelo usuário) — relacionado ao B11.
 3. ~~Decidir sobre o botão de recebimento no módulo Contratos~~ **Concluído:** o botão já não existia; removido o código morto (estado `paymentData`/`paymentModalOpen`, handlers `handleOpenPayment`/`handleConfirmPayment`, modal "Baixa de Título / Liquidação" e o carregamento de `financial_categories`). O estorno continua disponível e passou a usar diretamente a primeira conta bancária.
-4. **Decidir a imputação bancária do lote** — os lançamentos usam `account_id`/`category_id` nulos e descrição "(Outros)". Não alterado para não mudar fluxo financeiro sem autorização.
+4. ~~Decidir a imputação bancária do lote~~ **Concluído:** "Receber Selecionados" agora abre o modal **"Recebimento em Lote"**, com seleção obrigatória de **Conta** e **Categoria**. Cada parcela usa `process_installment_payment` com 9 argumentos (`p_account_id`, `p_category_id`, `p_date`, `p_description = 'Recebimento em lote - parcela <id>'`, `p_interest = 0`, `p_fine = 0`), igual ao recebimento individual. O `confirm()` nativo foi substituído pelo próprio modal; ao concluir, recarrega parcelas, contratos e KPIs. **Ainda não testado em homologação pelo usuário.**
 5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
-6. **Itens do diagnóstico não tratados nesta rodada**:
-   - **B11** — `get_future_receivables_projection` ignora `Prorrogada` (`supabase/migrations/20260618140000_create_projection_function.sql:17`);
-   - **B20** — ausência de `CHECK` de status em `contracts`;
-   - **B21** — dois gatilhos de proteção equivalentes em `contracts`.
-7. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
+6. ~~B20 e B21~~ **Script entregue para execução pelo usuário:** `docs/ENDURECIMENTO-STATUS-CONTRATOS-20261121.sql` — cria `check_contract_status` com a lista canônica incluindo `Prorrogado`, faz backup das definições e da distribuição de status, aborta se houver status fora da lista ou se os gatilhos não forem os esperados, remove `trg_contracts_status_protection` e mantém `trg_protect_contracts_status` (`BEFORE UPDATE OF status`). A proteção de DELETE continua em `prevent_update_delete_paid_contract_trigger`. **Aguardando execução/resultado.**
+7. **Item do diagnóstico não tratado nesta rodada**:
+   - **B11** — `get_future_receivables_projection` ignora `Prorrogada` (`supabase/migrations/20260618140000_create_projection_function.sql:17`).
+8. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
 
 ---
 
 ## 9. Arquivos de referência
 
 - `docs/RELATORIO-CONTRATOS-CONTAS-A-RECEBER-20261121.md` — diagnóstico completo (24 bugs, fases, SQL de referência)
+- `docs/ENDURECIMENTO-STATUS-CONTRATOS-20261121.sql` — B20/B21 com backup, pré-validação e verificação final
 - `docs/STATUS-INOVEJURIS.md` — histórico de ambientes, views e deploys
 - `docs/PARECER-IMPACTO-CORRECOES-INOVEJURIS.md` — impacto de `exec_sql`, views e permissões
 - `supabase_migrations.sql` — schema de referência

@@ -46,6 +46,9 @@ export default function ContasAReceberPage() {
   const [paymentAccount, setPaymentAccount] = useState('')
   const [paymentCategory, setPaymentCategory] = useState('')
   const [paymentDescription, setPaymentDescription] = useState('')
+  const [batchPaymentModalOpen, setBatchPaymentModalOpen] = useState(false)
+  const [batchAccount, setBatchAccount] = useState('')
+  const [batchCategory, setBatchCategory] = useState('')
   const [prorogueDate, setProrogueDate] = useState('')
   const [adjustDate, setAdjustDate] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
@@ -180,7 +183,8 @@ export default function ContasAReceberPage() {
   const handleBatchPayment = async () => {
     if (selectedInstallments.length === 0 || !user) return;
 
-    if (!confirm(`Deseja processar o recebimento total de ${selectedInstallments.length} parcelas selecionadas?`)) {
+    if (!batchAccount || !batchCategory) {
+      toast.error('Selecione a conta e a categoria para o recebimento em lote.');
       return;
     }
 
@@ -196,8 +200,12 @@ export default function ContasAReceberPage() {
         const { error } = await supabase.rpc('process_installment_payment', {
           p_installment_id: installmentId,
           p_amount_paid: installment.amount - (installment.amountPaid || 0),
-          p_payment_method: 'Outros',
-          p_bank_account_id: null,
+          p_date: getTodayBR(),
+          p_interest: 0,
+          p_fine: 0,
+          p_description: `Recebimento em lote - parcela ${installmentId}`,
+          p_account_id: batchAccount,
+          p_category_id: batchCategory,
           p_user_id: user.id
         });
 
@@ -217,10 +225,12 @@ export default function ContasAReceberPage() {
     }
 
     setSelectedInstallments([]);
+    setBatchPaymentModalOpen(false);
     if (selectedContract) {
       if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id);
     }
     fetchContracts();
+    fetchDashboardMetrics();
     setLoading(false);
   };
 
@@ -845,7 +855,7 @@ export default function ContasAReceberPage() {
                 {selectedInstallments.length > 0 && (
                   <button 
                     className="flex-1 md:flex-none px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition"
-                    onClick={handleBatchPayment}
+                    onClick={() => setBatchPaymentModalOpen(true)}
                   >
                     Receber Selecionados ({selectedInstallments.length})
                   </button>
@@ -1222,6 +1232,45 @@ export default function ContasAReceberPage() {
               </div>
             </div>
           )}
+        </Modal>
+
+        <Modal isOpen={batchPaymentModalOpen} onClose={() => setBatchPaymentModalOpen(false)} title="Recebimento em Lote">
+          <div className="space-y-5">
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
+              <p className="text-sm text-emerald-900">
+                As {selectedInstallments.length} parcelas selecionadas serão recebidas integralmente e imputadas na conta e na categoria informadas.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Conta</label>
+              <select value={batchAccount} onChange={(e) => setBatchAccount(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20">
+                <option value="">Selecione uma conta</option>
+                {bankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+              <select value={batchCategory} onChange={(e) => setBatchCategory(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20">
+                <option value="">Selecione uma categoria</option>
+                {financialCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition"
+                onClick={() => setBatchPaymentModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!batchAccount || !batchCategory || loading}
+                onClick={handleBatchPayment}
+              >
+                Confirmar Recebimento em Lote
+              </button>
+            </div>
+          </div>
         </Modal>
 
         <Modal isOpen={prorogueModalOpen} onClose={() => setProrogueModalOpen(false)} title="Prorrogar Parcela">
