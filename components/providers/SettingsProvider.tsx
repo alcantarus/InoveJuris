@@ -3,10 +3,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getAppEnv } from '@/lib/env';
+import { normalizeSessionTimeout } from '@/lib/session-timeout';
 
 interface SystemSettings {
   session_timeout: {
     enabled: boolean;
+    /** Valor canônico em segundos (30 s a 1800 s). */
+    seconds: number;
+    warning_seconds: number;
+    /** Compatibilidade com clientes antigos. */
     minutes: number;
     warning_minutes: number;
   };
@@ -47,7 +52,7 @@ interface SettingsContextType {
 }
 
 const defaultSettings: SystemSettings = {
-  session_timeout: { enabled: false, minutes: 30, warning_minutes: 5 },
+  session_timeout: { enabled: false, seconds: 1800, warning_seconds: 300, minutes: 30, warning_minutes: 5 },
   maintenance_mode: { enabled: false },
   general_preferences: { timezone: 'America/Sao_Paulo', date_format: 'DD/MM/YYYY' },
   appearance: { theme: 'light', primary_color: 'indigo' },
@@ -103,6 +108,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             }
           }
           newSettings[item.key as keyof SystemSettings] = value;
+
+          // session_timeout é normalizado: aceita o formato novo (segundos) e
+          // o antigo (minutos), clampa 30 s–1800 s e evita NaN/valores vazios.
+          if (item.key === 'session_timeout') {
+            const config = normalizeSessionTimeout(value);
+            newSettings.session_timeout = {
+              enabled: config.enabled,
+              seconds: config.seconds,
+              warning_seconds: config.warningSeconds,
+              minutes: Number((config.seconds / 60).toFixed(3)),
+              warning_minutes: Number((config.warningSeconds / 60).toFixed(3)),
+            };
+          }
         });
         setSettings(newSettings);
       }

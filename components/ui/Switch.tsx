@@ -5,17 +5,20 @@ import { motion } from 'motion/react';
 
 interface SwitchProps {
   initialChecked?: boolean;
+  /** Quando informado, o componente passa a ser controlado. */
+  checked?: boolean;
   onChange?: (checked: boolean) => void;
   disabled?: boolean;
 }
 
-export function Switch({ initialChecked = false, onChange, disabled = false }: SwitchProps) {
-  const [checked, setChecked] = useState(initialChecked);
+export function Switch({ initialChecked = false, checked: controlledChecked, onChange, disabled = false }: SwitchProps) {
+  const [internalChecked, setInternalChecked] = useState(initialChecked);
+  const checked = controlledChecked ?? internalChecked;
 
   const toggle = () => {
     if (disabled) return;
     const newState = !checked;
-    setChecked(newState);
+    if (controlledChecked === undefined) setInternalChecked(newState);
     onChange?.(newState);
   };
 

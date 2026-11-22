@@ -5,31 +5,91 @@ import { Card } from '../ui/Card';
 import { Switch } from '../ui/Switch';
 import { Shield, Smartphone, Monitor, Trash2, AlertTriangle, Key, Clock, CheckCircle2 } from 'lucide-react';
 import { useSettings } from '@/components/providers/SettingsProvider';
+import {
+  SESSION_TIMEOUT_MIN_SECONDS,
+  SESSION_TIMEOUT_MAX_SECONDS,
+  formatSessionDuration,
+  normalizeSessionTimeout,
+  toStoredSessionTimeout,
+} from '@/lib/session-timeout';
+
+type DurationUnit = 'seconds' | 'minutes';
+
+function splitDuration(seconds: number): { value: string; unit: DurationUnit } {
+  if (seconds >= 60 && seconds % 60 === 0) {
+    return { value: String(seconds / 60), unit: 'minutes' };
+  }
+  return { value: String(seconds), unit: 'seconds' };
+}
+
+function parseDuration(value: string, unit: DurationUnit): number | null {
+  const parsed = Number(value.replace(',', '.'));
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.round(unit === 'minutes' ? parsed * 60 : parsed);
+}
 
 export function SecurityAccessTab() {
   const { settings, updateSetting } = useSettings();
-  
-  const [isIdleTimeoutEnabled, setIsIdleTimeoutEnabled] = useState(settings.session_timeout.enabled);
-  const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState(settings.session_timeout.minutes.toString());
-  const [warningMinutes, setWarningMinutes] = useState(settings.session_timeout.warning_minutes.toString());
+
+  const initial = normalizeSessionTimeout(settings.session_timeout);
+  const initialTimeout = splitDuration(initial.seconds);
+  const initialWarning = splitDuration(initial.warningSeconds);
+
+  const [isIdleTimeoutEnabled, setIsIdleTimeoutEnabled] = useState(initial.enabled);
+  const [timeoutValue, setTimeoutValue] = useState(initialTimeout.value);
+  const [timeoutUnit, setTimeoutUnit] = useState<DurationUnit>(initialTimeout.unit);
+  const [warningValue, setWarningValue] = useState(initialWarning.value);
+  const [warningUnit, setWarningUnit] = useState<DurationUnit>(initialWarning.unit);
+  const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setIsIdleTimeoutEnabled(settings.session_timeout.enabled);
-    setIdleTimeoutMinutes(settings.session_timeout.minutes.toString());
-    setWarningMinutes(settings.session_timeout.warning_minutes.toString());
+    const config = normalizeSessionTimeout(settings.session_timeout);
+    const timeout = splitDuration(config.seconds);
+    const warning = splitDuration(config.warningSeconds);
+
+    setIsIdleTimeoutEnabled(config.enabled);
+    setTimeoutValue(timeout.value);
+    setTimeoutUnit(timeout.unit);
+    setWarningValue(warning.value);
+    setWarningUnit(warning.unit);
+    setError('');
   }, [settings]);
 
+  const timeoutSeconds = parseDuration(timeoutValue, timeoutUnit);
+  const warningSeconds = parseDuration(warningValue, warningUnit);
+
   const handleSavePolicies = async () => {
+    if (timeoutSeconds === null) {
+      setError('Informe um tempo limite válido.');
+      return;
+    }
+    if (timeoutSeconds < SESSION_TIMEOUT_MIN_SECONDS || timeoutSeconds > SESSION_TIMEOUT_MAX_SECONDS) {
+      setError('O tempo limite deve ficar entre 30 segundos e 30 minutos.');
+      return;
+    }
+    if (warningSeconds === null) {
+      setError('Informe um tempo de aviso válido. Use 0 para desativar o aviso.');
+      return;
+    }
+    if (warningSeconds >= timeoutSeconds) {
+      setError('O aviso deve ser menor que o tempo limite de inatividade.');
+      return;
+    }
+
+    setError('');
     setIsSaving(true);
     try {
-      await updateSetting('session_timeout', {
-        enabled: isIdleTimeoutEnabled,
-        minutes: parseInt(idleTimeoutMinutes, 10),
-        warning_minutes: parseInt(warningMinutes, 10)
-      });
-      
+      await updateSetting(
+        'session_timeout',
+        toStoredSessionTimeout({
+          enabled: isIdleTimeoutEnabled,
+          seconds: timeoutSeconds,
+          warningSeconds,
+        })
+      );
+
       // Reset last activity so the new timeout applies from now
       localStorage.setItem('session_last_activity', Date.now().toString());
 
@@ -37,12 +97,11 @@ export function SecurityAccessTab() {
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error('Failed to save security settings:', error);
+      setError('Não foi possível salvar as políticas de sessão.');
     } finally {
       setIsSaving(false);
     }
   };
-  
-  // ... rest of the component
 
   return (
     <div className="space-y-6">
@@ -64,7 +123,7 @@ export function SecurityAccessTab() {
               </div>
             </div>
             <Switch
-              initialChecked={isIdleTimeoutEnabled}
+              checked={isIdleTimeoutEnabled}
               onChange={setIsIdleTimeoutEnabled}
             />
           </div>
@@ -76,54 +135,89 @@ export function SecurityAccessTab() {
                   <label htmlFor="timeout" className="block text-sm font-medium text-slate-700">
                     Tempo limite de inatividade
                   </label>
-                  <select
-                    id="timeout"
-                    value={idleTimeoutMinutes}
-                    onChange={(e) => setIdleTimeoutMinutes(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border bg-white"
-                  >
-                    <option value="1">1 minuto (Teste)</option>
-                    <option value="15">15 minutos</option>
-                    <option value="30">30 minutos</option>
-                    <option value="60">1 hora</option>
-                    <option value="120">2 horas</option>
-                    <option value="240">4 horas</option>
-                  </select>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      id="timeout"
+                      type="number"
+                      min={timeoutUnit === 'minutes' ? 0.5 : SESSION_TIMEOUT_MIN_SECONDS}
+                      max={timeoutUnit === 'minutes' ? 30 : SESSION_TIMEOUT_MAX_SECONDS}
+                      step={timeoutUnit === 'minutes' ? 0.5 : 5}
+                      value={timeoutValue}
+                      onChange={(e) => setTimeoutValue(e.target.value)}
+                      className="block w-full px-3 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border bg-white"
+                    />
+                    <select
+                      aria-label="Unidade do tempo limite"
+                      value={timeoutUnit}
+                      onChange={(e) => setTimeoutUnit(e.target.value as DurationUnit)}
+                      className="block w-32 px-2 py-2 text-sm border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md border bg-white"
+                    >
+                      <option value="seconds">segundos</option>
+                      <option value="minutes">minutos</option>
+                    </select>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    De 30 segundos a 30 minutos.
+                    {timeoutSeconds !== null && timeoutSeconds >= SESSION_TIMEOUT_MIN_SECONDS && timeoutSeconds <= SESSION_TIMEOUT_MAX_SECONDS
+                      ? ` Equivale a ${formatSessionDuration(timeoutSeconds)}.`
+                      : ''}
+                  </p>
                 </div>
-                
+
                 <div>
                   <label htmlFor="warning" className="block text-sm font-medium text-slate-700">
                     Exibir aviso antes de desconectar
                   </label>
-                  <select
-                    id="warning"
-                    value={warningMinutes}
-                    onChange={(e) => setWarningMinutes(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border bg-white"
-                  >
-                    <option value="1">1 minuto antes</option>
-                    <option value="5">5 minutos antes</option>
-                    <option value="10">10 minutos antes</option>
-                  </select>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      id="warning"
+                      type="number"
+                      min={0}
+                      step={warningUnit === 'minutes' ? 0.5 : 5}
+                      value={warningValue}
+                      onChange={(e) => setWarningValue(e.target.value)}
+                      className="block w-full px-3 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border bg-white"
+                    />
+                    <select
+                      aria-label="Unidade do aviso"
+                      value={warningUnit}
+                      onChange={(e) => setWarningUnit(e.target.value as DurationUnit)}
+                      className="block w-32 px-2 py-2 text-sm border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md border bg-white"
+                    >
+                      <option value="seconds">segundos</option>
+                      <option value="minutes">minutos</option>
+                    </select>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    0 desativa o aviso. Deve ser menor que o tempo limite.
+                  </p>
                 </div>
-              </div>
-              <div className="flex items-center justify-end pt-2 gap-3">
-                {showSuccess && (
-                  <span className="flex items-center text-sm text-emerald-600 animate-in fade-in slide-in-from-right-2">
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                    Salvo com sucesso!
-                  </span>
-                )}
-                <button 
-                  onClick={handleSavePolicies}
-                  disabled={isSaving}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? 'Salvando...' : 'Salvar Políticas'}
-                </button>
               </div>
             </div>
           )}
+
+          {error && (
+            <p className="flex items-start gap-2 text-sm text-rose-600">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              {error}
+            </p>
+          )}
+
+          <div className="flex items-center justify-end pt-2 gap-3 border-t border-slate-100">
+            {showSuccess && (
+              <span className="flex items-center text-sm text-emerald-600 animate-in fade-in slide-in-from-right-2">
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+                Salvo com sucesso!
+              </span>
+            )}
+            <button
+              onClick={handleSavePolicies}
+              disabled={isSaving}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? 'Salvando...' : 'Salvar Políticas'}
+            </button>
+          </div>
         </div>
       </Card>
 

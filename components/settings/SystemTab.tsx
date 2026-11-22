@@ -532,7 +532,7 @@ END $body$;
 -- Default Data
 INSERT INTO system_settings (key, value, description, category, environment)
 VALUES
-  ('session_timeout', '{"enabled": false, "minutes": 30, "warning_minutes": 5}', 'Configuração de timeout de sessão', 'security', 'production'),
+  ('session_timeout', '{"enabled": false, "seconds": 1800, "warning_seconds": 300, "minutes": 30, "warning_minutes": 5}', 'Configuração de timeout de sessão', 'security', 'production'),
   ('maintenance_mode', '{"enabled": false}', 'Modo de manutenção do sistema', 'system', 'production'),
   ('general_preferences', '{"timezone": "America/Sao_Paulo", "date_format": "DD/MM/YYYY"}', 'Preferências gerais de data e hora', 'general', 'production'),
   ('appearance', '{"theme": "system", "primary_color": "indigo"}', 'Aparência e tema do sistema', 'appearance', 'production')

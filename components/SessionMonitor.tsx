@@ -6,6 +6,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useSettings } from '@/components/providers/SettingsProvider';
 import { useAuth } from '@/lib/auth';
 import { setSessionToken } from '@/lib/session-token';
+import { normalizeSessionTimeout } from '@/lib/session-timeout';
 
 export function SessionMonitor() {
   const router = useRouter();
@@ -25,9 +26,9 @@ export function SessionMonitor() {
   const isLoginPage = pathname === '/login';
 
   const checkSession = useCallback(() => {
-    if (isLoginPage || loading) return;
+    if (isLoginPage || loading || !user) return;
 
-    const { enabled, minutes, warning_minutes } = settings.session_timeout;
+    const { enabled, seconds, warningSeconds } = normalizeSessionTimeout(settings.session_timeout);
 
     if (!enabled) {
       setShowWarning(false);
@@ -38,8 +39,8 @@ export function SessionMonitor() {
 
     const now = Date.now();
     const idleTime = now - lastActivity;
-    const timeoutMs = minutes * 60 * 1000;
-    const warningMs = warning_minutes * 60 * 1000;
+    const timeoutMs = seconds * 1000;
+    const warningMs = warningSeconds * 1000;
 
     // If idle time exceeds timeout, logout
     if (idleTime >= timeoutMs) {
@@ -48,14 +49,14 @@ export function SessionMonitor() {
       return;
     }
 
-    // If idle time is within the warning period
-    if (idleTime >= timeoutMs - warningMs) {
+    // If idle time is within the warning period (0 desativa o aviso)
+    if (warningMs > 0 && idleTime >= timeoutMs - warningMs) {
       setShowWarning(true);
       setTimeLeft(Math.ceil((timeoutMs - idleTime) / 1000));
     } else {
       setShowWarning(false);
     }
-  }, [isLoginPage, loading, settings.session_timeout, logout]);
+  }, [isLoginPage, loading, user, settings.session_timeout, logout]);
 
   const updateActivity = useCallback(() => {
     if (isLoginPage) return;
@@ -89,9 +90,11 @@ export function SessionMonitor() {
 
         if (res.ok) {
           // O heartbeat renova o token de sessão antes de ele vencer.
+          // Ele NÃO conta como atividade do usuário: regravar
+          // session_last_activity aqui zerava o contador de inatividade
+          // a cada 20 s e impedia o encerramento automático.
           const data = await res.json().catch(() => null);
           if (data?.token) setSessionToken(data.token);
-          localStorage.setItem('session_last_activity', Date.now().toString());
           sessionStorage.setItem('inovejuris_browser_session_open', '1');
         }
       } catch (error) {
@@ -227,6 +230,15 @@ export function SessionMonitor() {
     // Check session every second
     const intervalId = setInterval(checkSession, 1000);
 
+    // Navegadores suspendem/throttlam timers em abas em segundo plano. Ao
+    // voltar para a aba, reavalia imediatamente para não deixar a sessão
+    // ociosa aberta além do prazo configurado.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') checkSession();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkSession);
+
     // Activity listeners - added mousemove and scroll back
     const events = ['mousedown', 'keydown', 'touchstart', 'click', 'mousemove', 'scroll'];
     events.forEach(event => {
@@ -235,6 +247,8 @@ export function SessionMonitor() {
 
     return () => {
       clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', checkSession);
       events.forEach(event => {
         window.removeEventListener(event, updateActivity);
       });
