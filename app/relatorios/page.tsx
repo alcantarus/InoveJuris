@@ -27,7 +27,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { cn, formatDate, formatCurrency } from '@/lib/utils'
+import { cn, formatDate, formatCurrency, formatPercent } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 
 interface ChildbirthReportItem {
@@ -766,7 +766,7 @@ function RelatoriosPageContent() {
       },
       { key: 'contractValue', label: 'Valor Contrato', cellClassName: 'text-slate-600', value: formatCurrency(item.contractValue, isVisible('reports_commissions')) },
       { key: 'base', label: 'Base Comissão', cellClassName: 'text-slate-600', value: formatCurrency(item.base_comissao, isVisible('reports_commissions')) },
-      { key: 'percent', label: '%', cellClassName: 'text-slate-600 font-medium', value: `${item.commissionPercent}%` },
+      { key: 'percent', label: '%', cellClassName: 'text-slate-600 font-medium', value: formatPercent(item.commissionPercent, isVisible('reports_commissions')) },
       { key: 'commission', label: 'Comissão', cellClassName: 'text-indigo-600 font-bold', value: formatCurrency(item.commissionValue, isVisible('reports_commissions')) },
       {
         key: 'status',

@@ -288,6 +288,7 @@ export function PublicationDetail({ publication, processes, lawyers, onClose, on
         <div>
           <button
             type="button"
+            data-privacy-exempt
             onClick={() => setExpanded(previous => !previous)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm font-bold hover:bg-indigo-100 transition-colors"
           >

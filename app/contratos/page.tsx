@@ -37,7 +37,7 @@ import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { KPICard } from '@/components/ui/KPICard'
 import { supabase, isSupabaseConfigured, processContractCancellation } from '@/lib/supabase'
-import { cn, formatProcessNumber, formatDate, formatCurrency, removeAccents, getStatusColor, getTodayBR, isContractQuitado } from '@/lib/utils'
+import { cn, formatProcessNumber, formatDate, formatCurrency, formatCurrencyEditable, removeAccents, getStatusColor, getTodayBR, isContractQuitado } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
@@ -141,7 +141,7 @@ function CurrencyInput({ value, onChange, disabled, className, placeholder }: an
   useEffect(() => {
     if (value !== undefined && value !== null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDisplayValue(formatCurrency(value, true))
+      setDisplayValue(formatCurrencyEditable(value))
     } else {
       setDisplayValue('')
     }
@@ -155,7 +155,7 @@ function CurrencyInput({ value, onChange, disabled, className, placeholder }: an
       return
     }
     const num = Number(val) / 100
-    setDisplayValue(formatCurrency(num, true))
+    setDisplayValue(formatCurrencyEditable(num))
     onChange(num)
   }
 
@@ -2153,7 +2153,7 @@ export default function FinanceiroPage() {
                         <p className="text-white/80 text-xs font-medium uppercase tracking-wider">Status: {formData.status || 'Aberto'}</p>
                         <div className="overflow-hidden whitespace-nowrap" ref={containerRef}>
                           <AutoResizeText 
-                            text={formatCurrency(financialSummary.total, true)}
+                            text={formatCurrency(financialSummary.total)}
                             className="text-white text-3xl font-extrabold tracking-tight"
                             containerRef={containerRef}
                           />
@@ -2162,13 +2162,13 @@ export default function FinanceiroPage() {
                       <div className="flex flex-col gap-3 p-5">
                         <div className="flex justify-between items-center">
                           <span className="text-slate-500 text-sm font-medium">Saldo Remanescente</span>
-                          <span className="text-indigo-600 font-bold text-lg">{formatCurrency(financialSummary.saldoRemanescente, true)}</span>
+                          <span className="text-indigo-600 font-bold text-lg">{formatCurrency(financialSummary.saldoRemanescente)}</span>
                         </div>
                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                           <div className="bg-indigo-600 h-full transition-all" style={{ width: `${Math.min(100, (financialSummary.liquidado / (financialSummary.total || 1)) * 100)}%` }}></div>
                         </div>
                         <div className="flex justify-between text-[10px] text-slate-400 uppercase font-bold tracking-widest">
-                          <span>Liquidado: {formatCurrency(financialSummary.liquidado, true)}</span>
+                          <span>Liquidado: {formatCurrency(financialSummary.liquidado)}</span>
                           <span>Total: {installments.length} Parcelas</span>
                         </div>
                       </div>
@@ -2218,7 +2218,7 @@ export default function FinanceiroPage() {
                                     />
                                   </td>
                                   <td className="px-4 py-3 font-semibold text-slate-900">
-                                    {formatCurrency(saldoDevedor, true)}
+                                    {formatCurrency(saldoDevedor)}
                                   </td>
                                   <td className="px-4 py-3">
                                     <span className={cn(
@@ -2489,7 +2489,7 @@ export default function FinanceiroPage() {
                       Vencimento: {formatDate(installments[estornoIndex].dueDate)}
                     </p>
                     <p className="text-2xl font-extrabold text-slate-900">
-                      {formatCurrency(installments[estornoIndex].amountPaid || 0, true)}
+                      {formatCurrency(installments[estornoIndex].amountPaid || 0)}
                     </p>
                     <p className="text-sm text-slate-500 font-medium italic">
                       Parcela {installments[estornoIndex].installmentNumber}/{installments.length}

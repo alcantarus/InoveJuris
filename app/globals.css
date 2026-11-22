@@ -241,3 +241,12 @@ html, body {
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* Modo privacidade global: olhinhos individuais ficam inativos enquanto o
+   switch mestre estiver ligado. O botão mestre é marcado com data-privacy-master. */
+body[data-privacy-hidden='true'] button:not([data-privacy-master]):not([data-privacy-exempt]):has(svg.lucide-eye),
+body[data-privacy-hidden='true'] button:not([data-privacy-master]):not([data-privacy-exempt]):has(svg.lucide-eye-off) {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}

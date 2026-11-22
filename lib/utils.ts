@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { isPrivacyGloballyHidden } from "./privacy-store"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -27,9 +28,32 @@ export function getTodayBRString(): string {
   return enCAFormatter.format(new Date());
 }
 
+export const MASKED_CURRENCY = 'R$ •••••'
+export const MASKED_VALUE = '••••••'
+
+/** Formata valor monetário. Respeita o olhinho local e o modo privacidade global. */
 export function formatCurrency(value: number, isVisible: boolean = true): string {
-  if (!isVisible) return 'R$ •••••'
+  if (!isVisible || isPrivacyGloballyHidden()) return MASKED_CURRENCY
   return brlCurrencyFormatter.format(value)
+}
+
+/**
+ * Usado em campos de digitação (CurrencyInput, modais de lançamento).
+ * Ignora o modo privacidade global para não impedir a edição do valor.
+ */
+export function formatCurrencyEditable(value: number): string {
+  return brlCurrencyFormatter.format(value)
+}
+
+/** Número do percentual sem o sinal %, para KPIs que desenham o % à parte. */
+export function formatPercentValue(value: number, isVisible: boolean = true, digits: number = 1): string {
+  if (!isVisible || isPrivacyGloballyHidden()) return '•••'
+  return Number(value || 0).toFixed(digits)
+}
+
+/** Formata percentual exibido em KPIs. Mesma regra de privacidade de formatCurrency. */
+export function formatPercent(value: number, isVisible: boolean = true, digits: number = 1): string {
+  return `${formatPercentValue(value, isVisible, digits)}%`
 }
 
 export function formatDate(date: string | Date): string {

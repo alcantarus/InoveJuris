@@ -423,6 +423,7 @@ Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por a
 - `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql` — correção da RPC de projeção, com backup
 - `supabase/migrations/20261121150000_fix_future_receivables_projection.sql` — versão de repositório da RPC
 - `docs/RELATORIO-BACKUP-RESTORE-SUPABASE-20261120.md` — rotina de backup/restore e avisos de segurança
+- `docs/OLHO-GLOBAL-PRIVACIDADE-20261121.md` — olhinho global de privacidade (dashboard + todos os módulos)
 
 ---
 

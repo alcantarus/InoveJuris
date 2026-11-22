@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AlertTriangle, TrendingUp, Users, Calendar } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatPercent } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function DashboardReceivablesCards({ 
@@ -43,12 +43,12 @@ export default function DashboardReceivablesCards({
         </h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-4xl font-bold text-slate-900">{delinquencyPercent.toFixed(1)}%</p>
+            <p className="text-4xl font-bold text-slate-900">{formatPercent(delinquencyPercent)}</p>
             <p className="text-sm text-slate-500">do total a receber em atraso</p>
           </div>
           <div className="w-24 h-24 rounded-full border-8 border-slate-100 flex items-center justify-center relative">
             <div className="absolute inset-0 rounded-full border-8 border-rose-500" style={{ clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`, transform: `rotate(${delinquencyPercent * 3.6}deg)` }}></div>
-            <span className="font-bold text-rose-600">{delinquencyPercent.toFixed(0)}%</span>
+            <span className="font-bold text-rose-600">{formatPercent(delinquencyPercent, true, 0)}</span>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import DashboardLayout from './dashboard-layout'
-import { cn, formatDate, formatCurrency, getTodayBR } from '@/lib/utils'
+import { cn, formatDate, formatCurrency, formatPercent, formatPercentValue, getTodayBR } from '@/lib/utils'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 import { 
   Users, 
@@ -57,6 +57,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useSettings } from '@/components/providers/SettingsProvider'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
+import { GlobalPrivacyToggle } from '@/components/GlobalPrivacyToggle'
 import { LiquidityGapCard } from '@/components/dashboard/dynamic/LiquidityGapCard'
 import { StuckProcessesCard } from '@/components/dashboard/dynamic/StuckProcessesCard'
 import { DefaultRiskCard } from '@/components/dashboard/dynamic/DefaultRiskCard'
@@ -299,9 +300,9 @@ export default function Page() {
 
     // Strategic Insight
     if (winRate < 65) {
-      insight += `🔍 **Estratégia:** Nossa taxa de êxito (${winRate.toFixed(1)}%) está abaixo da média. Que tal revisar os critérios de entrada de novas ações?\n`
+      insight += `🔍 **Estratégia:** Nossa taxa de êxito (${formatPercent(winRate)}) está abaixo da média. Que tal revisar os critérios de entrada de novas ações?\n`
     } else {
-      insight += `⭐ **Qualidade:** Taxa de êxito de ${winRate.toFixed(1)}% está ótima! Continue mantendo o padrão de qualidade nas petições.\n`
+      insight += `⭐ **Qualidade:** Taxa de êxito de ${formatPercent(winRate)} está ótima! Continue mantendo o padrão de qualidade nas petições.\n`
     }
 
     if (activeProcessesCount === 0) {
@@ -799,6 +800,8 @@ export default function Page() {
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
+            <GlobalPrivacyToggle />
+
             {/* Filters */}
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
               <div className="pl-3 text-slate-400">
@@ -1309,7 +1312,7 @@ export default function Page() {
 
             <div className="flex-1 space-y-6">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Êxito Estimado ({currentWinRate.toFixed(1)}%)</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Êxito Estimado ({formatPercent(currentWinRate)})</p>
                 <h4 className="text-3xl font-bold text-indigo-600 tracking-tight">
                   {formatCurrency(estimatedFutureRevenue, isVisible('pipeline_revenue'))}
                 </h4>
@@ -1809,7 +1812,7 @@ export default function Page() {
                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Taxa de Sucesso</h3>
                   <p className="text-xs text-slate-400 mb-4">Processos com êxito</p>
                   <div className="flex items-end gap-2">
-                    <span className="text-4xl font-bold text-emerald-600">{winRate.toFixed(1)}</span>
+                    <span className="text-4xl font-bold text-emerald-600">{formatPercentValue(winRate)}</span>
                     <span className="text-lg font-medium text-emerald-500 mb-1">%</span>
                   </div>
                 </div>
@@ -1838,7 +1841,7 @@ export default function Page() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-slate-900">Taxa de Êxito INSS</h3>
               <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
-                {inssSuccessRate.toFixed(1)}%
+                {formatPercent(inssSuccessRate)}
               </div>
             </div>
             <div className="h-[180px] w-full relative">

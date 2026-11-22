@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency, formatPercent } from '@/lib/utils'
 
 interface Commission {
   contract_id: number
@@ -72,19 +72,19 @@ export function CommissionTable({ data }: CommissionTableProps) {
                 </div>
                 <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Contrato</span>
-                  <p className="text-lg font-bold text-slate-900">R$ {Number(s.base_comissao || 0).toFixed(2)}</p>
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(Number(s.base_comissao || 0))}</p>
                 </div>
                 <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">% Comissão</span>
-                  <p className="text-lg font-bold text-slate-900">{Number(s.commissionPercent || 0).toFixed(2)}%</p>
+                  <p className="text-lg font-bold text-slate-900">{formatPercent(Number(s.commissionPercent || 0), true, 2)}</p>
                 </div>
                 <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total</span>
-                  <p className="text-lg font-bold text-slate-900">R$ {isCancelado ? '0.00' : Number(s.total_commission).toFixed(2)}</p>
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(isCancelado ? 0 : Number(s.total_commission || 0))}</p>
                 </div>
                 <div className={cn("text-right", isCancelado && "line-through text-slate-500")}>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pago</span>
-                  <p className="text-lg font-bold text-emerald-600">R$ {Number(s.total_paid).toFixed(2)}</p>
+                  <p className="text-lg font-bold text-emerald-600">{formatCurrency(Number(s.total_paid || 0))}</p>
                 </div>
                 <div className="text-right flex items-center justify-end gap-4">
                   <div>
@@ -96,7 +96,7 @@ export function CommissionTable({ data }: CommissionTableProps) {
                     ) : (
                       <>
                         <p className={`text-lg font-bold ${isPaid ? 'text-slate-400' : 'text-indigo-600'}`}>
-                          R$ {Number(s.remaining_balance).toFixed(2)}
+                          {formatCurrency(Number(s.remaining_balance || 0))}
                         </p>
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                           {s.payment_status}
@@ -124,7 +124,7 @@ export function CommissionTable({ data }: CommissionTableProps) {
                     {s.payments.map((p, i) => (
                       <li key={i} className="flex justify-between text-sm text-slate-600">
                         <span>{new Date(p.created_at).toLocaleDateString('pt-BR')} - {p.description || 'Pagamento'}</span>
-                        <span className="font-semibold">R$ {Number(p.amount_paid).toFixed(2)}</span>
+                        <span className="font-semibold">{formatCurrency(Number(p.amount_paid || 0))}</span>
                       </li>
                     ))}
                   </ul>

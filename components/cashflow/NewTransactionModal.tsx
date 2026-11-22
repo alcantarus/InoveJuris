@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Modal } from '@/components/Modal'
 import { ArrowRightLeft, TrendingDown, TrendingUp } from 'lucide-react'
-import { formatCurrency, getTodayBR } from '@/lib/utils'
+import { formatCurrencyEditable, getTodayBR } from '@/lib/utils'
 
 export interface NewTransactionData {
   date: string
@@ -130,7 +130,7 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, '')
                 const numberValue = Number(value) / 100
-                setDisplayAmount(formatCurrency(numberValue, true))
+                setDisplayAmount(formatCurrencyEditable(numberValue))
                 setFormData({ ...formData, amount: numberValue })
               }}
             />

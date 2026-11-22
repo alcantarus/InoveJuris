@@ -7,6 +7,7 @@ import { useAuth, User } from '@/lib/auth'
 import { ShieldAlert } from 'lucide-react'
 
 import { GPSNotificationChecker } from '@/components/GPSNotificationChecker'
+import { GlobalPrivacyToggle } from '@/components/GlobalPrivacyToggle'
 
 const PERMISSION_MAP: Record<string, keyof User> = {
   '/': 'canAccessDashboard',
@@ -91,6 +92,11 @@ export default function DashboardLayout({
       <Sidebar />
       <main className="flex-1 lg:ml-64 p-3 sm:p-4 md:p-6 lg:p-8 transition-all duration-300 mt-24 lg:mt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="max-w-7xl mx-auto w-full min-w-0">
+          {pathname !== '/' && (
+            <div className="flex justify-end mb-3">
+              <GlobalPrivacyToggle compact />
+            </div>
+          )}
           {children}
         </div>
       </main>

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Users, Clock, Target } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 
 interface KpiProps {
   leads: any[]
@@ -16,7 +16,7 @@ export function LeadKpiHeader({ leads }: KpiProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <KpiCard title="Leads Ativos" value={activeLeads} icon={Users} color="text-indigo-600" />
-      <KpiCard title="Taxa de Conversão" value={`${conversionRate}%`} icon={Target} color="text-emerald-600" />
+      <KpiCard title="Taxa de Conversão" value={formatPercent(conversionRate, true, 0)} icon={Target} color="text-emerald-600" />
       <KpiCard title="Tempo Médio Resposta" value="2h" icon={Clock} color="text-amber-600" />
     </div>
   )
