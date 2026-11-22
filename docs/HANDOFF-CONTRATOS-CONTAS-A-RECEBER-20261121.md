@@ -153,11 +153,16 @@ Commits publicados em `origin/main` (deploy Vercel Production `https://inove-jur
 
 Resultado do SQL abaixo: `cancelados_inconsistentes = null`, `totais_inconsistentes = null`, `divergencias_pagamentos = 0`, `pagamentos_sem_caixa = 0`, `estornos_inconsistentes = null`, `duplicidade_numeros = null`, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `environments_invalidos = 0`, `reversoes_producao = 3`. Status: `Aberto 11`, `Parcial 3`, `Quitado 53`, `Cancelado 6`, `Prorrogado 33`. **Nenhum teste financeiro foi executado em produção.**
 
-### 7.2 Homologação (`test`) — achados pré-existentes
+### 7.2 Homologação (`test`) — conciliada
 
-Mesmos indicadores com filtro `test`: `reversoes_teste = 6`, `duplicidade_numeros` com contrato 75 / número 1 (2 parcelas), `divergencias_pagamentos = 11`, `pagamentos_sem_caixa = 5`, `totais_inconsistentes` nos contratos 67 e 91. Os demais indicadores limpos.
+Achados iniciais: `reversoes_teste = 6`, duplicidade no contrato 75 / número 1, `divergencias_pagamentos = 11`, `pagamentos_sem_caixa = 5`, `totais_inconsistentes` nos contratos 67 e 91. Nenhum foi gerado pelos cenários desta rodada.
 
-Classificação: nenhum achado foi gerado pelos cenários desta rodada. As parcelas 113 e 122 aparecem em `divergencias_pagamentos` apenas porque o indicador soma pagamentos `payment` e não desconta a `reversal` — `estornos_inconsistentes = null` confirma que os estornos estão corretos. Os demais registros (parcelas 87, 89, 96, 97, 103, 129, 150, 151, 227; pagamentos de 15/03, 16/03, 28/03 e um de 21/11 na parcela 227) são históricos. Decisão registrada: **documentar sem reparar** e **não alterar o SQL de aceite**.
+Correção executada em `test` com backup prévio, em dois scripts:
+
+- `docs/CORRECAO-DADOS-HISTORICOS-TESTE-20261121.sql` — remove 5 pagamentos órfãos (parcelas 87, 89, 103, 129, 227), ajusta o excedente da parcela 96, converte os estornos 113/122 para um único registro `reversal` e cria pagamento + caixa para as parcelas 97, 150 e 151;
+- `docs/CORRECAO-FINAL-TESTE-20261121.sql` — normaliza a parcela 96 (inclusive redução de pagamento/caixa quando necessário) e renumera a parcela 144 do contrato 75, com desativação temporária e reativação do gatilho `prevent_update_delete_paid_installment_trigger`.
+
+Resultado final: `duplicidade_numeros = null`, `pagamentos_sem_caixa = 0`, `totais_inconsistentes = null`, `divergencias_pagamentos = null`. Backups: `backup_test_pagamentos_conciliacao_20261121`, `backup_test_installments_conciliacao_20261121`, `backup_test_contracts_conciliacao_20261121`, `backup_test_ajuste_final_20261121`, `backup_test_ajuste_final_pagamentos_20261121`.
 
 ### 7.3 Cenários funcionais validados em `test`
 
@@ -338,11 +343,12 @@ Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` 
 2. **Validar o KPI "Previsão 30 dias"** em homologação (adiado pelo usuário) — relacionado ao B11.
 3. **Decidir sobre o botão de recebimento no módulo Contratos**: remover/desabilitar para reforçar a regra de que baixa só acontece em Contas a Receber.
 4. **Decidir a imputação bancária do lote** — os lançamentos usam `account_id`/`category_id` nulos e descrição "(Outros)". Não alterado para não mudar fluxo financeiro sem autorização.
-5. **Itens do diagnóstico não tratados nesta rodada**:
+5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
+6. **Itens do diagnóstico não tratados nesta rodada**:
    - **B11** — `get_future_receivables_projection` ignora `Prorrogada` (`supabase/migrations/20260618140000_create_projection_function.sql:17`);
    - **B20** — ausência de `CHECK` de status em `contracts`;
    - **B21** — dois gatilhos de proteção equivalentes em `contracts`.
-6. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
+7. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
 
 ---
 
