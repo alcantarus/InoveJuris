@@ -579,7 +579,7 @@ BEGIN
   
   BEGIN
     ALTER TABLE contracts DROP CONSTRAINT IF EXISTS check_contract_status;
-    ALTER TABLE contracts ADD CONSTRAINT check_contract_status CHECK (status IN ('Aberto', 'Parcial', 'Quitado', 'Cancelado', 'Estornado'));
+    ALTER TABLE contracts ADD CONSTRAINT check_contract_status CHECK (status IN ('Aberto', 'Parcial', 'Quitado', 'Cancelado', 'Estornado', 'Prorrogado'));
   EXCEPTION WHEN OTHERS THEN NULL; END;
   
   BEGIN

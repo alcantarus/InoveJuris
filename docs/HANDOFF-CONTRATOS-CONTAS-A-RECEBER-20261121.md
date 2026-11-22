@@ -400,6 +400,10 @@ Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por a
 6. ~~B20 e B21~~ **Concluído em produção:** script executado, verificação limpa; ver seção 7.3. Proteção de DELETE de quitados mantida em `prevent_update_delete_paid_contract_trigger`.
 7. ~~Deploy/ conferência do KPI~~ **Concluído:** KPI conferido em homologação, valor correto de 2.000,00. **Nenhuma pendência do diagnóstico original permanece aberta.**
 8. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
+9. ~~Setup com CHECK desatualizado~~ **Concluído:** `app/setup/page.tsx` e `components/settings/SystemTab.tsx` passaram a incluir `Prorrogado` no `check_contract_status`. Em `app/setup/page.tsx`, a definição antiga de `fn_recalculate_contract_totals()` foi substituída por um bloco com guarda: a função canônica v4 existente é preservada; a versão de fallback só é criada em instalação nova.
+10. ~~Aviso inconsistente em Contratos~~ **Concluído:** o texto agora diz que recebimentos são exclusivos de Contas a Receber e que estornos podem ser feitos nos dois módulos.
+11. ~~Limpeza do git~~ **Concluído:** `tsconfig.tsbuildinfo` revertido (artefato de build) e `docs/RELATORIO-BACKUP-RESTORE-SUPABASE-20261120.md` versionado. Observação de segurança mantida: a senha do Postgres vazou em chat/script e precisa ser rotacionada (item fora do escopo destas correções).
+12. **Migrations duplicadas (`-1`/`-2`)** — mantidas como estão, registradas em `docs/STATUS-INOVEJURIS.md`. Não mexer sem confirmar em `schema_migrations` quais foram aplicadas.
 
 ---
 

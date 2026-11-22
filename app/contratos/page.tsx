@@ -1147,7 +1147,7 @@ export default function FinanceiroPage() {
     <DashboardLayout>
       <div className="space-y-8">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-800 text-sm">
-          As operações financeiras (recebimento e estorno) agora devem ser realizadas exclusivamente no módulo &quot;Contas a Receber&quot;.
+          Recebimentos devem ser feitos exclusivamente no módulo &quot;Contas a Receber&quot;. Estornos podem ser feitos aqui ou em Contas a Receber.
         </div>
         <ModuleHeader
           icon={DollarSign}

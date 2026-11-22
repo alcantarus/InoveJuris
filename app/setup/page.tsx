@@ -502,7 +502,7 @@ BEGIN
   
   BEGIN
     ALTER TABLE contracts DROP CONSTRAINT IF EXISTS check_contract_status;
-    ALTER TABLE contracts ADD CONSTRAINT check_contract_status CHECK (status IN ('Aberto', 'Parcial', 'Quitado', 'Cancelado', 'Estornado'));
+    ALTER TABLE contracts ADD CONSTRAINT check_contract_status CHECK (status IN ('Aberto', 'Parcial', 'Quitado', 'Cancelado', 'Estornado', 'Prorrogado'));
   EXCEPTION WHEN OTHERS THEN NULL; END;
   
   BEGIN
@@ -1144,29 +1144,95 @@ CREATE POLICY "Allow authenticated users to manage payments" ON payments
     FOR ALL USING (auth.role() = 'authenticated');
 
 -- 27. Trigger para Recálculo Automático de Contratos
-CREATE OR REPLACE FUNCTION fn_recalculate_contract_totals()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_contract_id BIGINT;
-  v_total_received DECIMAL(12,2);
-  v_contract_value DECIMAL(12,2);
+-- A versão canônica v4 20261121 já aplicada em produção/homologação NÃO pode
+-- ser sobrescrita por uma versão antiga. O setup só cria a função quando não
+-- existe uma versão canônica (instalação nova).
+DO $guard$
 BEGIN
-  IF (TG_TABLE_NAME = 'payments') THEN
-    SELECT contract_id INTO v_contract_id FROM installments WHERE id = NEW.installment_id;
-  ELSIF (TG_TABLE_NAME = 'installments') THEN
-    v_contract_id := NEW.contract_id;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace
+      AND p.proname = 'fn_recalculate_contract_totals'
+      AND pg_get_functiondef(p.oid) LIKE '%v4 20261121%'
+  ) THEN
+    EXECUTE $ddl$
+      CREATE OR REPLACE FUNCTION public.fn_recalculate_contract_totals()
+      RETURNS trigger
+      LANGUAGE plpgsql
+      AS $fn$
+      DECLARE
+        v_contract_id    BIGINT;
+        v_received       NUMERIC(12,2);
+        v_open           NUMERIC(12,2);
+        v_current        TEXT;
+        v_new_status     TEXT;
+        v_all_cancelled  BOOLEAN;
+        v_has_estornado  BOOLEAN;
+        v_has_prorrogada BOOLEAN;
+        v_is_pro_bono    BOOLEAN;
+      BEGIN
+        -- v4 20261121
+        IF TG_TABLE_NAME = 'payments' THEN
+          IF TG_OP = 'DELETE' THEN
+            SELECT contract_id INTO v_contract_id FROM installments WHERE id = OLD.installment_id;
+          ELSE
+            SELECT contract_id INTO v_contract_id FROM installments WHERE id = NEW.installment_id;
+          END IF;
+        ELSIF TG_TABLE_NAME = 'installments' THEN
+          IF TG_OP = 'DELETE' THEN
+            v_contract_id := OLD.contract_id;
+          ELSE
+            v_contract_id := NEW.contract_id;
+          END IF;
+        END IF;
+
+        IF v_contract_id IS NULL THEN RETURN NULL; END IF;
+
+        SELECT status, COALESCE("isProBono", false) INTO v_current, v_is_pro_bono
+        FROM contracts WHERE id = v_contract_id FOR UPDATE;
+
+        SELECT
+            COALESCE(SUM("amountPaid"), 0),
+            COALESCE(SUM(GREATEST(amount - COALESCE("amountPaid", 0), 0)) FILTER (
+                WHERE lower(COALESCE(status, '')) NOT IN ('quitado','cancelado','cancelada','estornado')
+            ), 0),
+            COALESCE(COUNT(*) > 0 AND bool_and(lower(COALESCE(status, '')) IN ('cancelado','cancelada')), false),
+            COALESCE(bool_or(lower(COALESCE(status, '')) = 'estornado'), false),
+            COALESCE(bool_or(lower(COALESCE(status, '')) IN ('prorrogada','prorrogado')), false)
+        INTO v_received, v_open, v_all_cancelled, v_has_estornado, v_has_prorrogada
+        FROM installments WHERE contract_id = v_contract_id;
+
+        IF lower(COALESCE(v_current, '')) IN ('cancelado','cancelada') OR v_all_cancelled THEN
+          v_new_status := 'Cancelado';
+          v_open := 0;
+        ELSIF v_has_estornado THEN
+          v_new_status := 'Estornado';
+        ELSIF v_open <= 0.01 AND (v_received > 0 OR v_is_pro_bono) THEN
+          v_new_status := 'Quitado';
+        ELSIF v_received > 0 THEN
+          v_new_status := 'Parcial';
+        ELSIF v_has_prorrogada THEN
+          v_new_status := 'Prorrogado';
+        ELSE
+          v_new_status := 'Aberto';
+        END IF;
+
+        UPDATE contracts
+           SET "amountReceived"   = v_received,
+               "amountReceivable" = v_open,
+               status             = v_new_status
+         WHERE id = v_contract_id
+           AND (status IS DISTINCT FROM v_new_status
+                OR "amountReceived" IS DISTINCT FROM v_received
+                OR "amountReceivable" IS DISTINCT FROM v_open);
+
+        RETURN NULL;
+      END;
+      $fn$;
+    $ddl$;
   END IF;
-  IF v_contract_id IS NULL THEN RETURN NULL; END IF;
-  SELECT COALESCE(SUM("amountPaid"), 0) INTO v_total_received FROM installments WHERE contract_id = v_contract_id;
-  SELECT "contractValue" INTO v_contract_value FROM contracts WHERE id = v_contract_id;
-  UPDATE contracts 
-  SET "amountReceived" = v_total_received,
-      "amountReceivable" = GREATEST(0, v_contract_value - v_total_received),
-      status = CASE WHEN v_total_received >= v_contract_value THEN 'Quitado' WHEN v_total_received > 0 THEN 'Parcial' ELSE 'Aberto' END
-  WHERE id = v_contract_id;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
+END
+$guard$;
 
 DROP TRIGGER IF EXISTS trg_recalculate_contract_on_payment ON payments;
 CREATE TRIGGER trg_recalculate_contract_on_payment AFTER INSERT OR UPDATE OR DELETE ON payments FOR EACH ROW EXECUTE FUNCTION fn_recalculate_contract_totals();
