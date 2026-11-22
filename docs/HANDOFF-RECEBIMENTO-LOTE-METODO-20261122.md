@@ -172,8 +172,25 @@ Esperado no parcial: uma linha em `payments` para a parcela original
 (`status = 'Quitado'`, `amountPaid = valor pago`) e uma parcela residual `Aberto`
 com o saldo restante.
 
-Esperado: `payment_method` preenchido no pagamento e, quando o vínculo existir,
-o mesmo valor em `tx_payment_method`.
+## Aceite do teste (22/11/2026)
+
+Ambiente: **testes**. Contrato: **#135 (Anderson Jose da Silva)**.
+
+| Cenário | Resultado |
+|---|---|
+| Integral — parcela 11, R$ 1.000,00, Cartão de Débito | `payments` e transação com a forma; saldo atualizado |
+| Parcial — parcela 10, R$ 1.500,00 de R$ 2.000,00, Dinheiro | `payments` criado pelo wrapper; original `Quitado` com `amountPaid = 1.500`; residual **#13** de R$ 500,00 em 21/09/2027 |
+| Residual anterior — parcela 3 | parcela residual **#12** de R$ 500,00 em 21/02/2027 |
+| Extrato de Recebimentos | parcial listada uma única vez, com Forma “Dinheiro”; Total Recebido R$ 19.000,00 sem duplicar |
+| Multi-conta no lote | contas e formas independentes por etapa, com pré-preenchimento |
+
+Observações confirmadas:
+
+- A residual é criada com `MAX(installmentNumber)+1` (por isso 12 e 13), mantendo a
+  data de vencimento da parcela de origem.
+- Pagamentos anteriores ao deploy de 22/11/2026 16:59 (BRT) têm `payment_method = NULL`
+  e aparecem como `—` no extrato. Não há como preencher a forma retroativamente;
+  a limitação é histórica e não afeta o fluxo novo.
 
 ## Rollback
 
@@ -198,4 +215,6 @@ Atenção: o rollback apaga as formas de pagamento já gravadas.
 
 - `npx tsc --noEmit --pretty false` — sem erros.
 - `npm run build` — compilou com sucesso.
+- RPC verificada em execução: com `p_installment_id = -1` retorna
+  “Parcela -1 não encontrada”, sem gravar nada.
 - Nenhum SQL foi executado pelo agente.
