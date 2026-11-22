@@ -163,6 +163,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                     <th className="p-3 text-left">Data</th>
                     <th className="p-3 text-left">Parcela</th>
                     <th className="p-3 text-left">Categoria</th>
+                    <th className="p-3 text-left">Forma</th>
                     <th className="p-3 text-right">Valor</th>
                   </tr>
                 </thead>
@@ -174,6 +175,9 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                       <td className="p-3 text-slate-600">
                         {p.isReversal ? 'Estorno' : (p.financial_categories?.name || '-')}
                       </td>
+                      <td className="p-3 text-slate-600">
+                        {p.isReversal ? '-' : (p.payment_method || '-')}
+                      </td>
                       <td className={cn('p-3 text-right font-bold', p.isReversal ? 'text-red-600' : 'text-emerald-600')}>
                         {p.isReversal ? '− ' : ''}{formatCurrency(p.amount)}
                       </td>
@@ -181,7 +185,7 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                   ))}
                   {payments.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-slate-500">Nenhum pagamento registrado.</td>
+                      <td colSpan={5} className="p-8 text-center text-slate-500">Nenhum pagamento registrado.</td>
                     </tr>
                   )}
                 </tbody>
@@ -197,6 +201,9 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
                     <StatementCardField label="Parcela">{p.installments?.installmentNumber || '-'}</StatementCardField>
                     <StatementCardField label="Categoria">
                       {p.isReversal ? 'Estorno' : (p.financial_categories?.name || '-')}
+                    </StatementCardField>
+                    <StatementCardField label="Forma">
+                      {p.isReversal ? '-' : (p.payment_method || '-')}
                     </StatementCardField>
                     <StatementCardField label="Valor">
                       <span className={cn('font-bold', p.isReversal ? 'text-red-600' : 'text-emerald-600')}>
