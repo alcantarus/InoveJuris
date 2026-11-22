@@ -1,8 +1,8 @@
 # HANDOFF — Contratos / Contas a Receber
 
-**Encerrado em:** 21/11/2026
+**Atualizado em:** 21/11/2026 — rodada final de validação funcional e aceite.
 **Objetivo:** retomar sem reconstruir histórico. Diagnóstico original em `RELATORIO-CONTRATOS-CONTAS-A-RECEBER-20261121.md`.
-**Alvo das alterações:** **produção**. Homologação (`test`) não foi alterada nesta rodada, exceto as 3 reparações de Fase A já autorizadas (contratos 66, 68, 69).
+**Alvo das alterações:** correções de código publicadas na `main` e aplicadas ao banco (funções globais). Cenários funcionais executados em **homologação (`test`)**; nenhum teste financeiro foi executado em produção. Aceite em produção limpo.
 
 ---
 
@@ -32,6 +32,9 @@
 | Parcelas 72/73 | Criar pagamento + registro de caixa, **sem impacto de saldo** (`account_id = NULL`, categoria 13, datas de vencimento) |
 | 4 pagamentos sem caixa | 27/28 alinhados ao caixa existente (tx 16/17); 153/103 com registro sem saldo e `account_id` do pagamento ajustado para `NULL`; `environment` normalizado |
 | Sobrecarga legada de 7 argumentos | Removida |
+| Baixa/recebimento de parcelas | **Somente pelo módulo Contas a Receber**. O módulo Contratos não deve ser usado para receber |
+| Conta/categoria no lote | Atualmente `p_bank_account_id = null` e categoria "Outros" — decisão de imputação bancária ainda pendente |
+| `Quitado → Estornado` (parcela) | Permitido (B14) — bloqueio do gatilho corrigido globalmente |
 
 ---
 
@@ -96,7 +99,8 @@ $$;
 | `payments.financial_transaction_id` | Coluna nova (`bigint` → `financial_transactions(id) ON DELETE SET NULL`) |
 | `payments.reverses_payment_id` | Coluna nova (`uuid` → `payments(id) ON DELETE SET NULL`) |
 | `process_installment_estorno(bigint,text,bigint,bigint)` | **v7 20261121** — apaga somente a transação vinculada por ID; recusa segundo estorno; grava `reversal` referenciando o pagamento original |
-| `rpc_recebimento_com_desdobramento(...)` 9 args | **v7 20261121** — não sobrescreve `amount`; residual com `MAX(installmentNumber)+1`; grava `payments` vinculado à transação; bloqueia `Cancelado`/`Cancelada` |
+| `prevent_update_delete_paid_installment()` | **Corrigido (B14)** — permite `Quitado → Cancelada/Cancelado/Estornado/Estornada`; demais alterações e exclusão de quitada continuam bloqueadas |
+| `rpc_recebimento_com_desdobramento(...)` 9 args | **v7 20261121 + correção de acumulação** — não sobrescreve `amount`; calcula `saldo_atual = amount − amountPaid`; valida contra o saldo; `amountPaid` acumula (`anterior + total pago`); `interest`/`fine` acumulam; residual com `MAX(installmentNumber)+1`; bloqueia `Cancelado`/`Cancelada`/`Estornado` |
 | `process_installment_payment(...)` 9 args | **v7 20261121** — sem `UPDATE contracts` manual; recálculo fica só no gatilho v4 |
 | `process_installment_payment(...)` 5 args | **v7 20261121** — nova sobrecarga para o lote (`bigint, numeric, text, bigint, bigint`) |
 | `process_installment_payment(...)` 7 args | **Removida** (B23) |
@@ -116,28 +120,59 @@ Gatilhos de recálculo presentes: `trg_recalculate_contract_on_installment` (em 
 Ambientes: `contracts` 106 produção / 16 teste; `installments` 117 / 49; `payments` 113 produção / 46 teste (havia 1 registro com `production\r\n`, corrigido).
 
 **Status final de produção:** `Aberto 11`, `Parcial 3`, `Quitado 53`, `Cancelado 6`, `Prorrogado 33`.
-**Status final de teste:** `Aberto 1`, `Cancelado 3`, `Parcial 4`, `Quitado 8`.
+**Status final de teste** (após os cenários desta rodada): `Aberto 2`, `Parcial 4`, `Quitado 7`, `Cancelado 4`, `Estornado 3`. Linhas criadas/alteradas em `test`: contratos 136 (cancelado), 135 (prorrogação, desdobramentos e lote), 76 e 74 (estornados); duplicidade antiga do contrato 75 preservada.
 
 ---
 
-## 6. Código local alterado — **ainda não publicado**
+## 6. Código local — publicado na `main`
+
+Commits publicados em `origin/main` (deploy Vercel Production `https://inove-juris.vercel.app`):
+
+| Commit | Conteúdo |
+|---|---|
+| `4edd862` | Correções gerais de Contratos/Contas a Receber |
+| `b469820` | Badge do número do contrato |
+| `abba52a` | Pagamento parcial em Contas a Receber chama `rpc_recebimento_com_desdobramento` |
+| `6654413` | Lote só permite selecionar parcelas com saldo em aberto |
 
 | Arquivo | Ajuste |
 |---|---|
 | `lib/supabase.ts` | `processContractCancellation` usa RPC com fallback seguro |
 | `app/contratos/page.tsx` | Cancelamento, segunda via, `reloadContracts`, cores/estados; estorno sem `setTimeout` nem chave `'"amountPaid"'`; recarga real do banco; `Cancelado` antes de `Estornado` nas 3 tabelas |
-| `app/contas-a-receber/page.tsx` | `isLate` exclui `Prorrogada`/`Estornado`; `totalOpen` e filtro usam campos calculados da view; prorrogação; lote; após estorno recarrega parcelas + contratos + KPIs |
+| `app/contas-a-receber/page.tsx` | `isLate` exclui `Prorrogada`/`Estornado`; `totalOpen` e filtro usam campos calculados da view; prorrogação; lote; após estorno recarrega parcelas + contratos + KPIs; pagamento parcial com desdobramento; `isBatchEligible` bloqueia seleção de `Quitado`/`Cancelada`/`Estornado` |
+| `components/ui/ContractNumberBadge.tsx` | Crachá azul do número do contrato (listagens desktop/mobile, modal de baixa, cabeçalho de recebimento e extrato) |
 | `components/contas-a-receber/ContractStatementModal.tsx` | Reversões subtraídas do total e exibidas em vermelho com sinal `−`; `uniqueInstallments` ignora reversões |
 
-`npx tsc --noEmit` executado sem erros após todas as edições.
+`npx tsc --noEmit` executado sem erros após cada alteração. Rollback conhecido do deploy anterior: `dpl_APjXUSLhcsE4Rm6bhkXXKvP7iAeA`.
 
 ---
 
-## 7. Aceite (última execução)
+## 7. Aceite
 
-Todos os indicadores limpos: `cancelados_inconsistentes = null`, `totais_inconsistentes = null`, `divergencias_pagamentos = 0`, `pagamentos_sem_caixa = 0`, `estornos_inconsistentes = null`, `duplicidade_numeros = null`, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `environments_invalidos = 0`.
+### 7.1 Produção — limpo
 
-`reversoes_producao = 3` e a distribuição de status permaneceu inalterada — portanto **os testes na tela ainda não foram executados em produção**. A aceite funcional segue pendente.
+Resultado do SQL abaixo: `cancelados_inconsistentes = null`, `totais_inconsistentes = null`, `divergencias_pagamentos = 0`, `pagamentos_sem_caixa = 0`, `estornos_inconsistentes = null`, `duplicidade_numeros = null`, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `environments_invalidos = 0`, `reversoes_producao = 3`. Status: `Aberto 11`, `Parcial 3`, `Quitado 53`, `Cancelado 6`, `Prorrogado 33`. **Nenhum teste financeiro foi executado em produção.**
+
+### 7.2 Homologação (`test`) — achados pré-existentes
+
+Mesmos indicadores com filtro `test`: `reversoes_teste = 6`, `duplicidade_numeros` com contrato 75 / número 1 (2 parcelas), `divergencias_pagamentos = 11`, `pagamentos_sem_caixa = 5`, `totais_inconsistentes` nos contratos 67 e 91. Os demais indicadores limpos.
+
+Classificação: nenhum achado foi gerado pelos cenários desta rodada. As parcelas 113 e 122 aparecem em `divergencias_pagamentos` apenas porque o indicador soma pagamentos `payment` e não desconta a `reversal` — `estornos_inconsistentes = null` confirma que os estornos estão corretos. Os demais registros (parcelas 87, 89, 96, 97, 103, 129, 150, 151, 227; pagamentos de 15/03, 16/03, 28/03 e um de 21/11 na parcela 227) são históricos. Decisão registrada: **documentar sem reparar** e **não alterar o SQL de aceite**.
+
+### 7.3 Cenários funcionais validados em `test`
+
+| # | Cenário | Resultado |
+|---|---|---|
+| 1 | Cancelamento | Contrato 136 (Fernanda, 1.500,00) `Cancelado`, zerado, `parcelas_vivas = 0` |
+| 2 | Prorrogação | Contrato 135, parcelas 228/229 `Prorrogada`, contrato `Prorrogado`, `original_due_date` preservado |
+| 3 | Estorno via Contratos | Parcela 122 / contrato 76 `Estornado`, pago `0`, `reversoes = 1`, contrato zerado — após correção do B14 |
+| 4 | Estorno via Contas a Receber | Parcela 113 / contrato 74 `Estornado`, `valor_revertido = 2.000,00`, contrato zerado; KPIs e extrato conferidos |
+| 5 | Desdobramento via Contas a Receber | Parcela 231 → `Quitado` com 1.000,00; parcela 239, número 11, 1.000,00, `Aberto`, `test`; `duplicidades = null` |
+| 6 | Recebimento em lote | Parcelas 232/233 `Quitado` com 2.000,00 cada; transações 1251/1252; `sem_caixa = 0`, `env_invalido = 0`; contrato 135 com `recebido = 6.000,00` |
+| 7 | Extrato com estorno | Contrato 74 — "Total Recebido" zerado, linha vermelha com `−`, crachá azul do contrato presente |
+| 8 | Correção da acumulação do desdobramento | Parcela 230 (já com 1.000,00) + 500,00 → `amountPaid = 1.500,00`, nova parcela 240 número 12 com 500,00 `Aberto`; transação 1253; contrato 135 `recebido = 6.500` / `a_receber = 13.500` |
+
+**Pendência de validação:** KPI "Previsão 30 dias" — checagem adiada pelo usuário (relacionada ao B11).
 
 ### SQL de aceite (reutilizável)
 
@@ -297,21 +332,17 @@ Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` 
 
 ---
 
-## 8. Pendências para a próxima atividade
+## 8. Pendências
 
-1. **Publicar o código local** e executar os 6 cenários de teste na tela:
-   1. Cancelar contrato sem pagamento (e repetir para idempotência);
-   2. Prorrogar parcela (contrato `Prorrogado` + previsão 30 dias);
-   3. Estornar parcela paga (`amountPaid = 0`, contrato `Estornado`, caixa revertido, extrato em vermelho);
-   4. Desdobrar parcela (residual com número novo + pagamento no histórico);
-   5. Receber em lote (caixa + KPIs atualizados);
-   6. Abrir extrato com estorno e conferir "Total Recebido".
-2. Rodar novamente o SQL de aceite acima.
-3. **Itens do diagnóstico não tratados nesta rodada** (avaliar se entram em nova atividade):
+1. **Reexecutar o aceite de produção** após a correção da função de desdobramento (a função é global). O marcador `v7 20261121` foi mantido no corpo para não alterar `funcoes_fora_do_padrao`.
+2. **Validar o KPI "Previsão 30 dias"** em homologação (adiado pelo usuário) — relacionado ao B11.
+3. **Decidir sobre o botão de recebimento no módulo Contratos**: remover/desabilitar para reforçar a regra de que baixa só acontece em Contas a Receber.
+4. **Decidir a imputação bancária do lote** — os lançamentos usam `account_id`/`category_id` nulos e descrição "(Outros)". Não alterado para não mudar fluxo financeiro sem autorização.
+5. **Itens do diagnóstico não tratados nesta rodada**:
    - **B11** — `get_future_receivables_projection` ignora `Prorrogada` (`supabase/migrations/20260618140000_create_projection_function.sql:17`);
    - **B20** — ausência de `CHECK` de status em `contracts`;
    - **B21** — dois gatilhos de proteção equivalentes em `contracts`.
-4. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3.
+6. Se precisar restaurar a sobrecarga legada, usar o DDL da seção 3. Definição anterior da função de desdobramento (antes da correção de acumulação) disponível no histórico desta sessão.
 
 ---
 
