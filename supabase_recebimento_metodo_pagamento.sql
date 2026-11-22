@@ -1,10 +1,13 @@
 -- ============================================================================
 -- Recebimento com forma de pagamento por parcela
 -- Data: 22/11/2026
+-- Versão: v2 20261122 (histórico de pagamento parcial em payments)
 --
 -- Objetivo:
 --   1. Guardar a forma de pagamento em cada pagamento e em cada transação.
 --   2. Permitir que o recebimento em lote informe conta/forma por parcela.
+--   3. Garantir que o pagamento PARCIAL também apareça no Extrato de
+--      Recebimentos (a função canônica de desdobramento não grava payments).
 --
 -- Escopo:
 --   - Adiciona colunas anuláveis (registros antigos ficam NULL).
@@ -14,9 +17,9 @@
 --     A lógica financeira canônica NÃO é reescrita.
 --
 -- Ordem de aplicação:
---   1. Rodar este script em HOMOLOGAÇÃO (test).
+--   1. Rodar este script (o projeto usa um único banco; a separação
+--      produção/teste é lógica, pela coluna environment).
 --   2. Validar o recebimento individual e o assistente em lote.
---   3. Só depois aplicar em produção.
 --
 -- Observação: o agente não executa SQL. Este script é para você rodar.
 -- ============================================================================
@@ -82,8 +85,13 @@ BEGIN
 END $$;
 
 -- 3. RPC de apoio ------------------------------------------------------------
--- Chama a função canônica e depois grava a forma de pagamento no pagamento e
--- na transação recém-criados. Não duplica a lógica de status/saldo/contrato.
+-- Chama a função canônica e depois garante o histórico em payments e a forma
+-- de pagamento nos dois registros. Não duplica a lógica de status/saldo.
+--
+-- Pagamento integral: a função canônica já cria o payments; aqui só
+-- localizamos e atualizamos a forma.
+-- Pagamento parcial: a função canônica de desdobramento cria apenas a
+-- transação; aqui inserimos o payments correspondente (idempotente).
 CREATE OR REPLACE FUNCTION public.rpc_receber_parcela_com_metodo(
   p_installment_id BIGINT,
   p_amount_paid DECIMAL(12,2),
@@ -101,11 +109,13 @@ AS $$
 DECLARE
   v_installment RECORD;
   v_saldo DECIMAL(12,2);
+  v_amount DECIMAL(12,2);
   v_is_partial BOOLEAN;
   v_result JSONB;
-  v_payment_id BIGINT;
   v_tx_id BIGINT;
 BEGIN
+  -- v2 20261122: grava histórico de pagamento parcial em payments.
+
   -- Bloqueia a parcela para evitar recebimento concorrente.
   SELECT * INTO v_installment
   FROM public.installments
@@ -139,6 +149,11 @@ BEGIN
     RAISE EXCEPTION 'Informe a categoria.';
   END IF;
 
+  -- Mesma proteção da função canônica: evita violação de FK em created_by.
+  IF p_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.users WHERE id = p_user_id) THEN
+    p_user_id := NULL;
+  END IF;
+
   v_saldo := (v_installment.amount - COALESCE(v_installment."amountPaid", 0));
 
   IF p_amount_paid > v_saldo + 0.01 THEN
@@ -147,6 +162,14 @@ BEGIN
   END IF;
 
   v_is_partial := p_amount_paid < v_saldo - 0.01;
+
+  -- Valor efetivamente movimentado: no parcial o desdobramento soma juros e
+  -- multa à transação; no integral a função canônica usa só o valor pago.
+  v_amount := CASE
+    WHEN v_is_partial
+      THEN p_amount_paid + COALESCE(p_interest, 0) + COALESCE(p_fine, 0)
+    ELSE p_amount_paid
+  END;
 
   IF v_is_partial THEN
     -- Pagamento parcial: mantém o desdobramento canônico.
@@ -176,41 +199,70 @@ BEGIN
     );
   END IF;
 
-  -- Localiza o pagamento recém-criado. O filtro por data/valor reduz o risco
-  -- de atingir um pagamento anterior da mesma parcela.
-  SELECT id INTO v_payment_id
-  FROM public.payments
-  WHERE installment_id = p_installment_id
-    AND type = 'payment'
-    AND payment_date = p_date
-    AND amount = p_amount_paid
+  -- Localiza a transação recém-criada. O filtro por conta/categoria/data/valor
+  -- e o ORDER BY id DESC reduzem o risco de atingir um lançamento anterior.
+  SELECT id INTO v_tx_id
+  FROM public.financial_transactions
+  WHERE account_id = p_account_id
+    AND category_id = p_category_id
+    AND date = p_date
+    AND amount = v_amount
+    AND type = 'income'
+    AND environment = v_installment.environment
   ORDER BY id DESC
   LIMIT 1;
 
-  IF v_payment_id IS NOT NULL THEN
-    UPDATE public.payments
-       SET payment_method = p_payment_method
-     WHERE id = v_payment_id;
-
-    SELECT financial_transaction_id INTO v_tx_id
+  -- Localiza o pagamento. No integral ele já existe (criado pela função
+  -- canônica); no parcial não existe e é inserido aqui.
+  --
+  -- Importante: não guardamos o id em variável tipada. O baseline do
+  -- repositório declara payments.id como BIGINT, mas o banco em uso tem UUID.
+  -- A subconsulta usa o tipo nativo da coluna e funciona nos dois casos.
+  IF NOT EXISTS (
+    SELECT 1
     FROM public.payments
-    WHERE id = v_payment_id;
+    WHERE installment_id = p_installment_id
+      AND type = 'payment'
+      AND payment_date = p_date
+      AND amount = v_amount
+  ) THEN
+    INSERT INTO public.payments (
+      installment_id,
+      amount,
+      type,
+      payment_date,
+      account_id,
+      category_id,
+      description,
+      environment,
+      created_by,
+      payment_method
+    ) VALUES (
+      p_installment_id,
+      v_amount,
+      'payment',
+      p_date,
+      p_account_id,
+      p_category_id,
+      p_description,
+      v_installment.environment,
+      p_user_id,
+      p_payment_method
+    );
   END IF;
 
-  -- Fallback para bases em que a RPC canônica ainda não preenche
-  -- payments.financial_transaction_id.
-  IF v_tx_id IS NULL THEN
-    SELECT id INTO v_tx_id
-    FROM public.financial_transactions
-    WHERE account_id = p_account_id
-      AND category_id = p_category_id
-      AND date = p_date
-      AND amount = p_amount_paid
-      AND type = 'income'
-      AND environment = v_installment.environment
-    ORDER BY id DESC
-    LIMIT 1;
-  END IF;
+  UPDATE public.payments
+     SET payment_method = p_payment_method
+   WHERE id = (
+     SELECT id
+     FROM public.payments
+     WHERE installment_id = p_installment_id
+       AND type = 'payment'
+       AND payment_date = p_date
+       AND amount = v_amount
+     ORDER BY id DESC
+     LIMIT 1
+   );
 
   IF v_tx_id IS NOT NULL THEN
     UPDATE public.financial_transactions
@@ -220,7 +272,6 @@ BEGIN
 
   RETURN COALESCE(v_result, '{}'::jsonb) || jsonb_build_object(
     'payment_method', p_payment_method,
-    'payment_id', v_payment_id,
     'financial_transaction_id', v_tx_id
   );
 END;
@@ -229,7 +280,7 @@ $$;
 COMMENT ON FUNCTION public.rpc_receber_parcela_com_metodo(
   BIGINT, NUMERIC, DATE, TEXT, BIGINT, BIGINT, TEXT, BIGINT, NUMERIC, NUMERIC
 ) IS
-  'Recebe uma parcela (integral ou parcial) usando a RPC canônica e grava a forma de pagamento.';
+  'Recebe uma parcela (integral ou parcial) usando a RPC canônica e grava a forma de pagamento e o histórico em payments.';
 
 COMMIT;
 
@@ -253,6 +304,12 @@ SELECT jsonb_build_object(
     SELECT 1 FROM pg_proc p
     WHERE p.pronamespace = 'public'::regnamespace
       AND p.proname = 'rpc_receber_parcela_com_metodo'
+  ),
+  'rpc_grava_pagamento_parcial', EXISTS (
+    SELECT 1 FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace
+      AND p.proname = 'rpc_receber_parcela_com_metodo'
+      AND pg_get_functiondef(p.oid) LIKE '%v2 20261122%'
   )
 ) AS verificacao_recebimento_metodo_pagamento;
 

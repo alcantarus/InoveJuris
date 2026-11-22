@@ -81,11 +81,19 @@ export function ContractStatementModal({ isOpen, onClose, contractId, contractTi
     installments?.forEach((i: any) => {
       // Se a parcela está quitada e não tem pagamentos mapeados
       if (i.status === 'Quitado' && !mappedPayments.find((p: any) => p.installment_id === i.id)) {
+        // O schema usa camelCase (amountPaid / amount / dueDate). O fallback
+        // antigo lia paid_amount/value/due_date, que não existem e exibiam
+        // "R$ NaN" e "Data inválida" para pagamentos parciais antigos.
+        const valorPago = Number(i.amountPaid || 0) > 0
+          ? Number(i.amountPaid)
+          : Number(i.amount || 0)
+
         mappedPayments.push({
           id: `gen-${i.id}`,
           type: 'payment',
-          amount: i.paid_amount || i.value,
-          payment_date: i.due_date, // Usando data de vencimento se não houver data de pagamento
+          amount: valorPago,
+          payment_date: i.dueDate,
+          payment_method: null,
           financial_categories: { name: 'Recebimento (Parcela Quitada)' },
           installments: i,
           isGenerated: true,

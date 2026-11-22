@@ -43,6 +43,8 @@ Decisões confirmadas:
 - Nova coluna **Forma** na tabela desktop.
 - Novo campo **Forma** no card mobile.
 - Pagamentos antigos sem método aparecem como `-`.
+- Fallback de parcelas quitadas sem `payments` corrigido: lia `paid_amount`/`value`/`due_date`
+  (não existem no schema) e exibia valor/data inválidos. Agora usa `amountPaid`/`amount`/`dueDate`.
 
 ### 4. Banco
 
@@ -58,6 +60,15 @@ Script: `supabase_recebimento_metodo_pagamento.sql`
   - chama `process_installment_payment(...)` para baixa integral;
   - chama `rpc_recebimento_com_desdobramento(...)` para pagamento parcial;
   - grava a forma no `payments` e na `financial_transactions` recém-criados.
+- **v2 20261122 — histórico do pagamento parcial:** a função canônica de desdobramento
+  cria apenas `financial_transactions`. O wrapper agora insere o `payments`
+  correspondente quando ele não existe, de forma idempotente, para que o Extrato de
+  Recebimentos liste a parcial. A função canônica **não** foi alterada.
+- **Correção de tipo (22/11/2026):** o baseline do repositório declara `payments.id` como
+  `BIGINT`, mas o banco em uso tem **UUID**. A primeira versão do wrapper fazia
+  `SELECT id INTO v_payment_id BIGINT` e falhava em toda baixa integral (“2 tentativas
+  falharam”). O wrapper não captura mais o id em variável tipada; usa subconsulta com o
+  tipo nativo da coluna e funciona nos dois formatos.
 - **Não reescreve** as funções canônicas v4/v7.
 - Registros antigos ficam com `payment_method = NULL`.
 
@@ -68,11 +79,13 @@ O projeto usa **um único banco Supabase**. A separação produção × testes �
 aplicado, vale para os dois ambientes. **Não existe um segundo SQL "de produção".**
 
 1. Rodar `supabase_recebimento_metodo_pagamento.sql` no SQL Editor do projeto usado pela
-   aplicação. Feito em 22/11/2026; a verificação retornou `true` nos três itens.
-2. Testar o recebimento individual e o assistente em lote com a aplicação no **ambiente de
+   aplicação. A primeira versão foi aplicada em 22/11/2026; a **v2 20261122** (histórico de
+   parcial) exige **reexecutar o mesmo script** — ele é idempotente.
+2. Conferir a verificação: os quatro itens devem retornar `true`, incluindo
+   `rpc_grava_pagamento_parcial`.
+3. Testar o recebimento individual e o assistente em lote com a aplicação no **ambiente de
    testes** (cookie `app_env = test`).
-3. Publicar o front-end depois dos testes. Antes do deploy, a versão publicada continua no
-   fluxo antigo e não chama a RPC nova.
+4. Publicar o front-end depois dos testes.
 
 Se o script for rodado em um projeto Supabase diferente do usado pela aplicação, é preciso
 repeti-lo no projeto correto. O agente não executa SQL.
@@ -94,8 +107,13 @@ Sugestão: contrato **#135** (Anderson Jose da Silva), que já tem parcelas em a
    permanece aberto e a parcela não foi baixada.
 6. Testar “Cancelar” após uma parcela recebida e confirmar o aviso.
 7. Abrir o Extrato de Recebimentos e conferir a coluna “Forma”.
-8. Rodar as verificações financeiras já conhecidas do projeto em `test`.
-9. Nenhum teste financeiro em produção.
+8. Testar **pagamento parcial** (valor menor que o saldo):
+   - a parcela original fica `Quitado` e uma parcela residual `Aberto` é criada;
+   - o Extrato deve listar a parcial com valor e forma, sem linha duplicada;
+   - `payments` deve ter uma linha `type = 'payment'` para a parcela original.
+9. Conferir que “Total Recebido” e “Parcelas Pagas” do Extrato continuam coerentes.
+10. Rodar as verificações financeiras já conhecidas do projeto em `test`.
+11. Nenhum teste financeiro em produção.
 
 ### Conferência no banco (somente leitura)
 
@@ -118,8 +136,8 @@ ORDER BY p.id DESC
 LIMIT 10;
 ```
 
-Como a RPC canônica não preenche `payments.financial_transaction_id`, o vínculo pode vir
-`NULL`. Nesse caso confira a transação pela conta/categoria/data/valor:
+O vínculo `payments.financial_transaction_id` pode vir `NULL` (as funções canônicas não o
+preenchem). Confira a transação pela conta/categoria/data/valor:
 
 ```sql
 SELECT id, environment, date, amount, type, account_id, category_id, payment_method
@@ -129,6 +147,30 @@ WHERE environment = 'test'
 ORDER BY id DESC
 LIMIT 10;
 ```
+
+Para o pagamento parcial, confira o histórico e a parcela residual:
+
+```sql
+SELECT
+  p.id,
+  p.installment_id,
+  p.amount            AS valor_pago,
+  p.payment_method,
+  i.status,
+  i."installmentNumber",
+  i.amount            AS valor_parcela,
+  i."amountPaid"
+FROM public.payments p
+JOIN public.installments i ON i.id = p.installment_id
+WHERE p.environment = 'test'
+  AND p.type = 'payment'
+ORDER BY p.id DESC
+LIMIT 10;
+```
+
+Esperado no parcial: uma linha em `payments` para a parcela original
+(`status = 'Quitado'`, `amountPaid = valor pago`) e uma parcela residual `Aberto`
+com o saldo restante.
 
 Esperado: `payment_method` preenchido no pagamento e, quando o vínculo existir,
 o mesmo valor em `tx_payment_method`.
