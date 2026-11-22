@@ -611,7 +611,20 @@ ON CONFLICT (email) DO UPDATE SET
 -- 18. Robust Financial Functions (RPCs) for Transactional Integrity
 
 -- Function for partial payment with desdobramento
-CREATE OR REPLACE FUNCTION rpc_recebimento_com_desdobramento(
+-- A versão canônica v7 20261121 (com correção de acumulação) já aplicada em
+-- produção/homologação NÃO pode ser sobrescrita pelo corpo antigo abaixo.
+-- O setup só cria este corpo em instalação nova, sem versão canônica.
+DO $guard$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace
+      AND p.proname = 'rpc_recebimento_com_desdobramento'
+      AND pg_get_functiondef(p.oid) LIKE '%v7 20261121%'
+      AND pg_get_functiondef(p.oid) LIKE '%saldo_atual%'
+  ) THEN
+    EXECUTE $ddl$
+      CREATE OR REPLACE FUNCTION public.rpc_recebimento_com_desdobramento(
   p_installment_id BIGINT,
   p_valor_principal_pago DECIMAL(12,2),
   p_valor_juros DECIMAL(12,2),
@@ -741,6 +754,10 @@ EXCEPTION
     RAISE EXCEPTION 'Erro ao processar desdobramento: %', SQLERRM;
 END;
 $func$;
+    $ddl$;
+  END IF;
+END
+$guard$;
 
 -- Function to process an installment payment
 CREATE OR REPLACE FUNCTION process_installment_payment(
@@ -862,7 +879,21 @@ END;
 $func$ LANGUAGE plpgsql;
 
 -- Function to process an installment estorno (reversal)
-CREATE OR REPLACE FUNCTION process_installment_estorno(
+-- A versão canônica v7 20261121 (que apaga a transação por
+-- financial_transaction_id) já aplicada em produção/homologação NÃO pode ser
+-- sobrescrita pelo corpo antigo abaixo. O setup só cria este corpo em
+-- instalação nova, sem versão canônica.
+DO $guard$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace
+      AND p.proname = 'process_installment_estorno'
+      AND pg_get_functiondef(p.oid) LIKE '%v7 20261121%'
+      AND pg_get_functiondef(p.oid) LIKE '%financial_transaction_id%'
+  ) THEN
+    EXECUTE $ddl$
+      CREATE OR REPLACE FUNCTION public.process_installment_estorno(
   p_installment_id BIGINT,
   p_reason TEXT,
   p_account_id BIGINT,
@@ -975,6 +1006,10 @@ BEGIN
   );
 END;
 $func$ LANGUAGE plpgsql;
+    $ddl$;
+  END IF;
+END
+$guard$;
 
 -- Function to process contract cancellation
 CREATE OR REPLACE FUNCTION process_contract_cancellation(
