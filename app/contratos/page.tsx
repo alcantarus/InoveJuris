@@ -324,22 +324,6 @@ export default function FinanceiroPage() {
 
   // Cash Flow Integration State
   const [bankAccounts, setBankAccounts] = useState<any[]>([])
-  const [financialCategories, setFinancialCategories] = useState<any[]>([])
-
-  // Payment/Liquidation State (Unified)
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
-  const [paymentData, setPaymentData] = useState({
-    index: null as number | null,
-    amount: 0,
-    totalDue: 0,
-    date: getTodayBR(),
-    account_id: '',
-    category_id: '',
-    description: '',
-    interest: 0,
-    fine: 0,
-    observation: ''
-  })
 
   const [mounted, setMounted] = useState(false)
 
@@ -401,13 +385,12 @@ export default function FinanceiroPage() {
     const currentEnv = document.documentElement.dataset.env || 'production';
     console.log('Fetching data for environment:', currentEnv);
 
-    const [contractsRes, clientsRes, indicatorsRes, productsRes, accountsRes, categoriesRes, lawyersRes] = await Promise.all([
+    const [contractsRes, clientsRes, indicatorsRes, productsRes, accountsRes, lawyersRes] = await Promise.all([
         supabase.from('contracts').select('*, clients(name), indicators(name), installments(*)').order('created_at', { ascending: false }),
         supabase.from('clients').select('id, name, document').order('name'),
         supabase.from('indicators').select('id, name').order('name'),
         supabase.from('products').select('*, law_areas(name)').order('name'),
         supabase.from('bank_accounts').select('id, name').order('name'),
-        supabase.from('financial_categories').select('id, name').eq('type', 'income').order('name'),
         supabase.from('lawyers').select('id, user_id, users:user_id(name)')
       ])
       
@@ -423,7 +406,6 @@ export default function FinanceiroPage() {
       if (indicatorsRes.data) setIndicators(indicatorsRes.data)
       if (productsRes.data) setProducts(productsRes.data)
       if (accountsRes.data) setBankAccounts(accountsRes.data)
-      if (categoriesRes.data) setFinancialCategories(categoriesRes.data)
       if (lawyersRes.data) setLawyers(lawyersRes.data)
 
       setMounted(true)
@@ -957,7 +939,7 @@ export default function FinanceiroPage() {
         return
       }
 
-      const accountId = paymentData.account_id || bankAccounts[0]?.id
+      const accountId = bankAccounts[0]?.id
       if (!accountId) {
         alert('Selecione uma conta bancária para o lançamento do estorno.')
         return
@@ -1025,118 +1007,6 @@ export default function FinanceiroPage() {
     }
 
     setInstallments(newInst)
-  }
-
-  const handleOpenPayment = (idx: number) => {
-    const inst = installments[idx]
-    const client = clients.find(c => c.id === formData.client_id)
-    const remainingBalance = inst.amount - Number(inst.amountPaid || 0)
-    const totalDue = remainingBalance + Number(inst.interest || 0) + Number(inst.fine || 0)
-    
-    setPaymentData({
-      index: idx,
-      amount: remainingBalance, // Default to remaining balance
-      totalDue: totalDue,
-      date: getTodayBR(),
-      account_id: bankAccounts[0]?.id || '',
-      category_id: financialCategories[0]?.id || '',
-      description: `Recebimento Parcela ${inst.installmentNumber} - ${client?.name || ''}`,
-      interest: inst.interest || 0,
-      fine: inst.fine || 0,
-      observation: ''
-    })
-    setPaymentModalOpen(true)
-  }
-
-  const handleConfirmPayment = async () => {
-    if (paymentData.index === null) return
-    
-    const idx = paymentData.index
-    const inst = installments[idx]
-    
-    if (!inst.id) {
-      alert('Esta parcela ainda não foi salva no banco de dados. Salve o contrato primeiro.')
-      return
-    }
-
-    if (!paymentData.account_id || !paymentData.category_id) {
-      alert('Selecione a conta e a categoria para o lançamento.')
-      return
-    }
-
-    // 1. Call RPC for transactional payment
-    if (isSupabaseConfigured) {
-      try {
-        const remainingBalance = inst.amount - Number(inst.amountPaid || 0);
-        const isPartialPayment = paymentData.amount < remainingBalance - 0.01;
-        
-        let rpcData, rpcError;
-
-        if (isPartialPayment) {
-          const { data, error } = await supabase.rpc('rpc_recebimento_com_desdobramento', {
-            p_installment_id: inst.id,
-            p_valor_principal_pago: paymentData.amount, // Apenas o valor do principal abatido!
-            p_valor_juros: paymentData.interest || 0,
-            p_valor_multa: paymentData.fine || 0,
-            p_account_id: Number(paymentData.account_id),
-            p_category_id: Number(paymentData.category_id),
-            p_date: paymentData.date,
-            p_description: paymentData.description + (paymentData.observation ? ` (${paymentData.observation})` : ''),
-            p_user_id: user?.id || null
-          });
-          rpcData = data;
-          rpcError = error;
-        } else {
-          const { data, error } = await supabase.rpc('process_installment_payment', {
-            p_installment_id: inst.id,
-            p_amount_paid: paymentData.amount + paymentData.interest + paymentData.fine, // Total paid
-            p_account_id: Number(paymentData.account_id),
-            p_category_id: Number(paymentData.category_id),
-            p_date: paymentData.date,
-            p_description: paymentData.description + (paymentData.observation ? ` (${paymentData.observation})` : ''),
-            p_user_id: user?.id || null,
-            p_interest: paymentData.interest,
-            p_fine: paymentData.fine
-          });
-          rpcData = data;
-          rpcError = error;
-        }
-
-        if (rpcError) throw rpcError
-
-        // 2. Update local state with the results from RPC
-        // Fetch all installments again to get the new one if partial
-        const { data: updatedInsts } = await supabase
-          .from('installments')
-          .select('*')
-          .eq('contract_id', inst.contract_id)
-          .order('installmentNumber')
-        
-        if (updatedInsts) setInstallments(updatedInsts)
-
-        if (rpcData) {
-          const { new_received, new_receivable, new_status } = rpcData
-          
-          setFormData(prev => ({
-            ...prev,
-            amountReceived: new_received,
-            amountReceivable: new_receivable,
-            status: new_status
-          }))
-
-          setContracts(prev => prev.map(c => 
-            c.id === inst.contract_id 
-              ? { ...c, amountReceived: new_received, amountReceivable: new_receivable, status: new_status, installments: updatedInsts || c.installments } 
-              : c
-          ))
-        }
-
-        setPaymentModalOpen(false)
-      } catch (err: any) {
-        console.error('Error processing payment:', err)
-        alert(`Erro ao processar pagamento: ${err.message || 'Erro desconhecido'}`)
-      }
-    }
   }
 
   const productMap = useMemo(() => {
@@ -1825,145 +1695,6 @@ export default function FinanceiroPage() {
             </div>
           )}
         </div>
-
-        <Modal
-          isOpen={paymentModalOpen}
-          onClose={() => setPaymentModalOpen(false)}
-          title="Baixa de Título / Liquidação"
-          className="z-[60]"
-        >
-          <div className="space-y-6">
-            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex gap-3">
-              <DollarSign className="text-indigo-600 mt-0.5 shrink-0" size={20} />
-              <div>
-                <ContractNumberBadge
-                  contractNumber={formData.contractNumber}
-                  processNumber={formData.processNumber}
-                  contractId={formData.id}
-                  className="mb-2"
-                />
-                <p className="text-sm text-indigo-900 font-medium">
-                  Parcela {paymentData.index !== null && installments[paymentData.index] ? installments[paymentData.index].installmentNumber : ''}
-                </p>
-                <p className="text-xs text-indigo-700 mt-1">
-                  Valor Total Devido: <strong>{formatCurrency(paymentData.totalDue, true)}</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Valor Principal Pago (R$)</label>
-                <CurrencyInput 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-900"
-                  value={paymentData.amount}
-                  onChange={(val: number) => setPaymentData({ ...paymentData, amount: val })}
-                />
-                {paymentData.index !== null && paymentData.amount < (installments[paymentData.index].amount - Number(installments[paymentData.index].amountPaid || 0)) - 0.01 && (
-                  <p className="text-xs text-amber-600 mt-1 font-medium">
-                    * Será gerada uma nova parcela com a diferença ({formatCurrency((installments[paymentData.index].amount - Number(installments[paymentData.index].amountPaid || 0)) - paymentData.amount, true)})
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label>
-                <input 
-                  type="date"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={paymentData.date}
-                  onChange={e => setPaymentData({ ...paymentData, date: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Juros (R$)</label>
-                <CurrencyInput 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={paymentData.interest}
-                  onChange={(val: number) => {
-                    const remainingBalance = installments[paymentData.index!].amount - Number(installments[paymentData.index!].amountPaid || 0);
-                    setPaymentData({ ...paymentData, interest: val, totalDue: (remainingBalance + val + paymentData.fine) });
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Multa (R$)</label>
-                <CurrencyInput 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={paymentData.fine}
-                  onChange={(val: number) => {
-                    const remainingBalance = installments[paymentData.index!].amount - Number(installments[paymentData.index!].amountPaid || 0);
-                    setPaymentData({ ...paymentData, fine: val, totalDue: (remainingBalance + paymentData.interest + val) });
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-              <p className="text-sm text-slate-700 font-medium flex justify-between items-center">
-                <span>Total a ser recebido (Principal + Juros + Multa):</span>
-                <strong className="text-indigo-700 text-lg">{formatCurrency(paymentData.amount + paymentData.interest + paymentData.fine, true)}</strong>
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-4 border-t border-slate-100">
-              <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Destino Financeiro (Fluxo de Caixa)</h4>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária <span className="text-rose-500">*</span></label>
-                <select 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={paymentData.account_id}
-                  onChange={e => setPaymentData({ ...paymentData, account_id: e.target.value })}
-                >
-                  <option value="">Selecione uma conta...</option>
-                  {bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Categoria <span className="text-rose-500">*</span></label>
-                <select 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={paymentData.category_id}
-                  onChange={e => setPaymentData({ ...paymentData, category_id: e.target.value })}
-                >
-                  <option value="">Selecione uma categoria...</option>
-                  {financialCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Observações (Opcional)</label>
-                <input 
-                  type="text"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                  value={paymentData.observation}
-                  onChange={e => setPaymentData({ ...paymentData, observation: e.target.value })}
-                  placeholder="Ex: Pago em dinheiro, comprovante X..."
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button 
-                onClick={() => setPaymentModalOpen(false)}
-                className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleConfirmPayment}
-                disabled={!paymentData.account_id || !paymentData.category_id || paymentData.amount <= 0}
-                className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Confirmar Baixa
-              </button>
-            </div>
-          </div>
-        </Modal>
 
         <Modal 
           isOpen={isModalOpen} 

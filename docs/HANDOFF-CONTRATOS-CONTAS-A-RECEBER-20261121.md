@@ -341,7 +341,7 @@ Interpretação: tudo `null`/`0`; `reversoes_producao` e `contratos_por_status` 
 
 1. ~~Reexecutar o aceite de produção~~ **Concluído:** após a correção do desdobramento, `funcoes_fora_do_padrao = null`, `sobrecarga_legada_presente = 0`, `correcao_acumulacao_presente = 1`, `reversoes_producao = 3`. O marcador `v7 20261121` foi mantido no corpo para não alterar o indicador.
 2. **Validar o KPI "Previsão 30 dias"** em homologação (adiado pelo usuário) — relacionado ao B11.
-3. **Decidir sobre o botão de recebimento no módulo Contratos**: remover/desabilitar para reforçar a regra de que baixa só acontece em Contas a Receber.
+3. ~~Decidir sobre o botão de recebimento no módulo Contratos~~ **Concluído:** o botão já não existia; removido o código morto (estado `paymentData`/`paymentModalOpen`, handlers `handleOpenPayment`/`handleConfirmPayment`, modal "Baixa de Título / Liquidação" e o carregamento de `financial_categories`). O estorno continua disponível e passou a usar diretamente a primeira conta bancária.
 4. **Decidir a imputação bancária do lote** — os lançamentos usam `account_id`/`category_id` nulos e descrição "(Outros)". Não alterado para não mudar fluxo financeiro sem autorização.
 5. ~~Achados históricos em `test`~~ **Concluído:** base conciliada; ver seção 7.2 e scripts de correção.
 6. **Itens do diagnóstico não tratados nesta rodada**:
