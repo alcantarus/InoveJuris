@@ -417,3 +417,31 @@ Backup em `backup_b11_projecao_20261121` (definição anterior + resultado por a
 - `fix_estornos.sql` — lógica antiga de estorno (base do B13)
 - `lib/supabase.ts`, `app/contratos/page.tsx`, `app/contas-a-receber/page.tsx`, `components/contas-a-receber/ContractStatementModal.tsx`, `lib/utils.ts` — código alterado
 - `query_function.js` — padrão antigo com `exec_sql` e chave anônima (**não usar em produção**)
+- `docs/VALIDACAO-B11-PREVISAO-30-DIAS-20261121.sql` — validação somente leitura do KPI
+- `docs/CORRECAO-B11-PREVISAO-30-DIAS-20261121.sql` — correção da RPC de projeção, com backup
+- `supabase/migrations/20261121150000_fix_future_receivables_projection.sql` — versão de repositório da RPC
+- `docs/RELATORIO-BACKUP-RESTORE-SUPABASE-20261120.md` — rotina de backup/restore e avisos de segurança
+
+---
+
+## 10. Encerramento da sessão (21/11/2026)
+
+Sessão encerrada com **todas as alterações commitadas e publicadas na `main`** e árvore de trabalho limpa. Commits desta rodada, em ordem:
+
+| Commit | Conteúdo |
+|---|---|
+| `3e9236d` | Conciliação final dos dados de `test` no handoff |
+| `418d5d5` | Remoção do código morto de baixa em Contratos |
+| `e3d3a4a` | Conta/categoria no lote + scripts B20/B21 |
+| `63af4d2` | Aceite B20/B21 em produção |
+| `57e169b` | Validação B11 e registro do lote validado |
+| `65eecae` | Correção do B11 na tela e na RPC |
+| `5c8955c` | Aceite da correção B11 |
+| `dd2576d` | Aceite final do KPI (2.000,00 em homologação) |
+| `9a6ce44` | Correção do Setup, aviso de Contratos e limpeza do git |
+
+**Aceites finais:** produção limpa (B20/B21), homologação limpa e KPI conferido na tela, lote com imputação bancária validado pelo usuário. Nenhum teste financeiro foi executado em produção.
+
+**Única ação externa pendente (fora do escopo técnico):** rotacionar a senha do Postgres Supabase, que vazou em chat e ficou embutida em `C:\temp\backup-supabase.ps1` em 20/11/2026. Ver `docs/RELATORIO-BACKUP-RESTORE-SUPABASE-20261120.md`, seção 0.
+
+**Rollback de deploy conhecido:** `dpl_APjXUSLhcsE4Rm6bhkXXKvP7iAeA`.
