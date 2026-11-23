@@ -54,14 +54,24 @@ export async function GET(request: Request) {
     }
 
     if (url.searchParams.get('redirect') === '1') {
-      return NextResponse.redirect(data.signedUrl, 302)
+      // A URL assinada expira; nunca deixar um proxy ou o navegador guardar
+      // uma resposta de redirecionamento com a localização antiga.
+      return NextResponse.redirect(data.signedUrl, {
+        status: 302,
+        headers: { 'Cache-Control': 'private, no-store' },
+      })
     }
 
+    // Cache somente no navegador (private) e por pouco tempo: evita gerar
+    // outra assinatura em navegações repetidas sem arriscar URL expirada em
+    // cache compartilhado.
     return NextResponse.json({
       bucket,
       path,
       signedUrl: data.signedUrl,
       expiresIn: EXPIRES_IN_SECONDS,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=300, must-revalidate' },
     })
   } catch (error) {
     return errorResponse(error)

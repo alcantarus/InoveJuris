@@ -241,14 +241,23 @@ export async function POST(req: Request) {
     }
 
     const now = new Date().toISOString()
-    const toInsert: any[] = []
-    const toUpdate: Array<{ id: number; payload: any }> = []
+    const toUpsert: any[] = []
+    let insertedCount = 0
+    let updatedCount = 0
 
     normalized.forEach(item => {
       const processId = item.process_number ? (processByNumber.get(item.process_number) || null) : null
-      const existingId = existingById.get(item.external_id)
 
-      const sourceFields = {
+      if (existingById.has(item.external_id)) updatedCount += 1
+      else insertedCount += 1
+
+      // Upsert em lotes pela chave única (source, external_id, environment).
+      // Só campos de fonte entram no payload: status, decisão, responsável,
+      // leitura, prazo e importância permanecem sob controle humano.
+      toUpsert.push({
+        source: 'DJEN',
+        external_id: item.external_id,
+        environment,
         process_number: item.process_number,
         process_number_masked: item.process_number_masked,
         process_id: processId,
@@ -266,36 +275,13 @@ export async function POST(req: Request) {
         raw_payload: item.raw_payload,
         synced_at: item.synced_at,
         updated_at: now,
-      }
-
-      if (existingId) {
-        // Reimportar NUNCA sobrescreve a decisão humana nem cria prazo.
-        toUpdate.push({ id: existingId, payload: sourceFields })
-      } else {
-        toInsert.push({
-          ...item,
-          ...sourceFields,
-          process_id: processId,
-          environment,
-          status: 'A triar',
-          created_at: now,
-        })
-      }
+      })
     })
 
-    if (toInsert.length > 0) {
-      for (const group of chunk(toInsert, 200)) {
-        const { error } = await client.from('publications').insert(group)
-        if (error) throw error
-      }
-    }
-
-    for (const entry of toUpdate) {
+    for (const group of chunk(toUpsert, 200)) {
       const { error } = await client
         .from('publications')
-        .update(entry.payload)
-        .eq('id', entry.id)
-        .eq('environment', environment)
+        .upsert(group, { onConflict: 'source,external_id,environment' })
       if (error) throw error
     }
 
@@ -305,8 +291,8 @@ export async function POST(req: Request) {
       rawFetched,
       totalAvailable,
       pagesFetched,
-      inserted: toInsert.length,
-      updated: toUpdate.length,
+      inserted: insertedCount,
+      updated: updatedCount,
       skipped: rawFetched - normalized.length,
       matchedProcesses: normalized.filter(item => item.process_number && processByNumber.has(item.process_number)).length,
       rateLimitRemaining,
