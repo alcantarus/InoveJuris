@@ -23,8 +23,8 @@ where schemaname = 'public'
     'system_settings','audit_logs','indicator_tokens'
   )
   and (
-       qual is null or btrim(qual) = 'true'
-    or with_check is null or btrim(with_check) = 'true'
+       (qual is not null and lower(btrim(qual)) in ('true', 'true::boolean'))
+    or (with_check is not null and lower(btrim(with_check)) in ('true', 'true::boolean'))
   )
 order by tablename, policyname;
 

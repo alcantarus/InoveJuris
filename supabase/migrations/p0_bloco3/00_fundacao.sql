@@ -119,8 +119,8 @@ begin
     where schemaname = 'public'
       and tablename = any(p_tables)
       and (
-           qual is null or btrim(qual) = 'true'
-        or with_check is null or btrim(with_check) = 'true'
+           (qual is not null and lower(btrim(qual)) in ('true', 'true::boolean'))
+        or (with_check is not null and lower(btrim(with_check)) in ('true', 'true::boolean'))
       )
   loop
     execute format('drop policy %I on %I.%I', r.policyname, r.schemaname, r.tablename);
