@@ -22,9 +22,13 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 - [x] Troca de ambiente produção ↔ teste no painel.
 - [x] Usuário logado cria/edita registros normalmente.
 
-### Ainda não confirmado explicitamente
+### Validações adicionais confirmadas
 
-- [ ] Usuário não superadmin tentando alterar RBAC (deve ser negado).
+- [x] Usuário não superadmin tentando alterar RBAC: **negado com 403** na rota
+  `/api/settings/rbac` (testado em `test` via console do navegador, 23/11/2026).
+  A aba "Perfis e Permissões" também exibe "Acesso restrito" para não superadmin.
+
+**Checklist do Bloco 3: 100% confirmado.**
 
 ## P1 — concluído
 
