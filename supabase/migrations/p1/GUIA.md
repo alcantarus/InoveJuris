@@ -17,6 +17,7 @@
 | 2 | `02_anon_select_minimo.sql` | Mantém SELECT de `anon` só nas 7 tabelas/views dos links públicos | Lista de 7 tabelas + onboarding e portal |
 | 3 | `03_inventario_funcoes_anon.sql` | Inventário (só leitura) das funções executáveis por `anon` | Colar o resultado para classificar antes de revogar |
 | 4 | `04_anon_funcoes_minimas.sql` | Revoga `EXECUTE` de `anon` nas funções de negócio (busca, financeiro, prazos, etc.); mantém auth/sessão/admin, helpers de RLS e links públicos | 0 funções de negócio + 6 funções públicas ainda liberadas |
+| 4b | `04b_anon_sem_public_execute.sql` | Correção: revoga `EXECUTE` de `PUBLIC`+`anon` e regrant a `authenticated`/`service_role` (16 funções herdavam de `PUBLIC`) | Consulta 1 do lote 04 volta a dar 0 linhas |
 
 ## Verificação do lote 01
 
@@ -90,6 +91,11 @@ order by 1;
 **Sem reteste funcional:** o lote 04 só retira de `anon` funções que nenhum fluxo
 público ou de servidor usa. Logados (`authenticated`) e links públicos não mudam.
 As validações já confirmadas estão em `../STATUS_SEGURANCA.md`.
+
+> Nota: 16 funções de negócio eram concedidas a `PUBLIC` na criação; o lote 04
+> (revogar só de `anon`) não as removeu. O lote **04b** revoga de `PUBLIC`+`anon`
+> e regrant a `authenticated`/`service_role`. Depois do 04b, a consulta 1 acima
+> deve retornar **0 linhas**.
 
 ## Teste funcional obrigatório após aplicar
 

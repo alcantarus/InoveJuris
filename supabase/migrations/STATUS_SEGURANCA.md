@@ -47,23 +47,33 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 - [x] Inventário rodado: 103 funções executáveis por `anon`.
 - [x] Classificação cruzada com o código (ver lote 04).
 
-### Lote 04 — `p1/04_anon_funcoes_minimas.sql` (preparado, não aplicado)
+### Lote 04 — `p1/04_anon_funcoes_minimas.sql` (aplicado)
 
 - Revoga `EXECUTE` de `anon` em 21 nomes de função de negócio (23 contando as
   sobrecargas de `search_clients` e `process_installment_payment`): busca,
   financeiro, prazos, cancelamento/estorno, guardiões, órfãos, `djen_fetch`,
   `normalize_deadline_at`.
+- Resultado: 5 funções sumiram (prazos, `djen_fetch`, `normalize_deadline_at`);
+  as outras 16 continuaram porque eram concedidas a `PUBLIC` (anon herda).
 - **Mantém** para `anon`: helpers `_rls_*`, `_auth_require_superadmin`,
   `get_auth_organization`, `log_audit_event`, `set_app_environment`,
   `app_mark_onboarding_used`, `app_touch_indicator_token` e todas as `app_*` de
   auth/sessão/admin — porque as rotas de servidor usam a **chave anon**.
+- Verificação dos fluxos públicos/auth: 6 funções seguem liberadas (OK).
 - Funções de extensão (`http_*`, `pg_trgm`, `unaccent`) são grant a `PUBLIC`;
   ficam para o P2 (revogar só de `anon` não tem efeito).
 - Sem reteste funcional: nenhum fluxo público/logado muda.
 
+### Lote 04b — `p1/04b_anon_sem_public_execute.sql` (preparado, não aplicado)
+
+- Correção do 04: para as 21 funções de negócio, `REVOKE EXECUTE FROM PUBLIC, anon`
+  e `GRANT EXECUTE TO authenticated, service_role`. Remove o acesso herdado de
+  `PUBLIC` sem afetar logados/servidor. Idempotente.
+- Esperado após aplicar: consulta 1 do lote 04 retorna **0 linhas**.
+
 ## Próximos itens de P1/P2
 
-- Aplicar e verificar o lote 04 (0 funções de negócio + 6 públicas liberadas).
+- Aplicar e verificar o lote 04b (consulta 1 do lote 04 deve dar 0 linhas).
 - P2: revogar `http_*` de `PUBLIC` (SSRF) e regrant seletivo.
 - P2: mover rotas de servidor da chave anon para `service_role` (depois revogar
   `app_*` de auth/admin do `anon`).
