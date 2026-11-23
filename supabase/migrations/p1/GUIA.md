@@ -2,7 +2,8 @@
 
 ## Status
 
-- Preparado pelo agente, **não executado**.
+- Lotes 01 e 02 **aplicados e verificados** (ver `../STATUS_SEGURANCA.md`).
+- Lote 03 é só inventário (SELECT), não altera nada.
 - Aplicar no SQL Editor do Supabase, como `postgres`, um arquivo por vez.
 - Não usar `run_sql*.js` com service role.
 - Validações já confirmadas pelo usuário estão registradas em
@@ -14,6 +15,7 @@
 |---|---|---|---|
 | 1 | `01_anon_sem_escrita.sql` | Remove INSERT/UPDATE/DELETE/TRUNCATE de `anon` em todas as tabelas/views; mantém UPDATE em `clients` para o onboarding | Query de verificação abaixo + onboarding e portal |
 | 2 | `02_anon_select_minimo.sql` | Mantém SELECT de `anon` só nas 7 tabelas/views dos links públicos | Lista de 7 tabelas + onboarding e portal |
+| 3 | `03_inventario_funcoes_anon.sql` | Inventário (só leitura) das funções executáveis por `anon` | Colar o resultado para classificar antes de revogar |
 
 ## Verificação do lote 01
 
@@ -52,5 +54,7 @@ Esperado: exatamente **7 linhas** — `clients`, `client_onboarding_tokens`,
 
 ## Próximos lotes
 
-- Revisar os `SELECT` restantes de `anon` um a um, preservando somente o necessário aos links públicos.
+- Lote 04: revogar `EXECUTE` desnecessário de `anon` (candidata principal:
+  `search_all`), preservando helpers `_rls_*`, `set_app_environment`,
+  `app_touch_indicator_token` e `app_mark_onboarding_used`.
 - Revogar funções `http` e rotacionar a chave de assinatura (escopo P2).
