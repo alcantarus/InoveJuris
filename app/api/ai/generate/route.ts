@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { Type } from '@google/genai'
 import { createServiceRoleClient } from '@/lib/supabase-service'
-import { generateGeminiText } from '@/lib/gemini-server'
+import { friendlyGeminiError, generateGeminiText } from '@/lib/gemini-server'
 
 type Kind = 'dashboard_insight' | 'task_subtasks' | 'lead_score' | 'lead_insights'
 
@@ -151,10 +151,12 @@ export async function POST(request: Request) {
       )
     }
 
-    console.error('[AI] falha ao gerar conteúdo:', error?.message)
-    return NextResponse.json(
-      { error: 'Não foi possível gerar o conteúdo.' },
-      { status: 500 }
-    )
+    const friendly = friendlyGeminiError(error) as Error & { code?: string }
+    console.error('[AI] falha ao gerar conteúdo:', friendly.message)
+    const status =
+      friendly.code === 'GEMINI_UNAVAILABLE' || friendly.code === 'GEMINI_RATE_LIMIT'
+        ? 503
+        : 500
+    return NextResponse.json({ error: friendly.message }, { status })
   }
 }

@@ -1,6 +1,15 @@
 import { GoogleGenAI } from '@google/genai'
 
-const MODEL = 'gemini-3-flash-preview'
+/** Modelo padrao estavel. Preview pode ficar indisponivel por alta demanda. */
+export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
+
+const TRANSIENT_CODES = new Set([
+  'UNAVAILABLE',
+  'RESOURCE_EXHAUSTED',
+  'RATE_LIMIT_EXCEEDED',
+  'DEADLINE_EXCEEDED',
+  'INTERNAL',
+])
 
 /**
  * Resolucao da chave do Gemini exclusivamente no servidor.
@@ -12,6 +21,59 @@ const MODEL = 'gemini-3-flash-preview'
 export function resolveGeminiKey(): string | undefined {
   const key = process.env.GEMINI_API_KEY?.trim()
   return key ? key : undefined
+}
+
+/** Repete falhas temporarias do provedor (503/429) com backoff curto. */
+export async function geminiWithRetry<T>(
+  fn: () => Promise<T>,
+  attempts = 3
+): Promise<T> {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error
+      const code = String((error as any)?.code ?? '').toUpperCase()
+      const status = Number((error as any)?.status)
+      const transient =
+        TRANSIENT_CODES.has(code) ||
+        status === 429 ||
+        status === 500 ||
+        status === 503
+
+      if (!transient || attempt === attempts - 1) throw error
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
+    }
+  }
+
+  throw lastError
+}
+
+/** Traduz erros brutos do provedor para mensagens acionaveis. */
+export function friendlyGeminiError(error: unknown): Error {
+  const code = String((error as any)?.code ?? '').toUpperCase()
+  const status = Number((error as any)?.status)
+
+  if (code === 'UNAVAILABLE' || status === 503) {
+    const wrapped = new Error(
+      'O modelo Gemini esta temporariamente indisponivel. Tente novamente em instantes.'
+    )
+    ;(wrapped as any).code = 'GEMINI_UNAVAILABLE'
+    return wrapped
+  }
+
+  if (code === 'RESOURCE_EXHAUSTED' || status === 429) {
+    const wrapped = new Error(
+      'Limite de uso do Gemini atingido. Aguarde e tente novamente.'
+    )
+    ;(wrapped as any).code = 'GEMINI_RATE_LIMIT'
+    return wrapped
+  }
+
+  if (error instanceof Error) return error
+  return new Error('Erro ao processar com Gemini.')
 }
 
 export async function generateGeminiText(
@@ -29,11 +91,17 @@ export async function generateGeminiText(
   }
 
   const ai = new GoogleGenAI({ apiKey })
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config,
-  })
 
-  return response.text || ''
+  try {
+    const response = await geminiWithRetry(() =>
+      ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config,
+      })
+    )
+    return response.text || ''
+  } catch (error) {
+    throw friendlyGeminiError(error)
+  }
 }

@@ -51,7 +51,18 @@ Interpretação de falhas:
 | `500` — “Não foi possível gerar o conteúdo.” | API Gemini recusou a chave (inválida, cota ou modelo sem acesso) |
 | `307 → /login` | sessão ausente/expirada; não é problema da chave |
 
-Modelo fixo: `gemini-3-flash-preview` (`lib/gemini-server.ts`).
+Modelo: variável opcional `GEMINI_MODEL`, padrão **`gemini-2.5-flash`** (estável). Antes era fixo `gemini-3-flash-preview`.
+
+## Incidente 503 — modelo preview indisponível (23/11/2026)
+
+- Sintoma: `Tentar Sugestão da IA` retornou `{"error":{"code":503,"message":"This model is currently experiencing high demand...","status":"UNAVAILABLE"}}`.
+- Diagnóstico: **a chave está válida**. Erro de autenticação seria `401/403 INVALID_API_KEY`; aqui o provedor recusou o **modelo preview** por alta demanda.
+- Correção aplicada:
+  - modelo padrão trocado para `gemini-2.5-flash` (substituível por `GEMINI_MODEL`);
+  - `geminiWithRetry()` repete falhas transitórias (`UNAVAILABLE`, `429`, `503`) até 3 vezes com backoff de 400/800 ms;
+  - `friendlyGeminiError()` traduz `UNAVAILABLE`/`RESOURCE_EXHAUSTED` em mensagens claras e devolve `503` na rota;
+  - texto abaixo do botão explica que é preciso enviar uma imagem antes de usar a sugestão.
+- O botão desabilitado na captura de tela era comportamento correto: o editor “Nova Arte” estava sem `image_url`. A análise usa a imagem de fundo.
 
 ## Como a chave foi adicionada (sem expor o valor)
 

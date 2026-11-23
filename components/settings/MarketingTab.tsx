@@ -902,10 +902,11 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                   </div>
                 </div>
 
-                <div className="flex justify-center py-2">
+                <div className="flex flex-col items-center gap-2 py-2">
                   <button
                     onClick={() => editingTemplate.image_url && analyzeImage(editingTemplate.image_url)}
                     disabled={isAnalyzing || !editingTemplate.image_url}
+                    title={!editingTemplate.image_url ? 'Envie uma imagem ou informe a URL para habilitar a sugestão da IA' : undefined}
                     className="flex items-center gap-2 px-6 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-full hover:bg-amber-100 transition-all text-sm font-bold disabled:opacity-50"
                   >
                     {isAnalyzing ? (
@@ -914,6 +915,11 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                       <><Sparkles className="w-4 h-4" /> Tentar Sugestão da IA</>
                     )}
                   </button>
+                  {!editingTemplate.image_url && !isAnalyzing && (
+                    <p className="text-xs text-slate-500 text-center">
+                      Envie uma imagem de fundo ou cole a URL no campo acima para habilitar a sugestão da IA.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">

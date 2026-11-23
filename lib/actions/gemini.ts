@@ -1,7 +1,12 @@
 'use server'
 
 import { GoogleGenAI } from "@google/genai";
-import { resolveGeminiKey } from "@/lib/gemini-server";
+import {
+  GEMINI_MODEL,
+  friendlyGeminiError,
+  geminiWithRetry,
+  resolveGeminiKey,
+} from "@/lib/gemini-server";
 
 export async function analyzeTemplateImage(base64Image: string) {
   const apiKey = resolveGeminiKey();
@@ -14,8 +19,8 @@ export async function analyzeTemplateImage(base64Image: string) {
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await geminiWithRetry(() => ai.models.generateContent({
+      model: GEMINI_MODEL,
       contents: [
         {
           parts: [
@@ -52,7 +57,7 @@ export async function analyzeTemplateImage(base64Image: string) {
           ]
         }
       ]
-    });
+    }));
 
     const responseText = response.text || '';
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -64,6 +69,6 @@ export async function analyzeTemplateImage(base64Image: string) {
     return { data: JSON.parse(jsonMatch[0]) };
   } catch (error: any) {
     console.error('Gemini Server Error:', error);
-    return { error: error.message || 'Erro ao processar imagem com IA.' };
+    return { error: friendlyGeminiError(error).message };
   }
 }
