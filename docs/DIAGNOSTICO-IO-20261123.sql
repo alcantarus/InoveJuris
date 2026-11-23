@@ -34,7 +34,7 @@ begin
              -- to_jsonb aceita as duas versões da extensão sem quebrar.
              'blk_read_ms',    round(q.blk_read_ms, 2),
              'blk_write_ms',   round(q.blk_write_ms, 2)
-           ) order by q.blks_read_total desc, q.total_ms desc)
+           ) order by q.blks_read_total desc, q.total_exec_time desc)
       into v_top
       from (
         select s.*,
