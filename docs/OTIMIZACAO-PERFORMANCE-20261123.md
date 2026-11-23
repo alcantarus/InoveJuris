@@ -111,7 +111,8 @@ Nada de banco/RLS foi alterado.
     suspenso para não agravar o IO. Amanhã, primeiro rodar
     `docs/DIAGNOSTICO-IO-20261123.sql` (somente leitura de estatísticas),
     identificar a origem do IO e só depois decidir entre manter, fazer rollback
-    ou medir novamente.
+    ou medir novamente. Handoff completo em
+    `docs/HANDOFF-P1-1-20261123.md`.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato

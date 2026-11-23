@@ -7,7 +7,7 @@
 >
 > **Atualização em 23/11/2026:** `GEMINI_API_KEY` configurada no Vercel (Secret, Production/Preview/Development). Chaves manuais do navegador e fallbacks legados removidos; limpeza automática via `components/GeminiLegacyCleanup.tsx`. Detalhes em `docs/GEMINI-CHAVE-SERVIDOR-20261123.md`.
 >
-> **Otimização de performance em 23/11/2026:** lotes P0.2/P0.3 (Gemini enxuto e Dashboard com 7 queries) e P0.1 (AuthProvider único) publicados. Diagnóstico, deploys e retomada em `docs/OTIMIZACAO-PERFORMANCE-20261123.md`. Banco/RLS (P1.1) ainda não foi tocado.
+> **Otimização de performance em 23/11/2026:** lotes P0.2/P0.3 (Gemini enxuto e Dashboard com 7 queries), P0.1 (AuthProvider único), P1.2, P1.3 e P2 publicados. Diagnóstico e deploys em `docs/OTIMIZACAO-PERFORMANCE-20261123.md`. P1.1 (banco/RLS) foi aplicado e validado funcionalmente, mas a comparação de performance ficou inconclusiva e os benchmarks foram pausados por alerta de Disk IO do Supabase. Continuidade em `docs/HANDOFF-P1-1-20261123.md`.
 
 ## Gemini — chave única no servidor (2026-11-23)
 
