@@ -79,6 +79,13 @@ Executado na branch `fase0-seguranca`, em etapas pequenas, cada uma com backup/r
 - Rollback: `rollback_retencao_90d.sql` (volta a 90/180 e remove o job).
 
 ### Pendências abertas
+
+> **Atualização em 23/11/2026:** Fase B da identidade (`role=authenticated`) e F3
+> (`http_*`, executado pelo Supabase Support) já estão concluídas. A chave ECC própria e
+> `organization_id`/multitenancy foram **adiados**, com plano completo em
+> `docs/PLANO-ROTACAO-ECC-E-MULTITENANCY-20261123.md`. O status corrente de segurança está
+> em `supabase/migrations/STATUS_SEGURANCA.md`.
+
 - **Merge** — concluído em 2026-11-20: `main`, `trabalho-com-claude` e `fase0-seguranca` alinhados em `995fdb7` (5 commits trazidos: `483009a`, `c4d806c`, `f1bac58`, `85dc94b`, `995fdb7`).
 - **Fase B da identidade** — trocar `SUPABASE_JWT_ROLE=authenticated` (depende de autorização + verificação de grants/RPCs).
 - **Chave ECC limpa** — a standby `c73f6852-eeca-455d-9549-647afae7e493` precisa ser marcada como `previously_used`/revogada para liberar a importação de chave própria.

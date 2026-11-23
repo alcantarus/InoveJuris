@@ -20,7 +20,9 @@ já marcadas como OK.
   `p2/01_http_sem_public.sql` como `supabase_admin`. Verificação: **0** funções
   `http_*` executáveis por `anon`; `postgres_executa=true`; sync DJEN em `test`
   retornou 1 publicação, sem `42501`.
-- **Futuros:** rotação da chave ECC/ES256; `organization_id` / multitenancy real.
+- **Futuros (adiados em 23/11/2026):** rotação da chave ECC/ES256 e
+  `organization_id` / multitenancy real. Plano completo em
+  `docs/PLANO-ROTACAO-ECC-E-MULTITENANCY-20261123.md`.
 - Deploy: `https://inove-juris.vercel.app` · Supabase ref `jhlxzqsgmudkbjkynqdl`.
 
 ## Bloco 3 — concluído
@@ -171,5 +173,7 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 
 ## Próximos itens (P2)
 
-- Rotação da chave ECC/ES256.
-- `organization_id` / multitenancy real.
+- Adiados com plano documentado em
+  `docs/PLANO-ROTACAO-ECC-E-MULTITENANCY-20261123.md`:
+  - Rotação da chave ECC/ES256.
+  - `organization_id` / multitenancy real.

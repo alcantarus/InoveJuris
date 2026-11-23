@@ -10,7 +10,8 @@
   papel — `SET ROLE` -> 42501). Verificação: **0** funções `http_*` para `anon`,
   `postgres_executa=true` e sync DJEN OK em `test`.
 - **P2 100% concluído em 23/11/2026:** lotes 01, 02, 03 e onboarding validados.
-  Restam apenas a rotação da chave ECC e o multitenancy.
+  Restam apenas os itens adiados, com plano em
+  `docs/PLANO-ROTACAO-ECC-E-MULTITENANCY-20261123.md`.
 
 ## Ordem
 
@@ -110,5 +111,7 @@ select has_function_privilege('postgres', 'public.http_get(character varying)', 
 
 ## Próximos itens de P2
 
-- Rotação da chave ECC/ES256.
-- `organization_id` / multitenancy real.
+- Adiados com plano documentado em
+  `docs/PLANO-ROTACAO-ECC-E-MULTITENANCY-20261123.md`:
+  - Rotação da chave ECC/ES256.
+  - `organization_id` / multitenancy real.
