@@ -1,7 +1,11 @@
 import { GoogleGenAI } from '@google/genai'
 
-/** Modelo padrao estavel. Preview pode ficar indisponivel por alta demanda. */
-export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
+/**
+ * Modelo padrao recomendado pelo Google AI Studio para contas novas.
+ * Modelos antigos (2.5-flash, 3-flash-preview) nao estao mais disponiveis
+ * para novos usuarios. Pode ser substituido por GEMINI_MODEL.
+ */
+export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash'
 
 const TRANSIENT_CODES = new Set([
   'UNAVAILABLE',
@@ -69,6 +73,14 @@ export function friendlyGeminiError(error: unknown): Error {
       'Limite de uso do Gemini atingido. Aguarde e tente novamente.'
     )
     ;(wrapped as any).code = 'GEMINI_RATE_LIMIT'
+    return wrapped
+  }
+
+  if (code === 'NOT_FOUND' || status === 404) {
+    const wrapped = new Error(
+      `Modelo ${GEMINI_MODEL} nao disponivel para esta conta. Verifique GEMINI_MODEL no Vercel.`
+    )
+    ;(wrapped as any).code = 'GEMINI_MODEL_NOT_FOUND'
     return wrapped
   }
 
