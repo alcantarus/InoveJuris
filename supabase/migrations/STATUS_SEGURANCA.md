@@ -26,7 +26,7 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 
 - [ ] Usuário não superadmin tentando alterar RBAC (deve ser negado).
 
-## P1 — em andamento
+## P1 — concluído
 
 ### Lote 01 — `p1/01_anon_sem_escrita.sql`
 
@@ -64,18 +64,26 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
   ficam para o P2 (revogar só de `anon` não tem efeito).
 - Sem reteste funcional: nenhum fluxo público/logado muda.
 
-### Lote 04b — `p1/04b_anon_sem_public_execute.sql` (preparado, não aplicado)
+### Lote 04b — `p1/04b_anon_sem_public_execute.sql` (aplicado e verificado)
 
 - Correção do 04: para as 21 funções de negócio, `REVOKE EXECUTE FROM PUBLIC, anon`
   e `GRANT EXECUTE TO authenticated, service_role`. Remove o acesso herdado de
   `PUBLIC` sem afetar logados/servidor. Idempotente.
-- Esperado após aplicar: consulta 1 do lote 04 retorna **0 linhas**.
+- [x] Verificação: consulta 1 do lote 04 retornou **0 linhas** (nenhuma função de
+  negócio executável por `anon`).
+- [x] Consulta 2: 6 funções públicas/auth seguem liberadas.
 
-## Próximos itens de P1/P2
+### Resumo do P1
 
-- Aplicar e verificar o lote 04b (consulta 1 do lote 04 deve dar 0 linhas).
-- P2: revogar `http_*` de `PUBLIC` (SSRF) e regrant seletivo.
-- P2: mover rotas de servidor da chave anon para `service_role` (depois revogar
+- `anon` sem INSERT/UPDATE/DELETE/TRUNCATE (só UPDATE em `clients`, onboarding).
+- `anon` com SELECT em apenas 7 tabelas/views dos links públicos.
+- `anon` sem EXECUTE nas funções de negócio; mantém apenas auth/sessão/admin
+  (rotas de servidor usam chave anon), helpers de RLS e links públicos.
+
+## Próximos itens (P2)
+
+- Revogar `http_*` de `PUBLIC` (SSRF) e regrant seletivo.
+- Mover rotas de servidor da chave anon para `service_role` (depois revogar
   `app_*` de auth/admin do `anon`).
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.

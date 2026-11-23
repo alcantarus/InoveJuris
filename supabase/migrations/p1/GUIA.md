@@ -2,8 +2,9 @@
 
 ## Status
 
-- Lotes 01 e 02 **aplicados e verificados** (ver `../STATUS_SEGURANCA.md`).
-- Lote 03 (inventário) **rodado**; resultado classificado no lote 04.
+- Lotes 01, 02, 04 e 04b **aplicados e verificados** (ver `../STATUS_SEGURANCA.md`).
+- Lote 03 (inventário) **rodado**; resultado classificado nos lotes 04/04b.
+- **P1 concluído.** Pendências restantes são escopo P2.
 - Aplicar no SQL Editor do Supabase, como `postgres`, um arquivo por vez.
 - Não usar `run_sql*.js` com service role.
 - Validações já confirmadas pelo usuário estão registradas em
