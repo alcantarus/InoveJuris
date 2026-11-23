@@ -30,13 +30,19 @@ begin
              'shared_hit',     q.shared_blks_hit,
              'shared_read',    q.shared_blks_read,
              'temp_read',      q.temp_blks_read,
-             'blk_read_ms',    round(q.blk_read_time::numeric, 2),
-             'blk_write_ms',   round(q.blk_write_time::numeric, 2)
+             -- PG17 renomeou blk_read_time -> shared_blk_read_time.
+             -- to_jsonb aceita as duas versões da extensão sem quebrar.
+             'blk_read_ms',    round(q.blk_read_ms, 2),
+             'blk_write_ms',   round(q.blk_write_ms, 2)
            ) order by q.blks_read_total desc, q.total_ms desc)
       into v_top
       from (
         select s.*,
-               (s.shared_blks_read + s.local_blks_read + s.temp_blks_read) as blks_read_total
+               (s.shared_blks_read + s.local_blks_read + s.temp_blks_read) as blks_read_total,
+               coalesce(to_jsonb(s)->>'shared_blk_read_time',
+                        to_jsonb(s)->>'blk_read_time', '0')::numeric as blk_read_ms,
+               coalesce(to_jsonb(s)->>'shared_blk_write_time',
+                        to_jsonb(s)->>'blk_write_time', '0')::numeric as blk_write_ms
           from pg_stat_statements s
          order by (s.shared_blks_read + s.local_blks_read + s.temp_blks_read) desc
          limit 15
