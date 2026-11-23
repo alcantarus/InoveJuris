@@ -18,12 +18,14 @@ export default function PortalIndicadorPage() {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [warningMsg, setWarningMsg] = useState<string | null>(null)
 
   useEffect(() => {
     setAccessToken(token as string)
 
     async function fetchPortalData() {
       if (!token) return
+      setWarningMsg(null)
       
       // 1. Get indicator_id from token
       const { data: tokenData, error: tokenError } = await supabase
@@ -67,10 +69,22 @@ export default function PortalIndicadorPage() {
         .eq('indicator_id', tokenData.indicator_id);
 
       // 4. Get contract statuses
-      const { data: contractsData } = await supabase
+      const { data: contractsData, error: contractsError } = await supabase
         .from('contracts')
         .select('id, status')
         .eq('indicator_id', tokenData.indicator_id);
+
+      // Histórico e status complementam os KPIs. Se falharem, avisar em vez de
+      // mostrar valores como se nada tivesse acontecido.
+      const warnings: string[] = []
+      if (paymentsError) warnings.push('histórico de pagamentos')
+      if (contractsError) warnings.push('status dos contratos')
+      if (warnings.length > 0) {
+        console.error('Erro ao carregar dados complementares do portal:', {
+          paymentsError, contractsError
+        })
+        setWarningMsg(`Não foi possível carregar o ${warnings.join(' e o ')}. Alguns detalhes podem estar desatualizados.`)
+      }
 
       if (statusError) {
         console.error('Erro detalhado do Supabase:', statusError);
@@ -126,6 +140,12 @@ export default function PortalIndicadorPage() {
         <div className="flex justify-end">
           <GlobalPrivacyToggle compact />
         </div>
+
+        {warningMsg && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+            {warningMsg}
+          </div>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KPICard 

@@ -90,6 +90,15 @@ const getTokenStatus = (token: any) => {
   }
 }
 
+const copyPortalLink = async (tokenValue: string) => {
+  try {
+    await navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${tokenValue}`)
+    toast.success('Link copiado para a área de transferência!')
+  } catch {
+    toast.error('Não foi possível copiar automaticamente. Copie o link da lista.')
+  }
+}
+
 export default function IndicadoresPage() {
   const { isVisible } = usePrivacy()
   const { user } = useAuth()
@@ -169,6 +178,11 @@ export default function IndicadoresPage() {
   const generateFixedLink = async () => {
     if (!selectedIndicatorForAccess) return
 
+    if (!window.confirm(
+      'Gerar um novo link fixo vai revogar imediatamente o link fixo atual. ' +
+      'O indicador só terá acesso pelo novo link. Deseja continuar?'
+    )) return
+
     // Deactivate existing fixed links first
     await supabase
       .from('indicator_tokens')
@@ -192,7 +206,8 @@ export default function IndicadoresPage() {
     } else {
       toast.success('Novo link fixo gerado com sucesso.')
       fetchIndicatorTokens(selectedIndicatorForAccess.id)
-      
+      await copyPortalLink(data.token)
+
       // Update local state to reflect the new token for the copy button in the table
       setIndicators(prev => prev.map(i => i.id === selectedIndicatorForAccess.id ? { ...i, indicator_tokens: [{ token: data.token }] } : i))
     }
@@ -222,10 +237,7 @@ export default function IndicadoresPage() {
     } else {
       toast.success('Link temporário gerado com sucesso.')
       fetchIndicatorTokens(selectedIndicatorForAccess.id)
-      
-      // Copy to clipboard immediately
-      navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${data.token}`)
-      toast.success('Link copiado para a área de transferência!')
+      await copyPortalLink(data.token)
     }
   }
 
@@ -1026,10 +1038,7 @@ export default function IndicadoresPage() {
                             <td className="p-3 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${token.token}`)
-                                    toast.success('Link copiado!')
-                                  }}
+                                  onClick={() => copyPortalLink(token.token)}
                                   className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
                                   title="Copiar Link"
                                 >
@@ -1083,10 +1092,7 @@ export default function IndicadoresPage() {
                           <MobileField label="Ações">
                             <div className="grid grid-cols-2 gap-2">
                               <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(`${window.location.origin}/portal/indicador/${token.token}`)
-                                  toast.success('Link copiado!')
-                                }}
+                                onClick={() => copyPortalLink(token.token)}
                                 className="min-h-[40px] px-2 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
                                 title="Copiar Link"
                               >

@@ -16,7 +16,7 @@ export function CommissionChart({ data }: CommissionChartProps) {
 
   return (
     <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-      <h3 className="text-xl font-bold text-slate-950 mb-8">Evolução de Comissões</h3>
+      <h3 className="text-xl font-bold text-slate-950 mb-8">Comissões por Contrato</h3>
       <div className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
