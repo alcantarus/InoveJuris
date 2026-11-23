@@ -118,13 +118,23 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
   (papel `authenticated`) nas RPCs de negócio.
 - Pré-requisito confirmado pelo usuário: `SUPABASE_SERVICE_ROLE_KEY` configurada
   na Vercel (Production). Typecheck limpo.
-- [ ] Validar após deploy: login + uma página logada (requireSessionContext) +
-  uma ação admin. Só depois revogar `app_*` de auth/admin do `anon` (lote 03).
+- [x] Validado após deploy: login e navegação logada OK; `POST /api/ai/generate`
+  (`dashboard_insight`) retornou **503** ("Chave do Gemini não configurada") e
+  **não 401** — provando que `app_validate_session` via service_role funciona.
+
+### Lote 03 — `p2/03_anon_sem_app_auth.sql` (preparado, não aplicado)
+
+- Revoga `EXECUTE` de `PUBLIC, anon` nas 15 funções `app_*` de auth/sessão/admin
+  e regrant a `authenticated, service_role` (padrão do P1/04b).
+- As funções RBAC já são service_role-only; as públicas (`app_touch_indicator_token`,
+  `app_mark_onboarding_used`, `set_app_environment`, helpers de RLS) ficam de fora.
+- Verificação: consulta de `app_*` com EXECUTE no anon deve retornar só 2 linhas
+  (`app_mark_onboarding_used`, `app_touch_indicator_token`); `service_role` segue
+  executando `app_validate_session`.
+- Testes após aplicar: login, onboarding e portal do indicador.
 
 ## Próximos itens (P2)
 
-- Lote 03: revogar `EXECUTE` das `app_*` de auth/sessão/admin do `anon`
-  (preservando `set_app_environment`, `app_touch_indicator_token`,
-  `app_mark_onboarding_used`, helpers de RLS). Depende do lote 02 validado.
+- Aplicar/verificar o lote 03 (lote 02 validado).
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.

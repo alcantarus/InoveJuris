@@ -28,8 +28,41 @@ Arquivos alterados (todos RPC para funções `SECURITY DEFINER`, não dependem d
 
 Pré-requisito: `SUPABASE_SERVICE_ROLE_KEY` na Vercel (confirmado). Typecheck limpo.
 
-Após o deploy, validar: login, uma página logada e uma ação admin. Só então
-preparar/aplicar o lote 03. A chave anon do cliente (`NEXT_PUBLIC_*`) fica.
+Validação do lote 02 (após deploy, 23/11/2026): login e navegação logada OK;
+`POST /api/ai/generate` com `kind: dashboard_insight` retornou **503** ("Chave do
+Gemini não configurada") — ou seja, não deu 401: a validação de sessão via
+service_role (`app_validate_session`) funcionou. Lote 03 liberado.
+
+A chave anon do cliente (`NEXT_PUBLIC_*`) fica.
+
+## Verificação do lote 03
+
+Funções `app_*` ainda executáveis pelo anon (esperado: **apenas 2 linhas** —
+`app_mark_onboarding_used` e `app_touch_indicator_token`):
+
+```sql
+select p.proname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname like 'app\_%'
+  and has_function_privilege('anon', p.oid, 'EXECUTE')
+order by 1;
+```
+
+Servidor ainda executa a validação de sessão (esperado: **true**):
+
+```sql
+select has_function_privilege(
+  'service_role', 'public.app_validate_session(uuid, text)', 'EXECUTE'
+) as service_role_executa;
+```
+
+Testes funcionais após o lote 03 (só o que pode ser afetado pela revogação):
+
+- [ ] Login (usa `app_authenticate` / `app_complete_login` via service_role).
+- [ ] Link público de onboarding ainda marca "já utilizado".
+- [ ] Portal do indicador ainda registra último acesso.
 
 ## Contexto do lote 01
 
@@ -65,6 +98,6 @@ select has_function_privilege('postgres', 'public.http_get(character varying)', 
 
 ## Próximos itens de P2
 
-- Lote 03: revogar `app_*` de auth/admin do `anon` (depende do lote 02 validado).
+- Lote 03: aplicar/verificar `03_anon_sem_app_auth.sql` (lote 02 validado).
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.
