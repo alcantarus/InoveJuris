@@ -26,7 +26,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { formatCPF, formatCNPJ, formatPhone, cn, formatDate, formatCurrency, removeAccents } from '@/lib/utils'
+import { formatCPF, formatCNPJ, formatPhone, cn, formatDate, formatDateTime, formatCurrency, removeAccents } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { PaymentFields } from '@/components/indicadores/PaymentFields'
@@ -410,31 +410,22 @@ export default function IndicadoresPage() {
     const amountPaid = value ? parseFloat(value.replace(/\./g, '').replace(',', '.')) : 0
     if (!amountPaid || amountPaid <= 0) return toast.error('Informe um valor válido')
 
-    // Find remaining balance
-    const status = commissionStatus.find(s => s.contract_id === contractId)
-    const remainingBalance = status?.remaining_balance || 0
-
-    if (amountPaid > remainingBalance) {
-      return toast.error(`O valor pago (R$ ${amountPaid.toFixed(2)}) não pode ser maior que o saldo devedor (R$ ${Number(remainingBalance).toFixed(2)})!`)
-    }
-
     if (!selectedIndicator) {
       toast.error('Indicador não selecionado')
       return
     }
 
-    const payload = {
-      contract_id: contractId,
-      indicator_id: selectedIndicator.id,
-      amount_paid: amountPaid,
-      description: paymentDescription || ''
-    }
-    console.log('Inserting commission payment:', payload)
+    // Validação de saldo e vínculo acontece no banco, na RPC. O cliente pode
+    // estar com commissionStatus desatualizado; não bloqueamos por aqui.
+    const { error } = await supabase.rpc('app_register_commission_payment', {
+      p_contract_id: contractId,
+      p_indicator_id: selectedIndicator.id,
+      p_amount: amountPaid,
+      p_description: paymentDescription || null
+    })
 
-    const { error } = await supabase.from('commission_payments').insert(payload)
+    if (error) return toast.error(error.message || 'Erro ao registrar pagamento.')
 
-    if (error) return alert('Erro ao registrar pagamento')
-    
     toast.success('Pagamento registrado!')
     setPaymentResetKey(prev => prev + 1)
     handleOpenCommissions(selectedIndicator!)
@@ -1002,6 +993,7 @@ export default function IndicadoresPage() {
                       <th className="p-3 font-medium">Tipo</th>
                       <th className="p-3 font-medium">Gerado em</th>
                       <th className="p-3 font-medium">Expira em</th>
+                      <th className="p-3 font-medium">Último acesso</th>
                       <th className="p-3 font-medium">Status</th>
                       <th className="p-3 font-medium text-right">Ações</th>
                     </tr>
@@ -1009,7 +1001,7 @@ export default function IndicadoresPage() {
                   <tbody className="divide-y divide-slate-100">
                     {indicatorTokens.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-6 text-center text-slate-500">
+                        <td colSpan={6} className="p-6 text-center text-slate-500">
                           Nenhum link gerado para este indicador.
                         </td>
                       </tr>
@@ -1029,6 +1021,9 @@ export default function IndicadoresPage() {
                             </td>
                             <td className="p-3 text-sm text-slate-600">
                               {token.expires_at ? formatDate(token.expires_at) : '-'}
+                            </td>
+                            <td className="p-3 text-sm text-slate-600">
+                              {token.last_accessed_at ? formatDateTime(token.last_accessed_at) : 'Nunca acessado'}
                             </td>
                             <td className="p-3">
                               <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${tokenStatus.colorClass}`}>
@@ -1088,6 +1083,9 @@ export default function IndicadoresPage() {
                           <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                             <MobileField label="Gerado em">{formatDate(token.created_at)}</MobileField>
                             <MobileField label="Expira em">{token.expires_at ? formatDate(token.expires_at) : '-'}</MobileField>
+                            <MobileField label="Último acesso" className="col-span-2">
+                              {token.last_accessed_at ? formatDateTime(token.last_accessed_at) : 'Nunca acessado'}
+                            </MobileField>
                           </div>
                           <MobileField label="Ações">
                             <div className="grid grid-cols-2 gap-2">

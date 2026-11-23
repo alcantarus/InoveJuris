@@ -56,6 +56,10 @@ export default function PortalIndicadorPage() {
         }
       }
 
+      // Registra o último acesso sem dar escrita ao visitante: a RPC roda
+      // como SECURITY DEFINER e só toca a coluna last_accessed_at.
+      void supabase.rpc('app_touch_indicator_token', { p_token: token })
+
       // 2. Get commission status
       const { data: statusData, error: statusError } = await supabase
         .from('vw_portal_commission_details')
