@@ -1,7 +1,8 @@
 # Otimização de performance — 23/11/2026
 
 Diagnóstico e execução em lotes, autorizados pelo usuário. Ordem acordada:
-P0.2 + P0.3 → P0.1 → P1.1. Nada de banco/RLS foi alterado.
+P0.2 + P0.3 → P0.1 → P1.1; na retomada: P1.2 → P1.3 → P2 (parcial).
+Nada de banco/RLS foi alterado.
 
 ## Diagnóstico (auditoria somente leitura)
 
@@ -45,13 +46,44 @@ P0.2 + P0.3 → P0.1 → P1.1. Nada de banco/RLS foi alterado.
   `/portal/indicador/*`) continuam sem bootstrap; login/logout/troca de ambiente
   ainda fazem navegação completa, que remonta o provider.
 
-## Validação pendente (quando retomar)
+## Validação dos lotes P0 (23/11/2026)
 
-- [ ] Abrir Dashboard no desktop e no iPhone e conferir carregamento/console.
-- [ ] Login, logout, troca de ambiente e "Assumir usuário" (impersonação).
-- [ ] `ProfilesTab` → salvar perfil (usa `refreshUser`).
-- [ ] IA: enviar imagem em Configurações → Marketing → Nova Arte e testar sugestão.
-- [ ] Confirmar que `/login` responde `200` e `/configuracoes` sem cookie responde `307`.
+- `/login` → `200`; `/configuracoes` sem cookie → `307` para `/login`.
+- Dashboard desktop: console sem erros; **1** `POST /api/auth/session`
+  (`{"action":"validate"}`) — antes eram 11; **7 queries** no load — antes 12.
+- Troca de ambiente PRODUÇÃO → TESTE → PRODUÇÃO OK; após reload,
+  `data-env=production`.
+- Achados preexistentes (não são regressão do P0): `GET /rest/v1/system_settings`
+  retorna `401` e gera `Error fetching settings:`; em `/usuarios`, a consulta de
+  `user_roles` falha com `42501 permission denied`, deixando a lista vazia e sem
+  botão de impersonação. Ambos dependem de grants/RLS (F4b).
+- Ainda pendente de validação pelo usuário: logout, salvar permissão em
+  `ProfilesTab`, upload/IA em Marketing, impersonação e conferência no iPhone.
+
+## Lote P1.2 — Cache-Control em signed-url (concluído)
+
+- Commit `ff26318`, deploy `dpl_3yF4XDj6NzB8QdqFcTG9v632GxAR` — `READY`.
+- JSON de `/api/storage/signed-url`: `private, max-age=300, must-revalidate`.
+- Redirect (`?redirect=1`): `private, no-store`, para não guardar URL assinada antiga.
+
+## Lote P1.3 — DJEN em lotes (concluído)
+
+- Mesmo commit/deploy do P1.2.
+- `insert` + updates individuais substituídos por `upsert` em lotes de 200 pela
+  chave única `(source, external_id, environment)`.
+- Payload só com campos de fonte: `status`, decisão, responsável, leitura, prazo
+  e importância continuam sob controle humano.
+- Contadores `inserted`/`updated` mantidos, agora derivados do estado anterior.
+
+## Lote P2 — parcial (concluído o que era seguro)
+
+- Commit `3934c0c`: `after()` de `next/server` fecha `publication_sync_log` fora
+  do caminho da resposta, no sucesso e na falha.
+- Commit `ef1d26e`, deploy `dpl_HRFVC5g5JHaQzHjkhd6bD34ePieA` — `READY`.
+- Gráficos do Dashboard movidos para `components/dashboard/DashboardCharts.tsx`
+  e carregados com `next/dynamic` (`ssr: false`). First Load JS de `/`:
+  **556 kB → 431 kB**. Os quatro `DeferredBlock`s e seus placeholders foram
+  preservados no novo módulo.
 
 ## Ainda não executado (aguarda decisão)
 
@@ -60,8 +92,9 @@ P0.2 + P0.3 → P0.1 → P1.1. Nada de banco/RLS foi alterado.
   e medir com `EXPLAIN (ANALYZE, BUFFERS)` antes/depois. Conferir em produção a
   função `get_auth_organization()` (referenciada em policy legada de `users`,
   sem definição no repositório). Não reaplizar scripts `fix_*_rls.sql`.
-- **P1.2:** `Cache-Control` nas URLs assinadas (`app/api/storage/signed-url/route.ts`).
-- **P1.3:** `upsert` no sync e lotes no DJEN (`app/api/djen-sync/route.ts`).
-- **P2:** `next/dynamic` para Recharts/motion, DJEN em background, streaming de backup.
+- **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
+  precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
+  são gravados antes da resposta; passar a stream + `after()` troca esse contrato
+  por um risco desproporcional numa rota administrativa crítica.
 
 Não executar nada de banco sem autorização e sem medição prévia.
