@@ -279,17 +279,17 @@ export function MarketingTab() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `templates/${fileName}`;
 
-      // Upload feito no servidor com service role. O bucket ainda pode estar
-      // publico; a URL gravada mantem o formato atual para compatibilidade.
-      const { publicUrl } = await uploadStorageFile('marketing', file, {
+      // Upload feito no servidor com service role. Gravamos apenas o path
+      // relativo; a exibicao e a IA usam a rota de URL assinada.
+      const { path } = await uploadStorageFile('marketing', file, {
         path: filePath,
       });
 
-      setEditingTemplate(prev => ({ ...prev, image_url: publicUrl }));
+      setEditingTemplate(prev => ({ ...prev, image_url: path }));
       toast.success('Imagem carregada com sucesso!');
       
       // Auto-analyze with AI after upload
-      await analyzeImage(publicUrl);
+      await analyzeImage(path);
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error('Erro ao carregar imagem: ' + error.message);

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import archiver from 'archiver';
 import nodemailer from 'nodemailer';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { createServiceRoleClient, ServiceRoleConfigError } from '@/lib/supabase-service';
 import { authErrorResponse, requireAdminContext, AdminContext } from '@/lib/server-auth';
 
 // Helper to convert stream to buffer
@@ -25,17 +24,10 @@ export async function POST(request: Request) {
     const { sendEmail, smtpConfig } = body;
     const appEnv = admin.environment;
 
-    // Initialize Supabase Client
-    // Try to use service role key if available to bypass RLS
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-    const supabaseKey = serviceRoleKey || defaultKeyProd;
-    
-    const supabase = createClient(defaultUrlProd, supabaseKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      }
-    });
+    // Backup precisa ler information_schema, system_settings e audit_logs.
+    // Service role e obrigatoria: sem a chave a rota falha fechado em vez de
+    // ler com privilegio anon e mascarar a falha de configuracao.
+    const supabase = createServiceRoleClient();
 
     // 1. Get list of tables in public schema
     const { data: tables, error: tablesError } = await supabase
@@ -207,15 +199,20 @@ export async function POST(request: Request) {
     const unauthorized = authErrorResponse(error);
     if (unauthorized) return unauthorized;
 
+    if (error instanceof ServiceRoleConfigError) {
+      console.error('Backup Generation Error:', error.message);
+      return NextResponse.json(
+        { error: 'Servidor sem configuração de service role.' },
+        { status: 503 }
+      );
+    }
+
     console.error('Backup Generation Error:', error);
     
     // Log failure to backup_status in system_settings
     try {
       const appEnv = admin?.environment || 'production';
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-      const supabase = createClient(defaultUrlProd, serviceRoleKey || defaultKeyProd, {
-        auth: { persistSession: false, autoRefreshToken: false }
-      });
+      const supabase = createServiceRoleClient();
 
       await supabase
         .from('system_settings')

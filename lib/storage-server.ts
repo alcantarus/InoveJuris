@@ -93,12 +93,7 @@ export function normalizeStoragePath(
   return isValidStoragePath(trimmed) ? trimmed : null
 }
 
-/** Mantem exatamente o formato gravado hoje nas colunas file_url/image_url. */
-export function publicUrlFor(bucket: StorageBucket, path: string): string {
-  const encoded = path
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/')
-
-  return `${defaultUrlProd}/storage/v1/object/public/${bucket}/${encoded}`
-}
+/**
+ * Nao geramos mais URLs publicas. Buckets sao privados e o acesso passa por
+ * /api/storage/signed-url, que valida a sessao antes de assinar o arquivo.
+ */

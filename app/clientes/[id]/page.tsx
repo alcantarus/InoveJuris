@@ -290,9 +290,9 @@ export default function ClientProfilePage() {
       const fileExt = file.name.split('.').pop()
       const fileName = `${crypto.randomUUID()}.${fileExt}`
 
-      // Upload feito no servidor com service role; o caminho continua
-      // {clientId}/{arquivo} e o formato da URL gravada nao muda.
-      const { publicUrl } = await uploadStorageFile('client_documents', file, {
+      // Upload feito no servidor com service role. Gravamos apenas o path
+      // relativo; a exibicao passa pela rota de URL assinada.
+      const { path } = await uploadStorageFile('client_documents', file, {
         clientId,
         path: fileName,
       })
@@ -301,7 +301,7 @@ export default function ClientProfilePage() {
         .from('client_documents')
         .insert([{
           client_id: clientId,
-          file_url: publicUrl,
+          file_url: path,
           document_type: file.name,
           created_by: user?.id,
           environment: getAppEnv()

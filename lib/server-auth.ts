@@ -55,7 +55,11 @@ export async function requireSessionContext(): Promise<SessionContext> {
 }
 
 /**
- * Valida a sessao e exige permissao administrativa.
+ * Valida a sessao e exige exatamente a permissao administrativa pedida.
+ *
+ * canAccessUsers NAO e atalho para settings/audit: gerenciar usuarios nao
+ * pode conceder acesso a configuracoes, logs ou backup. O unico atalho e
+ * is_superadmin.
  */
 export async function requireAdminContext(
   permission: 'settings' | 'audit' = 'settings'
@@ -63,15 +67,25 @@ export async function requireAdminContext(
   const ctx = await requireSessionContext()
   const user = ctx.user
 
-  const isAdmin =
+  const allowed =
     user.is_superadmin === true ||
-    user.canAccessUsers === true ||
     (permission === 'audit'
       ? user.canAccessAudit === true
       : user.canAccessSettings === true)
 
-  if (!isAdmin) {
+  if (!allowed) {
     throw new AdminAuthError('Acesso negado.', 403)
+  }
+
+  return ctx
+}
+
+/** Operacoes sensiveis (como restore de backup) exigem superadministrador. */
+export async function requireSuperadminContext(): Promise<AdminContext> {
+  const ctx = await requireSessionContext()
+
+  if (ctx.user.is_superadmin !== true) {
+    throw new AdminAuthError('Acesso restrito a superadministradores.', 403)
   }
 
   return ctx

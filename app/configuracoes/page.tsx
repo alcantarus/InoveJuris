@@ -70,7 +70,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (!user?.canAccessSettings && !user?.canAccessUsers && !user?.canAccessTestEnv) {
+  if (!user?.is_superadmin && !user?.canAccessSettings) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Shield className="h-16 w-16 text-slate-300" />

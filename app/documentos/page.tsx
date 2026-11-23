@@ -339,10 +339,10 @@ export default function DocumentosPage() {
       // 1. Upload feito no servidor com service role
       console.log('Iniciando upload para o Storage...')
       const fileName = `${Date.now()}_${file.name}`
-      const { publicUrl } = await uploadStorageFile('templates', file, {
+      const { path } = await uploadStorageFile('templates', file, {
         path: fileName,
       })
-      console.log('Upload concluído:', publicUrl)
+      console.log('Upload concluído:', path)
 
       // 2. Save template to DB
       console.log('Salvando no Banco de Dados...')
@@ -351,7 +351,7 @@ export default function DocumentosPage() {
         .insert({ 
           name: templateName, 
           category: templateCategory, 
-          file_url: publicUrl
+          file_url: path
         })
         .select()
         .single()

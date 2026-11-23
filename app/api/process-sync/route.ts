@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { fetchDatajud } from '@/lib/datajud'
-import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
+import { createServiceRoleClient, ServiceRoleConfigError } from '@/lib/supabase-service'
 import { authErrorResponse, requireSessionContext } from '@/lib/server-auth'
 
 type SupabaseClient = any
@@ -18,22 +17,6 @@ interface SyncRow {
 function isMissingEnvironment(error: any): boolean {
   const message = String(error?.message || error || '')
   return message.includes('42703') || message.includes('process_sync_log.environment')
-}
-
-async function getClient(environment: string): Promise<SupabaseClient> {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
-
-  const client = createClient(defaultUrlProd, serviceKey || defaultKeyProd, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-
-  // Sem service role, ainda respeita o isolamento lógico via RPC.
-  if (!serviceKey) {
-    await client.rpc('set_app_environment', { env_name: environment })
-  }
-
-  return client
 }
 
 async function saveSyncStatus(client: SupabaseClient, row: SyncRow): Promise<void> {
@@ -80,7 +63,7 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.DATAJUD_API_KEY
     const env = ctx.environment
-    const client = await getClient(env)
+    const client = createServiceRoleClient()
     const now = new Date().toISOString()
 
     let result
@@ -135,6 +118,14 @@ export async function POST(req: Request) {
   } catch (error: any) {
     const unauthorized = authErrorResponse(error)
     if (unauthorized) return unauthorized
+
+    if (error instanceof ServiceRoleConfigError) {
+      return NextResponse.json(
+        { success: false, error: 'Servidor sem configuração de service role.' },
+        { status: 503 }
+      )
+    }
+
     console.error('[process-sync] erro:', error)
     return NextResponse.json(
       { success: false, error: error?.message || 'Erro interno na sincronização.' },

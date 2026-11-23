@@ -5,7 +5,6 @@ import { authorizeStoragePath } from '@/lib/storage-policy'
 import {
   isStorageBucket,
   normalizeStoragePath,
-  publicUrlFor,
   getStorageServiceClient,
   StorageConfigError,
 } from '@/lib/storage-server'
@@ -74,11 +73,7 @@ export async function POST(request: Request) {
 
     if (error) throw new Error(error.message)
 
-    return NextResponse.json({
-      bucket,
-      path,
-      publicUrl: publicUrlFor(bucket, path),
-    })
+    return NextResponse.json({ bucket, path })
   } catch (error) {
     return errorResponse(error)
   }

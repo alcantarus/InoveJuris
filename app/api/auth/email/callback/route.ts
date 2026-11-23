@@ -1,19 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
-
-// Helper to get Supabase client with Service Role Key
-const getSupabase = () => {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseKey = serviceRoleKey || defaultKeyProd;
-  
-  return createClient(defaultUrlProd, supabaseKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    }
-  });
-};
+import { createServiceRoleClient, ServiceRoleConfigError } from '@/lib/supabase-service';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -103,8 +89,9 @@ export async function GET(request: Request) {
       userEmail = userData.mail || userData.userPrincipalName;
     }
 
-    // Store tokens in system_settings
-    const supabase = getSupabase();
+    // Store tokens in system_settings. Service role e obrigatoria: gravar
+    // tokens OAuth com a chave anon silenciosamente nao e aceitavel.
+    const supabase = createServiceRoleClient();
     
     // We store separate settings for each provider
     const settingKey = `email_oauth_${state}`; // email_oauth_google or email_oauth_outlook
@@ -149,7 +136,10 @@ export async function GET(request: Request) {
 
   } catch (err: any) {
     console.error('OAuth Callback Error:', err);
-    return new NextResponse(`<html><body><script>window.opener.postMessage({ type: 'OAUTH_ERROR', error: '${err.message}' }, '*'); window.close();</script></body></html>`, {
+    const message = err instanceof ServiceRoleConfigError
+      ? 'Servidor sem configuração de service role.'
+      : err.message;
+    return new NextResponse(`<html><body><script>window.opener.postMessage({ type: 'OAUTH_ERROR', error: '${message}' }, '*'); window.close();</script></body></html>`, {
       headers: { 'Content-Type': 'text/html' },
     });
   }

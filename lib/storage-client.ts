@@ -13,13 +13,27 @@ function decodePath(raw: string): string {
   }
 }
 
-/** Extrai o path relativo de uma URL publica/signada ja gravada no banco. */
+/** Caminhos relativos sao o formato gravado apos remover as URLs publicas. */
+function isRelativeStoragePath(value: string): boolean {
+  if (!value || value.length > 500) return false
+  if (value.startsWith('/') || value.endsWith('/') || value.includes('//')) return false
+  if (value.includes('..') || value.includes('\\')) return false
+  if (/[?#\0]/.test(value)) return false
+  // URL absoluta ou outro esquema (http:, data:, ...) nao e um path.
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) return false
+  return true
+}
+
+/** Extrai o path de URLs antigas ou do path relativo gravado no banco. */
 export function storagePathFromUrl(
   input: string,
   bucket: StorageBucket
 ): string | null {
+  const raw = input.trim()
+  if (!raw) return null
+
   try {
-    const parsed = new URL(input)
+    const parsed = new URL(raw)
     const markers = [
       `/storage/v1/object/public/${bucket}/`,
       `/storage/v1/object/sign/${bucket}/`,
@@ -36,7 +50,9 @@ export function storagePathFromUrl(
     // Nao e uma URL absoluta: pode ser um path relativo.
   }
 
-  return null
+  if (!isRelativeStoragePath(raw)) return null
+  const decoded = decodePath(raw)
+  return isRelativeStoragePath(decoded) ? decoded : null
 }
 
 /**
@@ -54,7 +70,6 @@ export function storageUrl(input: string, bucket: StorageBucket): string {
 export type UploadResult = {
   bucket: StorageBucket
   path: string
-  publicUrl: string
 }
 
 export async function uploadStorageFile(
