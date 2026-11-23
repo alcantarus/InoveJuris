@@ -2,7 +2,7 @@
 
 Diagnóstico e execução em lotes, autorizados pelo usuário. Ordem acordada:
 P0.2 + P0.3 → P0.1 → P1.1; na retomada: P1.2 → P1.3 → P2 (parcial).
-Nada de banco/RLS foi alterado.
+Banco/RLS: P1.1 aplicado, validado e mantido em 23/11/2026 — detalhes abaixo.
 
 ## Diagnóstico (auditoria somente leitura)
 
@@ -13,8 +13,9 @@ Nada de banco/RLS foi alterado.
    aninhados (O(n²)) para cruzar contratos/processos/clientes.
 3. A cadeia Gemini chegava a **~24 chamadas HTTP** por ação: 4 modelos ×
    2 tentativas da app × 3 retries internos do SDK (`maxRetries=2`).
-4. Pendente: RLS com `_auth_session_payload()` VOLATILE avaliada por linha,
-   índices em `user_sessions`, Cache-Control de signed-url (P1) e bundle (P2).
+4. RLS com `_auth_session_payload()` VOLATILE — resolvido no P1.1 (STABLE +
+   helper booleano enxuto). Índices em `user_sessions` descartados por medição.
+   Cache-Control de signed-url (P1.2) e bundle (P2) concluídos.
 
 > Nota: `AIInsightsWidget` chama `/api/ai/generate` no mount, mas **não está
 > montado em nenhuma página**. O "Parecer Estratégico" do Dashboard é local,
@@ -85,42 +86,41 @@ Nada de banco/RLS foi alterado.
   **556 kB → 431 kB**. Os quatro `DeferredBlock`s e seus placeholders foram
   preservados no novo módulo.
 
-## Ainda não executado (aguarda decisão)
+## Estado final e pendências
 
-- **P1.1 (banco, risco médio) — diagnóstico concluído, aguardando autorização
-  para aplicar:**
-  - Medição em produção (PG 17.6, 1 sessão ativa, role `authenticated`):
-    `_auth_session_payload` = **VOLATILE**; `_rls_session_valid`,
-    `_rls_can_access`, `_auth_user_payload` e `get_auth_organization()` já são
-    **STABLE**. Tempos: `_auth_session_payload` 2,625 ms, `_rls_can_access`
-    2,106 ms, `app_validate_session` 1,820 ms (baseline antigo do parecer:
-    ~95 ms), `clients` com RLS 110,732 ms e `processes` 10,949 ms.
-  - `get_auth_organization()` existe, lê `custom.organization_id` e já é STABLE.
-    A policy legada `"Isolamento por Organização em users"` fica intacta.
-  - Índices em `user_sessions` **retirados do plano**: 207 linhas e `Seq Scan`
-    de 0,163 ms na listagem por ambiente não justificam custo de escrita.
-  - Scripts prontos: `supabase/migrations/p1_1/01_p1_1_session_rls_apply.sql`,
-    `02_p1_1_session_rls_rollback.sql` e
-    `docs/VALIDACAO-P1-1-20261123.sql`.
-  - Fora do P1.1: os 110 ms de `clients` vêm de `_rls_can_access(environment)`
-    ser avaliado por linha nas policies. Frente separada, com medição própria.
-  - Apply executado pelo usuário; validação funcional passou. A primeira
-    comparação de tempos ficou pior em todas as métricas.
-  - **Pausado em 23/11:** o Supabase acusou Disk IO Budget próximo do limite.
-    `docs/DIAGNOSTICO-P1-1-REPETIDO.sql` executa `count(*)` 5 vezes e ficou
-    suspenso para não agravar o IO. Amanhã, primeiro rodar
-    `docs/DIAGNOSTICO-IO-20261123.sql` (somente leitura de estatísticas),
-    identificar a origem do IO e só depois decidir entre manter, fazer rollback
-    ou medir novamente. Handoff completo em
+- **P1.1 (banco/RLS) — CONCLUÍDO E MANTIDO.**
+  - Diagnóstico em produção (PG 17.6, role `authenticated`):
+    `_auth_session_payload` era **VOLATILE**; `_rls_session_valid`,
+    `_rls_can_access`, `_auth_user_payload` e `get_auth_organization()` já eram
+    **STABLE**.
+  - `get_auth_organization()` existe, lê `custom.organization_id` e não foi
+    alterada. A policy legada `"Isolamento por Organização em users"` segue
+    intacta. Nenhuma policy, grant ou role foi alterado.
+  - Índices em `user_sessions` **fora do plano**: 207 linhas e `Seq Scan` de
+    0,163 ms não justificam custo de escrita.
+  - Apply executado pelo usuário; validação funcional passou (sem token →
+    `false`, com token → `true`, environment errado → `false`,
+    `app_validate_session` → `true`).
+  - Alerta de Disk IO Budget investigado: hit ratio 100%, 2.299 `blks_read` no
+    total, `read_ms`/`write_ms`/`evictions` zerados; top por blocos lidos são
+    exports `COPY ... TO stdout` e DDL do Realtime, servidos por cache. Alerta
+    foi transitório e **não** motivou rollback.
+  - Uma amostra sem sessão ativa foi descartada (`sessao_encontrada = false`).
+  - Medição final com 5 repetições e sessão ativa:
+
+    | Métrica | Baseline | Mediana | Resultado |
+    |---|---:|---:|---|
+    | `_auth_session_payload` | 2,625 ms | 0,652 ms | ~4× melhor |
+    | `_rls_can_access` | 2,106 ms | 0,868 ms | ~2,4× melhor |
+    | `app_validate_session` | 1,820 ms | 0,786 ms | ~2,3× melhor |
+    | `processes` com RLS | 10,949 ms | 10,129 ms | estável |
+    | `clients` com RLS | 110,732 ms | 165,010 ms | pior — frente separada |
+
+  - **Decisão:** manter o apply. Rollback não aplicado. Handoff em
     `docs/HANDOFF-P1-1-20261123.md`.
-  - Amostra de 24/11 **descartada**: `sessao_encontrada = false` e
-    `sessoes_ativas_recentes = 0`. Sem sessão ativa as policies barram as
-    linhas e os tempos não são comparáveis. Refazer apenas com o sistema aberto.
-  - Diagnóstico de IO (23/11 23:00Z): hit ratio 100%, 2.299 `blks_read` no
-    total, `read_ms`/`write_ms`/`evictions` zerados. Top por blocos lidos são
-    exports `COPY ... TO stdout` e DDL do Realtime, todos servidos por cache.
-    Alerta foi transitório; **não** motiva rollback do P1.1. Detalhes no
-    handoff.
+  - **Próxima frente:** estabilizar `clients` com RLS. A causa apontada é
+    `_rls_can_access(environment)` ser avaliado por linha nas policies; mudança
+    exige replanejamento e nova autorização.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato
