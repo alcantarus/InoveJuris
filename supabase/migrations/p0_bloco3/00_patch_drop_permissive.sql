@@ -49,7 +49,7 @@ $$;
 revoke all on function public._p0_drop_except(text[], text[]) from public, anon, authenticated;
 revoke all on function public._p0_drop_permissive(text[]) from public, anon, authenticated;
 
--- Verificação (esperado: 0 linhas).
+-- Verificação (esperado: 1 linha, "_p0_drop_except").
 select proname
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
