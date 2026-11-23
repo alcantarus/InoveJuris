@@ -90,6 +90,16 @@ function withEnvironment(user: any, environment: AppEnv): User {
   return { ...user, selectedEnv: environment, environment }
 }
 
+// Links públicos usam o token da URL (header x-inove-access-token), não a
+// sessão do painel. O middleware já os isenta; o bootstrap do useAuth precisa
+// fazer o mesmo, senão SessionMonitor/LeadsButton (layout raiz) redirecionam
+// o indicador para /login.
+const PUBLIC_LINK_ROUTE = /^\/(?:onboarding|portal\/indicador)\/[^/]+\/?$/
+
+function isPublicLinkRoute(pathname: string) {
+  return PUBLIC_LINK_ROUTE.test(pathname)
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -117,8 +127,17 @@ export function useAuth() {
     const bootstrap = async () => {
       // A tela de login não precisa restaurar sessão; se houver cookies válidos,
       // a validação ocorre no primeiro acesso autenticado.
-      if (window.location.pathname === '/login') {
+      const pathname = window.location.pathname
+      if (pathname === '/login') {
         clearLocalSession()
+        if (!cancelled) setLoading(false)
+        return
+      }
+
+      // Onboarding e portal do indicador são públicos. Não limpar a sessão
+      // local aqui: o administrador pode abrir o link em outra aba e voltar
+      // ao painel sem precisar logar de novo.
+      if (isPublicLinkRoute(pathname)) {
         if (!cancelled) setLoading(false)
         return
       }
