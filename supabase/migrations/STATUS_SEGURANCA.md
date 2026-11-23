@@ -84,9 +84,20 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 - `anon` sem EXECUTE nas funções de negócio; mantém apenas auth/sessão/admin
   (rotas de servidor usam chave anon), helpers de RLS e links públicos.
 
+## P2 — em andamento
+
+### Lote 01 — `p2/01_http_sem_public.sql` (preparado, não aplicado)
+
+- Revoga `EXECUTE` das funções `http_*` de `PUBLIC`/`anon`/`authenticated` (SSRF);
+  mantém `service_role`, `postgres` e o dono da `djen_fetch`.
+- Único consumidor é `djen_fetch` (`SECURITY DEFINER`, roda como `postgres`,
+  host fixo no DJEN). Chamada via anon em `lib/djen.ts`, mas o `http_get` interno
+  executa como `postgres` — por isso não quebra.
+- Verificação: 0 funções http p/ anon + `postgres` ainda executa `http_get`.
+- Teste funcional (único afetado): sincronização DJEN em Publicações (`test`).
+
 ## Próximos itens (P2)
 
-- Revogar `http_*` de `PUBLIC` (SSRF) e regrant seletivo.
 - Mover rotas de servidor da chave anon para `service_role` (depois revogar
   `app_*` de auth/admin do `anon`).
 - Rotação da chave ECC/ES256.
