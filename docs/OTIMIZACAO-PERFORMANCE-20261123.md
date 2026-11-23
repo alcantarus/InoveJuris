@@ -105,9 +105,13 @@ Nada de banco/RLS foi alterado.
   - Fora do P1.1: os 110 ms de `clients` vêm de `_rls_can_access(environment)`
     ser avaliado por linha nas policies. Frente separada, com medição própria.
   - Apply executado pelo usuário; validação funcional passou. A primeira
-    comparação de tempos ficou pior em todas as métricas, então a decisão sobre
-    manter ou fazer rollback depende de `docs/DIAGNOSTICO-P1-1-REPETIDO.sql`
-    (5 repetições + mediana).
+    comparação de tempos ficou pior em todas as métricas.
+  - **Pausado em 23/11:** o Supabase acusou Disk IO Budget próximo do limite.
+    `docs/DIAGNOSTICO-P1-1-REPETIDO.sql` executa `count(*)` 5 vezes e ficou
+    suspenso para não agravar o IO. Amanhã, primeiro rodar
+    `docs/DIAGNOSTICO-IO-20261123.sql` (somente leitura de estatísticas),
+    identificar a origem do IO e só depois decidir entre manter, fazer rollback
+    ou medir novamente.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato
