@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import {
   fetchDjenCommunications,
   normalizeDjenItem,
@@ -305,8 +305,11 @@ export async function POST(req: Request) {
     }
 
     if (logId != null) {
-      try {
-        await client.from('publication_sync_log').update({
+      // O fechamento do log não é necessário para devolver o resultado ao
+      // usuário. Após a resposta, a plataforma mantém a função viva o bastante
+      // para concluir esta escrita.
+      after(async () => {
+        const finishPayload = {
           sync_status: failedLawyers.length === validLawyers.length ? 'Erro' : 'Sincronizado',
           finished_at: new Date().toISOString(),
           fetched_count: result.fetched,
@@ -317,10 +320,18 @@ export async function POST(req: Request) {
           error_message: failedLawyers.length > 0
             ? failedLawyers.map(item => `${item.label}: ${item.error}`).join(' | ').slice(0, 1000)
             : null,
-        }).eq('id', logId)
-      } catch (logError) {
-        console.error('[djen-sync] erro ao registrar conclusão:', logError)
-      }
+        }
+        try {
+          const logClient = createServiceRoleClient()
+          const { error: logError } = await logClient
+            .from('publication_sync_log')
+            .update(finishPayload)
+            .eq('id', logId)
+          if (logError) throw logError
+        } catch (logError) {
+          console.error('[djen-sync] erro ao registrar conclusão:', logError)
+        }
+      })
     }
 
     return NextResponse.json(result)
@@ -342,16 +353,22 @@ export async function POST(req: Request) {
     const status = isRateLimitError(message) ? 502 : 500
 
     if (logId != null) {
-      try {
-        const client = createServiceRoleClient()
-        await client.from('publication_sync_log').update({
-          sync_status: 'Erro',
-          finished_at: new Date().toISOString(),
-          error_message: message.slice(0, 1000),
-        }).eq('id', logId)
-      } catch (logError) {
-        console.error('[djen-sync] erro ao registrar falha:', logError)
-      }
+      after(async () => {
+        try {
+          const logClient = createServiceRoleClient()
+          const { error: logError } = await logClient
+            .from('publication_sync_log')
+            .update({
+              sync_status: 'Erro',
+              finished_at: new Date().toISOString(),
+              error_message: message.slice(0, 1000),
+            })
+            .eq('id', logId)
+          if (logError) throw logError
+        } catch (logError) {
+          console.error('[djen-sync] erro ao registrar falha:', logError)
+        }
+      })
     }
 
     return NextResponse.json({ success: false, error: message }, { status })
