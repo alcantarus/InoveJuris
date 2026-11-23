@@ -49,6 +49,7 @@ Se `session_id` não aparecer, **pare**: as policies negarão todo acesso.
 | 8 | `08_tarefas_kanban.sql` | Tarefas/Kanban | Tarefas, Kanban |
 | 9 | `09_configuracoes_auditoria.sql` | Settings/auditoria somente leitura | Configurações, Auditoria, backup |
 | 10 | `10_portais_publicos.sql` | Links sem login | Onboarding e portal do indicador |
+| 11 | `11_tabelas_extras.sql` | Fecha 6 tabelas fora do inventário que ainda tinham `using (true)` (backup, legados e organizações) | Verificação ampla sem linhas |
 
 Rode `verify.sql` depois de **cada** lote. Salve a saída. Use `rollback.sql` se algum
 fluxo quebrar; ele restaura o estado permissivo anterior.
