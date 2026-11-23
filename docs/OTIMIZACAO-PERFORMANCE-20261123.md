@@ -92,6 +92,9 @@ Nada de banco/RLS foi alterado.
   e medir com `EXPLAIN (ANALYZE, BUFFERS)` antes/depois. Conferir em produção a
   função `get_auth_organization()` (referenciada em policy legada de `users`,
   sem definição no repositório). Não reaplizar scripts `fix_*_rls.sql`.
+  - Diagnóstico preparado (somente leitura, com `ROLLBACK`):
+    `docs/DIAGNOSTICO-P1-1-RLS-20261123.sql`. Executar com o sistema aberto e
+    salvar a saída dos EXPLAINs antes de seguir para a migration.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato
