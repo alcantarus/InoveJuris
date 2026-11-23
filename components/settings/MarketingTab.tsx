@@ -214,24 +214,13 @@ export function MarketingTab() {
   const [isUploading, setIsUploading] = useState(false);
   const [dbError, setDbError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [manualKey, setManualKey] = useState('');
-  const [showKeyInput, setShowKeyInput] = useState(false);
-
   // ... (rest of the component logic)
   const [editingTemplate, setEditingTemplate] = useState<Partial<BirthdayTemplate> | null>(null);
   const [editingMessage, setEditingMessage] = useState<Partial<BirthdayMessage> | null>(null);
 
   useEffect(() => {
     fetchData();
-    const savedKey = localStorage.getItem('gemini_manual_key');
-    if (savedKey) setManualKey(savedKey);
   }, []);
-
-  const saveManualKey = (key: string) => {
-    setManualKey(key);
-    localStorage.setItem('gemini_manual_key', key);
-    toast.success('Chave salva localmente!');
-  };
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -302,7 +291,7 @@ export function MarketingTab() {
     setIsAnalyzing(true);
     try {
       const base64Data = await fetchAndResizeImage(storageUrl(imageUrl, 'marketing'));
-      const result = await analyzeTemplateImage(base64Data, manualKey);
+      const result = await analyzeTemplateImage(base64Data);
       
       if (result.error) {
         throw new Error(result.error);
@@ -671,13 +660,6 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setShowKeyInput(!showKeyInput)}
-                  className="flex items-center gap-2 px-3 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Configurar IA
-                </button>
-                <button
                   onClick={() => setEditingTemplate({})}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                 >
@@ -686,34 +668,6 @@ CREATE TABLE IF NOT EXISTS marketing_logs (
                 </button>
               </div>
             </div>
-
-            {showKeyInput && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
-                <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
-                  <AlertCircle className="w-4 h-4" />
-                  Configuração Manual da IA
-                </div>
-                <p className="text-xs text-amber-700">
-                  Se a IA não estiver funcionando, cole sua chave do Google AI Studio abaixo. 
-                  Ela será salva apenas no seu navegador.
-                </p>
-                <div className="flex gap-2">
-                  <input 
-                    type="password"
-                    value={manualKey}
-                    onChange={(e) => setManualKey(e.target.value)}
-                    placeholder="Cole sua chave AIza... aqui"
-                    className="flex-1 text-sm border-amber-300 rounded-md focus:ring-amber-500 focus:border-amber-500"
-                  />
-                  <button 
-                    onClick={() => saveManualKey(manualKey)}
-                    className="px-4 py-2 bg-amber-600 text-white text-sm rounded-md hover:bg-amber-700 font-medium"
-                  >
-                    Salvar Chave
-                  </button>
-                </div>
-              </div>
-            )}
 
             {editingTemplate !== null ? (
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">

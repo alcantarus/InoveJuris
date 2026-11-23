@@ -133,7 +133,6 @@ export async function POST(request: Request) {
 
     const payload =
       body?.payload && typeof body.payload === 'object' ? body.payload : {}
-    const manualKey = typeof body?.manualKey === 'string' ? body.manualKey : undefined
 
     const built = buildRequest(kind, payload)
 
@@ -142,7 +141,7 @@ export async function POST(request: Request) {
     }
 
     const config = 'config' in built ? built.config : undefined
-    const text = await generateGeminiText(built.prompt, manualKey, config)
+    const text = await generateGeminiText(built.prompt, config)
     return NextResponse.json({ text })
   } catch (error: any) {
     if (error?.code === 'GEMINI_KEY_MISSING') {

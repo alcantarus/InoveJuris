@@ -3,17 +3,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { resolveGeminiKey } from "@/lib/gemini-server";
 
-export async function getGeminiApiKey() {
-  return resolveGeminiKey() || '';
-}
+export async function analyzeTemplateImage(base64Image: string) {
+  const apiKey = resolveGeminiKey();
 
-export async function analyzeTemplateImage(base64Image: string, manualApiKey?: string) {
-  // Ordem de busca: 1. Chave manual enviada pelo usuário, 2. Segredos do Servidor
-  const apiKey = resolveGeminiKey(manualApiKey);
-
-  if (!apiKey || apiKey.trim() === '') {
-    return { 
-      error: 'Chave do Gemini não encontrada. Por favor, insira a chave no campo de configuração acima ou nos Segredos do projeto.' 
+  if (!apiKey) {
+    return {
+      error: 'Chave do Gemini não configurada no servidor. Configure GEMINI_API_KEY no Vercel.'
     };
   }
 

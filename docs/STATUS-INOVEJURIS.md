@@ -4,6 +4,15 @@
 > Atualizado em: 2026-11-20 (Fase 0 de segurança e **F4b-1** executadas; Fase 1A/1C fechadas; retenção em 90 dias agendada; **F4b-2b Fases A e B concluídas e validadas**; injeção do JWT corrigida; correção de performance no fluxo de caixa publicada; **Dashboard reorganizada e otimizada**; **isolamento de ambientes e ordem cronológica dos lançamentos corrigidos e validados visualmente pelo usuário**; branches alinhadas em `c9faaa4`; **auditoria de digitação lenta (Fases 1 a 4) validada e encerrada**; **teste financeiro ponta a ponta realizado com sucesso pelo usuário**; pendência de segurança restante **F4b-2c/chave ECC própria**, a retomar somente com autorização explícita — ver `docs/HANDOFF-PENDENCIAS-20261120.md`).
 >
 > **Fechamento do dia 2026-11-20:** resumo único, deploys, validações, pendências e rollback em `docs/RESUMO-DIA-20261120.md`.
+>
+> **Atualização em 23/11/2026:** `GEMINI_API_KEY` configurada no Vercel (Secret, Production/Preview/Development). Chaves manuais do navegador e fallbacks legados removidos; limpeza automática via `components/GeminiLegacyCleanup.tsx`. Detalhes em `docs/GEMINI-CHAVE-SERVIDOR-20261123.md`.
+
+## Gemini — chave única no servidor (2026-11-23)
+
+- Variável `GEMINI_API_KEY` adicionada como Secret nos três ambientes da Vercel.
+- Deploy de produção `dpl_xi2CmKwxXxqjnVWGN46tJtnx2gne` — `READY`.
+- Código simplificado: sem `manualKey`, sem `localStorage` de chave, sem `NEXT_PUBLIC_GEMINI_API_KEY`.
+- Procedimento, validação e rollback: `docs/GEMINI-CHAVE-SERVIDOR-20261123.md`.
 
 ## F4b — RLS, grants e integridade de auditoria/settings (2026-11-19)
 

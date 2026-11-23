@@ -243,16 +243,7 @@ export default function LeadsPage() {
   const [callNotes, setCallNotes] = useState('');
   const [contractCpf, setContractCpf] = useState('');
   const [contractValue, setContractValue] = useState('');
-  const [customApiKey, setCustomApiKey] = useState('');
   const [isAnalyzingId, setIsAnalyzingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Check for saved API key in localStorage
-    const savedKey = localStorage.getItem('GEMINI_API_KEY');
-    if (savedKey) {
-        setCustomApiKey(savedKey);
-    }
-  }, []);
 
   useEffect(() => {
     fetchLeads();
@@ -307,7 +298,6 @@ export default function LeadsPage() {
                 body: JSON.stringify({
                     kind: 'lead_score',
                     payload: { description },
-                    manualKey: customApiKey || undefined,
                 }),
             });
             if (!response.ok) throw new Error('Falha na análise de IA');
@@ -399,7 +389,6 @@ export default function LeadsPage() {
             body: JSON.stringify({
                 kind: 'lead_insights',
                 payload: { description: desc },
-                manualKey: customApiKey || undefined,
             }),
         })
         if (!response.ok) throw new Error('Falha na análise de IA')
@@ -428,7 +417,6 @@ export default function LeadsPage() {
             body: JSON.stringify({
                 kind: 'lead_score',
                 payload: { description: lead.description },
-                manualKey: customApiKey || undefined,
             }),
         });
         if (!response.ok) throw new Error('Falha na análise de IA');
@@ -657,23 +645,6 @@ export default function LeadsPage() {
             )}
             {isAnalyzing && <div className="p-4 text-sm text-slate-500">Analisando com Inteligência Artificial...</div>}
 
-            <div className="pt-4 border-t border-slate-100">
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Configuração (Opcional)</label>
-                <input 
-                    type="password"
-                    placeholder="Sua Gemini API Key (Se o seu plano não for AI Studio)" 
-                    className={inputClass + " text-sm"} 
-                    value={customApiKey} 
-                    onChange={e => {
-                        setCustomApiKey(e.target.value);
-                        if (e.target.value) {
-                            localStorage.setItem('GEMINI_API_KEY', e.target.value);
-                        } else {
-                            localStorage.removeItem('GEMINI_API_KEY');
-                        }
-                    }} 
-                />
-            </div>
           </div>
         </Drawer>
 

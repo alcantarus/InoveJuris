@@ -8,6 +8,7 @@ import { GlobalSearch } from '@/components/GlobalSearch'
 import { LeadsButton } from '@/components/LeadsButton'
 import { Toaster } from 'sonner'
 import { ResizeObserverFix } from '@/components/ResizeObserverFix'
+import { GeminiLegacyCleanup } from '@/components/GeminiLegacyCleanup'
 import { cookies } from 'next/headers'
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,7 @@ export default async function RootLayout({
     <html lang="pt-BR" className={cn(jetbrainsMono.variable, playfairDisplay.variable, "font-sans", geist.variable)} data-env={appEnv}>
       {/* A chave do Gemini nao e mais injetada no cliente. */}
       <body className="font-sans antialiased bg-slate-50 text-slate-900 overflow-x-hidden" suppressHydrationWarning>
+        <GeminiLegacyCleanup />
         <ResizeObserverFix />
         <SettingsProvider>
           <PrivacyProvider>
