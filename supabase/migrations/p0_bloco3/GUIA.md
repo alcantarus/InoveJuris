@@ -40,6 +40,7 @@ Se `session_id` não aparecer, **pare**: as policies negarão todo acesso.
 | 1 | `01_autenticacao_interna.sql` | Remove policies de `user_sessions`, `login_challenges`, `trusted_devices` | Login, logout, heartbeat, 2FA |
 | 2 | `02_rbac.sql` | RBAC somente leitura via sessão; escrita já é RPC. `users` fica de fora | Configurações → Perfis; Advogados |
 | 2b | `02b_users.sql` | Remove as 2 policies permissivas de `users`, preserva a de organização e adiciona P0 como `AS RESTRICTIVE` | Usuários; Advogados; login |
+| 2c | `02c_users_superadmin.sql` | Superadmin vê todos os usuários (a policy de organização olha o flag da linha, não o do chamador) | Lista de Usuários completa |
 | 3 | `03_cadastros_base.sql` | Cadastros | Advogados, Doenças, Produtos, Indicadores, Contas |
 | 4 | `04_clientes.sql` | Clientes e documentos | Clientes, upload/preview de documentos |
 | 5 | `05_contratos_financeiro.sql` | Contratos e financeiro | Contratos, parcelas, pagamentos, fluxo de caixa |
