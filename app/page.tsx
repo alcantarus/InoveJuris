@@ -75,7 +75,7 @@ const COLORS = ['#4f46e5', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'
 
 // Derivações puras fora do componente: podem ser reaproveitadas entre renders
 // sem segurar closures desnecessárias.
-function getReceivablesForDays(installments: any[], contracts: any[], days: number) {
+function getReceivablesForDays(installments: any[], contractsById: Map<string, any>, days: number) {
   const today = new Date();
   today.setHours(0,0,0,0);
   const futureDate = new Date();
@@ -84,7 +84,7 @@ function getReceivablesForDays(installments: any[], contracts: any[], days: numb
 
   return installments
     .filter((i: any) => {
-      const contract = contracts.find(c => c.id === i.contract_id);
+      const contract = contractsById.get(i.contract_id);
       if (!contract || contract.isProBono) return false;
       
       const [year, month, day] = i.dueDate.split('-').map(Number);
@@ -229,33 +229,42 @@ export default function Page() {
     processes: any[], 
     installments: any[], 
     contracts: any[],
-    products: any[],
     auditLogs: any[],
     transactions: any[],
-    lawAreas: any[],
-    deadlines: any[],
-    receivablesMetrics: any[],
-    receivablesForecast: any[],
-    topDefaulters: any[]
+    deadlines: any[]
   }>({
     clients: [],
     processes: [],
     installments: [],
     contracts: [],
-    products: [],
     auditLogs: [],
     transactions: [],
-    lawAreas: [],
-    deadlines: [],
-    receivablesMetrics: [],
-    receivablesForecast: [],
-    topDefaulters: []
+    deadlines: []
   })
 
   const [filters, setFilters] = useState({
     lawArea: 'all',
     contractType: 'all' // 'all', 'normal', 'pro-bono', 'financed'
   })
+
+  // Indices em memoria: varias derivacoes abaixo precisam cruzar contratos,
+  // processos e clientes. Um Map por lista evita .find() aninhado (O(n*m)).
+  const contractsById = useMemo(
+    () => new Map<string, any>(data.contracts.map((c: any) => [c.id, c])),
+    [data.contracts]
+  )
+  const contractsByProcessNumber = useMemo(
+    () => new Map<string, any>(
+      data.contracts
+        .filter((c: any) => c.processNumber)
+        .map((c: any) => [c.processNumber, c])
+    ),
+    [data.contracts]
+  )
+  const clientsById = useMemo(
+    () => new Map<string, any>(data.clients.map((c: any) => [c.id, c])),
+    [data.clients]
+  )
 
   const generateRuleBasedInsight = useCallback(() => {
     setIsGeneratingInsight(true)
@@ -330,37 +339,45 @@ export default function Page() {
       }
 
       try {
-        const [clientsRes, processesRes, installmentsRes, contractsRes, productsRes, auditRes, transactionsRes, lawAreasRes, deadlinesRes, receivablesMetricsRes, receivablesForecastRes, topDefaultersRes] = await Promise.all([
-          supabase.from('clients').select('*'),
-          supabase.from('processes').select('*'),
-          supabase.from('installments').select('*'),
-          supabase.from('contracts').select('*'),
-          supabase.from('products').select('*'),
-          supabase.from('audit_logs').select('*, performer:performed_by(name)').order('performed_at', { ascending: false }).limit(5),
-          supabase.from('financial_transactions').select('*').eq('type', 'income'),
-          supabase.from('law_areas').select('*'),
-          supabase.from('process_deadlines').select('*'),
-          supabase.from('vw_dashboard_receivables_metrics').select('*'),
-          supabase.from('vw_dashboard_receivables_forecast').select('*'),
-          supabase.from('vw_dashboard_top_defaulters').select('*')
+        // Sete consultas uteis (antes eram 12; cinco nao eram usadas na tela).
+        // Colunas explicitas evitam baixar campos nao exibidos, como JSONs grandes.
+        const [clientsRes, processesRes, installmentsRes, contractsRes, auditRes, transactionsRes, deadlinesRes] = await Promise.all([
+          supabase.from('clients').select('id, name'),
+          supabase.from('processes').select('id, number, client, type, status, deadline_date, created_at, last_update'),
+          supabase.from('installments').select('id, contract_id, installmentNumber, dueDate, status, amount, amountPaid'),
+          supabase.from('contracts').select('id, client_id, processNumber, lawArea, isProBono, isFinanced, inssProtocol, inssDeferred, status, contractValue, amountReceivable'),
+          supabase.from('audit_logs').select('id, action, table_name, record_id, performed_at, performer:performed_by(name)').order('performed_at', { ascending: false }).limit(5),
+          supabase.from('financial_transactions').select('date, type, amount').eq('type', 'income'),
+          supabase.from('process_deadlines').select('id, process_id, deadline_date, description'),
         ])
 
+        const processList = processesRes.data || []
+        const contractList = contractsRes.data || []
+        const clientList = clientsRes.data || []
+        const processById = new Map<string, any>(
+          processList.map((p: any) => [p.id, p] as const)
+        )
+        const contractByNumber = new Map<string, any>(
+          contractList
+            .filter((c: any) => c.processNumber)
+            .map((c: any) => [c.processNumber, c] as const)
+        )
+        const clientById = new Map<string, any>(
+          clientList.map((c: any) => [c.id, c] as const)
+        )
+
         setData({
-          clients: clientsRes.data || [],
-          processes: processesRes.data || [],
+          clients: clientList,
+          processes: processList,
           installments: installmentsRes.data || [],
-          contracts: contractsRes.data || [],
-          products: productsRes.data || [],
+          contracts: contractList,
           auditLogs: auditRes.data || [],
           transactions: transactionsRes.data || [],
-          lawAreas: lawAreasRes.data || [],
           deadlines: [
             ...Array.from(new Map((deadlinesRes.data || []).map((d: any) => {
-              // Tenta encontrar o processo vinculado para este prazo
-              const process = (processesRes.data || []).find((p: any) => p.id === d.process_id);
-              // Tenta encontrar o cliente real vinculado via contrato para este processo
-              const contract = process ? (contractsRes.data || []).find((c: any) => c.processNumber === process.number) : null;
-              const client = contract ? (clientsRes.data || []).find((cl: any) => cl.id === contract.client_id) : null;
+              const process = processById.get(d.process_id)
+              const contract = process ? contractByNumber.get(process.number) : null
+              const client = contract ? clientById.get(contract.client_id) : null
               
               const mappedDeadline = {
                 ...d,
@@ -370,10 +387,7 @@ export default function Page() {
               };
               return [d.id, mappedDeadline];
             })).values())
-          ],
-          receivablesMetrics: receivablesMetricsRes.data || [],
-          receivablesForecast: receivablesForecastRes.data || [],
-          topDefaulters: topDefaultersRes.data || []
+          ]
         })
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
@@ -386,7 +400,7 @@ export default function Page() {
     // Um único canal com cinco listeners. Antes eram cinco canais
     // independentes, cada um com seu próprio polling de realtime.list_changes.
     // Vários eventos em sequência geravam várias buscas completas (12 consultas
-    // cada). O debounce converge isso em uma única atualização.
+    // cada). O debounce converge isso em uma única atualização (7 consultas).
     let refreshTimer: ReturnType<typeof setTimeout> | null = null
     const scheduleFetch = () => {
       if (refreshTimer) clearTimeout(refreshTimer)
@@ -420,7 +434,7 @@ export default function Page() {
 
   const filteredProcesses = useMemo(() => data.processes.filter((p: any) => {
     // Try to link process to contract to filter by area/type
-    const contract = data.contracts.find(c => c.processNumber === p.number)
+    const contract = contractsByProcessNumber.get(p.number)
     if (!contract) return filters.lawArea === 'all' && filters.contractType === 'all'
     
     const matchesArea = filters.lawArea === 'all' || contract.lawArea === filters.lawArea
@@ -437,7 +451,7 @@ export default function Page() {
   // --- Pipeline de Receita Futura ---
   const activeProcessesList = filteredProcesses.filter((p: any) => p.status !== 'Arquivado' && p.status !== 'Encerrado')
   const totalGrossValue = activeProcessesList.reduce((acc: number, p: any) => {
-    const contract = data.contracts.find(c => c.processNumber === p.number)
+    const contract = contractsByProcessNumber.get(p.number)
     return acc + (Number(contract?.contractValue) || 0)
   }, 0)
 
@@ -449,7 +463,7 @@ export default function Page() {
   // Top 3 areas
   const areaRevenue: Record<string, number> = {}
   activeProcessesList.forEach((p: any) => {
-    const contract = data.contracts.find(c => c.processNumber === p.number)
+    const contract = contractsByProcessNumber.get(p.number)
     const area = contract?.lawArea || 'Não Informado'
     areaRevenue[area] = (areaRevenue[area] || 0) + (Number(contract?.contractValue) || 0)
   })
@@ -508,7 +522,7 @@ export default function Page() {
 
   const totalReceivable = useMemo(() => data.installments
     .filter((t: any) => {
-      const contract = data.contracts.find(c => c.id === t.contract_id)
+      const contract = contractsById.get(t.contract_id)
       if (!contract) return false
       const matchesArea = filters.lawArea === 'all' || contract.lawArea === filters.lawArea
       const matchesType = filters.contractType === 'all' || 
@@ -565,7 +579,7 @@ export default function Page() {
     }, 0) / (filteredProcesses.filter(p => p.status === 'Arquivado').length || 1)
 
   const overdueInstallmentsRaw = useMemo(() => data.installments.filter((i: any) => {
-    const contract = data.contracts.find(c => c.id === i.contract_id)
+    const contract = contractsById.get(i.contract_id)
     if (!contract) return false
     const matchesArea = filters.lawArea === 'all' || contract.lawArea === filters.lawArea
     const matchesType = filters.contractType === 'all' || 
@@ -609,7 +623,7 @@ export default function Page() {
 
     const recurring = data.installments
       .filter((i: any) => {
-        const contract = data.contracts.find(c => c.id === i.contract_id)
+        const contract = contractsById.get(i.contract_id)
         return i.dueDate?.startsWith(monthIso) && contract && !contract.isProBono
       })
       .reduce((acc: number, i: any) => acc + (Number(i.amount) || 0), 0)
@@ -686,21 +700,21 @@ export default function Page() {
   today.setHours(0, 0, 0, 0)
 
   const overdueList = useMemo(() => overdueInstallmentsRaw.map((i: any) => {
-    const contract = data.contracts.find((c: any) => c.id === i.contract_id)
-    const client = data.clients.find((cl: any) => cl.id === contract?.client_id)
+    const contract = contractsById.get(i.contract_id)
+    const client = clientsById.get(contract?.client_id)
     return {
       ...i,
       clientName: client?.name || 'Cliente não identificado',
       contractId: contract?.id
     }
   }).sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 5),
-  [overdueInstallmentsRaw, data.contracts, data.clients])
+  [overdueInstallmentsRaw, contractsById, clientsById])
 
   const { receivables7Days, receivables15Days, receivables30Days } = useMemo(() => ({
-    receivables7Days: getReceivablesForDays(data.installments, data.contracts, 7),
-    receivables15Days: getReceivablesForDays(data.installments, data.contracts, 15),
-    receivables30Days: getReceivablesForDays(data.installments, data.contracts, 30),
-  }), [data.installments, data.contracts])
+    receivables7Days: getReceivablesForDays(data.installments, contractsById, 7),
+    receivables15Days: getReceivablesForDays(data.installments, contractsById, 15),
+    receivables30Days: getReceivablesForDays(data.installments, contractsById, 30),
+  }), [data.installments, contractsById])
 
   // Actionable Items
   const deadlinesToday = data.deadlines.filter((d: any) => {
@@ -722,8 +736,8 @@ export default function Page() {
     nextWeek.setDate(today.getDate() + 7);
     return dueDate >= today && dueDate <= nextWeek && (i.status === 'Aberto' || i.status === 'Atrasada');
   }).map((i: any) => {
-    const contract = data.contracts.find((c: any) => c.id === i.contract_id);
-    const client = data.clients.find((cl: any) => cl.id === contract?.client_id);
+    const contract = contractsById.get(i.contract_id);
+    const client = clientsById.get(contract?.client_id);
     return {
       id: i.id,
       title: client?.name || 'Cliente não identificado',

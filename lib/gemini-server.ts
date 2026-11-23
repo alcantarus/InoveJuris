@@ -3,7 +3,7 @@ import { GoogleGenAI } from '@google/genai'
 /**
  * Modelos tentados em ordem. O Google recomenda Gemini 4 Hydrogen ou
  * 3.5 Flash-Lite para projetos novos; modelos antigos (2.5) nao estao
- * disponiveis para contas novas e models populares podem ficar sobrecarregados.
+ * disponiveis para contas novas e modelos populares podem ficar sobrecarregados.
  */
 export const GEMINI_MODELS = process.env.GEMINI_MODEL?.trim()
   ? [process.env.GEMINI_MODEL.trim()]
@@ -16,13 +16,9 @@ export const GEMINI_MODELS = process.env.GEMINI_MODEL?.trim()
 
 export const GEMINI_MODEL = GEMINI_MODELS[0]
 
-const TRANSIENT_CODES = new Set([
-  'UNAVAILABLE',
-  'RESOURCE_EXHAUSTED',
-  'RATE_LIMIT_EXCEEDED',
-  'DEADLINE_EXCEEDED',
-  'INTERNAL',
-])
+/** Limites de tempo: evita que uma acao de IA fique pendurada no navegador. */
+const GEMINI_REQUEST_TIMEOUT_MS = 15_000
+const GEMINI_TOTAL_TIMEOUT_MS = 25_000
 
 function providerCode(error: unknown): string {
   return String((error as any)?.code ?? '').toUpperCase()
@@ -34,6 +30,12 @@ function providerStatus(error: unknown): number {
 
 function isUnavailable(error: unknown): boolean {
   return providerCode(error) === 'UNAVAILABLE' || providerStatus(error) === 503
+}
+
+function isTimedOut(error: unknown): boolean {
+  const name = String((error as any)?.name ?? '')
+  const code = providerCode(error)
+  return name === 'AbortError' || code === 'ABORT_ERR' || code === 'ETIMEDOUT'
 }
 
 /**
@@ -48,57 +50,75 @@ export function resolveGeminiKey(): string | undefined {
   return key ? key : undefined
 }
 
-/** Repete falhas temporarias do provedor (503/429) com backoff curto. */
-export async function geminiWithRetry<T>(
-  fn: () => Promise<T>,
-  attempts = 3
-): Promise<T> {
-  let lastError: unknown
+/**
+ * Cliente unico com retries do SDK desligados. O fallback entre modelos ja
+ * faz uma nova tentativa; manter os retries internos multiplicava cada acao
+ * por ate 24 chamadas HTTP (4 modelos x 2 tentativas x 3 do SDK).
+ */
+export function createGeminiClient(): GoogleGenAI {
+  const apiKey = resolveGeminiKey()
 
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      return await fn()
-    } catch (error) {
-      lastError = error
-      const transient =
-        TRANSIENT_CODES.has(providerCode(error)) ||
-        [429, 500, 503].includes(providerStatus(error))
-
-      if (!transient || attempt === attempts - 1) throw error
-      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
-    }
+  if (!apiKey) {
+    const error: Error & { code?: string } = new Error(
+      'Chave do Gemini nao configurada no servidor.'
+    )
+    error.code = 'GEMINI_KEY_MISSING'
+    throw error
   }
 
-  throw lastError
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      timeout: GEMINI_REQUEST_TIMEOUT_MS,
+      retryOptions: { attempts: 1 },
+    },
+  })
 }
 
-/** Tenta cada modelo da cadeia quando o provedor devolve 503 ou 404. */
+/**
+ * Tenta cada modelo da cadeia uma unica vez, com um prazo total compartilhado.
+ * So avanca para o proximo modelo em 503/404; outros erros sao propagados.
+ */
 export async function withGeminiModelFallback<T>(
-  call: (model: string) => Promise<T>
+  call: (model: string, signal: AbortSignal) => Promise<T>
 ): Promise<T> {
+  const signal = AbortSignal.timeout(GEMINI_TOTAL_TIMEOUT_MS)
   let lastError: unknown
 
   for (const model of GEMINI_MODELS) {
+    if (signal.aborted) break
+
     try {
-      return await geminiWithRetry(() => call(model), 2)
+      return await call(model, signal)
     } catch (error) {
       lastError = error
+      if (signal.aborted || isTimedOut(error)) throw error
+
       const fallback =
         isUnavailable(error) ||
         providerCode(error) === 'NOT_FOUND' ||
         providerStatus(error) === 404
       if (!fallback) throw error
+
       console.warn(`[gemini] modelo ${model} indisponivel; tentando proximo da cadeia`)
     }
   }
 
-  throw lastError
+  throw lastError ?? new Error('Nenhum modelo Gemini disponivel.')
 }
 
 /** Traduz erros brutos do provedor para mensagens acionaveis. */
 export function friendlyGeminiError(error: unknown): Error {
   const code = providerCode(error)
   const status = providerStatus(error)
+
+  if (isTimedOut(error)) {
+    const wrapped = new Error(
+      'O Gemini demorou para responder. Tente novamente em instantes.'
+    )
+    ;(wrapped as any).code = 'GEMINI_TIMEOUT'
+    return wrapped
+  }
 
   if (isUnavailable(error)) {
     const wrapped = new Error(
@@ -132,24 +152,14 @@ export async function generateGeminiText(
   prompt: string,
   config?: Record<string, unknown>
 ): Promise<string> {
-  const apiKey = resolveGeminiKey()
-
-  if (!apiKey) {
-    const error: Error & { code?: string } = new Error(
-      'Chave do Gemini nao configurada no servidor.'
-    )
-    error.code = 'GEMINI_KEY_MISSING'
-    throw error
-  }
-
-  const ai = new GoogleGenAI({ apiKey })
+  const ai = createGeminiClient()
 
   try {
-    const response = await withGeminiModelFallback((model) =>
+    const response = await withGeminiModelFallback((model, signal) =>
       ai.models.generateContent({
         model,
         contents: prompt,
-        config,
+        config: { ...config, abortSignal: signal },
       })
     )
     return response.text || ''

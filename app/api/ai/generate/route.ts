@@ -154,9 +154,11 @@ export async function POST(request: Request) {
     const friendly = friendlyGeminiError(error) as Error & { code?: string }
     console.error('[AI] falha ao gerar conteúdo:', friendly.message)
     const status =
-      friendly.code === 'GEMINI_UNAVAILABLE' || friendly.code === 'GEMINI_RATE_LIMIT'
-        ? 503
-        : 500
+      friendly.code === 'GEMINI_TIMEOUT'
+        ? 504
+        : friendly.code === 'GEMINI_UNAVAILABLE' || friendly.code === 'GEMINI_RATE_LIMIT'
+          ? 503
+          : 500
     return NextResponse.json({ error: friendly.message }, { status })
   }
 }

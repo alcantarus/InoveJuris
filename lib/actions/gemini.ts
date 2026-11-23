@@ -1,7 +1,7 @@
 'use server'
 
-import { GoogleGenAI } from "@google/genai";
 import {
+  createGeminiClient,
   friendlyGeminiError,
   resolveGeminiKey,
   withGeminiModelFallback,
@@ -17,9 +17,10 @@ export async function analyzeTemplateImage(base64Image: string) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await withGeminiModelFallback((model) => ai.models.generateContent({
+    const ai = createGeminiClient();
+    const response = await withGeminiModelFallback((model, signal) => ai.models.generateContent({
       model,
+      config: { abortSignal: signal },
       contents: [
         {
           parts: [
