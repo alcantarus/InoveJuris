@@ -113,6 +113,9 @@ Nada de banco/RLS foi alterado.
     identificar a origem do IO e só depois decidir entre manter, fazer rollback
     ou medir novamente. Handoff completo em
     `docs/HANDOFF-P1-1-20261123.md`.
+  - Amostra de 24/11 **descartada**: `sessao_encontrada = false` e
+    `sessoes_ativas_recentes = 0`. Sem sessão ativa as policies barram as
+    linhas e os tempos não são comparáveis. Refazer apenas com o sistema aberto.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato
