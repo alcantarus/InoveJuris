@@ -17,6 +17,12 @@
 -- a capacidade de SSRF. Idempotente.
 --
 -- Não altera a djen_fetch em si (segue concedida a anon/authenticated/service_role).
+--
+-- IMPORTANTE: as funções http_* pertencem a supabase_admin (dono da extensão).
+-- Um REVOKE feito como postgres é no-op, pois só remove grants do próprio
+-- executor. Por isso assumimos supabase_admin via SET ROLE antes de revogar.
+
+set role supabase_admin;
 
 do $$
 declare
@@ -53,5 +59,7 @@ begin
     end if;
   end loop;
 end $$;
+
+reset role;
 
 notify pgrst, 'reload schema';
