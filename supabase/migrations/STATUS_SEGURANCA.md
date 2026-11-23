@@ -6,18 +6,20 @@ já marcadas como OK.
 ## PONTO DE PARTIDA (próxima sessão)
 
 - **Concluído e verificado:** Bloco 3 (checklist 100%), P1 (anon sem escrita,
-  SELECT e EXECUTE mínimos) e P2 lotes 02 (rotas de servidor → service_role) e
-  03 (`app_*` de auth/admin revogadas do anon).
+  SELECT e EXECUTE mínimos) e **P2 100%** — lotes 01 (`http_*` sem `anon`),
+  02 (rotas de servidor → service_role), 03 (`app_*` de auth/admin revogadas do
+  anon) e onboarding (link correto `/onboarding/<token>`: 1ª abertura mostra o
+  formulário; após o envio, a 2ª exibe "Este link já foi utilizado.").
 - **Último push:** `6fcfd7c` (arquivos de config/status; o push de código da
-  migração foi `cf3a1f3`). Árvore limpa.
-- **PENDENTE (retomar aqui):** esclarecer o teste de onboarding — a mensagem
-  "Este link já foi utilizado." só aparece na **2ª abertura do mesmo link**,
-  depois de enviar o formulário uma vez. Usuário viu um link e não viu a mensagem;
-  provavelmente era link novo. Confirmar e, se na 2ª abertura der erro/formulário
-  de novo, investigar. Detalhes em `p2/GUIA.md` e na seção Lote 03 abaixo.
-- **BLOQUEADO (fora do self-service):** P2-01 http/SSRF — funções `http_*` são de
-  `supabase_admin`; postgres não revoga e não assume o papel (42501). Aguardando
-  Supabase Support rodar `p2/01_http_sem_public.sql`.
+  migração foi `cf3a1f3`).
+- **P2 concluído em 23/11/2026:** não há itens pendentes de teste; restam apenas
+  os itens futuros abaixo. O teste anterior usou por engano um link de
+  `/portal/indicador/<token>` (tabela `indicator_tokens`), que não tem o campo
+  `used` — por isso não exibia a mensagem.
+- **P2-01 concluído em 23/11/2026:** Supabase Support executou
+  `p2/01_http_sem_public.sql` como `supabase_admin`. Verificação: **0** funções
+  `http_*` executáveis por `anon`; `postgres_executa=true`; sync DJEN em `test`
+  retornou 1 publicação, sem `42501`.
 - **Futuros:** rotação da chave ECC/ES256; `organization_id` / multitenancy real.
 - Deploy: `https://inove-juris.vercel.app` · Supabase ref `jhlxzqsgmudkbjkynqdl`.
 
@@ -102,22 +104,22 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 - `anon` sem EXECUTE nas funções de negócio; mantém apenas auth/sessão/admin
   (rotas de servidor usam chave anon), helpers de RLS e links públicos.
 
-## P2 — em andamento
+## P2 — concluído (exceto onboarding)
 
-### Lote 01 — `p2/01_http_sem_public.sql` (BLOQUEADO — requer Supabase Support)
+### Lote 01 — `p2/01_http_sem_public.sql` (concluído em 23/11/2026)
 
 - Revoga `EXECUTE` das funções `http_*` de `PUBLIC`/`anon`/`authenticated` (SSRF);
   mantém `service_role`, `postgres` e o dono da `djen_fetch`.
-- **Bloqueio:** as funções `http_*` pertencem a `supabase_admin`. O `REVOKE` como
-  `postgres` é no-op (só remove grants do próprio executor) e `SET ROLE
-  supabase_admin` falha com 42501. Confirmado via `proacl` (grants
-  `=X/supabase_admin`, `anon=X/supabase_admin`). Enviado para Supabase Support.
+- Executado pelo **Supabase Support** como `supabase_admin` (as funções `http_*`
+  pertencem a `supabase_admin`; o `REVOKE` como `postgres` é no-op e `SET ROLE
+  supabase_admin` falha com 42501).
 - Único consumidor é `djen_fetch` (`SECURITY DEFINER`, roda como `postgres`,
   host fixo no DJEN). O `http_get` interno executa como `postgres` — por isso não
   quebra. (`lib/djen.ts` já migrado para service_role no lote 02.)
-- Verificação (após Support): 0 funções http p/ anon + `postgres` ainda executa
-  `http_get`.
-- Teste funcional (único afetado): sincronização DJEN em Publicações (`test`).
+- [x] Verificação: **0 linhas** de funções `http_*` executáveis por `anon`.
+- [x] `postgres` ainda executa `http_get` (`postgres_executa=true`).
+- [x] Teste funcional: sincronização DJEN em Publicações (`test`) retornou **1
+  publicação**, sem `42501`.
 
 ### Lote 02 — rotas de servidor: anon → service_role (código, aplicado)
 
@@ -153,26 +155,21 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 - Testes funcionais:
   - [x] Login OK.
   - [x] Portal do indicador registra último acesso OK.
-  - [ ] **Onboarding — PENDENTE DE ESCLARECIMENTO:** usuário abriu um link e não
-    viu a mensagem "já utilizado". Essa mensagem (título "Acesso Inválido",
-    texto "Este link já foi utilizado.", `app/onboarding/[token]/page.tsx:74`,
-    renderizada no bloco `if (error)`) só aparece na **segunda abertura** do
-    mesmo link, depois de enviado o formulário uma vez. `app_mark_onboarding_used`
-    foi preservada (está entre as 2 funções que o anon ainda executa), então nada
-    do P2 mexeu nesse fluxo. Retomar: confirmar se o link era novo ou já usado, e
-    se na 2ª abertura aparece formulário/erro/carregando.
+  - [x] **Onboarding:** validado com o link correto `/onboarding/<token>`, gerado
+    pelo botão "Link Onboarding" em Clientes. 1ª abertura → formulário; após o
+    envio, 2ª abertura do mesmo link → "Acesso Inválido / Este link já foi
+    utilizado." (`app/onboarding/[token]/page.tsx:74`). O teste anterior usou um
+    link de `/portal/indicador/<token>` (indicador), que não exibe essa mensagem.
+    `app_mark_onboarding_used` segue executável pelo `anon`.
 
-## P2 self-service — concluído (exceto esclarecimento de onboarding acima)
+## P2 self-service — concluído
 
-- Bloco 3 (100%), P1 e P2 lotes 02 e 03 aplicados e verificados.
+- Bloco 3 (100%), P1 e P2 lotes 01, 02 e 03 aplicados e verificados.
 - Restam apenas itens fora do self-service / futuros:
-  - P2-01 http/SSRF: aguardando Supabase Support rodar `01_http_sem_public.sql`
-    como `supabase_admin` (postgres não pode revogar grants da extensão).
+  - Rotação da chave ECC/ES256.
+  - `organization_id` / multitenancy real.
 
 ## Próximos itens (P2)
 
-- Esclarecer o teste de onboarding acima (provavelmente só falta a 2ª abertura
-  do mesmo link).
-- Após Support: verificar 0 funções http p/ anon + sync DJEN em Publicações.
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.

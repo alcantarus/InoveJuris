@@ -5,15 +5,18 @@
 - Aplicar no SQL Editor do Supabase, como `postgres`, um arquivo por vez.
 - Não usar `run_sql*.js` com service role.
 - Validações já confirmadas estão em `../STATUS_SEGURANCA.md`. Não repetir testes OK.
-- **Lote 01 BLOQUEADO:** as funções `http_*` pertencem a `supabase_admin`. O
-  `postgres` não pode revogar grants desse dono nem assumir o papel (`SET ROLE`
-  -> 42501). Requer **Supabase Support**. Não adianta rodar como postgres.
+- **Lote 01 CONCLUÍDO em 23/11/2026:** executado pelo **Supabase Support** como
+  `supabase_admin` (o `postgres` não pode revogar grants desse dono nem assumir o
+  papel — `SET ROLE` -> 42501). Verificação: **0** funções `http_*` para `anon`,
+  `postgres_executa=true` e sync DJEN OK em `test`.
+- **P2 100% concluído em 23/11/2026:** lotes 01, 02, 03 e onboarding validados.
+  Restam apenas a rotação da chave ECC e o multitenancy.
 
 ## Ordem
 
 | Ordem | Arquivo | Objetivo | Validação |
 |---|---|---|---|
-| 1 | `01_http_sem_public.sql` | Revoga `EXECUTE` das funções `http_*` de `PUBLIC`/`anon`/`authenticated` (SSRF); mantém `service_role`, `postgres` e o dono da `djen_fetch` | 0 funções http p/ anon + postgres ainda executa http_get + sync DJEN |
+| 1 | `01_http_sem_public.sql` | Revoga `EXECUTE` das funções `http_*` de `PUBLIC`/`anon`/`authenticated` (SSRF); mantém `service_role`, `postgres` e o dono da `djen_fetch` | [x] 0 funções http p/ anon + `postgres` executa `http_get` + sync DJEN OK (23/11/2026) |
 | 2 | (código) migração anon → service_role | Rotas de servidor deixam de usar a chave anon | Login + página logada + ação admin OK após deploy |
 | 3 | `03_anon_sem_app_auth.sql` | Revoga `EXECUTE` das `app_*` de auth/sessão/admin do `anon` | [x] 2 funções públicas no anon + service_role executa validação |
 
@@ -62,13 +65,13 @@ Testes funcionais após o lote 03 (só o que pode ser afetado pela revogação):
 
 - [x] Login: OK.
 - [x] Portal do indicador (último acesso): OK.
-- [ ] Onboarding — PENDENTE DE ESCLARECIMENTO: a mensagem "Este link já foi
-  utilizado." (título "Acesso Inválido", `app/onboarding/[token]/page.tsx:74`)
-  só aparece na 2ª abertura do mesmo link, após enviar o formulário uma vez.
-  Usuário abriu um link e não viu a mensagem — provavelmente era link novo.
-  `app_mark_onboarding_used` foi preservada (entre as 2 funções que o anon
-  ainda executa). Retomar: confirmar se o link era novo e se na 2ª abertura
-  aparece formulário/erro/carregando.
+- [x] Onboarding: link correto `/onboarding/<token>` (botão "Link Onboarding" em
+  Clientes). 1ª abertura → formulário; após envio, 2ª abertura do mesmo link →
+  "Acesso Inválido / Este link já foi utilizado."
+  (`app/onboarding/[token]/page.tsx:74`). O teste anterior usou por engano um
+  link de `/portal/indicador/<token>` (tabela `indicator_tokens`), que não tem
+  campo `used` e por isso não exibia a mensagem. `app_mark_onboarding_used`
+  segue executável pelo `anon`.
 
 ## Contexto do lote 01
 
@@ -78,6 +81,9 @@ Testes funcionais após o lote 03 (só o que pode ser afetado pela revogação):
 - Nenhum código chama `http_*` diretamente.
 
 ## Verificação do lote 01
+
+- [x] Resultado em 23/11/2026: **0 linhas** para `anon`.
+- [x] `postgres_executa=true`.
 
 Anon não pode mais executar nenhuma função http (esperado: **0 linhas**):
 
@@ -99,13 +105,10 @@ select has_function_privilege('postgres', 'public.http_get(character varying)', 
 
 ## Teste funcional (único fluxo afetado)
 
-- [ ] Em `test`: Publicações → Sincronizar (SyncModal) → rodar uma sincronização
-  DJEN e confirmar que ainda traz comunicações.
+- [x] Em `test`: Publicações → Sincronizar (SyncModal) → a sincronização DJEN
+  retornou **1 publicação** em 23/11/2026, sem `42501`.
 
 ## Próximos itens de P2
 
-- Esclarecer o teste de onboarding acima (provavelmente só falta a 2ª abertura
-  do mesmo link).
-- P2-01: aguardando Support rodar `01_http_sem_public.sql` como supabase_admin.
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.
