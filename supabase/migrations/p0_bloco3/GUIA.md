@@ -108,6 +108,14 @@ O painel deve enviar `environment: getAppEnv()` no INSERT e usar o mesmo valor n
 filtros de SELECT/UPDATE da gestão de acessos. Isso é correção de código, não de policy —
 não ALTER TABLE nem recrie a policy para "liberar".
 
+## Portal do indicador e ambiente do link
+
+O portal deve ler a coluna `environment` do `indicator_tokens` e, se ela for diferente
+do ambiente atual do navegador, gravar o cookie `app_env` e recarregar antes de consultar
+as comissões. Sem isso, um link de teste abre com a barra de produção e as consultas são
+filtradas como produção (valores zerados). O onboarding já fazia essa troca; o portal
+do indicador passou a fazer no mesmo padrão.
+
 ## Rollback
 
 `rollback.sql` recria policies `Permissivo legado` para todas as tabelas de domínio.

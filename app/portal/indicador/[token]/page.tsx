@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { setAccessToken } from '@/lib/session-token'
+import { getAppEnv } from '@/lib/env'
 import { Header } from '@/components/portal/Header'
 import { KPICard } from '@/components/portal/KPICard'
 import { CommissionTable } from '@/components/portal/CommissionTable'
@@ -30,13 +31,23 @@ export default function PortalIndicadorPage() {
       // 1. Get indicator_id from token
       const { data: tokenData, error: tokenError } = await supabase
         .from('indicator_tokens')
-        .select('indicator_id, type, expires_at, is_active, indicators(name)')
+        .select('indicator_id, type, expires_at, is_active, environment, indicators(name)')
         .eq('token', token)
         .single()
 
       if (tokenError || !tokenData) {
         setErrorMsg('Token inválido ou não encontrado.')
         setLoading(false)
+        return
+      }
+
+      // O link pertence a um ambiente específico. Sem trocar o cookie, o
+      // portal abriria em produção e as consultas seriam filtradas pelo
+      // ambiente errado (barra verde e valores zerados em link de teste).
+      const currentEnv = getAppEnv()
+      if (tokenData.environment && tokenData.environment !== currentEnv) {
+        document.cookie = `app_env=${tokenData.environment}; path=/; max-age=31536000`
+        window.location.reload()
         return
       }
 
