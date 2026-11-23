@@ -19,7 +19,6 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [clientData, setClientData] = useState<any>(null)
-  const [tokenId, setTokenId] = useState<number | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -83,8 +82,6 @@ export default function OnboardingPage() {
           setIsLoading(false)
           return
         }
-
-        setTokenId(tokenData.id)
 
         // Fetch client data
         const { data: client, error: clientError } = await supabase
@@ -200,15 +197,13 @@ export default function OnboardingPage() {
 
       if (updateError) throw updateError
 
-      // Mark token as used
-      const { error: tokenError } = await supabase
-        .from('client_onboarding_tokens')
-        .update({ 
-          used: true
-        })
-        .eq('id', tokenId)
+      // Marca o token como usado via RPC: o link público tem apenas leitura
+      // na tabela de tokens, então não pode alterar client_id/expires_at.
+      const { data: marked, error: tokenError } = await supabase
+        .rpc('app_mark_onboarding_used', { p_token: token })
 
       if (tokenError) throw tokenError
+      if (!marked) throw new Error('Este link não está mais disponível.')
 
       setSuccess(true)
     } catch (err: any) {
