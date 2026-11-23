@@ -16,6 +16,17 @@ const ptBRTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   hour: '2-digit',
   minute: '2-digit',
 })
+// Timestamps vindos do Postgres/PostgREST chegam em UTC (ou com offset).
+// Para exibir o horário de Brasília independentemente do fuso do navegador,
+// usamos formatadores com timeZone explícito.
+const ptBRDateBRTFormatter = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+})
+const ptBRTimeBRTFormatter = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 const enCAFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Sao_Paulo',
 })
@@ -92,23 +103,40 @@ export function formatDate(date: string | Date): string {
 
 export function formatDateTime(dateStr: string): string {
   if (!dateStr) return 'Data inválida';
-  
+
+  const value = String(dateStr).trim();
+
+  // Timestamp com fuso explícito (Z, +00:00, -03:00). Converter de verdade,
+  // senão 14:40Z aparece como 14:40 no Brasil em vez de 11:40.
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) {
+    const parsed = new Date(value)
+    if (!isNaN(parsed.getTime())) {
+      return (
+        ptBRDateBRTFormatter.format(parsed) +
+        ' às ' +
+        ptBRTimeBRTFormatter.format(parsed)
+      )
+    }
+  }
+
+  // Datas sem fuso continuam sendo interpretadas como horário local, para não
+  // deslocar lançamentos manuais (ex.: "2026-11-23 14:40:00").
   let date: Date;
-  
-  if (dateStr.includes('T')) {
-    const [datePart, timePart] = dateStr.split('T');
+
+  if (value.includes('T')) {
+    const [datePart, timePart] = value.split('T');
     const [year, month, day] = datePart.split('-').map(Number);
     const [hour, minute] = timePart.split(':').map(Number);
     date = new Date(year, month - 1, day, hour, minute);
-  } else if (dateStr.includes(' ')) {
-    const [datePart, timePart] = dateStr.split(' ');
+  } else if (value.includes(' ')) {
+    const [datePart, timePart] = value.split(' ');
     const [year, month, day] = datePart.split('-').map(Number);
     const [hour, minute] = timePart.split(':').map(Number);
     date = new Date(year, month - 1, day, hour, minute);
   } else {
-    return formatDate(dateStr);
+    return formatDate(value);
   }
-  
+
   if (isNaN(date.getTime())) return 'Data inválida';
   return ptBRDateFormatter.format(date) + ' às ' + ptBRTimeFormatter.format(date);
 }
