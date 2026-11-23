@@ -2,10 +2,9 @@
 
 import { GoogleGenAI } from "@google/genai";
 import {
-  GEMINI_MODEL,
   friendlyGeminiError,
-  geminiWithRetry,
   resolveGeminiKey,
+  withGeminiModelFallback,
 } from "@/lib/gemini-server";
 
 export async function analyzeTemplateImage(base64Image: string) {
@@ -19,8 +18,8 @@ export async function analyzeTemplateImage(base64Image: string) {
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await geminiWithRetry(() => ai.models.generateContent({
-      model: GEMINI_MODEL,
+    const response = await withGeminiModelFallback((model) => ai.models.generateContent({
+      model,
       contents: [
         {
           parts: [

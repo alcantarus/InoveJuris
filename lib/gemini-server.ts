@@ -1,11 +1,20 @@
 import { GoogleGenAI } from '@google/genai'
 
 /**
- * Modelo padrao recomendado pelo Google AI Studio para contas novas.
- * Modelos antigos (2.5-flash, 3-flash-preview) nao estao mais disponiveis
- * para novos usuarios. Pode ser substituido por GEMINI_MODEL.
+ * Modelos tentados em ordem. O Google recomenda Gemini 4 Hydrogen ou
+ * 3.5 Flash-Lite para projetos novos; modelos antigos (2.5) nao estao
+ * disponiveis para contas novas e models populares podem ficar sobrecarregados.
  */
-export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash'
+export const GEMINI_MODELS = process.env.GEMINI_MODEL?.trim()
+  ? [process.env.GEMINI_MODEL.trim()]
+  : [
+      'gemini-3.5-flash-lite',
+      'gemini-4-hydrogen',
+      'gemini-3.6-flash',
+      'gemini-3.8-flash',
+    ]
+
+export const GEMINI_MODEL = GEMINI_MODELS[0]
 
 const TRANSIENT_CODES = new Set([
   'UNAVAILABLE',
@@ -14,6 +23,18 @@ const TRANSIENT_CODES = new Set([
   'DEADLINE_EXCEEDED',
   'INTERNAL',
 ])
+
+function providerCode(error: unknown): string {
+  return String((error as any)?.code ?? '').toUpperCase()
+}
+
+function providerStatus(error: unknown): number {
+  return Number((error as any)?.status)
+}
+
+function isUnavailable(error: unknown): boolean {
+  return providerCode(error) === 'UNAVAILABLE' || providerStatus(error) === 503
+}
 
 /**
  * Resolucao da chave do Gemini exclusivamente no servidor.
@@ -39,13 +60,9 @@ export async function geminiWithRetry<T>(
       return await fn()
     } catch (error) {
       lastError = error
-      const code = String((error as any)?.code ?? '').toUpperCase()
-      const status = Number((error as any)?.status)
       const transient =
-        TRANSIENT_CODES.has(code) ||
-        status === 429 ||
-        status === 500 ||
-        status === 503
+        TRANSIENT_CODES.has(providerCode(error)) ||
+        [429, 500, 503].includes(providerStatus(error))
 
       if (!transient || attempt === attempts - 1) throw error
       await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
@@ -55,14 +72,37 @@ export async function geminiWithRetry<T>(
   throw lastError
 }
 
+/** Tenta cada modelo da cadeia quando o provedor devolve 503 ou 404. */
+export async function withGeminiModelFallback<T>(
+  call: (model: string) => Promise<T>
+): Promise<T> {
+  let lastError: unknown
+
+  for (const model of GEMINI_MODELS) {
+    try {
+      return await geminiWithRetry(() => call(model), 2)
+    } catch (error) {
+      lastError = error
+      const fallback =
+        isUnavailable(error) ||
+        providerCode(error) === 'NOT_FOUND' ||
+        providerStatus(error) === 404
+      if (!fallback) throw error
+      console.warn(`[gemini] modelo ${model} indisponivel; tentando proximo da cadeia`)
+    }
+  }
+
+  throw lastError
+}
+
 /** Traduz erros brutos do provedor para mensagens acionaveis. */
 export function friendlyGeminiError(error: unknown): Error {
-  const code = String((error as any)?.code ?? '').toUpperCase()
-  const status = Number((error as any)?.status)
+  const code = providerCode(error)
+  const status = providerStatus(error)
 
-  if (code === 'UNAVAILABLE' || status === 503) {
+  if (isUnavailable(error)) {
     const wrapped = new Error(
-      'O modelo Gemini esta temporariamente indisponivel. Tente novamente em instantes.'
+      'Os modelos Gemini estao temporariamente indisponiveis. Tente novamente em instantes.'
     )
     ;(wrapped as any).code = 'GEMINI_UNAVAILABLE'
     return wrapped
@@ -78,7 +118,7 @@ export function friendlyGeminiError(error: unknown): Error {
 
   if (code === 'NOT_FOUND' || status === 404) {
     const wrapped = new Error(
-      `Modelo ${GEMINI_MODEL} nao disponivel para esta conta. Verifique GEMINI_MODEL no Vercel.`
+      `Modelo Gemini nao disponivel para esta conta. Modelos tentados: ${GEMINI_MODELS.join(', ')}.`
     )
     ;(wrapped as any).code = 'GEMINI_MODEL_NOT_FOUND'
     return wrapped
@@ -105,9 +145,9 @@ export async function generateGeminiText(
   const ai = new GoogleGenAI({ apiKey })
 
   try {
-    const response = await geminiWithRetry(() =>
+    const response = await withGeminiModelFallback((model) =>
       ai.models.generateContent({
-        model: GEMINI_MODEL,
+        model,
         contents: prompt,
         config,
       })

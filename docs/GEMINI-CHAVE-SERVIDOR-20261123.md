@@ -54,7 +54,9 @@ Interpretação de falhas:
 | `500` — “Não foi possível gerar o conteúdo.” | API Gemini recusou a chave (inválida, cota ou modelo sem acesso) |
 | `307 → /login` | sessão ausente/expirada; não é problema da chave |
 
-Modelo: variável opcional `GEMINI_MODEL`, padrão **`gemini-3.8-flash`**. Antes: `gemini-3-flash-preview` (503 por demanda) e `gemini-2.5-flash` (404 para contas novas).
+Modelo: variável opcional `GEMINI_MODEL`. Sem ela, o app tenta, em ordem:
+**`gemini-3.5-flash-lite` → `gemini-4-hydrogen` → `gemini-3.6-flash` → `gemini-3.8-flash`**.
+A documentação oficial recomenda Gemini 4 Hydrogen ou 3.5 Flash-Lite para projetos novos.
 
 ## Incidente 503 — modelo preview indisponível (23/11/2026)
 
@@ -72,6 +74,15 @@ Modelo: variável opcional `GEMINI_MODEL`, padrão **`gemini-3.8-flash`**. Antes
 - Sintoma: `{"code":404,"status":"NOT_FOUND","message":"This model models/gemini-2.5-flash is no longer available to new users... use models/gemini-3.8-flash"}`.
 - Diagnóstico: a chave continua válida; o Google AI Studio restringe modelos antigos para contas novas.
 - Correção: padrão alterado para `gemini-3.8-flash`; `friendlyGeminiError()` agora traduz `NOT_FOUND/404` para uma mensagem que aponta `GEMINI_MODEL`.
+
+## Incidente 503 — `gemini-3.8-flash` também sobrecarregado (23/11/2026)
+
+- Sintoma: mensagem traduzida “Os modelos Gemini estão temporariamente indisponíveis...”.
+- Evidência nos logs do deploy `dpl_E5gvpmkScw6Gh95gKDBcFL3F3LZ6`:
+  `ApiError 503 UNAVAILABLE — This model is currently experiencing high demand`.
+- Correção: `withGeminiModelFallback()` tenta a cadeia de modelos acima; cada modelo recebe
+  até 2 tentativas com backoff antes de avançar. Se todos falharem, a mensagem final orienta
+  nova tentativa. `GEMINI_MODEL` força um único modelo quando definido.
 
 ## Como a chave foi adicionada (sem expor o valor)
 
