@@ -3,7 +3,8 @@
 ## Status
 
 - `GEMINI_API_KEY` configurada no Vercel como **Secret** em **Production, Preview e Development**.
-- Deploy de produção: `dpl_xi2CmKwxXxqjnVWGN46tJtnx2gne` — `READY`, alias `https://inove-juris.vercel.app`.
+- Deploy de produção final: `dpl_GmWPXjCYAqJXVHVnjSTr8Y9KAGhX` — `READY`, alias `https://inove-juris.vercel.app`.
+  O deploy anterior (`dpl_xi2CmKwxXxqjnVWGN46tJtnx2gne`) era somente da variável de ambiente.
 - A chave **não** foi escrita neste repositório. O arquivo temporário usado para a importação
   (`docs/CHAVEGEMINI.txt`) foi apagado e nunca foi commitado.
 - Nenhuma chave é exibida em logs, documentos ou mensagens.

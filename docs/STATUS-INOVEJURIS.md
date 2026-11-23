@@ -10,7 +10,7 @@
 ## Gemini — chave única no servidor (2026-11-23)
 
 - Variável `GEMINI_API_KEY` adicionada como Secret nos três ambientes da Vercel.
-- Deploy de produção `dpl_xi2CmKwxXxqjnVWGN46tJtnx2gne` — `READY`.
+- Deploy de produção final `dpl_GmWPXjCYAqJXVHVnjSTr8Y9KAGhX` — `READY`.
 - Código simplificado: sem `manualKey`, sem `localStorage` de chave, sem `NEXT_PUBLIC_GEMINI_API_KEY`.
 - Procedimento, validação e rollback: `docs/GEMINI-CHAVE-SERVIDOR-20261123.md`.
 
