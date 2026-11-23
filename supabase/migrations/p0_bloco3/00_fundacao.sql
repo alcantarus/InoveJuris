@@ -102,9 +102,10 @@ as $$
      and (p_environment is null or p_environment = public._rls_environment());
 $$;
 
--- Remove policies permissivas por CONDIÇÃO, não por nome: o inventário F4b
--- mostrou vários nomes diferentes criados por SQLs legados.
-create or replace function public._p0_drop_permissive(p_tables text[])
+-- Remove TODA policy PERMISSIVE das tabelas informadas, exceto as listadas em
+-- p_keep. Policies AS RESTRICTIVE nunca são removidas. Isso pega também
+-- policies disfarçadas, como `auth.role() = 'authenticated'`.
+create or replace function public._p0_drop_except(p_tables text[], p_keep text[])
 returns void
 language plpgsql
 security definer
@@ -118,13 +119,22 @@ begin
     from pg_policies
     where schemaname = 'public'
       and tablename = any(p_tables)
-      and (
-           (qual is not null and lower(btrim(qual)) in ('true', 'true::boolean'))
-        or (with_check is not null and lower(btrim(with_check)) in ('true', 'true::boolean'))
-      )
+      and permissive = 'PERMISSIVE'
+      and not (coalesce(policyname, '') = any(p_keep))
   loop
     execute format('drop policy %I on %I.%I', r.policyname, r.schemaname, r.tablename);
   end loop;
+end;
+$$;
+
+create or replace function public._p0_drop_permissive(p_tables text[])
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_catalog
+as $$
+begin
+  perform public._p0_drop_except(p_tables, array[]::text[]);
 end;
 $$;
 
@@ -230,6 +240,7 @@ revoke all on function public._rls_is_superadmin() from public, anon, authentica
 revoke all on function public._rls_access_token() from public, anon, authenticated;
 revoke all on function public._rls_session_valid() from public, anon, authenticated;
 revoke all on function public._rls_can_access(text) from public, anon, authenticated;
+revoke all on function public._p0_drop_except(text[], text[]) from public, anon, authenticated;
 revoke all on function public._p0_drop_permissive(text[]) from public, anon, authenticated;
 revoke all on function public._p0_apply_isolation(text[]) from public, anon, authenticated;
 revoke all on function public._p0_apply_readonly(text[]) from public, anon, authenticated;

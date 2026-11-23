@@ -38,7 +38,8 @@ Se `session_id` não aparecer, **pare**: as policies negarão todo acesso.
 | 0 | `00_fundacao.sql` | Cria helpers e funções de troca de policies | Nenhuma policy muda |
 | 0b | `00_patch_drop_permissive.sql` | Corrige a remoção para não apagar policies restritivas | Aplicar antes do lote 02 |
 | 1 | `01_autenticacao_interna.sql` | Remove policies de `user_sessions`, `login_challenges`, `trusted_devices` | Login, logout, heartbeat, 2FA |
-| 2 | `02_rbac.sql` | RBAC somente leitura via sessão; escrita já é RPC. `users` fica de fora | Configurações → Perfis; Usuários; Advogados |
+| 2 | `02_rbac.sql` | RBAC somente leitura via sessão; escrita já é RPC. `users` fica de fora | Configurações → Perfis; Advogados |
+| 2b | `02b_users.sql` | Remove as 2 policies permissivas de `users`, preserva a de organização e adiciona P0 como `AS RESTRICTIVE` | Usuários; Advogados; login |
 | 3 | `03_cadastros_base.sql` | Cadastros | Advogados, Doenças, Produtos, Indicadores, Contas |
 | 4 | `04_clientes.sql` | Clientes e documentos | Clientes, upload/preview de documentos |
 | 5 | `05_contratos_financeiro.sql` | Contratos e financeiro | Contratos, parcelas, pagamentos, fluxo de caixa |

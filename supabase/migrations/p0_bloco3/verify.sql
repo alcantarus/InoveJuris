@@ -81,3 +81,27 @@ where schemaname = 'storage'
     or coalesce(with_check, '') ilike '%marketing%'
   )
 order by policyname;
+
+-- 6) Policies permissivas não-P0 que ainda restam nas tabelas de domínio.
+--    Esperado: somente "Isolamento por Organização em users" (até o lote 02b).
+select tablename, policyname, cmd, qual
+from pg_policies
+where schemaname = 'public'
+  and permissive = 'PERMISSIVE'
+  and policyname not like 'P0 %'
+  and tablename in (
+    'users','roles','permissions','role_permissions','user_roles',
+    'law_areas','lawyers','diseases','products','indicators',
+    'bank_accounts','financial_categories','product_diseases','contract_diseases',
+    'clients','client_tags','client_relationships','client_interactions',
+    'client_documents','client_onboarding_tokens',
+    'contracts','installments','installment_history','payments',
+    'commission_payments','financial_transactions','sales','financial_records',
+    'processes','process_deadlines','process_deadline_history','process_sync_log',
+    'publications','publication_sync_log','integration_logs','geo_cache',
+    'document_templates','template_variables','birthday_templates',
+    'birthday_messages','marketing_logs','leads','notifications',
+    'tasks','task_history','kanban_boards','kanban_columns',
+    'system_settings','audit_logs','indicator_tokens'
+  )
+order by tablename, policyname;
