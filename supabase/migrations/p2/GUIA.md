@@ -5,6 +5,9 @@
 - Aplicar no SQL Editor do Supabase, como `postgres`, um arquivo por vez.
 - Não usar `run_sql*.js` com service role.
 - Validações já confirmadas estão em `../STATUS_SEGURANCA.md`. Não repetir testes OK.
+- **Lote 01 BLOQUEADO:** as funções `http_*` pertencem a `supabase_admin`. O
+  `postgres` não pode revogar grants desse dono nem assumir o papel (`SET ROLE`
+  -> 42501). Requer **Supabase Support**. Não adianta rodar como postgres.
 
 ## Ordem
 

@@ -19,10 +19,10 @@
 -- Não altera a djen_fetch em si (segue concedida a anon/authenticated/service_role).
 --
 -- IMPORTANTE: as funções http_* pertencem a supabase_admin (dono da extensão).
--- Um REVOKE feito como postgres é no-op, pois só remove grants do próprio
--- executor. Por isso assumimos supabase_admin via SET ROLE antes de revogar.
-
-set role supabase_admin;
+-- Um REVOKE feito como postgres é no-op (só remove grants do próprio executor),
+-- e postgres NÃO pode assumir supabase_admin (SET ROLE -> 42501).
+-- Portanto este lote NÃO roda como postgres no SQL Editor: deve ser executado
+-- pelo Supabase Support (ou por supabase_admin). Enviar este arquivo a eles.
 
 do $$
 declare
@@ -59,7 +59,5 @@ begin
     end if;
   end loop;
 end $$;
-
-reset role;
 
 notify pgrst, 'reload schema';

@@ -86,14 +86,19 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
 
 ## P2 — em andamento
 
-### Lote 01 — `p2/01_http_sem_public.sql` (preparado, não aplicado)
+### Lote 01 — `p2/01_http_sem_public.sql` (BLOQUEADO — requer Supabase Support)
 
 - Revoga `EXECUTE` das funções `http_*` de `PUBLIC`/`anon`/`authenticated` (SSRF);
   mantém `service_role`, `postgres` e o dono da `djen_fetch`.
+- **Bloqueio:** as funções `http_*` pertencem a `supabase_admin`. O `REVOKE` como
+  `postgres` é no-op (só remove grants do próprio executor) e `SET ROLE
+  supabase_admin` falha com 42501. Confirmado via `proacl` (grants
+  `=X/supabase_admin`, `anon=X/supabase_admin`). Enviado para Supabase Support.
 - Único consumidor é `djen_fetch` (`SECURITY DEFINER`, roda como `postgres`,
   host fixo no DJEN). Chamada via anon em `lib/djen.ts`, mas o `http_get` interno
   executa como `postgres` — por isso não quebra.
-- Verificação: 0 funções http p/ anon + `postgres` ainda executa `http_get`.
+- Verificação (após Support): 0 funções http p/ anon + `postgres` ainda executa
+  `http_get`.
 - Teste funcional (único afetado): sincronização DJEN em Publicações (`test`).
 
 ## Próximos itens (P2)
