@@ -26,6 +26,15 @@ select current_setting('server_version')                         as pg_version,
          where logout_at is null
            and last_seen_at > now() - interval '60 seconds')     as sessoes_ativas_recentes;
 
+-- O token da aplicação pode ser assinado com role 'anon' (padrão) ou
+-- 'authenticated' (SUPABASE_JWT_ROLE). Descobrir qual dos dois tem SELECT nas
+-- tabelas de domínio: a seção 6 usa esse role. Se 'anon' não tiver SELECT,
+-- o erro 42501 é esperado e não é problema do diagnóstico.
+select has_table_privilege('anon', 'public.processes', 'SELECT')         as anon_le_processes,
+       has_table_privilege('authenticated', 'public.processes', 'SELECT') as auth_le_processes,
+       has_table_privilege('anon', 'public.clients', 'SELECT')           as anon_le_clients,
+       has_table_privilege('authenticated', 'public.clients', 'SELECT')  as auth_le_clients;
+
 -- ---------------------------------------------------------------------------
 -- 2) Volatilidade atual das funções envolvidas
 --    Esperado antes do P1.1: _auth_session_payload = 'v' (VOLATILE).
@@ -122,10 +131,14 @@ select public.app_validate_session(
        );
 
 -- ---------------------------------------------------------------------------
--- 6) Baseline com RLS real: consultas de domínio como role anon + claims
---    Se der "permission denied", registre: é informação útil sobre grants.
+-- 6) Baseline com RLS real: consultas de domínio com o role da aplicação
+--    Usa 'anon' se ele tiver SELECT em processes; senão 'authenticated'.
+--    (set_config com is_local = true equivale a SET LOCAL ROLE.)
 -- ---------------------------------------------------------------------------
-set local role anon;
+select set_config('role',
+                  case when has_table_privilege('anon', 'public.processes', 'SELECT')
+                       then 'anon' else 'authenticated' end,
+                  true) as role_da_medicao;
 
 explain (analyze, buffers, summary on)
 select count(*) from public.clients;
