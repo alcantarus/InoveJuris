@@ -112,6 +112,23 @@ begin
   $f$, 'P0 portal indicador');
 end $$;
 
--- A view vw_portal_commission_details, se estiver com security_invoker=on,
--- aplica RLS nas tabelas de base. Antes de aplicar este lote, descubra quais
--- são e repita o padrão acima (ou ajuste a view) no GUIA.md.
+-- A view vw_portal_commission_details está com security_invoker=on e lê
+-- `clients`, `commission_payments` e `contracts`. As duas últimas já receberam
+-- a policy do portal acima. `clients` não tem coluna `indicator_id`: o vínculo
+-- com o indicador existe em `contracts.indicator_id` (contracts.client_id).
+-- Sem esta policy o portal abriria vazio, porque a `P0 sessao` exige login.
+do $$
+begin
+  execute format('drop policy if exists %I on public.clients', 'P0 portal indicador');
+  execute format($f$
+    create policy %I on public.clients
+      for select to anon, authenticated
+      using (
+        exists (
+          select 1 from public.contracts c
+          where c.client_id = clients.id
+            and c.indicator_id = public._rls_portal_indicator_id()
+        )
+      )
+  $f$, 'P0 portal indicador');
+end $$;

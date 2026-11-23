@@ -55,18 +55,29 @@ fluxo quebrar; ele restaura o estado permissivo anterior.
 
 ## Antes do lote 10 — dependências da view do portal
 
-`vw_portal_commission_details` está com `security_invoker=on` desde a F7. Se ela ler
-tabelas além de `commission_payments` e `contracts`, essas tabelas também precisam de
-policy para o token do portal. Descubra com a query 4 de `verify.sql` e repita o padrão:
+`vw_portal_commission_details` está com `security_invoker=on` desde a F7. A query 4 de
+`verify.sql` confirmou as tabelas de base: `clients`, `commission_payments` e
+`contracts`.
+
+- `commission_payments` e `contracts` têm `indicator_id` → policy direta:
+  `using (indicator_id = public._rls_portal_indicator_id())`.
+- `clients` **não** tem `indicator_id`. O vínculo é `contracts.client_id = clients.id`
+  e `contracts.indicator_id`. O lote 10 cria a policy com `exists(...)`, sem conceder
+  acesso amplo:
 
 ```sql
-create policy "P0 portal indicador" on public.<tabela>
+create policy "P0 portal indicador" on public.clients
   for select to anon, authenticated
-  using (indicator_id = public._rls_portal_indicator_id());
+  using (
+    exists (
+      select 1 from public.contracts c
+      where c.client_id = clients.id
+        and c.indicator_id = public._rls_portal_indicator_id()
+    )
+  );
 ```
 
-Se a tabela não tiver `indicator_id`, pare e avalie: **não** crie policy ampla só para
-"fazer funcionar".
+Nunca crie policy ampla (`using (true)`) só para "fazer funcionar".
 
 ## Verificação funcional obrigatória
 
