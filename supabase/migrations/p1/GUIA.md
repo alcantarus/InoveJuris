@@ -3,7 +3,7 @@
 ## Status
 
 - Lotes 01 e 02 **aplicados e verificados** (ver `../STATUS_SEGURANCA.md`).
-- Lote 03 é só inventário (SELECT), não altera nada.
+- Lote 03 (inventário) **rodado**; resultado classificado no lote 04.
 - Aplicar no SQL Editor do Supabase, como `postgres`, um arquivo por vez.
 - Não usar `run_sql*.js` com service role.
 - Validações já confirmadas pelo usuário estão registradas em
@@ -16,6 +16,7 @@
 | 1 | `01_anon_sem_escrita.sql` | Remove INSERT/UPDATE/DELETE/TRUNCATE de `anon` em todas as tabelas/views; mantém UPDATE em `clients` para o onboarding | Query de verificação abaixo + onboarding e portal |
 | 2 | `02_anon_select_minimo.sql` | Mantém SELECT de `anon` só nas 7 tabelas/views dos links públicos | Lista de 7 tabelas + onboarding e portal |
 | 3 | `03_inventario_funcoes_anon.sql` | Inventário (só leitura) das funções executáveis por `anon` | Colar o resultado para classificar antes de revogar |
+| 4 | `04_anon_funcoes_minimas.sql` | Revoga `EXECUTE` de `anon` nas funções de negócio (busca, financeiro, prazos, etc.); mantém auth/sessão/admin, helpers de RLS e links públicos | 0 funções de negócio + 6 funções públicas ainda liberadas |
 
 ## Verificação do lote 01
 
@@ -46,6 +47,50 @@ Esperado: exatamente **7 linhas** — `clients`, `client_onboarding_tokens`,
 `commission_payments`, `contracts`, `indicator_tokens`, `indicators` e
 `vw_portal_commission_details`.
 
+## Verificação do lote 04
+
+Negócio deve sumir do `anon` (esperado: **0 linhas**):
+
+```sql
+select p.proname, pg_get_function_identity_arguments(p.oid) as args
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'search_all','search_clients','search_clients_accent_insensitive',
+    'search_clients_basic','get_clients_with_process_summary',
+    'get_financial_chart_data','get_financial_summary',
+    'get_future_receivables_projection','confirm_process_deadline',
+    'create_process_deadline','delete_process_deadline',
+    'process_contract_cancellation','process_installment_estorno',
+    'process_installment_payment','reverse_installment_payment',
+    'rpc_receber_parcela_com_metodo','rpc_recebimento_com_desdobramento',
+    'save_client_guardians','check_database_orphans','djen_fetch',
+    'normalize_deadline_at'
+  )
+  and has_function_privilege('anon', p.oid, 'EXECUTE')
+order by 1;
+```
+
+Fluxos públicos/auth devem continuar liberados (esperado: **6 linhas**):
+
+```sql
+select p.proname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'app_touch_indicator_token','app_mark_onboarding_used','set_app_environment',
+    'app_authenticate','app_validate_session','app_heartbeat'
+  )
+  and has_function_privilege('anon', p.oid, 'EXECUTE')
+order by 1;
+```
+
+**Sem reteste funcional:** o lote 04 só retira de `anon` funções que nenhum fluxo
+público ou de servidor usa. Logados (`authenticated`) e links públicos não mudam.
+As validações já confirmadas estão em `../STATUS_SEGURANCA.md`.
+
 ## Teste funcional obrigatório após aplicar
 
 - [ ] Onboarding novo em `test`: salva os dados e marca o token como usado.
@@ -54,7 +99,8 @@ Esperado: exatamente **7 linhas** — `clients`, `client_onboarding_tokens`,
 
 ## Próximos lotes
 
-- Lote 04: revogar `EXECUTE` desnecessário de `anon` (candidata principal:
-  `search_all`), preservando helpers `_rls_*`, `set_app_environment`,
-  `app_touch_indicator_token` e `app_mark_onboarding_used`.
-- Revogar funções `http` e rotacionar a chave de assinatura (escopo P2).
+- P2: revogar funções `http_*` de `PUBLIC` (SSRF) e regrant só a quem precisa;
+  rotacionar a chave de assinatura ECC/ES256.
+- P2: mover rotas de servidor que usam chave anon para `service_role`, permitindo
+  então revogar as funções `app_*` de auth/admin do `anon`.
+- `organization_id` / multitenancy real.

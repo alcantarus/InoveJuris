@@ -42,10 +42,30 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
   `indicator_tokens`, `indicators`, `vw_portal_commission_details`.
 - [x] Onboarding, portal e usuário logado OK após a aplicação.
 
+### Lote 03 — `p1/03_inventario_funcoes_anon.sql`
+
+- [x] Inventário rodado: 103 funções executáveis por `anon`.
+- [x] Classificação cruzada com o código (ver lote 04).
+
+### Lote 04 — `p1/04_anon_funcoes_minimas.sql` (preparado, não aplicado)
+
+- Revoga `EXECUTE` de `anon` em 21 nomes de função de negócio (23 contando as
+  sobrecargas de `search_clients` e `process_installment_payment`): busca,
+  financeiro, prazos, cancelamento/estorno, guardiões, órfãos, `djen_fetch`,
+  `normalize_deadline_at`.
+- **Mantém** para `anon`: helpers `_rls_*`, `_auth_require_superadmin`,
+  `get_auth_organization`, `log_audit_event`, `set_app_environment`,
+  `app_mark_onboarding_used`, `app_touch_indicator_token` e todas as `app_*` de
+  auth/sessão/admin — porque as rotas de servidor usam a **chave anon**.
+- Funções de extensão (`http_*`, `pg_trgm`, `unaccent`) são grant a `PUBLIC`;
+  ficam para o P2 (revogar só de `anon` não tem efeito).
+- Sem reteste funcional: nenhum fluxo público/logado muda.
+
 ## Próximos itens de P1/P2
 
-- Inventariar funções com `EXECUTE` para `anon` (ex.: `search_all`, que é
-  `SECURITY INVOKER` e lê várias tabelas).
-- Revogar funções `http` (chamado no Supabase Support).
+- Aplicar e verificar o lote 04 (0 funções de negócio + 6 públicas liberadas).
+- P2: revogar `http_*` de `PUBLIC` (SSRF) e regrant seletivo.
+- P2: mover rotas de servidor da chave anon para `service_role` (depois revogar
+  `app_*` de auth/admin do `anon`).
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.
