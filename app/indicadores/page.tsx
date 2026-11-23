@@ -940,6 +940,7 @@ export default function IndicadoresPage() {
           isOpen={isAccessModalOpen}
           onClose={() => setIsAccessModalOpen(false)}
           title={`Gerenciar Acessos - ${selectedIndicatorForAccess?.name}`}
+          className="max-w-4xl"
         >
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -990,18 +991,28 @@ export default function IndicadoresPage() {
             </div>
 
             <div>
-              <h3 className="font-semibold text-slate-800 mb-3">Links Gerados</h3>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="font-semibold text-slate-800">Links Gerados</h3>
+                <button
+                  type="button"
+                  onClick={() => selectedIndicatorForAccess && fetchIndicatorTokens(selectedIndicatorForAccess.id)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
+                >
+                  <RefreshCw size={14} />
+                  Atualizar
+                </button>
+              </div>
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse hidden md:table">
+                <div className="hidden md:block">
+                <table className="w-full table-fixed text-left border-collapse hidden md:table">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
-                      <th className="p-3 font-medium">Tipo</th>
-                      <th className="p-3 font-medium">Gerado em</th>
-                      <th className="p-3 font-medium">Expira em</th>
-                      <th className="p-3 font-medium">Último acesso</th>
-                      <th className="p-3 font-medium">Status</th>
-                      <th className="p-3 font-medium text-right">Ações</th>
+                      <th className="w-[13%] px-2.5 py-3 font-medium">Tipo</th>
+                      <th className="w-[16%] px-2.5 py-3 font-medium">Gerado em</th>
+                      <th className="w-[16%] px-2.5 py-3 font-medium">Expira em</th>
+                      <th className="w-[23%] px-2.5 py-3 font-medium">Último acesso</th>
+                      <th className="w-[16%] px-2.5 py-3 font-medium">Status</th>
+                      <th className="w-[16%] px-2.5 py-3 font-medium text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1017,27 +1028,27 @@ export default function IndicadoresPage() {
 
                         return (
                           <tr key={token.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3">
+                            <td className="px-2.5 py-3 align-top">
                               <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${token.type === 'fixed' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'}`}>
                                 {token.type === 'fixed' ? 'Fixo' : 'Temporário'}
                               </span>
                             </td>
-                            <td className="p-3 text-sm text-slate-600">
+                            <td className="px-2.5 py-3 align-top text-sm text-slate-600">
                               {formatDate(token.created_at)}
                             </td>
-                            <td className="p-3 text-sm text-slate-600">
+                            <td className="px-2.5 py-3 align-top text-sm text-slate-600">
                               {token.expires_at ? formatDate(token.expires_at) : '-'}
                             </td>
-                            <td className="p-3 text-sm text-slate-600">
+                            <td className="px-2.5 py-3 align-top text-sm text-slate-600 break-words">
                               {token.last_accessed_at ? formatDateTime(token.last_accessed_at) : 'Nunca acessado'}
                             </td>
-                            <td className="p-3">
+                            <td className="px-2.5 py-3 align-top">
                               <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${tokenStatus.colorClass}`}>
                                 {tokenStatus.label}
                               </span>
                             </td>
-                            <td className="p-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-2.5 py-3 align-top text-right">
+                              <div className="flex items-center justify-end gap-1">
                                 <button
                                   onClick={() => copyPortalLink(token.token)}
                                   className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
