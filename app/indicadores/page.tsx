@@ -26,6 +26,7 @@ import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { getAppEnv } from '@/lib/env'
 import { formatCPF, formatCNPJ, formatPhone, cn, formatDate, formatDateTime, formatCurrency, removeAccents } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
@@ -159,6 +160,7 @@ export default function IndicadoresPage() {
       .from('indicator_tokens')
       .select('*')
       .eq('indicator_id', indicatorId)
+      .eq('environment', getAppEnv())
       .order('created_at', { ascending: false })
     
     if (error) {
@@ -183,17 +185,19 @@ export default function IndicadoresPage() {
       'O indicador só terá acesso pelo novo link. Deseja continuar?'
     )) return
 
-    // Deactivate existing fixed links first
+    // Deactivate existing fixed links first (somente do ambiente atual)
     await supabase
       .from('indicator_tokens')
       .update({ is_active: false })
       .eq('indicator_id', selectedIndicatorForAccess.id)
       .eq('type', 'fixed')
+      .eq('environment', getAppEnv())
 
     const { data, error } = await supabase
       .from('indicator_tokens')
       .insert({ 
         indicator_id: selectedIndicatorForAccess.id,
+        environment: getAppEnv(),
         type: 'fixed',
         is_active: true
       })
@@ -224,6 +228,7 @@ export default function IndicadoresPage() {
       .from('indicator_tokens')
       .insert({ 
         indicator_id: selectedIndicatorForAccess.id,
+        environment: getAppEnv(),
         type: 'temporary',
         expires_at: expiresAt.toISOString(),
         is_active: true
@@ -246,6 +251,7 @@ export default function IndicadoresPage() {
       .from('indicator_tokens')
       .update({ is_active: !currentStatus })
       .eq('id', tokenId)
+      .eq('environment', getAppEnv())
     
     if (error) {
       console.error('Error toggling token status:', error)

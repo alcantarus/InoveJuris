@@ -94,6 +94,20 @@ Nunca crie policy ampla (`using (true)`) só para "fazer funcionar".
 - [ ] Link de onboarding novo e já usado.
 - [ ] Portal do indicador com token fixo, temporário e revogado.
 
+## Erro 42501 ao gerar link no ambiente teste
+
+`indicator_tokens.environment` tem default `'production'`. Depois do lote 12, a policy
+`P0 token administrador` exige que essa coluna seja igual à claim `environment` do JWT.
+Se o painel inserir sem informar `environment`, o `WITH CHECK` recusa com:
+
+```
+new row violates row-level security policy for table "indicator_tokens"
+```
+
+O painel deve enviar `environment: getAppEnv()` no INSERT e usar o mesmo valor nos
+filtros de SELECT/UPDATE da gestão de acessos. Isso é correção de código, não de policy —
+não ALTER TABLE nem recrie a policy para "liberar".
+
 ## Rollback
 
 `rollback.sql` recria policies `Permissivo legado` para todas as tabelas de domínio.
