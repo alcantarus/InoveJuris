@@ -25,6 +25,7 @@ on conflict (id) do update set public = false;
 -- Verificação pós-aplicação:
 --   select id, public from storage.buckets
 --    where id in ('client_documents','templates','marketing');
---   select count(*) as policies from storage.policies
---    where bucket_id in ('client_documents','templates','marketing');
+--   select policyname from pg_policies
+--    where schemaname = 'storage' and tablename = 'objects'
+--      and coalesce(qual, '') ilike any(array['%client_documents%','%templates%','%marketing%']);
 -- Esperado: public = false nos três e policies = 0.

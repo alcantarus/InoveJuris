@@ -61,9 +61,23 @@ where v.relname = 'vw_portal_commission_details'
 order by c.relname;
 
 -- 5) Storage continua privado (F6b).
+--    Versões recentes do Supabase não expõem storage.policies: as policies
+--    ficam em pg_policies (schemaname = 'storage', tablename = 'objects').
 select id, public from storage.buckets
 where id in ('client_documents','templates','marketing')
 order by id;
-select count(*) as policies_storage
-from storage.policies
-where bucket_id in ('client_documents','templates','marketing');
+
+-- Esperado: nenhuma policy mencionando client_documents, templates ou marketing.
+select policyname, qual, with_check
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and (
+       coalesce(qual, '') ilike '%client_documents%'
+    or coalesce(qual, '') ilike '%templates%'
+    or coalesce(qual, '') ilike '%marketing%'
+    or coalesce(with_check, '') ilike '%client_documents%'
+    or coalesce(with_check, '') ilike '%templates%'
+    or coalesce(with_check, '') ilike '%marketing%'
+  )
+order by policyname;

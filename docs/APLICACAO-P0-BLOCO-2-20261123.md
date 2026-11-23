@@ -48,10 +48,13 @@ where id in ('client_documents', 'templates', 'marketing')
 order by id;
 -- Esperado: public = false nos três.
 
-select bucket_id, count(*) as policies
-from storage.policies
-where bucket_id in ('client_documents', 'templates', 'marketing')
-group by bucket_id;
+-- storage.policies não existe nas versões recentes do Supabase;
+-- as policies ficam em pg_policies (storage.objects).
+select policyname, qual
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and coalesce(qual, '') ilike any(array['%client_documents%','%templates%','%marketing%']);
 -- Esperado: 0 linhas.
 ```
 
