@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../ui/Card';
 import { Shield, Plus, Save, Trash2, Check, X, Loader2, Info } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 interface Permission {
@@ -27,60 +26,56 @@ export function ProfilesTab() {
   const [saving, setSaving] = useState<string | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
+  /** Toda escrita em RBAC passa pelo servidor, que valida a sessao e chama a RPC. */
+  const rbacRequest = useCallback(async (payload: Record<string, unknown>) => {
+    const response = await fetch('/api/settings/rbac', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error || 'Falha ao salvar permissões.');
+    }
+
+    return data;
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
-      // Fetch Permissions
-      const { data: permsData } = await supabase.from('permissions').select('*').order('description');
-      setPermissions(permsData || []);
-
-      // Fetch Roles with their permissions
-      const { data: rolesData } = await supabase.from('roles').select(`
-        *,
-        role_permissions (
-          permissions (slug)
-        )
-      `).order('name');
-
-      const formattedRoles = (rolesData || []).map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        description: r.description,
-        permissions: r.role_permissions?.map((rp: any) => rp.permissions?.slug) || []
-      }));
-
-      setRoles(formattedRoles);
-    } catch (error) {
+      const data = await rbacRequest({ action: 'get' });
+      setPermissions(data.permissions || []);
+      setRoles(data.roles || []);
+    } catch (error: any) {
       console.error('Error fetching RBAC data:', error);
+      setErrorMessage(error.message || 'Não foi possível carregar perfis e permissões.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [rbacRequest]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleTogglePermission = async (roleId: string, permissionSlug: string, hasPermission: boolean) => {
     setSaving(roleId);
+    setErrorMessage(null);
     try {
-      const permission = permissions.find(p => p.slug === permissionSlug);
-      if (!permission) return;
+      if (!permissions.find(p => p.slug === permissionSlug)) return;
 
-      if (hasPermission) {
-        // Remove permission
-        await supabase
-          .from('role_permissions')
-          .delete()
-          .eq('role_id', roleId)
-          .eq('permission_id', permission.id);
-      } else {
-        // Add permission
-        await supabase
-          .from('role_permissions')
-          .insert({ role_id: roleId, permission_id: permission.id });
-      }
+      await rbacRequest({
+        action: 'set_permission',
+        roleId: Number(roleId),
+        permissionSlug,
+        enabled: !hasPermission,
+      });
 
       // Update local state
       setRoles(prev => prev.map(r => {
@@ -97,8 +92,9 @@ export function ProfilesTab() {
       if (user?.role_name === roles.find(r => r.id === roleId)?.name) {
         refreshUser();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling permission:', error);
+      setErrorMessage(error.message || 'Não foi possível alterar a permissão.');
     } finally {
       setSaving(null);
     }
@@ -108,42 +104,46 @@ export function ProfilesTab() {
     e.preventDefault();
     if (!editingRole) return;
 
+    setErrorMessage(null);
     try {
-      if (editingRole.id) {
-        // Update
-        await supabase
-          .from('roles')
-          .update({ name: editingRole.name, description: editingRole.description })
-          .eq('id', editingRole.id);
-      } else {
-        // Create
-        const { data } = await supabase
-          .from('roles')
-          .insert({ name: editingRole.name, description: editingRole.description })
-          .select()
-          .single();
-        
-        if (data) {
-          // Add default permissions if needed or just refresh
-        }
-      }
+      await rbacRequest({
+        action: 'save_role',
+        id: editingRole.id ? Number(editingRole.id) : null,
+        name: editingRole.name,
+        description: editingRole.description,
+      });
       setIsModalOpen(false);
-      fetchData();
-    } catch (error) {
+      await fetchData();
+    } catch (error: any) {
       console.error('Error saving role:', error);
+      setErrorMessage(error.message || 'Não foi possível salvar o perfil.');
     }
   };
 
   const handleDeleteRole = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este perfil? Esta ação é irreversível e afetará todos os usuários vinculados.')) return;
 
+    setErrorMessage(null);
     try {
-      await supabase.from('roles').delete().eq('id', id);
+      await rbacRequest({ action: 'delete_role', id: Number(id) });
       setRoles(prev => prev.filter(r => r.id !== id));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting role:', error);
+      setErrorMessage(error.message || 'Não foi possível excluir o perfil.');
     }
   };
+
+  if (!user?.is_superadmin) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center gap-3">
+        <Shield className="w-10 h-10 text-slate-300" />
+        <h2 className="text-xl font-bold text-slate-900">Acesso restrito</h2>
+        <p className="text-sm text-slate-500">
+          Somente superadministradores podem gerenciar perfis e permissões.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -155,6 +155,12 @@ export function ProfilesTab() {
 
   return (
     <div className="space-y-6">
+      {errorMessage && (
+        <div className="p-3 rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-700">
+          {errorMessage}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Perfis e Permissões</h2>

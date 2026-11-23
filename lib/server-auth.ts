@@ -80,7 +80,7 @@ export async function requireAdminContext(
   return ctx
 }
 
-/** Operacoes sensiveis (como restore de backup) exigem superadministrador. */
+/** Operacoes sensiveis (como restore e RBAC) exigem superadministrador. */
 export async function requireSuperadminContext(): Promise<AdminContext> {
   const ctx = await requireSessionContext()
 
