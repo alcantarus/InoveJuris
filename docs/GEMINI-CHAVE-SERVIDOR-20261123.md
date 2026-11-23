@@ -4,6 +4,7 @@
 
 - `GEMINI_API_KEY` configurada no Vercel como **Secret** em **Production, Preview e Development**.
 - Deploys de produção em 23/11/2026 (todos `READY`, alias `https://inove-juris.vercel.app`):
+  `dpl_69JVa1qa9h9GWRUsixgK92gUAMZB` (cadeia de modelos com fallback),
   `dpl_E5gvpmkScw6Gh95gKDBcFL3F3LZ6` (modelo `gemini-3.8-flash`),
   `dpl_Ha4RnLXEAQFJ969x9D6ZvdnCQtXC` (retry + UI),
   `dpl_GmWPXjCYAqJXVHVnjSTr8Y9KAGhX` (chave única),
