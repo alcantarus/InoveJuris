@@ -233,8 +233,6 @@ export default function ProcessosPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  if (!mounted) return null
-
   const handleOpenModal = (mode: 'judicial' | 'previdenciario' = 'judicial', process?: Process) => {
     setModalMode(mode)
     
@@ -626,6 +624,11 @@ export default function ProcessosPage() {
     }
     return { expiredCount: expired, criticalCount: critical }
   }, [processes])
+
+  // Todos os hooks precisam ser registrados antes de qualquer retorno
+  // condicional. Este guard era antigo, mas ficou antes dos useMemo acima
+  // e fazia a quantidade de hooks mudar quando mounted passava a true.
+  if (!mounted) return null
 
   return (
     <DashboardLayout>
