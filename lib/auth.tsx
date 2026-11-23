@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { AppEnv } from './env'
 import { setSessionToken } from './session-token'
 
@@ -57,6 +57,29 @@ type AuthResponse = {
   token_expires_at?: number
 }
 
+interface AuthContextValue {
+  user: User | null
+  loading: boolean
+  validateCredentials: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; user?: any; challenge?: string; error?: string }>
+  login: (
+    userFromAuth: any,
+    selectedEnv: AppEnv,
+    challenge: string
+  ) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
+  refreshUser: () => Promise<void>
+  impersonate: (
+    targetUserId: number,
+    selectedEnv: AppEnv
+  ) => Promise<{ success: boolean; error?: string }>
+  switchEnvironment: (newEnv: AppEnv) => Promise<{ success: boolean; error?: string }>
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
 async function postAuth(action: string, payload: Record<string, unknown> = {}): Promise<AuthResponse> {
   const response = await fetch(AUTH_ENDPOINT, {
     method: 'POST',
@@ -91,16 +114,24 @@ function withEnvironment(user: any, environment: AppEnv): User {
 }
 
 // Links públicos usam o token da URL (header x-inove-access-token), não a
-// sessão do painel. O middleware já os isenta; o bootstrap do useAuth precisa
-// fazer o mesmo, senão SessionMonitor/LeadsButton (layout raiz) redirecionam
-// o indicador para /login.
+// sessão do painel. O middleware já os isenta; o bootstrap do AuthProvider
+// precisa fazer o mesmo, senão SessionMonitor/LeadsButton (layout raiz)
+// redirecionam o indicador para /login.
 const PUBLIC_LINK_ROUTE = /^\/(?:onboarding|portal\/indicador)\/[^/]+\/?$/
 
 function isPublicLinkRoute(pathname: string) {
   return PUBLIC_LINK_ROUTE.test(pathname)
 }
 
-export function useAuth() {
+/**
+ * Estado de autenticação único da aplicação.
+ *
+ * Antes, cada useAuth() montava seu próprio bootstrap e chamava
+ * `postAuth('validate')` — apenas no Dashboard eram 11 validações idênticas
+ * no carregamento. Agora o layout raiz monta este provider uma vez e todos
+ * os componentes consomem o mesmo resultado.
+ */
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -178,7 +209,7 @@ export function useAuth() {
     return () => { cancelled = true }
   }, [])
 
-  const validateCredentials = async (
+  const validateCredentials = useCallback(async (
     email: string,
     password: string
   ): Promise<{ success: boolean; user?: any; challenge?: string; error?: string }> => {
@@ -191,9 +222,9 @@ export function useAuth() {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Não foi possível validar as credenciais.' }
     }
-  }
+  }, [])
 
-  const login = async (
+  const login = useCallback(async (
     userFromAuth: any,
     selectedEnv: AppEnv,
     challenge: string
@@ -221,9 +252,9 @@ export function useAuth() {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Erro ao conectar ao servidor de sessão.' }
     }
-  }
+  }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await postAuth('logout')
     } catch {
@@ -234,9 +265,9 @@ export function useAuth() {
       setUser(null)
       window.location.assign('/login')
     }
-  }
+  }, [])
 
-  const impersonate = async (
+  const impersonate = useCallback(async (
     targetUserId: number,
     selectedEnv: AppEnv
   ): Promise<{ success: boolean; error?: string }> => {
@@ -251,9 +282,9 @@ export function useAuth() {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Erro ao acessar como usuário.' }
     }
-  }
+  }, [login])
 
-  const switchEnvironment = async (newEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
+  const switchEnvironment = useCallback(async (newEnv: AppEnv): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Usuário não autenticado.' }
 
     if (newEnv === 'production' && user.canAccessProdEnv === false) {
@@ -279,7 +310,26 @@ export function useAuth() {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Erro ao trocar de ambiente.' }
     }
-  }
+  }, [user])
 
-  return { user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment }
+  const value = useMemo<AuthContextValue>(() => ({
+    user,
+    loading,
+    validateCredentials,
+    login,
+    logout,
+    refreshUser,
+    impersonate,
+    switchEnvironment,
+  }), [user, loading, validateCredentials, login, logout, refreshUser, impersonate, switchEnvironment])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth precisa ser usado dentro de AuthProvider.')
+  }
+  return context
 }

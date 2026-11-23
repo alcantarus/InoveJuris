@@ -9,6 +9,7 @@ import { LeadsButton } from '@/components/LeadsButton'
 import { Toaster } from 'sonner'
 import { ResizeObserverFix } from '@/components/ResizeObserverFix'
 import { GeminiLegacyCleanup } from '@/components/GeminiLegacyCleanup'
+import { AuthProvider } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { cn } from "@/lib/utils";
 
@@ -56,16 +57,18 @@ export default async function RootLayout({
       <body className="font-sans antialiased bg-slate-50 text-slate-900 overflow-x-hidden" suppressHydrationWarning>
         <GeminiLegacyCleanup />
         <ResizeObserverFix />
-        <SettingsProvider>
-          <PrivacyProvider>
-            <EnvBanner />
-            <SessionMonitor />
-            <GlobalSearch />
-            <LeadsButton />
-            <Toaster position="top-right" richColors />
-            {children}
-          </PrivacyProvider>
-        </SettingsProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <PrivacyProvider>
+              <EnvBanner />
+              <SessionMonitor />
+              <GlobalSearch />
+              <LeadsButton />
+              <Toaster position="top-right" richColors />
+              {children}
+            </PrivacyProvider>
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   )
