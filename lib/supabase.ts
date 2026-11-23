@@ -26,18 +26,21 @@ const clients = new Map<string, any>();
 // Token de sessão (F4b-2b / Fase A). Sem token, a requisição sai como hoje.
 // Com token, o Bearer da chave publicável é substituído pelo JWT de sessão.
 const sessionAwareFetch: typeof fetch = (input, init) => {
-  const token = typeof window === 'undefined' ? null : getSessionToken()
-  if (!token) return fetch(input as any, init)
+  const sessionToken = typeof window === 'undefined' ? null : getSessionToken()
+  const accessToken = typeof window === 'undefined' ? null : getAccessToken()
+
+  // Links públicos (onboarding/portal do indicador) não têm sessão, mas
+  // precisam enviar o token da URL. Sair cedo quando não há sessão apagava
+  // esse header e fazia o PostgREST enxergar tudo como anon.
+  if (!sessionToken && !accessToken) return fetch(input as any, init)
 
   const headers = new Headers(init?.headers)
   // O supabase-js preenche Authorization com a chave publicável ANTES de chamar
   // este fetch. Quando há token de sessão, ele deve substituir esse Bearer —
   // caso contrário a requisição chega ao PostgREST como anon.
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+  if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`)
 
-  // Links públicos (onboarding/portal do indicador) não têm sessão. O header
-  // é lido por RLS para limitar o acesso ao registro dono do token.
-  const accessToken = typeof window === 'undefined' ? null : getAccessToken()
+  // O header é lido por RLS para limitar o acesso ao registro dono do token.
   if (accessToken) headers.set('x-inove-access-token', accessToken)
 
   return fetch(input as any, { ...init, headers })
@@ -119,7 +122,9 @@ export const supabase = new Proxy({} as any, {
         // 'users' is shared across environments
         // 'user_sessions' is global to track all logins
         // 'geo_cache' is a global IP cache
-        // 'client_onboarding_tokens' must be accessible globally for the onboarding flow
+        // 'client_onboarding_tokens' e 'indicator_tokens' são tabelas de link
+        // público: o token já limita o registro, e o indicador não tem ambiente
+        // selecionado no navegador.
         // 'tasks' is currently not partitioned by environment.
         // Desde a F7 todas as views expoem a coluna 'environment', entao o
         // filtro abaixo se aplica a todas elas: uma regra unica, sem excecoes.
@@ -128,6 +133,7 @@ export const supabase = new Proxy({} as any, {
           table === 'user_sessions' || 
           table === 'geo_cache' || 
           table === 'client_onboarding_tokens' ||
+          table === 'indicator_tokens' ||
           table === 'contract_diseases'
         ) {
           return queryBuilder
