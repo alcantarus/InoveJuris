@@ -88,13 +88,16 @@ Nada de banco/RLS foi alterado.
 ## Ainda não executado (aguarda decisão)
 
 - **P1.1 (banco, risco médio):** marcar `_auth_session_payload()` como `STABLE`,
-  extrair helper booleano leve para `_rls_can_access`, índices em `user_sessions`,
-  e medir com `EXPLAIN (ANALYZE, BUFFERS)` antes/depois. Conferir em produção a
-  função `get_auth_organization()` (referenciada em policy legada de `users`,
-  sem definição no repositório). Não reaplizar scripts `fix_*_rls.sql`.
+  extrair helper booleano leve para `_rls_session_valid()` e medir com
+  `EXPLAIN (ANALYZE, BUFFERS)` antes/depois. Conferir em produção a função
+  `get_auth_organization()` (referenciada em policy legada de `users`, sem
+  definição no repositório). Não reaplizar scripts `fix_*_rls.sql`.
+  - Índices em `user_sessions` **retirados do plano**: medição prévia mostrou
+    tabela com 207 linhas e `Seq Scan` de 0,163 ms na listagem por ambiente.
   - Diagnóstico preparado (somente leitura, com `ROLLBACK`):
-    `docs/DIAGNOSTICO-P1-1-RLS-20261123.sql`. Executar com o sistema aberto e
-    salvar a saída dos EXPLAINs antes de seguir para a migration.
+    `docs/DIAGNOSTICO-P1-1-RLS-20261123.sql` (grades separadas) e
+    `docs/DIAGNOSTICO-P1-1-RESUMO.sql` (uma única célula JSON). Executar com o
+    sistema aberto e salvar a saída antes de seguir para a migration.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato
