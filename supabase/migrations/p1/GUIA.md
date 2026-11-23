@@ -5,6 +5,8 @@
 - Preparado pelo agente, **não executado**.
 - Aplicar no SQL Editor do Supabase, como `postgres`, um arquivo por vez.
 - Não usar `run_sql*.js` com service role.
+- Validações já confirmadas pelo usuário estão registradas em
+  `../STATUS_SEGURANCA.md`. Não repetir testes marcados como OK.
 
 ## Ordem
 
