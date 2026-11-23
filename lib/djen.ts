@@ -3,7 +3,8 @@
 // Endpoint consultado: GET https://comunicaapi.pje.jus.br/api/v1/comunicacao
 // Leitura pública, sem token. Escrita é exclusiva dos tribunais.
 
-import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
+import { defaultUrlProd } from '@/lib/supabase'
+import { getServiceRoleKey } from '@/lib/supabase-service'
 
 export const DJEN_API_URL = 'https://comunicaapi.pje.jus.br/api/v1/comunicacao'
 
@@ -30,12 +31,13 @@ interface DjenFetchResponse {
 /** Consulta via RPC no Supabase: o host de destino é fixo e somente leitura. */
 async function fetchViaSupabaseRpc(query: string): Promise<DjenFetchResponse> {
   const rpcUrl = `${defaultUrlProd.replace(/\/$/, '')}/rest/v1/rpc/djen_fetch`
+  const serviceKey = getServiceRoleKey()
   const response = await fetch(rpcUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: defaultKeyProd,
-      Authorization: `Bearer ${defaultKeyProd}`,
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
     },
     body: JSON.stringify({ p_query: query }),
     cache: 'no-store',

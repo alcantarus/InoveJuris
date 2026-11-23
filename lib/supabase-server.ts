@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { defaultUrlProd, defaultKeyProd } from './supabase'
+import { defaultUrlProd } from './supabase'
+import { getServiceRoleKey } from './supabase-service'
 import { cookies } from 'next/headers'
 import { AppEnv } from './env'
 
@@ -7,7 +8,7 @@ export const getSupabaseServer = async () => {
   const cookieStore = await cookies();
   const currentEnv = (cookieStore.get('app_env')?.value as AppEnv) || 'production';
   
-  const client = createClient(defaultUrlProd, defaultKeyProd);
+  const client = createClient(defaultUrlProd, getServiceRoleKey());
   
   // Export a Proxy that intercepts queries to enforce Logical Isolation
   return new Proxy({} as any, {

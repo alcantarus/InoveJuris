@@ -95,15 +95,36 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
   supabase_admin` falha com 42501. Confirmado via `proacl` (grants
   `=X/supabase_admin`, `anon=X/supabase_admin`). Enviado para Supabase Support.
 - Único consumidor é `djen_fetch` (`SECURITY DEFINER`, roda como `postgres`,
-  host fixo no DJEN). Chamada via anon em `lib/djen.ts`, mas o `http_get` interno
-  executa como `postgres` — por isso não quebra.
+  host fixo no DJEN). O `http_get` interno executa como `postgres` — por isso não
+  quebra. (`lib/djen.ts` já migrado para service_role no lote 02.)
 - Verificação (após Support): 0 funções http p/ anon + `postgres` ainda executa
   `http_get`.
 - Teste funcional (único afetado): sincronização DJEN em Publicações (`test`).
 
+### Lote 02 — rotas de servidor: anon → service_role (código, aplicado)
+
+- Objetivo: tirar a chave anon das rotas de servidor, para depois poder revogar
+  `EXECUTE` das funções `app_*` de auth/sessão/admin do `anon`.
+- Migrados para `createServiceRoleClient` / `getServiceRoleKey`:
+  - `lib/server-auth.ts` → `requireSessionContext` (usado por quase todas as rotas).
+  - `lib/supabase-server.ts` → `getSupabaseServer` (só `auth/session`).
+  - `app/api/ai/generate/route.ts` → validação de sessão.
+  - `lib/djen.ts` → `fetchViaSupabaseRpc` (`djen_fetch`).
+- Seguro porque todas são chamadas **RPC** para funções `SECURITY DEFINER`
+  (rodam como `postgres`, independentemente do papel de quem chama). Nenhum
+  `.from()` que dependa de RLS nesses pontos.
+- A chave anon do **cliente** (`lib/supabase.ts`, `NEXT_PUBLIC_*`) permanece —
+  é a chave pública esperada no navegador; o cliente usa o JWT de sessão
+  (papel `authenticated`) nas RPCs de negócio.
+- Pré-requisito confirmado pelo usuário: `SUPABASE_SERVICE_ROLE_KEY` configurada
+  na Vercel (Production). Typecheck limpo.
+- [ ] Validar após deploy: login + uma página logada (requireSessionContext) +
+  uma ação admin. Só depois revogar `app_*` de auth/admin do `anon` (lote 03).
+
 ## Próximos itens (P2)
 
-- Mover rotas de servidor da chave anon para `service_role` (depois revogar
-  `app_*` de auth/admin do `anon`).
+- Lote 03: revogar `EXECUTE` das `app_*` de auth/sessão/admin do `anon`
+  (preservando `set_app_environment`, `app_touch_indicator_token`,
+  `app_mark_onboarding_used`, helpers de RLS). Depende do lote 02 validado.
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.

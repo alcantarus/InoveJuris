@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createClient } from '@supabase/supabase-js'
 import { Type } from '@google/genai'
-import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase-service'
 import { generateGeminiText } from '@/lib/gemini-server'
 
 type Kind = 'dashboard_insight' | 'task_subtasks' | 'lead_score' | 'lead_insights'
@@ -110,7 +109,7 @@ async function sessaoValida(): Promise<boolean> {
 
   if (!sessionId) return false
 
-  const client = createClient(defaultUrlProd, defaultKeyProd)
+  const client = createServiceRoleClient()
   const { data, error } = await client.rpc('app_validate_session', {
     p_session_id: sessionId,
     p_environment: environment,

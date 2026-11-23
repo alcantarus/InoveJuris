@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { defaultKeyProd, defaultUrlProd } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase-service'
 
 export class AdminAuthError extends Error {
   status: number
@@ -34,7 +33,9 @@ export async function requireSessionContext(): Promise<SessionContext> {
     throw new AdminAuthError('Sessão inválida.', 401)
   }
 
-  const client = createClient(defaultUrlProd, defaultKeyProd)
+  // service_role: chamada de servidor para RPC SECURITY DEFINER. Assim a chave
+  // anon nao precisa de EXECUTE em app_validate_session (endurecimento P2).
+  const client = createServiceRoleClient()
   const { data, error } = await client.rpc('app_validate_session', {
     p_session_id: sessionId,
     p_environment: environment,
