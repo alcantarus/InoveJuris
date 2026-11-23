@@ -87,17 +87,23 @@ Nada de banco/RLS foi alterado.
 
 ## Ainda não executado (aguarda decisão)
 
-- **P1.1 (banco, risco médio):** marcar `_auth_session_payload()` como `STABLE`,
-  extrair helper booleano leve para `_rls_session_valid()` e medir com
-  `EXPLAIN (ANALYZE, BUFFERS)` antes/depois. Conferir em produção a função
-  `get_auth_organization()` (referenciada em policy legada de `users`, sem
-  definição no repositório). Não reaplizar scripts `fix_*_rls.sql`.
-  - Índices em `user_sessions` **retirados do plano**: medição prévia mostrou
-    tabela com 207 linhas e `Seq Scan` de 0,163 ms na listagem por ambiente.
-  - Diagnóstico preparado (somente leitura, com `ROLLBACK`):
-    `docs/DIAGNOSTICO-P1-1-RLS-20261123.sql` (grades separadas) e
-    `docs/DIAGNOSTICO-P1-1-RESUMO.sql` (uma única célula JSON). Executar com o
-    sistema aberto e salvar a saída antes de seguir para a migration.
+- **P1.1 (banco, risco médio) — diagnóstico concluído, aguardando autorização
+  para aplicar:**
+  - Medição em produção (PG 17.6, 1 sessão ativa, role `authenticated`):
+    `_auth_session_payload` = **VOLATILE**; `_rls_session_valid`,
+    `_rls_can_access`, `_auth_user_payload` e `get_auth_organization()` já são
+    **STABLE**. Tempos: `_auth_session_payload` 2,625 ms, `_rls_can_access`
+    2,106 ms, `app_validate_session` 1,820 ms (baseline antigo do parecer:
+    ~95 ms), `clients` com RLS 110,732 ms e `processes` 10,949 ms.
+  - `get_auth_organization()` existe, lê `custom.organization_id` e já é STABLE.
+    A policy legada `"Isolamento por Organização em users"` fica intacta.
+  - Índices em `user_sessions` **retirados do plano**: 207 linhas e `Seq Scan`
+    de 0,163 ms na listagem por ambiente não justificam custo de escrita.
+  - Scripts prontos: `supabase/migrations/p1_1/01_p1_1_session_rls_apply.sql`,
+    `02_p1_1_session_rls_rollback.sql` e
+    `docs/VALIDACAO-P1-1-20261123.sql`.
+  - Fora do P1.1: os 110 ms de `clients` vêm de `_rls_can_access(environment)`
+    ser avaliado por linha nas policies. Frente separada, com medição própria.
 - **Streaming de backup (P2):** mantido como não executado. O anexo de e-mail
   precisa do zip completo em memória e os logs de auditoria/`backup_status` hoje
   são gravados antes da resposta; passar a stream + `after()` troca esse contrato
