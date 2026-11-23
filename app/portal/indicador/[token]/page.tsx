@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { setAccessToken } from '@/lib/session-token'
 import { Header } from '@/components/portal/Header'
 import { KPICard } from '@/components/portal/KPICard'
 import { CommissionTable } from '@/components/portal/CommissionTable'
@@ -19,6 +20,8 @@ export default function PortalIndicadorPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
+    setAccessToken(token as string)
+
     async function fetchPortalData() {
       if (!token) return
       
@@ -102,6 +105,7 @@ export default function PortalIndicadorPage() {
     }
 
     fetchPortalData()
+    return () => setAccessToken(null)
   }, [token])
 
   if (loading) return <div className="p-6">Carregando...</div>

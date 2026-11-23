@@ -1,14 +1,8 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { defaultUrlProd, defaultKeyProd } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { getAppEnv } from '@/lib/env';
-
-const supabase = createClient(
-  defaultUrlProd,
-  defaultKeyProd
-);
 
 const SyncCardField = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="min-w-0">

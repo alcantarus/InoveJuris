@@ -4,12 +4,16 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Rotas públicas que não precisam de sessão
+  // Rotas públicas que não precisam de sessão.
+  // Onboarding e portal do indicador usam o token do link (header próprio),
+  // não os cookies de sessão; o middleware não pode redirecioná-los para /login.
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon.ico')
+    pathname.startsWith('/favicon.ico') ||
+    /^\/onboarding\/[^/]+\/?$/.test(pathname) ||
+    /^\/portal\/indicador\/[^/]+\/?$/.test(pathname)
   ) {
     return NextResponse.next()
   }

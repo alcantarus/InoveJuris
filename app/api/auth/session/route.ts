@@ -82,6 +82,7 @@ async function withSessionToken(
       userId: user.id,
       sessionId,
       environment,
+      isSuperadmin: user.is_superadmin === true,
       organizationId: typeof user.organization_id === 'string' ? user.organization_id : null,
     })
     if (!signed) return payload

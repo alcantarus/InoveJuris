@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { setAccessToken } from '@/lib/session-token'
 import { getAppEnv } from '@/lib/env'
 import { Loader2, CheckCircle2, AlertTriangle, User, Mail, Phone, MapPin, FileText } from 'lucide-react'
 import { validateCPF, validateCNPJ, formatCPF, formatCNPJ, formatCEP, formatPhone, cn } from '@/lib/utils'
@@ -42,6 +43,8 @@ export default function OnboardingPage() {
   const [formErrors, setFormErrors] = useState<{ document?: string; cep?: string; lgpd?: string }>({})
 
   useEffect(() => {
+    setAccessToken(token)
+
     const fetchTokenAndClient = async () => {
       if (!token) return
 
@@ -125,6 +128,7 @@ export default function OnboardingPage() {
     }
 
     fetchTokenAndClient()
+    return () => setAccessToken(null)
   }, [token])
 
   const handleDocumentChange = (value: string) => {

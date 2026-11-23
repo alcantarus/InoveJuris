@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getAppEnv } from './env'
-import { getSessionToken } from './session-token'
+import { getAccessToken, getSessionToken } from './session-token'
 
 // Helper to ensure URL is valid or fallback
 const getValidUrl = (url: string | undefined, fallback: string, name: string) => {
@@ -34,6 +34,12 @@ const sessionAwareFetch: typeof fetch = (input, init) => {
   // este fetch. Quando há token de sessão, ele deve substituir esse Bearer —
   // caso contrário a requisição chega ao PostgREST como anon.
   if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  // Links públicos (onboarding/portal do indicador) não têm sessão. O header
+  // é lido por RLS para limitar o acesso ao registro dono do token.
+  const accessToken = typeof window === 'undefined' ? null : getAccessToken()
+  if (accessToken) headers.set('x-inove-access-token', accessToken)
+
   return fetch(input as any, { ...init, headers })
 }
 

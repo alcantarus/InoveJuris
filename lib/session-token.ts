@@ -1,14 +1,45 @@
-// Token de sessão mantido apenas em memória no navegador (Fase A da identidade).
+// Token de sessão do Supabase (F4b-2b / Fase A).
 //
-// Sem token, o cliente Supabase se comporta exatamente como antes: envia a
-// chave publicável e o banco trata a requisição como `anon`. Com token, o
-// header Authorization passa a levar o crachá assinado. O token nunca vai para
-// localStorage: recarregar a página pede um novo na validação de sessão.
+// O token NUNCA vai para localStorage. Ele fica em memória e, no navegador,
+// também em sessionStorage: isso cobre o recarregamento da mesma aba e evita
+// que a primeira consulta de cada tela saia como anon antes do bootstrap do
+// useAuth() terminar. Ao fechar a aba, o sessionStorage some; logout chama
+// setSessionToken(null) e remove a cópia.
 
-let currentToken: string | null = null
+const STORAGE_KEY = 'inovejuris_session_token'
+
+function readStoredToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const value = window.sessionStorage.getItem(STORAGE_KEY)
+    return value && value.trim() ? value : null
+  } catch {
+    return null
+  }
+}
+
+let currentToken: string | null = readStoredToken()
+let portalAccessToken: string | null = null
+
+/** Token de link público (onboarding/portal). Nunca persistido. */
+export function setAccessToken(token: string | null | undefined) {
+  portalAccessToken = typeof token === 'string' && token.trim() ? token : null
+}
+
+export function getAccessToken(): string | null {
+  return portalAccessToken
+}
 
 export function setSessionToken(token: string | null | undefined) {
   currentToken = typeof token === 'string' && token.trim() ? token : null
+
+  if (typeof window === 'undefined') return
+  try {
+    if (currentToken) window.sessionStorage.setItem(STORAGE_KEY, currentToken)
+    else window.sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // sessionStorage bloqueado: o token continua disponível em memória.
+  }
 }
 
 export function getSessionToken(): string | null {

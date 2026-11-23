@@ -8,9 +8,9 @@ import { SignJWT, importJWK } from 'jose'
  * exatamente como antes — por isso a Fase A pode ser publicada antes da chave
  * existir.
  *
- * Claims: role, session_id, environment, organization_id e sub. Na Fase A o
- * `role` é `anon` (mesmo privilégio de hoje). Na Fase B passa a `authenticated`
- * quando as policies já souberem ler as claims.
+ * Claims: role, session_id, environment, is_superadmin, organization_id e sub.
+ * Na Fase A o `role` é `anon` (mesmo privilégio de hoje). Na Fase B passa a
+ * `authenticated` quando as policies já souberem ler as claims.
  */
 
 const ALG = 'ES256'
@@ -123,6 +123,7 @@ export interface SessionClaims {
   userId: number | string
   sessionId: string
   environment: string
+  isSuperadmin?: boolean
   organizationId?: string | null
 }
 
@@ -144,6 +145,7 @@ export async function signSessionToken(
     role: tokenRole(),
     session_id: claims.sessionId,
     environment: claims.environment,
+    is_superadmin: claims.isSuperadmin === true,
   }
   if (claims.organizationId) payload.organization_id = claims.organizationId
 
