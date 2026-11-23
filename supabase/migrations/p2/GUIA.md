@@ -15,7 +15,7 @@
 |---|---|---|---|
 | 1 | `01_http_sem_public.sql` | Revoga `EXECUTE` das funções `http_*` de `PUBLIC`/`anon`/`authenticated` (SSRF); mantém `service_role`, `postgres` e o dono da `djen_fetch` | 0 funções http p/ anon + postgres ainda executa http_get + sync DJEN |
 | 2 | (código) migração anon → service_role | Rotas de servidor deixam de usar a chave anon | Login + página logada + ação admin OK após deploy |
-| 3 | `03_anon_sem_app_auth.sql` | Revoga `EXECUTE` das `app_*` de auth/sessão/admin do `anon` | 0 funções auth/admin executáveis por anon; login/portal/onboarding OK |
+| 3 | `03_anon_sem_app_auth.sql` | Revoga `EXECUTE` das `app_*` de auth/sessão/admin do `anon` | [x] 2 funções públicas no anon + service_role executa validação |
 
 ## Lote 02 — migração anon → service_role (código)
 
@@ -60,9 +60,15 @@ select has_function_privilege(
 
 Testes funcionais após o lote 03 (só o que pode ser afetado pela revogação):
 
-- [ ] Login (usa `app_authenticate` / `app_complete_login` via service_role).
-- [ ] Link público de onboarding ainda marca "já utilizado".
-- [ ] Portal do indicador ainda registra último acesso.
+- [x] Login: OK.
+- [x] Portal do indicador (último acesso): OK.
+- [ ] Onboarding — PENDENTE DE ESCLARECIMENTO: a mensagem "Este link já foi
+  utilizado." (título "Acesso Inválido", `app/onboarding/[token]/page.tsx:74`)
+  só aparece na 2ª abertura do mesmo link, após enviar o formulário uma vez.
+  Usuário abriu um link e não viu a mensagem — provavelmente era link novo.
+  `app_mark_onboarding_used` foi preservada (entre as 2 funções que o anon
+  ainda executa). Retomar: confirmar se o link era novo e se na 2ª abertura
+  aparece formulário/erro/carregando.
 
 ## Contexto do lote 01
 
@@ -98,6 +104,8 @@ select has_function_privilege('postgres', 'public.http_get(character varying)', 
 
 ## Próximos itens de P2
 
-- Lote 03: aplicar/verificar `03_anon_sem_app_auth.sql` (lote 02 validado).
+- Esclarecer o teste de onboarding acima (provavelmente só falta a 2ª abertura
+  do mesmo link).
+- P2-01: aguardando Support rodar `01_http_sem_public.sql` como supabase_admin.
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.

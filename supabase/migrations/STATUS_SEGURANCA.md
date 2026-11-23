@@ -3,6 +3,24 @@
 Todas as validações abaixo foram **confirmadas pelo usuário**. Não repetir solicitações
 já marcadas como OK.
 
+## PONTO DE PARTIDA (próxima sessão)
+
+- **Concluído e verificado:** Bloco 3 (checklist 100%), P1 (anon sem escrita,
+  SELECT e EXECUTE mínimos) e P2 lotes 02 (rotas de servidor → service_role) e
+  03 (`app_*` de auth/admin revogadas do anon).
+- **Último push:** `6fcfd7c` (arquivos de config/status; o push de código da
+  migração foi `cf3a1f3`). Árvore limpa.
+- **PENDENTE (retomar aqui):** esclarecer o teste de onboarding — a mensagem
+  "Este link já foi utilizado." só aparece na **2ª abertura do mesmo link**,
+  depois de enviar o formulário uma vez. Usuário viu um link e não viu a mensagem;
+  provavelmente era link novo. Confirmar e, se na 2ª abertura der erro/formulário
+  de novo, investigar. Detalhes em `p2/GUIA.md` e na seção Lote 03 abaixo.
+- **BLOQUEADO (fora do self-service):** P2-01 http/SSRF — funções `http_*` são de
+  `supabase_admin`; postgres não revoga e não assume o papel (42501). Aguardando
+  Supabase Support rodar `p2/01_http_sem_public.sql`.
+- **Futuros:** rotação da chave ECC/ES256; `organization_id` / multitenancy real.
+- Deploy: `https://inove-juris.vercel.app` · Supabase ref `jhlxzqsgmudkbjkynqdl`.
+
 ## Bloco 3 — concluído
 
 SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
@@ -122,19 +140,39 @@ SQL dos lotes 00 a 15 aplicado no SQL Editor e verificado.
   (`dashboard_insight`) retornou **503** ("Chave do Gemini não configurada") e
   **não 401** — provando que `app_validate_session` via service_role funciona.
 
-### Lote 03 — `p2/03_anon_sem_app_auth.sql` (preparado, não aplicado)
+### Lote 03 — `p2/03_anon_sem_app_auth.sql` (aplicado e verificado)
 
 - Revoga `EXECUTE` de `PUBLIC, anon` nas 15 funções `app_*` de auth/sessão/admin
   e regrant a `authenticated, service_role` (padrão do P1/04b).
 - As funções RBAC já são service_role-only; as públicas (`app_touch_indicator_token`,
   `app_mark_onboarding_used`, `set_app_environment`, helpers de RLS) ficam de fora.
-- Verificação: consulta de `app_*` com EXECUTE no anon deve retornar só 2 linhas
-  (`app_mark_onboarding_used`, `app_touch_indicator_token`); `service_role` segue
-  executando `app_validate_session`.
-- Testes após aplicar: login, onboarding e portal do indicador.
+- [x] Verificação 1: consulta de `app_*` com EXECUTE no anon retornou **exatamente
+  2 linhas** (`app_mark_onboarding_used`, `app_touch_indicator_token`).
+- [x] Verificação 2: `service_role` segue executando `app_validate_session`
+  (`true`).
+- Testes funcionais:
+  - [x] Login OK.
+  - [x] Portal do indicador registra último acesso OK.
+  - [ ] **Onboarding — PENDENTE DE ESCLARECIMENTO:** usuário abriu um link e não
+    viu a mensagem "já utilizado". Essa mensagem (título "Acesso Inválido",
+    texto "Este link já foi utilizado.", `app/onboarding/[token]/page.tsx:74`,
+    renderizada no bloco `if (error)`) só aparece na **segunda abertura** do
+    mesmo link, depois de enviado o formulário uma vez. `app_mark_onboarding_used`
+    foi preservada (está entre as 2 funções que o anon ainda executa), então nada
+    do P2 mexeu nesse fluxo. Retomar: confirmar se o link era novo ou já usado, e
+    se na 2ª abertura aparece formulário/erro/carregando.
+
+## P2 self-service — concluído (exceto esclarecimento de onboarding acima)
+
+- Bloco 3 (100%), P1 e P2 lotes 02 e 03 aplicados e verificados.
+- Restam apenas itens fora do self-service / futuros:
+  - P2-01 http/SSRF: aguardando Supabase Support rodar `01_http_sem_public.sql`
+    como `supabase_admin` (postgres não pode revogar grants da extensão).
 
 ## Próximos itens (P2)
 
-- Aplicar/verificar o lote 03 (lote 02 validado).
+- Esclarecer o teste de onboarding acima (provavelmente só falta a 2ª abertura
+  do mesmo link).
+- Após Support: verificar 0 funções http p/ anon + sync DJEN em Publicações.
 - Rotação da chave ECC/ES256.
 - `organization_id` / multitenancy real.
