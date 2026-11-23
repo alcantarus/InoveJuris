@@ -9,8 +9,8 @@ import { SignJWT, importJWK } from 'jose'
  * existir.
  *
  * Claims: role, session_id, environment, is_superadmin, organization_id e sub.
- * Na Fase A o `role` é `anon` (mesmo privilégio de hoje). Na Fase B passa a
- * `authenticated` quando as policies já souberem ler as claims.
+ * O `role` é configurável por SUPABASE_JWT_ROLE; as policies do Bloco 3 cobrem
+ * tanto `anon` quanto `authenticated`.
  */
 
 const ALG = 'ES256'

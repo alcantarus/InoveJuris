@@ -13,7 +13,12 @@ O navegador já envia o JWT assinado de sessão no `Authorization` (Fase A). As 
 `session_id`, `environment`, `is_superadmin` e `sub` são suficientes: as policies exigem
 que `session_id` corresponda a uma sessão ativa no banco **e** que `environment` da linha
 seja igual ao da claim. A chave anon sem token não possui `session_id` e não vê nada.
-Manter `role = anon` evita uma mudança de comportamento em massa no PostgREST.
+
+As policies deste bloco são `FOR ALL TO anon, authenticated`, então funcionam com o
+`role` que estiver configurado. Na instalação atual a claim já vem como `authenticated`
+(`SUPABASE_JWT_ROLE` no Vercel) — isso não é novidade do Bloco 3: o token de sessão já
+era enviado nas requisições antes dele. O que muda é apenas a substituição das policies
+`USING (true)`.
 
 ## Pré-requisitos de código (deploy antes do lote 01)
 
