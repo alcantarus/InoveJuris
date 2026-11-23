@@ -608,9 +608,10 @@ CREATE TABLE IF NOT EXISTS birthday_messages (
 );
 
 -- Tabela de Logs de Marketing (Rastreabilidade)
+-- client_id acompanha clients.id, que é BIGINT.
 CREATE TABLE IF NOT EXISTS marketing_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id UUID NOT NULL,
+  client_id BIGINT NOT NULL,
   template_id UUID,
   type TEXT DEFAULT 'birthday_card',
   environment TEXT DEFAULT 'production',
