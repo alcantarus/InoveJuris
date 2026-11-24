@@ -43,6 +43,15 @@ POST /api/processes/[id]/refresh-publications
 
 O botão antigo **“Sincronizar movimentações”** continua chamando `/api/process-sync` e gravando em `processes.history` — não foi alterado.
 
+## Acabamento aplicado no mesmo dia
+
+- **Status do DataJud no hero:** a rota `/timeline` agora devolve `sync` (`status`, `lastSync`, `error`) lido de `process_sync_log`. O badge mostra `DataJud · OK`, `indisponível` ou `cota 429`, com detalhes no tooltip.
+- **Realtime de publicações:** o canal do detalhe agora escuta `publications` filtrado por `process_id` e recarrega a timeline automaticamente quando o DJEN grava algo.
+- **Cooldown de 60 s:** ambos os botões “Atualizar publicações” ficam desabilitados por 60 s após um refresh, com contador, para evitar 429 e IO desnecessário.
+- **Fila “A triar”:** contador de publicações pendentes com link para `/publicacoes`, reforçando que a importação não cria prazo.
+- **Heatmap clicável:** clicar em um dia filtra a timeline; clicar de novo limpa o filtro.
+- **Responsável no hero:** nome vem de `getResponsibleName(process, lawyers)`, já usado na página — sem nova consulta.
+
 ## Validação
 
 - `npx tsc --noEmit` — limpo.

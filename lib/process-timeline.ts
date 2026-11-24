@@ -30,17 +30,25 @@ export interface TimelineItem {
   meta: Record<string, unknown>
 }
 
+export interface ProcessTimelineSync {
+  status: string | null
+  lastSync: string | null
+  error: string | null
+}
+
 export interface ProcessTimeline {
   processId: number
   processNumber: string
   generatedAt: string
   degraded: boolean
   stale: boolean
+  sync: ProcessTimelineSync | null
   sources: TimelineSource[]
   items: TimelineItem[]
   stats: {
     movements: number
     publications: number
+    pendingPublications: number
     deadlines: number
     notes: number
     activeDeadlines: number
@@ -228,6 +236,7 @@ interface BuildTimelineOptions {
   deadlines: any[]
   degraded?: boolean
   stale?: boolean
+  sync?: ProcessTimelineSync | null
   now?: Date
 }
 
@@ -275,11 +284,15 @@ export function buildProcessTimeline(options: BuildTimelineOptions): ProcessTime
     generatedAt: now.toISOString(),
     degraded: options.degraded === true,
     stale: options.stale === true,
+    sync: options.sync || null,
     sources,
     items,
     stats: {
       movements: items.filter((item) => item.source === 'datajud').length,
       publications: items.filter((item) => item.source === 'djen').length,
+      pendingPublications: (options.publications || []).filter(
+        (item: any) => item?.status === 'A triar'
+      ).length,
       deadlines: items.filter((item) => item.kind === 'deadline').length,
       notes: items.filter((item) => item.source === 'manual').length,
       activeDeadlines,

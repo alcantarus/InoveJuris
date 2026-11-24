@@ -60,6 +60,8 @@ export default function ProcessoDetalhePage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [refreshingPublications, setRefreshingPublications] = useState(false)
+  const [lastPublicationsRefreshAt, setLastPublicationsRefreshAt] = useState<number | null>(null)
+  const [nowTick, setNowTick] = useState(() => Date.now())
   const [unifiedTimeline, setUnifiedTimeline] = useState<ProcessTimelineData | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(true)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -142,14 +144,34 @@ export default function ProcessoDetalhePage() {
     loadTimeline()
   }, [loadTimeline])
 
+  useEffect(() => {
+    if (!lastPublicationsRefreshAt) return
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [lastPublicationsRefreshAt])
+
+  const publicationsCooldown = lastPublicationsRefreshAt
+    ? Math.max(0, 60 - Math.floor((nowTick - lastPublicationsRefreshAt) / 1000))
+    : 0
+
   // Mantém o detalhe do processo alinhado a Prazos e Calendário sem recarregar a página.
   useEffect(() => {
     const channel = supabase
-      .channel(`processo-${params.id}-deadlines`)
+      .channel(`processo-${params.id}-updates`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'process_deadlines' }, () => { load() })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'publications',
+          filter: `process_id=eq.${params.id}`,
+        },
+        () => { loadTimeline() }
+      )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [load, params.id])
+  }, [load, loadTimeline, params.id])
 
   const responsible = useMemo(() => getResponsibleName(process, lawyers), [process, lawyers])
   const nextDeadline = useMemo(() => getNextDeadline(process), [process])
@@ -195,6 +217,9 @@ export default function ProcessoDetalhePage() {
       toast.success(
         `${data.inserted} publicação(ões) nova(s), ${data.updated} atualizada(s).`
       )
+      const refreshedAt = Date.now()
+      setLastPublicationsRefreshAt(refreshedAt)
+      setNowTick(refreshedAt)
       await loadTimeline()
     } catch (error) {
       console.error(error)
@@ -305,12 +330,20 @@ export default function ProcessoDetalhePage() {
             </Link>
             <button
               onClick={handleRefreshPublications}
-              disabled={refreshingPublications}
-              title="Consulta apenas este número CNJ no DJEN — sem varrer a carteira"
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-700 text-sm font-semibold hover:bg-sky-100 disabled:opacity-60"
+              disabled={refreshingPublications || publicationsCooldown > 0}
+              title={
+                publicationsCooldown > 0
+                  ? `Aguarde ${publicationsCooldown}s para consultar o DJEN novamente`
+                  : 'Consulta apenas este número CNJ no DJEN — sem varrer a carteira'
+              }
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-700 text-sm font-semibold hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Newspaper size={16} className={refreshingPublications ? 'animate-pulse' : ''} />
-              {refreshingPublications ? 'Atualizando publicações...' : 'Atualizar publicações'}
+              {refreshingPublications
+                ? 'Atualizando publicações...'
+                : publicationsCooldown > 0
+                  ? `Aguarde ${publicationsCooldown}s`
+                  : 'Atualizar publicações'}
             </button>
             <button
               onClick={handleSync}
@@ -563,6 +596,8 @@ export default function ProcessoDetalhePage() {
               timeline={unifiedTimeline}
               onRefresh={handleRefreshPublications}
               refreshing={refreshingPublications}
+              cooldownSeconds={publicationsCooldown}
+              responsible={responsible}
             />
           ) : (
             <p className="text-sm text-slate-500">

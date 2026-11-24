@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   Scale,
   Sparkles,
   UserRound,
+  X,
 } from 'lucide-react'
 import type { ProcessTimeline, TimelineItem, TimelineSource } from '@/lib/process-timeline'
 import { cn } from '@/lib/utils'
@@ -24,6 +26,8 @@ interface ProcessTimelineProps {
   timeline: ProcessTimeline
   onRefresh?: () => void
   refreshing?: boolean
+  cooldownSeconds?: number
+  responsible?: string | null
 }
 
 const SOURCE_STYLE: Record<TimelineSource, { dot: string; chip: string; icon: React.ComponentType<{ size?: number; className?: string }> }> = {
@@ -63,6 +67,31 @@ function formatFullDate(iso: string | null | undefined): string {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(time))
 }
 
+function formatClock(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const time = Date.parse(iso)
+  if (Number.isNaN(time)) return '—'
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(time))
+}
+
+function syncBadge(sync: ProcessTimeline['sync']): { label: string; tone: string; title: string } | null {
+  if (!sync) return null
+  const error = sync.error ? String(sync.error) : ''
+  const title = [
+    `Status: ${sync.status || 'desconhecido'}`,
+    sync.lastSync ? `Última tentativa: ${formatClock(sync.lastSync)}` : null,
+    error || null,
+  ].filter(Boolean).join('\n')
+
+  if (/429|limit/i.test(error)) {
+    return { label: 'DataJud · cota 429', tone: 'bg-amber-400/15 text-amber-200 ring-amber-300/20', title }
+  }
+  if (sync.status && sync.status !== 'Sincronizado') {
+    return { label: 'DataJud · indisponível', tone: 'bg-rose-400/15 text-rose-200 ring-rose-300/20', title }
+  }
+  return { label: 'DataJud · OK', tone: 'bg-emerald-400/15 text-emerald-200 ring-emerald-300/20', title }
+}
+
 function dayKey(iso: string): string {
   const time = Date.parse(iso)
   return Number.isNaN(time) ? '' : new Date(time).toISOString().slice(0, 10)
@@ -90,13 +119,24 @@ function matchesFilter(item: TimelineItem, filter: FilterKey): boolean {
   }
 }
 
-export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: ProcessTimelineProps) {
+export function ProcessTimeline({
+  timeline,
+  onRefresh,
+  refreshing = false,
+  cooldownSeconds = 0,
+  responsible,
+}: ProcessTimelineProps) {
   const [filter, setFilter] = useState<FilterKey>('all')
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const items = useMemo(
-    () => timeline.items.filter((item) => matchesFilter(item, filter)),
-    [timeline.items, filter]
+    () => timeline.items.filter((item) => {
+      if (!matchesFilter(item, filter)) return false
+      if (selectedDay && dayKey(item.date) !== selectedDay) return false
+      return true
+    }),
+    [timeline.items, filter, selectedDay]
   )
 
   const activeDeadline = useMemo(() => {
@@ -153,6 +193,9 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
     ? Math.max(4, Math.round(((15 - activeDeadline.days) / 15) * 100))
     : 0
 
+  const syncStatus = syncBadge(timeline.sync)
+  const refreshDisabled = refreshing || cooldownSeconds > 0
+
   return (
     <div className="space-y-4">
       {/* Hero */}
@@ -171,6 +214,11 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
             <p className="mt-1 text-xs text-slate-300">
               Linha do tempo unificada · {timeline.sources.length} fonte{timeline.sources.length === 1 ? '' : 's'}
             </p>
+            {responsible && (
+              <p className="mt-0.5 text-[11px] text-indigo-200">
+                Responsável: {responsible}
+              </p>
+            )}
           </div>
 
           {activeDeadline && (
@@ -203,7 +251,15 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
           </span>
           {timeline.stats.lastMovementAt && (
             <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-slate-200 ring-1 ring-white/10">
-              DataJud {formatDate(timeline.stats.lastMovementAt)}
+              Último andamento {formatDate(timeline.stats.lastMovementAt)}
+            </span>
+          )}
+          {syncStatus && (
+            <span
+              title={syncStatus.title}
+              className={cn('rounded-full px-3 py-1 text-[11px] font-semibold ring-1', syncStatus.tone)}
+            >
+              {syncStatus.label}
             </span>
           )}
           {timeline.stats.lastPublicationAt && (
@@ -222,11 +278,16 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
               <button
                 type="button"
                 onClick={onRefresh}
-                disabled={refreshing}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
+                disabled={refreshDisabled}
+                title={cooldownSeconds > 0 ? `Aguarde ${cooldownSeconds}s para consultar o DJEN novamente` : 'Consulta apenas este CNJ no DJEN'}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw size={13} className={cn(refreshing && 'animate-spin')} />
-                {refreshing ? 'Atualizando...' : 'Atualizar publicações'}
+                {refreshing
+                  ? 'Atualizando...'
+                  : cooldownSeconds > 0
+                    ? `Aguarde ${cooldownSeconds}s`
+                    : 'Atualizar publicações'}
               </button>
             )}
             <button
@@ -260,16 +321,20 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
                     : null
 
             return (
-              <span
+              <button
                 key={day.key}
-                title={`${formatFullDate(day.key)}${primary ? ` · ${primary}` : ''}`}
+                type="button"
+                aria-pressed={selectedDay === day.key}
+                onClick={() => setSelectedDay((current) => current === day.key ? null : day.key)}
+                title={`${formatFullDate(day.key)}${primary ? ` · ${primary}` : ''}${selectedDay === day.key ? ' · clicar para limpar' : ''}`}
                 className={cn(
-                  'h-5 rounded-[5px] border border-transparent bg-slate-100',
+                  'h-5 rounded-[5px] border border-transparent bg-slate-100 transition-transform hover:scale-110',
                   primary === 'djen' && 'border-sky-200 bg-sky-200',
                   primary === 'datajud' && 'border-indigo-200 bg-indigo-200',
                   primary === 'deadline' && 'border-emerald-200 bg-emerald-200',
                   primary === 'manual' && 'border-slate-200 bg-slate-200',
-                  day.isToday && 'ring-2 ring-slate-900'
+                  day.isToday && 'ring-2 ring-slate-900',
+                  selectedDay === day.key && 'ring-2 ring-indigo-500 ring-offset-1'
                 )}
               />
             )
@@ -280,6 +345,22 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
           <span>hoje</span>
         </div>
       </div>
+
+      {timeline.stats.pendingPublications > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-[12px] text-sky-900">
+          <span className="flex items-center gap-2">
+            <Newspaper size={15} />
+            <strong>{timeline.stats.pendingPublications} publicação(ões) a triar</strong>
+            <span className="text-sky-700">— a importação não cria prazo sem sua confirmação.</span>
+          </span>
+          <Link
+            href="/publicacoes"
+            className="inline-flex items-center gap-1 font-bold text-sky-700 hover:underline"
+          >
+            Abrir fila <ExternalLink size={12} />
+          </Link>
+        </div>
+      )}
 
       {timeline.degraded && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
@@ -315,6 +396,15 @@ export function ProcessTimeline({ timeline, onRefresh, refreshing = false }: Pro
                 {entry.label} <span className="opacity-70">{entry.count}</span>
               </button>
             ))}
+            {selectedDay && (
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10.5px] font-bold text-indigo-700"
+              >
+                {formatDate(selectedDay)} <X size={11} />
+              </button>
+            )}
           </div>
         </div>
 

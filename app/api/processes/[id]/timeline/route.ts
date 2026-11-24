@@ -81,6 +81,13 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
       deadlines: deadlines || [],
       degraded,
       stale,
+      sync: syncLog
+        ? {
+            status: syncLog.sync_status ? String(syncLog.sync_status) : null,
+            lastSync: syncLog.last_sync ? String(syncLog.last_sync) : null,
+            error: syncLog.error_message ? String(syncLog.error_message) : null,
+          }
+        : null,
     })
 
     return NextResponse.json(timeline)
