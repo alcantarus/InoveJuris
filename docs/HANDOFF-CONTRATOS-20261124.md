@@ -112,6 +112,9 @@ A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta*
 1. ~~Rodar `docs/VALIDACAO-CONTRATOS-20261124.sql` e colar `validacao_contratos`.~~ **Feito** (ver `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`).
 2. Rodar **`docs/INVESTIGACAO-EXCESSO-26-20261124.sql`** no SQL Editor.
 3. Colar as células **`investigacao_excesso_26`** e **`candidatos_conta_9`**.
+   - `candidatos_conta_9` **já recebida**: nenhuma conta recuperável (detalhes no
+     resultado da validação).
+   - **`investigacao_excesso_26` ainda pendente** — é a que decide os 26.
 4. Interpretar os 26:
    - se `pago_confere_com_pagamentos` e as transações confirmam o valor → excesso é entrada real (juros/multa embutidos ou pagamento acima do principal); **não reduzir `amountPaid`**;
    - se `pago_maior_que_pagamentos`/`sem_pagamento_vinculado` → revisar acumulação antes de escrever;
