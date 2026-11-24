@@ -233,3 +233,36 @@ porém, explica a percepção.
 Próximo passo preparado: `docs/BENCHMARK-RLS-INIPLAN-20261124.sql` — prova
 somente leitura de que a expressão equivalente com `InitPlan` elimina o custo
 por linha. Ainda não executado.
+
+### Prova confirmada (18:44:42 UTC)
+
+`docs/BENCHMARK-RLS-INIPLAN-20261124.sql` executado com sessão ativa, 5
+repetições, sem erros:
+
+| Série | Expressão antiga | Expressão proposta | Ganho |
+|---|---:|---:|---:|
+| `payments` | 111,542 ms | **1,026 ms** | ~109× |
+| `contracts` | 79,464 ms | **0,960 ms** | ~83× |
+| `clients` | 71,753 ms | **0,920 ms** | ~78× |
+
+Gate isolado (`select (select public._rls_can_access(null))`): 0,643 ms.
+Os valores de RLS atual voltaram a ser medidos (clients 164,764 ms, payments
+111,768 ms, contracts 78,769 ms), confirmando reprodutibilidade.
+
+A série `clients` antiga com uma única policy (71,753 ms) é menor que o total
+com RLS (164,764 ms): o restante vem da policy do portal, que faz um `EXISTS`
+correlacionado em `contracts` por cliente. Por isso o forward também troca esse
+`EXISTS` por um `IN` (semi-join).
+
+### Scripts preparados — NÃO APLICADOS
+
+| Arquivo | Função |
+|---|---|
+| `docs/FORWARD-RLS-INIPLAN-20261124.sql` | Reescreve todas as policies com `_rls_can_access` para a forma InitPlan e troca o `EXISTS` do portal em `clients` por `IN` |
+| `docs/VERIFY-RLS-INIPLAN-20261124.sql` | Célula `verify_rls_initplan`: policies restantes, portal, contagens, busca real |
+| `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Reverte exatamente as duas transformações |
+
+Sem novos grants e sem novas funções: a expressão usa somente
+`_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
+`current_setting('request.jwt.claims', true)`, leitura de GUC da própria
+sessão. Nenhum UPDATE/DELETE. Aguardando autorização explícita para aplicar.
