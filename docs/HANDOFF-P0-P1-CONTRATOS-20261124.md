@@ -104,7 +104,27 @@ revalidado. Resultado final:
 25001 (`CREATE INDEX CONCURRENTLY` dentro de transação do SQL Editor); nada foi
 aplicado. Scripts P1 ajustados para índice normal.**
 
-## 5. Pode danificar alguma coisa?
+## 5. P1 aplicado e validado (18:29:06 UTC)
+
+Primeira tentativa falhou com erro `25001` (`CONCURRENTLY` em transação do SQL
+Editor); nada foi aplicado. Após ajuste para `CREATE INDEX` normal:
+
+- `FORWARD-P1` executado com sucesso;
+- `constraint_unica_parcelas = true`, `UNIQUE(contract_id, "installmentNumber")` ativa;
+- 8 índices presentes: `uq_installments_contract_number`,
+  `idx_payments_installment_id`, `idx_payments_environment`,
+  `idx_payments_type_payment_date`, `idx_installments_due_date_status`,
+  `idx_installments_contract_id` (já existia),
+  `idx_commission_payments_contract_id`, `idx_commission_payments_indicator_id`;
+- `indices_invalidos = []`;
+- `duplicatas_parcelas = 0`;
+- contagens inalteradas: `contracts=125`, `installments=181`, `payments=177`,
+  `commission_payments=15`;
+- nenhum UPDATE/DELETE; rollback do P1 não aplicado.
+
+**Auditoria e correções estruturais P0/P1 encerradas.**
+
+## 6. Pode danificar alguma coisa?
 
 **Preparar os arquivos: não.** São apenas texto no Git.
 
@@ -123,7 +143,7 @@ Nenhum script apaga ou altera dado de negócio. O rollback P0 restaura
 deliberadamente o `search_all` antigo (com o predicado quebrado), porque esse
 era o estado anterior.
 
-## 6. Ordem obrigatória
+## 7. Ordem obrigatória
 
 1. Usuário autoriza explicitamente a execução da célula de medição (somente leitura).
 2. Usuário roda `MEDICAO-P0-P1-CONTRATOS-20261124.sql` e cola o JSON. **Feito em 18:15:48 UTC.**
@@ -131,12 +151,12 @@ era o estado anterior.
 4. Conferir `duplicatas_parcelas = 0` e conferir as definições reais de views/policies.
 5. Usuário autorizou explicitamente a aplicação de P0. **Feito.**
 6. Aplicar `FORWARD-P0` → `FIX-P0-SEARCH-ALL` → `VERIFY-P0`. **Feito e validado em 18:24:54 UTC.**
-7. Usuário autoriza explicitamente a aplicação de P1.
-8. Aplicar `FORWARD-P1` → rodar `VERIFY-P1`.
-9. Se qualquer verificação divergir: aplicar o `ROLLBACK` correspondente.
-10. Atualizar `STATUS-INOVEJURIS.md`, `HANDOFF-CONTRATOS-20261124.md` e dar commit/push.
+7. Usuário autorizou explicitamente a aplicação de P1. **Feito.**
+8. Aplicar `FORWARD-P1` → rodar `VERIFY-P1`. **Feito e validado em 18:29:06 UTC.**
+9. Se qualquer verificação divergisse: aplicar o `ROLLBACK` correspondente. **Não necessário.**
+10. Atualizar `STATUS-INOVEJURIS.md`, `HANDOFF-CONTRATOS-20261124.md` e dar commit/push. **Feito.**
 
-## 7. Limites
+## 8. Limites
 
 - Sem autorização explícita: **nada é executado no banco**.
 - Sem medição prévia: **nada é aplicado**.

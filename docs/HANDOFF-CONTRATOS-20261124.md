@@ -114,10 +114,8 @@ A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta*
 1. ~~Rodar `docs/VALIDACAO-CONTRATOS-20261124.sql` e colar `validacao_contratos`.~~ **Feito**.
 2. ~~Rodar `docs/INVESTIGACAO-EXCESSO-26-20261124.sql` e colar as células.~~ **Absorvido** pela auditoria consolidada.
 3. ~~Rodar `docs/AUDITORIA-CONTRATOS-COMPLETA-20261124.sql` e colar `auditoria_contratos_completa`.~~ **Feito** em `2026-11-24T18:01:50.243675+00:00`; interpretado em `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`.
-4. **Único passo em aberto:** com autorização explícita e medição prévia, preparar/aplicar os scripts estruturais:
-   - **P0** — policies do portal com `_rls_can_access(environment)`, views excluindo `Estornado`, `search_all(text,text)` corrigido;
-   - **P1** — `UNIQUE(contract_id, "installmentNumber")` e índices em `payments`/`installments`/`commission_payments`.
-5. Nenhuma escrita em dados de Contratos está autorizada ou necessária.
+4. ~~Preparar/aplicar scripts estruturais P0 e P1 com autorização explícita e medição prévia.~~ **Feito**: P0 validado às 18:24:54 UTC e P1 às 18:29:06 UTC. Detalhes em `docs/HANDOFF-P0-P1-CONTRATOS-20261124.md`.
+5. Nenhuma escrita em dados de Contratos foi autorizada, executada ou necessária.
 
 ---
 
@@ -134,4 +132,4 @@ A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta*
 
 ## 8. Resumo de uma linha
 
-> Auditoria de Contratos fechada em 24/11/2026: 44/44 totais corretos, 26 excessos confirmados como entrada real em `payments` (`pago == SUM(payments)`), 9 pagamentos sem conta recuperável; nenhuma escrita em banco — correções estruturais (policies, views, `search_all`, índices) só com autorização explícita e medição prévia.
+> Auditoria e correções estruturais de Contratos fechadas em 24/11/2026: 44/44 totais corretos, 26 excessos confirmados como entrada real em `payments` (`pago == SUM(payments)`), 9 pagamentos sem conta recuperável; P0 (policies, views, `search_all`) e P1 (unicidade/índices) aplicados e validados com autorização e medição prévia; nenhuma escrita em dados e nenhum rollback.
