@@ -37,7 +37,7 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
 | `docs/VERIFY-P0-CONTRATOS-20261124.sql` | Célula única `verify_p0_contratos` |
 | `docs/FIX-P0-SEARCH-ALL-20261124.sql` | Correção somente de `search_all` após o `VERIFY` revelar `processes.processNumber` inexistente |
 | `docs/ROLLBACK-P0-CONTRATOS-20261124.sql` | Reversão P0 |
-| `docs/FORWARD-P1-CONTRATOS-20261124.sql` | Aplicação P1 (`CREATE INDEX CONCURRENTLY`) |
+| `docs/FORWARD-P1-CONTRATOS-20261124.sql` | Aplicação P1 (`CREATE INDEX` normal, compatível com o SQL Editor) |
 | `docs/VERIFY-P1-CONTRATOS-20261124.sql` | Célula única `verify_p1_contratos` |
 | `docs/ROLLBACK-P1-CONTRATOS-20261124.sql` | Reversão P1 |
 
@@ -100,7 +100,9 @@ revalidado. Resultado final:
 - `installments_estornado=3` (as parcelas continuam no banco; duas saíram dos
   KPIs por estarem em atraso no teste).
 
-**Rollback do P0 não aplicado. P1 ainda não autorizado nem aplicado.**
+**Rollback do P0 não aplicado. P1 autorizado, mas a 1ª tentativa falhou com erro
+25001 (`CREATE INDEX CONCURRENTLY` dentro de transação do SQL Editor); nada foi
+aplicado. Scripts P1 ajustados para índice normal.**
 
 ## 5. Pode danificar alguma coisa?
 
@@ -113,9 +115,9 @@ revalidado. Resultado final:
 | Portal perder leitura se o JWT/sessão do indicador não carregar `_rls_can_access` | Medir contagens por `environment` antes; `verify_p0` compara depois; rollback restaura o predicado original |
 | KPIs do dashboard mudarem (Estornado deixa de contar como atraso) | É o efeito desejado; o delta é documentado na medição/verificação |
 | `search_all` ainda falhar se outra coluna referenciada não existir | Uso de `to_jsonb(c)` elimina referências estáticas a colunas não confirmadas |
-| `CREATE UNIQUE INDEX CONCURRENTLY` falhar e deixar índice inválido | `verify_p1` lista `indices_invalidos`; rollback remove o índice |
+| Constraint única falhar por duplicata surgida após a medição | `verify_p1` confere `duplicatas_parcelas` e a constraint; rollback remove o índice |
 | Duplicata aparecer entre medição e aplicação | Medição prévia exige `duplicatas_parcelas = 0`; se mudar, **não aplicar** |
-| Bloqueio de escrita | Todos os índices usam `CONCURRENTLY`, em statements isolados |
+| Bloqueio de escrita | `CONCURRENTLY` foi removido (SQL Editor roda em transação: erro 25001). Tabelas com 15–181 linhas; índice normal é seguro |
 
 Nenhum script apaga ou altera dado de negócio. O rollback P0 restaura
 deliberadamente o `search_all` antigo (com o predicado quebrado), porque esse
