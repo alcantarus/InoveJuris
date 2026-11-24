@@ -281,23 +281,42 @@ mostrou:
 Nenhum `UPDATE`/`DELETE`, nenhuma grant nova, nenhuma função nova e nenhuma
 mudança em dados.
 
+### FIX aplicado e verify final (18:51:19 UTC)
+
+`docs/FIX-RLS-INIPLAN-REMANESCENTES-20261124.sql` foi aplicado pelo usuário. O
+`VERIFY` corrigido retornou exatamente o esperado:
+
+| Indicador | Resultado |
+|---|---:|
+| `policies_total` | 63 |
+| `policies_com_rls_can_access` | 55 |
+| `policies_com_initplan` | **55** |
+| `policies_forma_direta_restante` | **0** |
+| `policies_com_argumento_coluna` | **0** |
+| `restantes` | `[]` |
+| `portal_clients_qual` | `id IN (SELECT c.client_id FROM contracts c WHERE ...)` |
+
+Contagens inalteradas (`contracts=125`, `installments=181`, `payments=177`,
+`commission_payments=15`) e `search_all('ana','production')` retornou os mesmos
+5 clientes + 5 contratos. Em `installment_history` e `system_settings`, onde a
+coluna `environment` não é `text`, o catálogo normalizou a comparação para
+`(environment)::text = COALESCE(...)`, equivalente à expressão original
+`_rls_can_access((environment)::text)`.
+
 ### Estado atual dos scripts
 
 | Arquivo | Estado |
 |---|---|
 | `docs/FORWARD-RLS-INIPLAN-20261124.sql` | **Aplicado** (47 policies + portal) |
-| `docs/VERIFY-RLS-INIPLAN-20261124.sql` | Corrigido: usa regex sobre o texto normalizado, separa InitPlan de chamada direta e lista as remanescentes |
-| `docs/FIX-RLS-INIPLAN-REMANESCENTES-20261124.sql` | Preparado, **não aplicado**: converte as 8 restantes com a mesma expressão |
-| `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido: reconstrói por marcas normalizadas, não por texto digitado; não toca policies nunca convertidas |
+| `docs/FIX-RLS-INIPLAN-REMANESCENTES-20261124.sql` | **Aplicado** (8 policies restantes) |
+| `docs/VERIFY-RLS-INIPLAN-20261124.sql` | **Executado**: 55 InitPlan, 0 forma direta, 0 argumento coluna |
+| `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido e disponível; **não aplicado** |
 
-Sequência pendente (somente com autorização explícita): aplicar o `FIX`, rodar
-o `VERIFY` corrigido (esperado: `policies_com_initplan=55`,
-`policies_forma_direta_restante=0`, `policies_com_argumento_coluna=0`,
-`restantes=[]`, contagens inalteradas) e repetir
-`docs/BENCHMARK-POS-P0-P1-20261124.sql` para medir o ganho em produção.
-Se qualquer verificação divergir, aplicar o `ROLLBACK` corrigido.
+Pendente: repetir `docs/BENCHMARK-POS-P0-P1-20261124.sql` (somente leitura, com
+sessão ativa) para medir o ganho real em produção. Se houver divergência,
+aplicar o `ROLLBACK` corrigido.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
 `current_setting('request.jwt.claims', true)`, leitura de GUC da própria
-sessão. Nenhum UPDATE/DELETE.
+sessão. Nenhuma gravação em dados de negócio.
