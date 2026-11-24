@@ -1,8 +1,10 @@
 # Handoff — scripts estruturais P0/P1 de Contratos (24/11/2026)
 
-> **Estado: PREPARADO, NÃO APLICADO.**
-> Nenhum comando foi executado no banco. Nenhum UPDATE/DELETE foi escrito.
+> **Estado: P0 e P1 APLICADOS E VALIDADOS (18:24:54 e 18:29:06 UTC).**
+> Nenhum UPDATE/DELETE foi escrito. Nenhum rollback aplicado.
 > Nenhuma credencial foi tratada no chat.
+> Frente aberta: percepção de lentidão relatada após as mudanças — medição
+> preparada em `docs/BENCHMARK-POS-P0-P1-20261124.sql`, ainda não executada.
 
 ## 1. Escopo decidido
 
@@ -18,7 +20,7 @@ Escopo restante:
 |---|---|---|
 | P0.1 | Policies do portal | `contracts` e `commission_payments` passam a exigir `_rls_can_access(environment) AND (predicado original)` |
 | P0.2 | Views de dashboard | `Estornado`/`Estornada` saem de `_receivables_forecast`, `_receivables_metrics` e `_top_defaulters` |
-| P0.3 | `search_all(text,text)` | Removido somente o predicado de `contractNumber`, que não existe em produção |
+| P0.3 | `search_all(text,text)` | Reparadas 3 colunas inexistentes: `contractNumber`, `clientId`, `processes.processNumber` |
 | P1 | Unicidade | `UNIQUE(contract_id, "installmentNumber")` em `installments` |
 | P1 | Índices | `payments`, `installments` e `commission_payments` |
 
@@ -162,3 +164,34 @@ era o estado anterior.
 - Sem medição prévia: **nada é aplicado**.
 - Sem escrita em `UPDATE`/`DELETE` de dados em nenhuma hipótese.
 - A aplicação é feita pelo usuário no SQL Editor do Supabase, não por deploy.
+
+## 9. Frente aberta — lentidão percebida após P0/P1
+
+Usuário relatou que o sistema parece mais lento após as mudanças. **Causa ainda
+não confirmada**: nenhuma medição de ponta a ponta foi feita depois do P0/P1.
+
+Hipóteses rankingadas pelas evidências já existentes:
+
+1. **RLS por linha** — `_rls_can_access(environment)` é `SECURITY DEFINER` e
+   recebe uma coluna, logo não é inlinado e é avaliado linha a linha. Isso já
+   havia sido medido em `clients` (165,010 ms de mediana) **antes** do P0/P1.
+   O P0.1 acrescentou mais uma ocorrência em `contracts` e
+   `commission_payments`. É o candidato mais forte para lentidão geral.
+2. **`search_all` com `to_jsonb(p)`** — o ramo de processos materializa a linha
+   inteira em JSONB 5× no `WHERE` e 1× no `SELECT`, o que impede o uso de
+   índices trigram. Antes a função quebrava com `42703`; agora ela executa.
+   É o candidato mais forte para lentidão específica do Ctrl+K.
+3. **Views do dashboard** — só entraram dois valores novos no filtro de status;
+   efeito esperado desprezível.
+4. **P1 (índices/unicidade)** — índice não deixa `SELECT` mais lento; em tabelas
+   de 15 a 181 linhas o custo extra de escrita é insignificante. Não explica a
+   percepção. Também não houve deploy nesta rodada: o bundle do app é o mesmo
+   desde o P2 de 23/11.
+
+Ferramenta preparada: `docs/BENCHMARK-POS-P0-P1-20261124.sql` — uma única
+célula, somente leitura, 5 repetições, mediana, role real da aplicação,
+comparação com RLS e sem RLS, controles `to_jsonb` × colunas diretas e
+`ROLLBACK` final. **Não executado.** Somente com autorização explícita.
+
+Nenhuma mudança de policy, view, função ou índice será aplicada para
+performance sem que essa medição aponte a causa.
