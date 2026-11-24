@@ -35,6 +35,7 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
 | `docs/MEDICAO-COMPLEMENTAR-P0-20261124.sql` | Célula única `medicao_complementar_p0`: funções `search_all` e baseline numérico das views |
 | `docs/FORWARD-P0-CONTRATOS-20261124.sql` | Aplicação P0 (DDL) |
 | `docs/VERIFY-P0-CONTRATOS-20261124.sql` | Célula única `verify_p0_contratos` |
+| `docs/FIX-P0-SEARCH-ALL-20261124.sql` | Correção somente de `search_all` após o `VERIFY` revelar `processes.processNumber` inexistente |
 | `docs/ROLLBACK-P0-CONTRATOS-20261124.sql` | Reversão P0 |
 | `docs/FORWARD-P1-CONTRATOS-20261124.sql` | Aplicação P1 (`CREATE INDEX CONCURRENTLY`) |
 | `docs/VERIFY-P1-CONTRATOS-20261124.sql` | Célula única `verify_p1_contratos` |
@@ -61,6 +62,13 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
   `clientId`. O `FORWARD-P0` corrige as duas, usando `client_id` e
   `processNumber`, confirmados na medição. `ROLLBACK-P0` restaura fielmente o
   estado anterior (com as duas colunas quebradas).
+- **`FORWARD-P0` aplicado com sucesso** (sem linhas retornadas). O `VERIFY-P0`
+  falhou ao chamar `search_all`: `processes.processNumber` também não existe.
+  A versão canônica da função já trazia essa referência, além de
+  `contractNumber` e `clientId`. Criado
+  `docs/FIX-P0-SEARCH-ALL-20261124.sql`, que recria somente a função usando
+  `to_jsonb(p)` para todas as colunas de `processes`. `FORWARD-P0` e
+  `VERIFY-P0` foram atualizados com a mesma correção.
 - Baseline das views capturado em 18:18:20 UTC: production
   `count_overdue=18`, `total_overdue=77931.60`, `total_installments=117`; test
   `count_overdue=7`, `total_overdue=19000.00`, `total_installments=64`;

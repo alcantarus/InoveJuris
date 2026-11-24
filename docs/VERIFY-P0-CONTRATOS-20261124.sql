@@ -44,6 +44,7 @@ SELECT jsonb_pretty(jsonb_build_object(
       AND (
         pg_get_functiondef(p.oid) LIKE '%contractNumber%'
         OR pg_get_functiondef(p.oid) LIKE '%clientId%'
+        OR pg_get_functiondef(p.oid) LIKE '%p."processNumber"%'
       )
   ),
 

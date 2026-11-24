@@ -92,9 +92,10 @@ END
 $vw$;
 
 -- ---------------------------------------------------------------------------
--- P0.3 — search_all(text,text): remover o predicado de contractNumber
--- contracts.contractNumber NÃO existe em produção.
--- Colunas confirmadas na medição: client_id e processNumber existem; contractNumber não.
+-- P0.3 — search_all(text,text): reparar referências a colunas inexistentes
+-- contracts.contractNumber, contracts.clientId e processes.processNumber não existem.
+-- Contratos usam client_id e processNumber (confirmados); processos usam to_jsonb(p)
+-- porque a medição não confirmou quais colunas existem em processes.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.search_all(p_term text, p_environment text DEFAULT NULL)
 RETURNS jsonb
@@ -130,16 +131,16 @@ BEGIN
     SELECT jsonb_build_object(
       'type', 'process',
       'id', p.id,
-      'title', 'Processo: ' || coalesce(p."processNumber", p.number::text, ''),
+      'title', 'Processo: ' || coalesce(to_jsonb(p) ->> 'processNumber', to_jsonb(p) ->> 'number', ''),
       'link', '/processos'
     ) AS item
     FROM public.processes p
-    WHERE (p_environment IS NULL OR p.environment = p_environment)
+    WHERE (p_environment IS NULL OR to_jsonb(p) ->> 'environment' = p_environment)
       AND (
-        public.immutable_unaccent(lower(coalesce(p."processNumber", ''))) ILIKE v_term
-        OR public.immutable_unaccent(lower(coalesce(p.number::text, ''))) ILIKE v_term
-        OR public.immutable_unaccent(lower(coalesce(p.client, ''))) ILIKE v_term
-        OR public.immutable_unaccent(lower(coalesce(p.court, ''))) ILIKE v_term
+        public.immutable_unaccent(lower(coalesce(to_jsonb(p) ->> 'processNumber', ''))) ILIKE v_term
+        OR public.immutable_unaccent(lower(coalesce(to_jsonb(p) ->> 'number', ''))) ILIKE v_term
+        OR public.immutable_unaccent(lower(coalesce(to_jsonb(p) ->> 'client', ''))) ILIKE v_term
+        OR public.immutable_unaccent(lower(coalesce(to_jsonb(p) ->> 'court', ''))) ILIKE v_term
       )
     LIMIT 5
   ),
