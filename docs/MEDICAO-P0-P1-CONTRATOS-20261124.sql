@@ -59,13 +59,13 @@ SELECT jsonb_pretty(jsonb_build_object(
 
   'indices', COALESCE((
     SELECT jsonb_agg(jsonb_build_object(
-      'tabela', relname,
+      'tabela', tablename,
       'indice', indexname,
       'definicao', indexdef
-    ) ORDER BY relname, indexname)
+    ) ORDER BY tablename, indexname)
     FROM pg_indexes
     WHERE schemaname = 'public'
-      AND relname IN ('payments', 'installments', 'commission_payments')
+      AND tablename IN ('payments', 'installments', 'commission_payments')
   ), '[]'::jsonb),
 
   'duplicatas_parcelas', (
