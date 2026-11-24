@@ -195,3 +195,41 @@ comparação com RLS e sem RLS, controles `to_jsonb` × colunas diretas e
 
 Nenhuma mudança de policy, view, função ou índice será aplicada para
 performance sem que essa medição aponte a causa.
+
+### Resultado do benchmark (18:40:45 UTC)
+
+`docs/BENCHMARK-POS-P0-P1-20261124.sql` executado: PG 17.6, role
+`authenticated`, ambiente `production`, 1 sessão ativa, 5 repetições.
+
+| Série | Com RLS | Sem RLS | Delta |
+|---|---:|---:|---:|
+| `clients` | 163,286 ms | 0,044 ms | 163,242 ms |
+| `installments` | 114,463 ms | 0,046 ms | 114,417 ms |
+| `payments` | 111,596 ms | 0,044 ms | 111,552 ms |
+| `vw_dashboard_receivables_metrics` | 113,487 ms | 0,102 ms | 113,385 ms |
+| `vw_dashboard_top_defaulters` | 103,475 ms | 0,262 ms | 103,213 ms |
+| `contracts` | 78,985 ms | 0,041 ms | 78,944 ms |
+| `vw_dashboard_receivables_forecast` | 21,697 ms | 0,053 ms | 21,644 ms |
+| `processes` | 10,245 ms | 0,021 ms | 10,224 ms |
+| `commission_payments` | 9,632 ms | 0,016 ms | 9,616 ms |
+| `search_all('ana','production')` | 81,822 ms | 2,584 ms | 79,238 ms |
+
+Controles: `processos_to_jsonb` 11,034 ms × `search_colunas_diretas` 11,897 ms.
+**Hipótese do `to_jsonb` refutada**: não há ganho em trocá-lo por colunas; os
+~10 ms das duas séries são o RLS de `processes`. `_rls_can_access` 0,798 ms e
+`app_validate_session` 0,829 ms — estáveis frente ao baseline (0,868 / 0,786).
+`_auth_session_payload` falhou com `permission denied` porque foi medido já com
+role `authenticated` (a série antiga do P1.1 media as funções como owner); não
+é regressão e o app chama `app_validate_session`, que funciona.
+
+**Conclusão:** a lentidão vem da policy `P0 sessao` presente em todas as tabelas
+de domínio desde o Bloco 3 — `_rls_can_access(environment)` é `SECURITY
+DEFINER` com argumento de coluna e roda por linha. Não há regressão mensurável
+no P0/P1: `clients` 163,286 × 165,010 do baseline e `processes` 10,245 ×
+10,129. `contracts`/parcelas/pagamentos/views não tinham baseline anterior,
+então não é possível quantificar quanto o P0 acrescentou; o custo absoluto,
+porém, explica a percepção.
+
+Próximo passo preparado: `docs/BENCHMARK-RLS-INIPLAN-20261124.sql` — prova
+somente leitura de que a expressão equivalente com `InitPlan` elimina o custo
+por linha. Ainda não executado.
