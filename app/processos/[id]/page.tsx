@@ -17,6 +17,7 @@ import {
   History,
   type LucideIcon,
   LockKeyhole,
+  Newspaper,
   Pencil,
   RefreshCw,
   Scale,
@@ -33,6 +34,8 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { getAppEnv } from '@/lib/env'
 import { useAuth } from '@/lib/auth'
 import { confirmDeadlineRecord } from '@/lib/deadline-mutations'
+import type { ProcessTimeline as ProcessTimelineData } from '@/lib/process-timeline'
+import { ProcessTimeline } from '@/components/processos/ProcessTimeline'
 import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
 import { DeleteDeadlineModal, type DeleteDeadlineTarget } from '@/components/prazos/DeleteDeadlineModal'
 
@@ -56,6 +59,9 @@ export default function ProcessoDetalhePage() {
   const [lawyers, setLawyers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [refreshingPublications, setRefreshingPublications] = useState(false)
+  const [unifiedTimeline, setUnifiedTimeline] = useState<ProcessTimelineData | null>(null)
+  const [timelineLoading, setTimelineLoading] = useState(true)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [editingDeadline, setEditingDeadline] = useState<any | null>(null)
   const [deletingDeadline, setDeletingDeadline] = useState<DeleteDeadlineTarget | null>(null)
@@ -114,6 +120,28 @@ export default function ProcessoDetalhePage() {
     load()
   }, [load])
 
+  const loadTimeline = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setTimelineLoading(false)
+      return
+    }
+    setTimelineLoading(true)
+    try {
+      const response = await fetch(`/api/processes/${params.id}/timeline`, { cache: 'no-store' })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error || 'Não foi possível carregar a timeline.')
+      setUnifiedTimeline(data as ProcessTimelineData)
+    } catch (error) {
+      console.error('[processo] falha ao carregar timeline unificada:', error)
+    } finally {
+      setTimelineLoading(false)
+    }
+  }, [params.id])
+
+  useEffect(() => {
+    loadTimeline()
+  }, [loadTimeline])
+
   // Mantém o detalhe do processo alinhado a Prazos e Calendário sem recarregar a página.
   useEffect(() => {
     const channel = supabase
@@ -140,6 +168,7 @@ export default function ProcessoDetalhePage() {
       if (data.success) {
         toast.success(`${data.movements} andamento(s) atualizado(s).`)
         await load()
+        await loadTimeline()
       } else {
         toast.error(data.error || 'Não foi possível sincronizar o processo.')
       }
@@ -148,6 +177,32 @@ export default function ProcessoDetalhePage() {
       toast.error('Erro na comunicação com a API de sincronização.')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleRefreshPublications = async () => {
+    setRefreshingPublications(true)
+    try {
+      const response = await fetch(`/api/processes/${params.id}/refresh-publications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: 7 }),
+      })
+      const data = await response.json()
+      if (!response.ok || data.success === false) {
+        throw new Error(data?.error || 'Não foi possível atualizar as publicações.')
+      }
+      toast.success(
+        `${data.inserted} publicação(ões) nova(s), ${data.updated} atualizada(s).`
+      )
+      await loadTimeline()
+    } catch (error) {
+      console.error(error)
+      toast.error(
+        error instanceof Error ? error.message : 'Erro ao consultar o DJEN para este processo.'
+      )
+    } finally {
+      setRefreshingPublications(false)
     }
   }
 
@@ -248,6 +303,15 @@ export default function ProcessoDetalhePage() {
             >
               <ArrowLeft size={16} /> Voltar
             </Link>
+            <button
+              onClick={handleRefreshPublications}
+              disabled={refreshingPublications}
+              title="Consulta apenas este número CNJ no DJEN — sem varrer a carteira"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-700 text-sm font-semibold hover:bg-sky-100 disabled:opacity-60"
+            >
+              <Newspaper size={16} className={refreshingPublications ? 'animate-pulse' : ''} />
+              {refreshingPublications ? 'Atualizando publicações...' : 'Atualizar publicações'}
+            </button>
             <button
               onClick={handleSync}
               disabled={syncing}
@@ -478,36 +542,32 @@ export default function ProcessoDetalhePage() {
           )}
         </section>
 
-        {/* Andamentos do DataJud */}
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <div className="flex items-center justify-between gap-3 mb-4">
+        {/* Linha do tempo unificada — DataJud + DJEN + prazos + notas */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <History size={18} className="text-indigo-600" />
-              <h2 className="text-sm font-bold text-slate-900">Andamentos (DataJud)</h2>
+              <h2 className="text-sm font-bold text-slate-900">Andamentos e publicações</h2>
             </div>
             <span className="text-[11px] text-slate-500">
-              Última atualização: {process.last_update?.includes('T') ? formatDateTime(process.last_update) : process.last_update || '—'}
+              DataJud: {process.last_update?.includes('T') ? formatDateTime(process.last_update) : process.last_update || '—'}
             </span>
           </div>
-          {process.history.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Nenhum andamento sincronizado. Use “Sincronizar movimentações” para consultar o DataJud — a consulta pode falhar por limite de cota da chave.
-            </p>
-          ) : (
-            <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
-              {process.history.map((movement: any, index: number) => (
-                <div key={`${movement.date}-${index}`} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-indigo-500 shrink-0" />
-                    {index < process.history.length - 1 && <span className="w-px flex-1 bg-slate-200" />}
-                  </div>
-                  <div className="pb-3 min-w-0">
-                    <p className="text-xs font-bold text-indigo-600">{formatDate(movement.date)}</p>
-                    <p className="text-sm text-slate-700 break-words">{movement.description}</p>
-                  </div>
-                </div>
-              ))}
+
+          {timelineLoading && !unifiedTimeline ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+              <RefreshCw size={15} className="animate-spin" /> Montando a linha do tempo...
             </div>
+          ) : unifiedTimeline ? (
+            <ProcessTimeline
+              timeline={unifiedTimeline}
+              onRefresh={handleRefreshPublications}
+              refreshing={refreshingPublications}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">
+              Não foi possível carregar a linha do tempo. Use “Sincronizar movimentações” para consultar o DataJud.
+            </p>
           )}
         </section>
 
