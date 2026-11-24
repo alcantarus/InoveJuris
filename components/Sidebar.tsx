@@ -29,6 +29,12 @@ import {
   CalendarClock,
   CalendarDays,
   Newspaper,
+  BadgeCheck,
+  Sparkles,
+  Copy,
+  Check,
+  MessageCircle,
+  MapPin,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
@@ -44,6 +50,8 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = React.useState(true)
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
   const [isAboutOpen, setIsAboutOpen] = React.useState(false)
+  const [copiedPhone, setCopiedPhone] = React.useState(false)
+  const copyTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const { user, logout, switchEnvironment } = useAuth()
   const { settings } = useSettings()
   const [unreadCount, setUnreadCount] = useState(0)
@@ -51,6 +59,56 @@ export function Sidebar() {
 
   const isProduction = getIsProduction()
   const envName = getEnvName()
+
+  const supportPhone = '(77) 9 9991-0345'
+  const supportPhoneHref = 'https://wa.me/5577999910345'
+
+  useEffect(() => {
+    if (!isAboutOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAboutOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isAboutOpen])
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    }
+  }, [])
+
+  const handleCopyPhone = async () => {
+    try {
+      await navigator.clipboard.writeText(supportPhone)
+      setCopiedPhone(true)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+      copyTimeoutRef.current = setTimeout(() => setCopiedPhone(false), 2000)
+    } catch {
+      window.open('tel:+5577999910345', '_self')
+    }
+  }
+
+  const aboutFeatures = [
+    {
+      icon: Scale,
+      title: 'Processos',
+      description: 'Prazos, publicações e andamentos sob controle.',
+      tone: 'bg-indigo-50 text-indigo-600',
+    },
+    {
+      icon: Wallet,
+      title: 'Financeiro',
+      description: 'Receitas, despesas e recebíveis em tempo real.',
+      tone: 'bg-emerald-50 text-emerald-600',
+    },
+    {
+      icon: Users,
+      title: 'Clientes',
+      description: 'Cadastro, documentos e relacionamento ágil.',
+      tone: 'bg-sky-50 text-sky-600',
+    },
+  ]
 
   const handleSwitchEnv = async (targetEnv: AppEnv) => {
     if (targetEnv === getAppEnv()) return;
@@ -349,92 +407,170 @@ export function Sidebar() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
+              className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Sobre o InoveJuris"
             >
-              {/* Header with Modern Gradient */}
-              <div className="relative h-32 bg-slate-900 flex items-center justify-center overflow-hidden shrink-0">
-                <div className="relative z-10 flex flex-col items-center text-white text-center px-6">
-                  <h2 className="text-3xl font-bold tracking-tight text-white">
-                    Inove<span className="text-indigo-400">Juris</span>
-                  </h2>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mt-1">
-                    Sistema de Gestão Jurídica
-                  </p>
+              {/* Header */}
+              <div className="relative h-36 shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950">
+                <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
+                <div className="absolute -bottom-20 -left-12 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
+                <div className="relative z-10 flex h-full items-center justify-between px-6 sm:px-8">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur">
+                      <Scale size={24} className="text-indigo-300" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                          Inove<span className="text-indigo-400">Juris</span>
+                        </h2>
+                        <span className="rounded-full bg-indigo-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-200 ring-1 ring-indigo-300/20">
+                          v1.0.0
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">
+                        Sistema de Gestão Jurídica
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAboutOpen(false)}
+                    aria-label="Fechar janela Sobre"
+                    className="rounded-full p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
-                
-                <button 
-                  onClick={() => setIsAboutOpen(false)}
-                  className="absolute top-4 right-4 p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20"
-                >
-                  <X size={20} />
-                </button>
               </div>
 
               {/* Content */}
-              <div className="p-6 sm:p-8 overflow-y-auto bg-white">
-                {/* Client Section (Alcântara Advocacia) */}
-                <div className="mb-6">
-                  <div className="p-4 rounded-xl border border-slate-100 flex flex-col items-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                      Licenciado Para
-                    </p>
-                    <div className="relative w-full h-16 flex items-center justify-center">
-                      {settings.office_logo ? (
+              <div className="overflow-y-auto bg-slate-50/70 p-6 sm:p-8">
+                {/* License */}
+                <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="relative h-14 w-28 shrink-0 sm:h-16 sm:w-36">
                         <Image 
-                          src={settings.office_logo} 
-                          alt="Logomarca do Escritório" 
+                          src={settings.office_logo || '/logo-alcantara.png'} 
+                          alt="Logomarca do escritório licenciado" 
                           fill
                           className="object-contain"
                           referrerPolicy="no-referrer"
                         />
-                      ) : (
-                        <Image 
-                          src="/logo-alcantara.png" 
-                          alt="Alcântara Advocacia" 
-                          fill
-                          className="object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">
+                          <BadgeCheck size={13} /> Licenciado para
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">Escritório licenciado</p>
+                        <p className="text-xs text-slate-500">Uso autorizado do InoveJuris</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 self-start rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-600 sm:self-auto">
+                      <Globe size={13} /> {envName}
                     </div>
                   </div>
                 </div>
 
-                {/* System Info */}
-                <div className="text-center mb-6">
-                  <p className="text-slate-600 leading-relaxed text-sm">
-                    O <strong className="text-indigo-700 font-semibold">InoveJuris</strong> é uma solução completa para gestão de escritórios de advocacia, 
-                    oferecendo controle total sobre processos, financeiro e relacionamento com clientes.
-                  </p>
-                </div>
-                
-                {/* Developer Info */}
-                <div className="pt-4 border-t border-slate-100">
-                  <div className="flex flex-col items-center text-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                      Desenvolvido Por
+                {/* Intro + features */}
+                <div className="mt-6">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
+                      <Sparkles size={17} className="text-indigo-600" />
+                    </div>
+                    <p className="text-sm leading-relaxed text-slate-600">
+                      Uma plataforma completa para a rotina do escritório: processos, financeiro e clientes em um só lugar, com informações organizadas e acesso controlado.
                     </p>
-                    <h4 className="font-bold text-slate-800 text-base">Inove Tecnologia</h4>
-                    <p className="text-sm text-slate-700 font-medium">Anderson Alcântara Silva</p>
-                    <p className="text-xs text-slate-500 font-medium">Barreiras - Bahia</p>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {aboutFeatures.map((feature) => {
+                      const Icon = feature.icon
+                      return (
+                        <div
+                          key={feature.title}
+                          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-indigo-200"
+                        >
+                          <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-lg ${feature.tone}`}>
+                            <Icon size={17} />
+                          </div>
+                          <p className="text-sm font-semibold text-slate-800">{feature.title}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-500">{feature.description}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Developer + Support */}
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                      Desenvolvido por
+                    </p>
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-sm font-bold text-white shadow-md">
+                        IT
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">Inove Tecnologia</p>
+                        <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                          <MapPin size={12} /> Barreiras - Bahia
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
+                      <UserCog size={16} className="shrink-0 text-slate-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Responsável
+                        </p>
+                        <p className="text-sm font-medium text-slate-700">Anderson Alcântara Silva</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600/80">
+                      Suporte técnico
+                    </p>
+                    <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                      Precisa de ajuda? Fale diretamente com o nosso time.
+                    </p>
+                    <a
+                      href={supportPhoneHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-white shadow-md transition-colors hover:bg-emerald-700"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <MessageCircle size={17} /> WhatsApp
+                      </span>
+                      <span className="text-xs font-medium text-emerald-50">{supportPhone}</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleCopyPhone}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                    >
+                      {copiedPhone ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedPhone ? 'Telefone copiado!' : 'Copiar telefone'}
+                    </button>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 text-center shrink-0">
-                <div className="flex flex-col items-center gap-2">
-                  <a 
-                    href="https://wa.me/5577999910345" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm"
-                  >
-                    Suporte Técnico: (77) 9 9991-0345
-                  </a>
-                  <p className="text-[10px] text-slate-400">
-                    Versão 1.0.0 &bull; Copyright &copy; 2026
+              <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-4 sm:px-8">
+                <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
+                  <p className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <ShieldCheck size={13} className="text-emerald-500" />
+                    © 2026 Inove Tecnologia · Versão 1.0.0
                   </p>
+                  <p className="text-[11px] text-slate-400">Feito para escritórios de advocacia</p>
                 </div>
               </div>
             </motion.div>
