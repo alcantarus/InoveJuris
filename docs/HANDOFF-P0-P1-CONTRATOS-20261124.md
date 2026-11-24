@@ -330,12 +330,32 @@ com a mudança e sem efeito nas demais séries.
 **Resíduo rastreável:** os ~13,7 ms restantes em `clients` explicam quase todo
 o resíduo das duas séries que ainda chamam atenção —
 `vw_dashboard_top_defaulters` (15,6 ms) faz `JOIN clients`, e `search_all`
-(21,3 ms) busca em `clients` e `contracts`. A suspeita é a policy
-`P0 portal indicador` em `clients`, não a `P0 sessao` (que já mede ~0,9 ms em
-outras tabelas). Nenhuma nova mudança será feita sem medir isso antes:
-`docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` foi preparado para isolar a função
-`_rls_portal_indicator_id()`, os predicados `IN` (atual) e `EXISTS` (original)
-e os planos correspondentes.
+(21,3 ms) busca em `clients` e `contracts`.
+
+`docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` executado às 18:55:50 UTC isolou a
+causa:
+
+| Série | Mediana |
+|---|---:|
+| `clients` sem RLS | 0,041 ms |
+| `_rls_portal_indicator_id()` isolada | 0,240 ms |
+| `IN` com a função (forma atual da policy) | **13,464 ms** |
+| `EXISTS` com a função (forma original) | **13,604 ms** |
+| `IN` com `indicator_id IS NULL` literal | **0,124 ms** |
+| `clients` com RLS | 13,723 ms |
+
+Os planos de `IN` e `EXISTS` são idênticos: `Seq Scan` em `contracts`,
+`Rows Removed by Filter: 125`, `Actual Loops: 1`, 13,4 ms. Ou seja, a
+subconsulta roda uma vez, **mas a função é chamada uma vez por linha dentro do
+filtro**. Trocar `IN` por `EXISTS` não resolve — o custo não é o semi-join.
+Sem token de portal na sessão do benchmark a função devolve `NULL`, e ainda
+assim o filtro a executa 125 vezes.
+
+Hipótese a provar antes de qualquer mudança: envolver a função em
+`(select public._rls_portal_indicator_id())` transforma a chamada em `InitPlan`
+(uma vez por statement). Como a função é `STABLE`, a semântica é preservada.
+`docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` foi preparado para medir isso,
+inclusive `onboarding_client_id`, `contracts` e `commission_payments`.
 
 ### Estado atual dos scripts
 
@@ -345,11 +365,13 @@ e os planos correspondentes.
 | `docs/FIX-RLS-INIPLAN-REMANESCENTES-20261124.sql` | **Aplicado** (8 policies restantes) |
 | `docs/VERIFY-RLS-INIPLAN-20261124.sql` | **Executado**: 55 InitPlan, 0 forma direta, 0 argumento coluna |
 | `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido e disponível; **não aplicado** |
-| `docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` | Preparado, somente leitura, **não executado** |
+| `docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` | **Executado** (18:55:50): função por linha confirmada |
+| `docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` | Preparado, somente leitura, **não executado** |
 
-Pendente: executar o benchmark de portal para decidir, com dados, se o resíduo
-de `clients` justifica nova mudança. Se qualquer mudança futura divergir, o
-`ROLLBACK` corrigido está disponível.
+Pendente: executar a prova do InitPlan. Se confirmar o ganho, preparar
+forward/verify/rollback específicos para as policies de portal/onboarding e
+pedir autorização antes de aplicar. Nenhuma mudança foi feita com base apenas
+na hipótese.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
