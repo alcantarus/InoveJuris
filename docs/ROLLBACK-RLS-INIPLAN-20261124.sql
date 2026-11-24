@@ -1,9 +1,15 @@
 -- ROLLBACK — RLS com InitPlan (NÃO APLICAR SEM AUTORIZAÇÃO EXPLÍCITA)
--- 24/11/2026
+-- 24/11/2026. Versão corrigida: reconstrução pelas marcas do catálogo,
+-- não por texto não normalizado digitado à mão.
 --
--- Reverte exatamente as transformações de
--- docs/FORWARD-RLS-INIPLAN-20261124.sql, inclusive a policy do portal em
--- clients. Nenhum UPDATE/DELETE.
+-- Reverte FORWARD + FIX, inclusive a policy do portal em clients.
+-- Não toca policies que nunca foram convertidas. Nenhum UPDATE/DELETE.
+--
+-- Marcas normalizadas pelo PostgreSQL 17:
+--   InitPlan: ( SELECT _rls_can_access(NULL::text) AS _rls_can_access)
+--   Sem coluna -> _rls_can_access(NULL::text)
+--   Com coluna -> _rls_can_access(environment)
+--   Portal clients -> EXISTS correlacionado original.
 
 do $$
 declare
@@ -17,8 +23,8 @@ begin
       from pg_policies
      where schemaname = 'public'
        and (
-         qual ilike '%_rls_can_access%'
-         or with_check ilike '%_rls_can_access%'
+         coalesce(qual, '') ilike '%_rls_can_access%'
+         or coalesce(with_check, '') ilike '%_rls_can_access%'
          or (tablename = 'clients' and policyname = 'P0 portal indicador')
        )
      order by tablename, policyname
@@ -26,35 +32,34 @@ begin
     v_using := r.qual;
     v_check := r.with_check;
 
-    -- 1) Desfaz primeiro a forma com coluna: ela contém _rls_can_access(null).
-    v_using := regexp_replace(
-      v_using,
-      '\(\(select public\._rls_can_access\(null\)\) AND \(environment IS NULL OR environment = coalesce\(nullif\(current_setting\(''request.jwt.claims'', true\)::jsonb ->> ''environment'', ''''\), ''production''\)\)\)',
-      'public._rls_can_access(environment)',
-      'gi'
-    );
-    v_check := regexp_replace(
-      v_check,
-      '\(\(select public\._rls_can_access\(null\)\) AND \(environment IS NULL OR environment = coalesce\(nullif\(current_setting\(''request.jwt.claims'', true\)::jsonb ->> ''environment'', ''''\), ''production''\)\)\)',
-      'public._rls_can_access(environment)',
-      'gi'
-    );
+    -- using: reconstrói apenas se houver InitPlan (foi convertida).
+    if r.qual ilike '%SELECT _rls_can_access%' then
+      v_using := case
+        when r.qual ilike '%environment IS NULL%'
+          then '_rls_can_access(environment)'
+        else '_rls_can_access(NULL::text)'
+      end;
 
-    -- 2) Desfaz a forma sem coluna.
-    v_using := regexp_replace(
-      v_using,
-      '\(select public\._rls_can_access\(null\)\)',
-      'public._rls_can_access(null)',
-      'gi'
-    );
-    v_check := regexp_replace(
-      v_check,
-      '\(select public\._rls_can_access\(null\)\)',
-      'public._rls_can_access(null)',
-      'gi'
-    );
+      -- Portal (contracts, commission_payments) tinha o predicado extra.
+      if r.qual ilike '%indicator_id = _rls_portal_indicator_id%' then
+        v_using := v_using || ' AND indicator_id = _rls_portal_indicator_id()';
+      end if;
+    end if;
 
-    -- 3) Restaura o EXISTS original do portal em clients.
+    -- with check: mesma reconstrução, com as marcas do próprio campo.
+    if r.with_check ilike '%SELECT _rls_can_access%' then
+      v_check := case
+        when r.with_check ilike '%environment IS NULL%'
+          then '_rls_can_access(environment)'
+        else '_rls_can_access(NULL::text)'
+      end;
+
+      if r.with_check ilike '%indicator_id = _rls_portal_indicator_id%' then
+        v_check := v_check || ' AND indicator_id = _rls_portal_indicator_id()';
+      end if;
+    end if;
+
+    -- Portal do indicador em clients: IN (semi-join) -> EXISTS correlacionado.
     if r.tablename = 'clients' and r.policyname = 'P0 portal indicador' then
       v_using := 'exists (select 1 from public.contracts c where c.client_id = clients.id and c.indicator_id = public._rls_portal_indicator_id())';
     end if;

@@ -230,9 +230,9 @@ no P0/P1: `clients` 163,286 × 165,010 do baseline e `processes` 10,245 ×
 então não é possível quantificar quanto o P0 acrescentou; o custo absoluto,
 porém, explica a percepção.
 
-Próximo passo preparado: `docs/BENCHMARK-RLS-INIPLAN-20261124.sql` — prova
-somente leitura de que a expressão equivalente com `InitPlan` elimina o custo
-por linha. Ainda não executado.
+Próximo passo: `docs/BENCHMARK-RLS-INIPLAN-20261124.sql` — prova somente leitura
+de que a expressão equivalente com `InitPlan` elimina o custo por linha.
+Executada às 18:44:42 UTC (ver abaixo).
 
 ### Prova confirmada (18:44:42 UTC)
 
@@ -254,15 +254,50 @@ com RLS (164,764 ms): o restante vem da policy do portal, que faz um `EXISTS`
 correlacionado em `contracts` por cliente. Por isso o forward também troca esse
 `EXISTS` por um `IN` (semi-join).
 
-### Scripts preparados — NÃO APLICADOS
+### Forward aplicado e verify intermediário (18:47:25 UTC)
 
-| Arquivo | Função |
+`docs/FORWARD-RLS-INIPLAN-20261124.sql` foi aplicado pelo usuário. O `VERIFY`
+mostrou:
+
+- **Conversão principal funcionou**: as policies de `payments`, `contracts`,
+  `clients`, `installments`, portal e demais tabelas estão no formato
+  `( SELECT _rls_can_access(NULL::text) AS _rls_can_access) AND (environment IS NULL OR ...)`.
+- **Portal em `clients` convertido** para `id IN (SELECT c.client_id FROM contracts c WHERE c.indicator_id = _rls_portal_indicator_id())`.
+- **Dados intactos**: `contracts=125`, `installments=181`, `payments=177`,
+  `commission_payments=15`; `search_all('ana','production')` retornou
+  5 clientes + 5 contratos; `policies_total=63`.
+- **8 policies remanescentes** em forma direta: `backup_logs`,
+  `contract_diseases`, `installment_history`, `integration_logs`,
+  `organizations`, `system_settings`, `task_history`, `user_organizations`.
+  Seis com `_rls_can_access(NULL::text)` e duas com
+  `_rls_can_access((environment)::text)`. Das 55 policies com
+  `_rls_can_access`, 47 foram convertidas.
+- **Contadores do verify estavam errados**: `policies_com_initplan=0` e
+  `policies_com_argumento_coluna=55` são falsos positivos. O PostgreSQL
+  normaliza `(select public._rls_can_access(null))` para
+  `( SELECT _rls_can_access(NULL::text) AS _rls_can_access)`, e o padrão
+  `not ilike '%_rls_can_access(null)%'` não reconhecia `NULL::text)`.
+
+Nenhum `UPDATE`/`DELETE`, nenhuma grant nova, nenhuma função nova e nenhuma
+mudança em dados.
+
+### Estado atual dos scripts
+
+| Arquivo | Estado |
 |---|---|
-| `docs/FORWARD-RLS-INIPLAN-20261124.sql` | Reescreve todas as policies com `_rls_can_access` para a forma InitPlan e troca o `EXISTS` do portal em `clients` por `IN` |
-| `docs/VERIFY-RLS-INIPLAN-20261124.sql` | Célula `verify_rls_initplan`: policies restantes, portal, contagens, busca real |
-| `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Reverte exatamente as duas transformações |
+| `docs/FORWARD-RLS-INIPLAN-20261124.sql` | **Aplicado** (47 policies + portal) |
+| `docs/VERIFY-RLS-INIPLAN-20261124.sql` | Corrigido: usa regex sobre o texto normalizado, separa InitPlan de chamada direta e lista as remanescentes |
+| `docs/FIX-RLS-INIPLAN-REMANESCENTES-20261124.sql` | Preparado, **não aplicado**: converte as 8 restantes com a mesma expressão |
+| `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido: reconstrói por marcas normalizadas, não por texto digitado; não toca policies nunca convertidas |
+
+Sequência pendente (somente com autorização explícita): aplicar o `FIX`, rodar
+o `VERIFY` corrigido (esperado: `policies_com_initplan=55`,
+`policies_forma_direta_restante=0`, `policies_com_argumento_coluna=0`,
+`restantes=[]`, contagens inalteradas) e repetir
+`docs/BENCHMARK-POS-P0-P1-20261124.sql` para medir o ganho em produção.
+Se qualquer verificação divergir, aplicar o `ROLLBACK` corrigido.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
 `current_setting('request.jwt.claims', true)`, leitura de GUC da própria
-sessão. Nenhum UPDATE/DELETE. Aguardando autorização explícita para aplicar.
+sessão. Nenhum UPDATE/DELETE.
