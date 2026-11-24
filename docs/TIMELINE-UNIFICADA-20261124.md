@@ -51,6 +51,7 @@ O botão antigo **“Sincronizar movimentações”** continua chamando `/api/pr
 - **Fila “A triar”:** contador de publicações pendentes com link para `/publicacoes`, reforçando que a importação não cria prazo.
 - **Heatmap clicável:** clicar em um dia filtra a timeline; clicar de novo limpa o filtro.
 - **Responsável no hero:** nome vem de `getResponsibleName(process, lawyers)`, já usado na página — sem nova consulta.
+- **Criar prazo inline (melhoria 8):** o botão aparece apenas em publicações DJEN com `status = 'A triar'`, sem prazo oficial vinculado. Ele reutiliza `fetchPublications()` + `PublicationDetail`: o mesmo modal e a mesma mutação validada de `/publicacoes`, com justificativa obrigatória e `confirmed_at`/`confirmed_by`. Após salvar, a página recarrega o processo e a timeline. Nenhuma regra de prazo foi duplicada.
 
 ## Validação
 

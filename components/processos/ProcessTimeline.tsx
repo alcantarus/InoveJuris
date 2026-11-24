@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   AlertTriangle,
+  CalendarPlus,
   CheckCircle2,
   Clock3,
   Copy,
@@ -28,6 +29,7 @@ interface ProcessTimelineProps {
   refreshing?: boolean
   cooldownSeconds?: number
   responsible?: string | null
+  onCreateDeadline?: (publicationId: number) => void
 }
 
 const SOURCE_STYLE: Record<TimelineSource, { dot: string; chip: string; icon: React.ComponentType<{ size?: number; className?: string }> }> = {
@@ -125,6 +127,7 @@ export function ProcessTimeline({
   refreshing = false,
   cooldownSeconds = 0,
   responsible,
+  onCreateDeadline,
 }: ProcessTimelineProps) {
   const [filter, setFilter] = useState<FilterKey>('all')
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
@@ -426,6 +429,15 @@ export function ProcessTimeline({
                 `${other.title}`.toLowerCase().includes('senten') &&
                 `${item.title} ${item.inferred?.label || ''}`.toLowerCase().includes('senten')
             })
+            const publicationId = Number(item.meta.publication_id)
+            const canCreateDeadline = Boolean(
+              onCreateDeadline
+              && item.source === 'djen'
+              && Number.isInteger(publicationId)
+              && publicationId > 0
+              && item.meta.status === 'A triar'
+              && !item.deadline?.official
+            )
 
             return (
               <React.Fragment key={item.id}>
@@ -532,18 +544,29 @@ export function ProcessTimeline({
                       </details>
                     )}
 
-                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-2.5 text-[11px] text-slate-400">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-2.5 text-[11px] text-slate-400">
                       <span>{item.source === 'djen' ? 'Fonte: API pública CNJ' : `Fonte: ${item.source}`}</span>
-                      {item.link && (
-                        <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:underline"
-                        >
-                          Ver comunicação <ExternalLink size={11} />
-                        </a>
-                      )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {canCreateDeadline && (
+                          <button
+                            type="button"
+                            onClick={() => onCreateDeadline?.(publicationId)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700"
+                          >
+                            <CalendarPlus size={12} /> Criar prazo
+                          </button>
+                        )}
+                        {item.link && (
+                          <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:underline"
+                          >
+                            Ver comunicação <ExternalLink size={11} />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </article>

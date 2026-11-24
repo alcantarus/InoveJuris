@@ -195,6 +195,7 @@ export function normalizePublications(
       deadline,
       inferred: inferFromPublication(item || {}),
       meta: {
+        publication_id: item?.id ?? null,
         external_id: externalId,
         communication_number: item?.communication_number ?? null,
         communication_type: item?.communication_type ?? null,

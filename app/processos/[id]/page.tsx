@@ -36,6 +36,13 @@ import { useAuth } from '@/lib/auth'
 import { confirmDeadlineRecord } from '@/lib/deadline-mutations'
 import type { ProcessTimeline as ProcessTimelineData } from '@/lib/process-timeline'
 import { ProcessTimeline } from '@/components/processos/ProcessTimeline'
+import { PublicationDetail } from '@/components/publicacoes/PublicationDetail'
+import {
+  fetchPublications,
+  type PublicationItem,
+  type PublicationLawyerOption,
+  type PublicationProcessOption,
+} from '@/lib/publications'
 import { DeadlineEditModal } from '@/components/prazos/DeadlineEditModal'
 import { DeleteDeadlineModal, type DeleteDeadlineTarget } from '@/components/prazos/DeleteDeadlineModal'
 
@@ -64,6 +71,9 @@ export default function ProcessoDetalhePage() {
   const [nowTick, setNowTick] = useState(() => Date.now())
   const [unifiedTimeline, setUnifiedTimeline] = useState<ProcessTimelineData | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(true)
+  const [inlinePublication, setInlinePublication] = useState<PublicationItem | null>(null)
+  const [inlineProcesses, setInlineProcesses] = useState<PublicationProcessOption[]>([])
+  const [inlineLawyers, setInlineLawyers] = useState<PublicationLawyerOption[]>([])
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [editingDeadline, setEditingDeadline] = useState<any | null>(null)
   const [deletingDeadline, setDeletingDeadline] = useState<DeleteDeadlineTarget | null>(null)
@@ -229,6 +239,29 @@ export default function ProcessoDetalhePage() {
     } finally {
       setRefreshingPublications(false)
     }
+  }
+
+  const handleCreateDeadlineFromPublication = async (publicationId: number) => {
+    try {
+      const payload = await fetchPublications()
+      const item = payload.items.find((candidate) => Number(candidate.id) === publicationId)
+      if (!item) {
+        toast.error('Publicação não encontrada na fila. Atualize a lista e tente novamente.')
+        return
+      }
+      setInlineProcesses(payload.processes)
+      setInlineLawyers(payload.lawyers)
+      setInlinePublication(item)
+    } catch (error) {
+      console.error(error)
+      toast.error('Não foi possível abrir a publicação para criar o prazo.')
+    }
+  }
+
+  const handleInlinePublicationChanged = () => {
+    setInlinePublication(null)
+    load()
+    loadTimeline()
   }
 
   const handleConfirm = async (deadline: any) => {
@@ -598,6 +631,7 @@ export default function ProcessoDetalhePage() {
               refreshing={refreshingPublications}
               cooldownSeconds={publicationsCooldown}
               responsible={responsible}
+              onCreateDeadline={handleCreateDeadlineFromPublication}
             />
           ) : (
             <p className="text-sm text-slate-500">
@@ -610,6 +644,14 @@ export default function ProcessoDetalhePage() {
           Registro atualizado em {getTodayBR()} · Fonte: {process.source || 'Manual'}
         </p>
       </div>
+
+      <PublicationDetail
+        publication={inlinePublication}
+        processes={inlineProcesses}
+        lawyers={inlineLawyers}
+        onClose={() => setInlinePublication(null)}
+        onChanged={handleInlinePublicationChanged}
+      />
 
       <DeadlineEditModal
         deadline={editingDeadline}
