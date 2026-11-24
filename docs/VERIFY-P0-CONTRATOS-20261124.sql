@@ -34,17 +34,44 @@ SELECT jsonb_pretty(jsonb_build_object(
       )
   ), '[]'::jsonb),
 
-  'search_all_sem_contractnumber', NOT EXISTS (
+  'search_all_sem_colunas_inexistentes', NOT EXISTS (
     SELECT 1
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
       AND p.proname = 'search_all'
-      AND pg_get_function_identity_arguments(p.oid) = 'text, text'
-      AND pg_get_functiondef(p.oid) LIKE '%contractNumber%'
+      AND pg_get_function_identity_arguments(p.oid) = 'p_term text, p_environment text'
+      AND (
+        pg_get_functiondef(p.oid) LIKE '%contractNumber%'
+        OR pg_get_functiondef(p.oid) LIKE '%clientId%'
+      )
   ),
 
   'search_all_teste', public.search_all('ana', 'production'),
+
+  'installments_estornado', (
+    SELECT count(*) FROM public.installments
+    WHERE status IN ('Estornado', 'Estornada')
+  ),
+
+  'views_valores', jsonb_build_object(
+    'receivables_metrics', COALESCE((
+      SELECT jsonb_agg(to_jsonb(t) ORDER BY t.environment)
+      FROM public.vw_dashboard_receivables_metrics t
+    ), '[]'::jsonb),
+    'receivables_forecast_linhas', (
+      SELECT count(*) FROM public.vw_dashboard_receivables_forecast
+    ),
+    'receivables_forecast_soma', (
+      SELECT coalesce(sum(expected_amount), 0) FROM public.vw_dashboard_receivables_forecast
+    ),
+    'top_defaulters_linhas', (
+      SELECT count(*) FROM public.vw_dashboard_top_defaulters
+    ),
+    'top_defaulters_soma', (
+      SELECT coalesce(sum(total_overdue_amount), 0) FROM public.vw_dashboard_top_defaulters
+    )
+  ),
 
   'contagens', jsonb_build_object(
     'contracts', (SELECT count(*) FROM public.contracts),

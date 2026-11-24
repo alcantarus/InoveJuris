@@ -48,7 +48,7 @@ SELECT jsonb_pretty(jsonb_build_object(
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
       AND p.proname = 'search_all'
-      AND pg_get_function_identity_arguments(p.oid) = 'text, text'
+      AND pg_get_function_identity_arguments(p.oid) = 'p_term text, p_environment text'
   ),
 
   'colunas_contratos', COALESCE((

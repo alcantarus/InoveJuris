@@ -53,10 +53,20 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
   regex do `FORWARD-P0`.
 - `contracts` tem `client_id` e `processNumber`; **não** tem `contractNumber`.
   Os scripts passaram a usar `c.client_id` e `c."processNumber"` diretamente.
-- `search_all_definicao = null`: a busca por `public.search_all(text, text)`
-  não retornou função. A célula complementar vai listar qualquer função
-  `search_all` existente. **Nenhum FORWARD é aplicado até essa dúvida ser
-  resolvida.**
+- `search_all` existe em `public`, com assinatura
+  `p_term text, p_environment text DEFAULT NULL`. O `null` anterior foi erro de
+  consulta: `pg_get_function_identity_arguments` devolve os **nomes** dos
+  argumentos, não só os tipos.
+- A definição real continha **duas** colunas inexistentes: `contractNumber` e
+  `clientId`. O `FORWARD-P0` corrige as duas, usando `client_id` e
+  `processNumber`, confirmados na medição. `ROLLBACK-P0` restaura fielmente o
+  estado anterior (com as duas colunas quebradas).
+- Baseline das views capturado em 18:18:20 UTC: production
+  `count_overdue=18`, `total_overdue=77931.60`, `total_installments=117`; test
+  `count_overdue=7`, `total_overdue=19000.00`, `total_installments=64`;
+  `receivables_forecast` 7 linhas / `24044.20`; `top_defaulters` 22 linhas /
+  `96931.60`. Há **3** parcelas `Estornado`; o delta exato será medido no
+  `verify_p0`.
 - `idx_installments_contract_id` **já existe**; o `FORWARD-P1` usa
   `IF NOT EXISTS` e não vai recriá-lo.
 
