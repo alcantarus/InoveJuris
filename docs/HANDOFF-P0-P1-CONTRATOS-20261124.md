@@ -400,8 +400,51 @@ estão com `( SELECT _rls_portal_indicator_id() AS _rls_portal_indicator_id)`.
 Contagens `125/181/177/15` inalteradas e `search_all('ana','production')`
 devolveu os mesmos 5 clientes + 5 contratos. Nenhum `UPDATE`/`DELETE`.
 
-Pendente: repetir `docs/BENCHMARK-POS-P0-P1-20261124.sql` para a medição final
-em produção.
+### Benchmark final de produção (19:02:51 UTC)
+
+`docs/BENCHMARK-POS-P0-P1-20261124.sql` repetido pela última vez: PG 17.6,
+`authenticated`, `production`, 1 sessão ativa, 5 repetições, contagens
+`125/181/177/15` inalteradas.
+
+| Série | Pré-InitPlan (18:40:45) | Pós-RLS (18:52:52) | **Final (19:02:51)** | Ganho total |
+|---|---:|---:|---:|---:|
+| `clients` | 163,286 ms | 13,720 ms | **2,071 ms** | ~78,8× |
+| `installments` | 114,463 ms | 1,071 ms | **1,037 ms** | ~110,4× |
+| `payments` | 111,596 ms | 1,072 ms | **1,023 ms** | ~109,1× |
+| `vw_dashboard_receivables_metrics` | 113,487 ms | 1,150 ms | **1,062 ms** | ~106,9× |
+| `vw_dashboard_top_defaulters` | 103,475 ms | 15,644 ms | **3,872 ms** | ~26,7× |
+| `contracts` | 78,985 ms | 0,941 ms | **0,930 ms** | ~84,9× |
+| `vw_dashboard_receivables_forecast` | 21,697 ms | 0,898 ms | **0,826 ms** | ~26,3× |
+| `processes` | 10,245 ms | 0,707 ms | **0,708 ms** | ~14,5× |
+| `commission_payments` | 9,632 ms | 0,753 ms | **0,700 ms** | ~13,8× |
+| `search_all('ana','production')` | 81,822 ms | 21,253 ms | **9,131 ms** | ~9,0× |
+
+O número válido de `search_all` é **9,131 ms** — a expectativa informal de
+~3 ms não se confirmou. A série segue com custo de RLS de 6,549 ms
+(9,131 com RLS × 2,582 sem RLS). `processos_to_jsonb` ficou em 1,146 ms e
+`search_colunas_diretas` em 2,069 ms, confirmando mais uma vez que `to_jsonb`
+não é o gargalo. O custo residual de `search_all` não foi atribuído a uma única
+causa e não justifica nova mudança estrutural sem medição específica.
+
+As séries `_auth_session_payload` falharam novamente com
+`permission denied for function _auth_session_payload` porque o script as
+executa como `authenticated`; é artefato pré-existente, sem impacto nas demais
+séries e sem relação com as policies alteradas.
+
+## Encerramento
+
+A investigação de lentidão está **fechada**. Causa raiz confirmada por medição:
+RLS avaliada por linha, primeiro em `_rls_can_access(environment)` e, no
+resíduo, em `_rls_portal_indicator_id()` no filtro da policy do portal.
+Hipóteses refutadas com dados: `to_jsonb` do `search_all` e a forma `IN` vs
+`EXISTS` da policy de `clients`. As duas correções (`InitPlan` em 55 policies
+e nas 4 policies do portal) foram aplicadas, verificadas e medidas. A percepção
+de lentidão não tem mais suporte nos números das tabelas centrais (todas em
+~1 ms); `search_all` caiu de 81,8 ms para 9,1 ms.
+
+Nenhum rollback foi aplicado: `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` e
+`docs/ROLLBACK-PORTAL-INIPLAN-20261124.sql` permanecem arquivados. Nenhum
+`UPDATE`/`DELETE` em dados de negócio, nenhuma grant nova e nenhuma função nova.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
