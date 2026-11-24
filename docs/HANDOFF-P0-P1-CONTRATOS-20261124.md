@@ -382,12 +382,26 @@ Quatro policies chamam a função diretamente e são alvo do forward:
 | `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido e disponível; **não aplicado** |
 | `docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` | **Executado** (18:55:50): função por linha confirmada |
 | `docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` | **Executado** (18:58:19): InitPlan confirmado |
-| `docs/FORWARD-PORTAL-INIPLAN-20261124.sql` | Preparado, **não aplicado**: 4 policies do portal |
-| `docs/VERIFY-PORTAL-INIPLAN-20261124.sql` | Preparado, **não executado** |
-| `docs/ROLLBACK-PORTAL-INIPLAN-20261124.sql` | Preparado, **não aplicado** |
+| `docs/FORWARD-PORTAL-INIPLAN-20261124.sql` | **Aplicado** às 19:01:01 UTC: 4 policies do portal |
+| `docs/VERIFY-PORTAL-INIPLAN-20261124.sql` | **Executado**: 4 InitPlan, 0 forma direta, `restantes=[]` |
+| `docs/ROLLBACK-PORTAL-INIPLAN-20261124.sql` | Preparado e disponível; **não aplicado** |
 
-Pendente: autorização explícita para aplicar o forward, rodar o verify e repetir
-o benchmark de produção. Nenhuma mudança foi feita com base apenas em hipótese.
+`docs/VERIFY-PORTAL-INIPLAN-20261124.sql` retornado às 19:01:01 UTC confirmou:
+
+| Indicador | Resultado |
+|---|---:|
+| `policies_com_portal` | 4 |
+| `policies_com_portal_initplan` | **4** |
+| `policies_com_portal_direto` | **0** |
+| `restantes` | `[]` |
+
+As quatro policies (`clients`, `contracts`, `commission_payments`, `indicators`)
+estão com `( SELECT _rls_portal_indicator_id() AS _rls_portal_indicator_id)`.
+Contagens `125/181/177/15` inalteradas e `search_all('ana','production')`
+devolveu os mesmos 5 clientes + 5 contratos. Nenhum `UPDATE`/`DELETE`.
+
+Pendente: repetir `docs/BENCHMARK-POS-P0-P1-20261124.sql` para a medição final
+em produção.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
