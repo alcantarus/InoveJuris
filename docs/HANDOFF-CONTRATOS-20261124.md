@@ -17,9 +17,10 @@ A auditoria do módulo Contratos passou por quatro etapas:
 | Diagnóstico estrutural somente leitura | Executado; resultado colado e documentado |
 | Forense dos 26 / 17 / 9 candidatos | Executado; resultado colado e analisado |
 | Validação final para confirmar falsos positivos | **Executada; resultado colado e documentado** |
-| Investigação dos 26 que sobraram | **Script pronto, aguardando execução/retorno** |
+| Investigação dos 26 que sobraram | **Executada em célula única; resultado colado e documentado** |
+| Auditoria consolidada (uma célula) | **Executada e interpretada — auditoria fechada** |
 
-A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta** não exigem correção. A hipótese de que os **26** seriam juros/multa foi **refutada**: `interest=0` e `fine=0` em toda a amostra. O excesso precisa ser investigado contra `payments`/`financial_transactions` antes de qualquer UPDATE. Resultado em `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`.
+A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta** não exigem correção. A hipótese de que os **26** seriam juros/multa foi **refutada**: `interest=0` e `fine=0` em toda a amostra. A auditoria consolidada provou que **`pago == SUM(payments)` nos 26**: o excesso é entrada real registrada em `payments`, não erro de `amountPaid`. Nenhuma escrita em banco. Resultado em `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`.
 
 ---
 
@@ -32,7 +33,8 @@ A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta*
 | `docs/FORENSE-CONTRATOS-20261124.sql` | Forense somente leitura dos 26 / 17 / 9: colunas completas, funções completas, pagamentos vinculados e amostras. Uma célula `forense_contratos`. |
 | `docs/VALIDACAO-CONTRATOS-20261124.sql` | Validação final executada: `excesso ≈ interest + fine`, `amountReceivable` pela fórmula real do trigger e conta recuperável nos 9 pagamentos. Uma célula `validacao_contratos`. |
 | `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md` | Resultado colado e interpretação: 26 não explicados, 44/44 totais explicados, 0 contas recuperáveis. |
-| `docs/INVESTIGACAO-EXCESSO-26-20261124.sql` | Investigação somente leitura dos 26: `amountPaid` × soma de `payments` × transações. Células `investigacao_excesso_26` e `candidatos_conta_9`. **Aguardando retorno.** |
+| `docs/INVESTIGACAO-EXCESSO-26-20261124.sql` | Investigação somente leitura dos 26: `amountPaid` × soma de `payments` × transações. Células `investigacao_excesso_26` e `candidatos_conta_9`. **Célula `candidatos_conta_9` recebida; a outra foi absorvida pela auditoria consolidada.** |
+| `docs/AUDITORIA-CONTRATOS-COMPLETA-20261124.sql` | **Script consolidado, uma única célula `auditoria_contratos_completa`**: 26 com detalhe de payments/transações, totais pela fórmula do trigger e 9 sem conta. Executado em `2026-11-24T18:01:50.243675+00:00`; commit `de19564`. |
 | `docs/HANDOFF-CONTRATOS-20261124.md` | Este documento. |
 
 ---
@@ -97,29 +99,25 @@ A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta*
 
 ## 5. Os 26 / 17 / 9 — leitura da forense
 
-| Lote | Situação provável | Evidência |
+| Lote | Situação final | Evidência |
 |---|---|---|
-| **26 pagamentos acima do valor** | **Hipótese refutada; em investigação** | Validação: `explicados_por_juros_multa=0`, `nao_explicados=26`, com `interest=0` e `fine=0` na amostra. O excesso pode ser juros/multa embutidos no valor pago, excesso real ou acumulação duplicada — ainda sem distinção. |
-| **17 totais inconsistentes** | **Falso positivo confirmado** | Validação pela fórmula real do trigger: 44 candidatos pela fórmula ingênua, **44 explicados**, 0 não explicados. Ex.: contrato 134 `Estornado` com `amountReceivable=0` está correto. |
-| **9 pagamentos sem conta** | **Legado intencional / sem conta recuperável** | 5 têm transação, mas `transaction_account_id=null`; 4 não têm transação; `com_conta_na_transacao=0`. Não há conta para preencher pelo vínculo direto. |
+| **26 pagamentos acima do valor** | **Fechado — entrada real; não corrigir** | Auditoria consolidada: `pago_igual_soma_pagamentos=26`, `pago_maior_que_soma_pagamentos=0`, `pago_menor_que_soma_pagamentos=0`, `sem_pagamentos_vinculados=0`, `com_transacao_vinculada=0`. `diferenca_pago_vs_pagamentos=0.00` nos 26. A lacuna é separação em `interest`/`fine` e ausência de `financial_transaction_id` no legado. |
+| **17 totais inconsistentes** | **Fechado — falso positivo** | `totais_formula_trigger`: 44 candidatos pela fórmula ingênua, **44 explicados**, 0 não explicados. Ex.: contrato 134 `Estornado` com `amountReceivable=0` está correto. |
+| **9 pagamentos sem conta** | **Fechado — irrecuperável** | 5 têm transação, mas `transaction_account_id=null`; 4 não têm transação; `com_conta_na_transacao=0`, `sem_conta_na_transacao=9`. Candidatas por valor/data ambíguas, em `test` e com descrições de outras parcelas. |
 
-**Decisão até aqui:** não escrever UPDATE/DELETE. Totais e 9 pagamentos estão fechados; restam os 26, que exigem a investigação de `payments`/transações antes de qualquer correção.
+**Decisão final:** não escrever UPDATE/DELETE. Os três lotes estão fechados. O excesso dos 26 não é erro de `amountPaid`; reduzi-lo quebraria a reconciliação com `payments`.
 
 ---
 
 ## 6. Próximo passo ao retomar
 
-1. ~~Rodar `docs/VALIDACAO-CONTRATOS-20261124.sql` e colar `validacao_contratos`.~~ **Feito** (ver `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`).
-2. Rodar **`docs/INVESTIGACAO-EXCESSO-26-20261124.sql`** no SQL Editor.
-3. Colar as células **`investigacao_excesso_26`** e **`candidatos_conta_9`**.
-   - `candidatos_conta_9` **já recebida**: nenhuma conta recuperável (detalhes no
-     resultado da validação).
-   - **`investigacao_excesso_26` ainda pendente** — é a que decide os 26.
-4. Interpretar os 26:
-   - se `pago_confere_com_pagamentos` e as transações confirmam o valor → excesso é entrada real (juros/multa embutidos ou pagamento acima do principal); **não reduzir `amountPaid`**;
-   - se `pago_maior_que_pagamentos`/`sem_pagamento_vinculado` → revisar acumulação antes de escrever;
-   - somente com evidência e autorização explícita: UPDATE pontual com `WHERE id = ...`, backup dos valores anteriores e rollback.
-5. Só depois, e com autorização explícita, preparar os scripts estruturais P0 (policies do portal, views com `Estornado`, `search_all`) e P1 (índices/unicidade).
+1. ~~Rodar `docs/VALIDACAO-CONTRATOS-20261124.sql` e colar `validacao_contratos`.~~ **Feito**.
+2. ~~Rodar `docs/INVESTIGACAO-EXCESSO-26-20261124.sql` e colar as células.~~ **Absorvido** pela auditoria consolidada.
+3. ~~Rodar `docs/AUDITORIA-CONTRATOS-COMPLETA-20261124.sql` e colar `auditoria_contratos_completa`.~~ **Feito** em `2026-11-24T18:01:50.243675+00:00`; interpretado em `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`.
+4. **Único passo em aberto:** com autorização explícita e medição prévia, preparar/aplicar os scripts estruturais:
+   - **P0** — policies do portal com `_rls_can_access(environment)`, views excluindo `Estornado`, `search_all(text,text)` corrigido;
+   - **P1** — `UNIQUE(contract_id, "installmentNumber")` e índices em `payments`/`installments`/`commission_payments`.
+5. Nenhuma escrita em dados de Contratos está autorizada ou necessária.
 
 ---
 
@@ -136,4 +134,4 @@ A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta*
 
 ## 8. Resumo de uma linha
 
-> Auditoria estrutural fechada; validação confirmou 44/44 totais corretos e 9 pagamentos legado sem conta recuperável; a hipótese juros/multa para os 26 foi refutada e agora depende da investigação de `payments`/transações; nenhuma escrita em banco — correções de policies, views e `search_all` só com autorização.
+> Auditoria de Contratos fechada em 24/11/2026: 44/44 totais corretos, 26 excessos confirmados como entrada real em `payments` (`pago == SUM(payments)`), 9 pagamentos sem conta recuperável; nenhuma escrita em banco — correções estruturais (policies, views, `search_all`, índices) só com autorização explícita e medição prévia.
