@@ -22,7 +22,6 @@ import {
 } from 'lucide-react'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ModuleHeader } from '@/components/ModuleHeader'
-import SyncDashboard from '@/components/SyncDashboard'
 import { motion } from 'motion/react'
 import { Modal } from '@/components/Modal'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -639,8 +638,6 @@ export default function ProcessosPage() {
           description="Acompanhe o andamento de todas as causas."
         />
         
-        <SyncDashboard />
-
         <div className="flex flex-wrap gap-3">
           <div className="bg-white border border-slate-200 rounded-xl p-1 flex items-center shadow-sm mr-2">
             <button
