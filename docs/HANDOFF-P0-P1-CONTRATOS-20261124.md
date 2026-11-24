@@ -78,7 +78,31 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
 - `idx_installments_contract_id` **já existe**; o `FORWARD-P1` usa
   `IF NOT EXISTS` e não vai recriá-lo.
 
-## 4. Pode danificar alguma coisa?
+## 4. P0 aplicado e validado (18:24:54 UTC)
+
+`FORWARD-P0` rodado com sucesso (DDL não retorna linhas). O primeiro `VERIFY`
+revelou `processes.processNumber` inexistente; aplicado `FIX-P0-SEARCH-ALL` e
+revalidado. Resultado final:
+
+- policies `P0 portal indicador` em `contracts` e `commission_payments`:
+  `(_rls_can_access(environment) AND (indicator_id = _rls_portal_indicator_id()))`,
+  `ok=true` nas duas;
+- 3 views com `exclui_estornado=true` e `security_invoker` preservado;
+- `search_all_sem_colunas_inexistentes=true`; chamada real
+  `search_all('ana','production')` retornou 5 clientes e 5 contratos, sem erro;
+- contagens inalteradas: `contracts=125`, `installments=181`, `payments=177`,
+  `commission_payments=15`;
+- production inalterado: 18 inadimplentes / R$ 77.931,60;
+- test: 7 → **5** inadimplentes e R$ 19.000,00 → **14.000,00** (−2 parcelas,
+  −R$ 5.000);
+- `top_defaulters`: 22 → **21** linhas e R$ 96.931,60 → **91.931,60**;
+- forecast inalterado: 7 linhas / R$ 24.044,20;
+- `installments_estornado=3` (as parcelas continuam no banco; duas saíram dos
+  KPIs por estarem em atraso no teste).
+
+**Rollback do P0 não aplicado. P1 ainda não autorizado nem aplicado.**
+
+## 5. Pode danificar alguma coisa?
 
 **Preparar os arquivos: não.** São apenas texto no Git.
 
@@ -97,20 +121,20 @@ Nenhum script apaga ou altera dado de negócio. O rollback P0 restaura
 deliberadamente o `search_all` antigo (com o predicado quebrado), porque esse
 era o estado anterior.
 
-## 5. Ordem obrigatória
+## 6. Ordem obrigatória
 
 1. Usuário autoriza explicitamente a execução da célula de medição (somente leitura).
 2. Usuário roda `MEDICAO-P0-P1-CONTRATOS-20261124.sql` e cola o JSON. **Feito em 18:15:48 UTC.**
 3. Usuário roda `MEDICAO-COMPLEMENTAR-P0-20261124.sql` e cola o JSON, para resolver `search_all` e capturar o baseline das views.
 4. Conferir `duplicatas_parcelas = 0` e conferir as definições reais de views/policies.
-5. Usuário autoriza explicitamente a aplicação de P0.
-6. Aplicar `FORWARD-P0` → rodar `VERIFY-P0` → comparar com a medição.
+5. Usuário autorizou explicitamente a aplicação de P0. **Feito.**
+6. Aplicar `FORWARD-P0` → `FIX-P0-SEARCH-ALL` → `VERIFY-P0`. **Feito e validado em 18:24:54 UTC.**
 7. Usuário autoriza explicitamente a aplicação de P1.
 8. Aplicar `FORWARD-P1` → rodar `VERIFY-P1`.
 9. Se qualquer verificação divergir: aplicar o `ROLLBACK` correspondente.
 10. Atualizar `STATUS-INOVEJURIS.md`, `HANDOFF-CONTRATOS-20261124.md` e dar commit/push.
 
-## 6. Limites
+## 7. Limites
 
 - Sem autorização explícita: **nada é executado no banco**.
 - Sem medição prévia: **nada é aplicado**.
