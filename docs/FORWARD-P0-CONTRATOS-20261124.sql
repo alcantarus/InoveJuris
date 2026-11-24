@@ -94,7 +94,7 @@ $vw$;
 -- ---------------------------------------------------------------------------
 -- P0.3 — search_all(text,text): remover o predicado de contractNumber
 -- contracts.contractNumber NÃO existe em produção.
--- Acesso dinâmico via to_jsonb(c) evita depender de colunas não confirmadas.
+-- Colunas confirmadas na medição: client_id e processNumber existem; contractNumber não.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.search_all(p_term text, p_environment text DEFAULT NULL)
 RETURNS jsonb
@@ -147,16 +147,15 @@ BEGIN
     SELECT jsonb_build_object(
       'type', 'contract',
       'id', c.id,
-      'title', 'Contrato: ' || coalesce(cl.name, to_jsonb(c) ->> 'processNumber', 'Sem cliente'),
+      'title', 'Contrato: ' || coalesce(cl.name, c."processNumber", 'Sem cliente'),
       'link', '/contratos'
     ) AS item
     FROM public.contracts c
-    LEFT JOIN public.clients cl
-      ON cl.id = coalesce(to_jsonb(c) ->> 'clientId', to_jsonb(c) ->> 'client_id')::bigint
+    LEFT JOIN public.clients cl ON cl.id = c.client_id
     WHERE (p_environment IS NULL OR c.environment = p_environment)
       AND (
         public.immutable_unaccent(lower(coalesce(cl.name, ''))) ILIKE v_term
-        OR public.immutable_unaccent(lower(coalesce(to_jsonb(c) ->> 'processNumber', ''))) ILIKE v_term
+        OR public.immutable_unaccent(lower(coalesce(c."processNumber", ''))) ILIKE v_term
       )
     LIMIT 5
   )

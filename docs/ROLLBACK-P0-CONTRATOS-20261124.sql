@@ -145,7 +145,7 @@ BEGIN
       'link', '/contratos'
     ) AS item
     FROM public.contracts c
-    LEFT JOIN public.clients cl ON cl.id = c."clientId"
+    LEFT JOIN public.clients cl ON cl.id = c.client_id
     WHERE (p_environment IS NULL OR c.environment = p_environment)
       AND (
         public.immutable_unaccent(lower(coalesce(cl.name, ''))) ILIKE v_term

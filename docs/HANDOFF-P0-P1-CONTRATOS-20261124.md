@@ -32,6 +32,7 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
 | Arquivo | Função |
 |---|---|
 | `docs/MEDICAO-P0-P1-CONTRATOS-20261124.sql` | Célula única `medicao_previa_contratos`: policies, views, `search_all`, colunas, índices, duplicatas e contagens |
+| `docs/MEDICAO-COMPLEMENTAR-P0-20261124.sql` | Célula única `medicao_complementar_p0`: funções `search_all` e baseline numérico das views |
 | `docs/FORWARD-P0-CONTRATOS-20261124.sql` | Aplicação P0 (DDL) |
 | `docs/VERIFY-P0-CONTRATOS-20261124.sql` | Célula única `verify_p0_contratos` |
 | `docs/ROLLBACK-P0-CONTRATOS-20261124.sql` | Reversão P0 |
@@ -39,7 +40,27 @@ erro de coluna inexistente. Não foi usado `id::text` como “número do contrat
 | `docs/VERIFY-P1-CONTRATOS-20261124.sql` | Célula única `verify_p1_contratos` |
 | `docs/ROLLBACK-P1-CONTRATOS-20261124.sql` | Reversão P1 |
 
-## 3. Pode danificar alguma coisa?
+## 3. Medição prévia recebida (18:15:48 UTC)
+
+- PG 17.6. Contagens: `contracts=125`, `installments=181`, `payments=177`,
+  `commission_payments=15`.
+- `duplicatas_parcelas = 0` → `UNIQUE` é segura.
+- Policies confirmadas: `P0 portal indicador` (`SELECT`, `anon`/`authenticated`)
+  em `contracts` e `commission_payments`, com
+  `using (indicator_id = _rls_portal_indicator_id())`.
+- Views confirmadas com `security_invoker=on` e filtro
+  `status <> ALL (ARRAY['Quitado'::text,'Cancelada'::text])` — compatível com o
+  regex do `FORWARD-P0`.
+- `contracts` tem `client_id` e `processNumber`; **não** tem `contractNumber`.
+  Os scripts passaram a usar `c.client_id` e `c."processNumber"` diretamente.
+- `search_all_definicao = null`: a busca por `public.search_all(text, text)`
+  não retornou função. A célula complementar vai listar qualquer função
+  `search_all` existente. **Nenhum FORWARD é aplicado até essa dúvida ser
+  resolvida.**
+- `idx_installments_contract_id` **já existe**; o `FORWARD-P1` usa
+  `IF NOT EXISTS` e não vai recriá-lo.
+
+## 4. Pode danificar alguma coisa?
 
 **Preparar os arquivos: não.** São apenas texto no Git.
 
@@ -58,19 +79,20 @@ Nenhum script apaga ou altera dado de negócio. O rollback P0 restaura
 deliberadamente o `search_all` antigo (com o predicado quebrado), porque esse
 era o estado anterior.
 
-## 4. Ordem obrigatória
+## 5. Ordem obrigatória
 
 1. Usuário autoriza explicitamente a execução da célula de medição (somente leitura).
-2. Usuário roda `MEDICAO-P0-P1-CONTRATOS-20261124.sql` e cola o JSON.
-3. Conferir `duplicatas_parcelas = 0` e conferir as definições reais de views/policies.
-4. Usuário autoriza explicitamente a aplicação de P0.
-5. Aplicar `FORWARD-P0` → rodar `VERIFY-P0` → comparar com a medição.
-6. Usuário autoriza explicitamente a aplicação de P1.
-7. Aplicar `FORWARD-P1` → rodar `VERIFY-P1`.
-8. Se qualquer verificação divergir: aplicar o `ROLLBACK` correspondente.
-9. Atualizar `STATUS-INOVEJURIS.md`, `HANDOFF-CONTRATOS-20261124.md` e dar commit/push.
+2. Usuário roda `MEDICAO-P0-P1-CONTRATOS-20261124.sql` e cola o JSON. **Feito em 18:15:48 UTC.**
+3. Usuário roda `MEDICAO-COMPLEMENTAR-P0-20261124.sql` e cola o JSON, para resolver `search_all` e capturar o baseline das views.
+4. Conferir `duplicatas_parcelas = 0` e conferir as definições reais de views/policies.
+5. Usuário autoriza explicitamente a aplicação de P0.
+6. Aplicar `FORWARD-P0` → rodar `VERIFY-P0` → comparar com a medição.
+7. Usuário autoriza explicitamente a aplicação de P1.
+8. Aplicar `FORWARD-P1` → rodar `VERIFY-P1`.
+9. Se qualquer verificação divergir: aplicar o `ROLLBACK` correspondente.
+10. Atualizar `STATUS-INOVEJURIS.md`, `HANDOFF-CONTRATOS-20261124.md` e dar commit/push.
 
-## 5. Limites
+## 6. Limites
 
 - Sem autorização explícita: **nada é executado no banco**.
 - Sem medição prévia: **nada é aplicado**.
