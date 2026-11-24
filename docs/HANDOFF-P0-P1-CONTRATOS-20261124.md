@@ -351,11 +351,26 @@ filtro**. Trocar `IN` por `EXISTS` não resolve — o custo não é o semi-join.
 Sem token de portal na sessão do benchmark a função devolve `NULL`, e ainda
 assim o filtro a executa 125 vezes.
 
-Hipótese a provar antes de qualquer mudança: envolver a função em
-`(select public._rls_portal_indicator_id())` transforma a chamada em `InitPlan`
-(uma vez por statement). Como a função é `STABLE`, a semântica é preservada.
-`docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` foi preparado para medir isso,
-inclusive `onboarding_client_id`, `contracts` e `commission_payments`.
+`docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` executado às 18:58:19 UTC provou a
+correção sem alterar nada:
+
+| Forma | Atual | `(select ...)` | Ganho |
+|---|---:|---:|---:|
+| Portal em `clients` | 14,084 ms | **0,328 ms** | ~43× |
+| Portal em `contracts` | 13,913 ms | **0,286 ms** | ~49× |
+| Portal em `commission_payments` | 1,700 ms | **0,241 ms** | ~7× |
+| Onboarding em `clients` | 0,125 ms | 0,149 ms | sem ganho |
+
+O plano da forma proposta mostra `InitPlan 1` com `Actual Loops: 1` e o filtro
+`(indicator_id = (InitPlan 1).col1)`; o da forma atual mantém 125 chamadas.
+Como a função é `STABLE`, a semântica é preservada. `onboarding_client_id`
+não será alterado: a medição mostrou custo já desprezível e a mudança não traria
+ganho.
+
+Quatro policies chamam a função diretamente e são alvo do forward:
+`clients.P0 portal indicador`, `contracts.P0 portal indicador`,
+`commission_payments.P0 portal indicador` e
+`indicators.P0 portal indicador leitura`.
 
 ### Estado atual dos scripts
 
@@ -366,12 +381,13 @@ inclusive `onboarding_client_id`, `contracts` e `commission_payments`.
 | `docs/VERIFY-RLS-INIPLAN-20261124.sql` | **Executado**: 55 InitPlan, 0 forma direta, 0 argumento coluna |
 | `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido e disponível; **não aplicado** |
 | `docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` | **Executado** (18:55:50): função por linha confirmada |
-| `docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` | Preparado, somente leitura, **não executado** |
+| `docs/BENCHMARK-PORTAL-INIPLAN-20261124.sql` | **Executado** (18:58:19): InitPlan confirmado |
+| `docs/FORWARD-PORTAL-INIPLAN-20261124.sql` | Preparado, **não aplicado**: 4 policies do portal |
+| `docs/VERIFY-PORTAL-INIPLAN-20261124.sql` | Preparado, **não executado** |
+| `docs/ROLLBACK-PORTAL-INIPLAN-20261124.sql` | Preparado, **não aplicado** |
 
-Pendente: executar a prova do InitPlan. Se confirmar o ganho, preparar
-forward/verify/rollback específicos para as policies de portal/onboarding e
-pedir autorização antes de aplicar. Nenhuma mudança foi feita com base apenas
-na hipótese.
+Pendente: autorização explícita para aplicar o forward, rodar o verify e repetir
+o benchmark de produção. Nenhuma mudança foi feita com base apenas em hipótese.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
