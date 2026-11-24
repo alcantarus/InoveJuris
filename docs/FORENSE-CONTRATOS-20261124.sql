@@ -179,26 +179,42 @@ select jsonb_pretty(jsonb_build_object(
     ),
     'amostra', coalesce((
       select jsonb_agg(jsonb_build_object(
-               'id', p.id,
-               'installment_id', p.installment_id,
-               'contract_id', i.contract_id,
-               'amount', p.amount,
-               'type', p.type,
-               'payment_date', p.payment_date,
-               'payment_method', p.payment_method,
-               'financial_transaction_id', p.financial_transaction_id,
-               'reverses_payment_id', p.reverses_payment_id,
-               'user_id', p.user_id,
-               'created_by', p.created_by,
-               'parcela_status', i.status,
-               'parcela_amount', i.amount,
-               'parcela_paid', i."amountPaid"
-             ) order by p.payment_date desc)
-        from public.payments p
-        left join public.installments i on i.id = p.installment_id
-       where lower(coalesce(p.type, '')) = 'payment' and p.account_id is null
-       order by p.payment_date desc
-       limit 50
+               'id', x.id,
+               'installment_id', x.installment_id,
+               'contract_id', x.contract_id,
+               'amount', x.amount,
+               'type', x.type,
+               'payment_date', x.payment_date,
+               'payment_method', x.payment_method,
+               'financial_transaction_id', x.financial_transaction_id,
+               'reverses_payment_id', x.reverses_payment_id,
+               'user_id', x.user_id,
+               'created_by', x.created_by,
+               'parcela_status', x.parcela_status,
+               'parcela_amount', x.parcela_amount,
+               'parcela_paid', x.parcela_paid
+             ) order by x.payment_date desc)
+        from (
+          select p.id,
+                 p.installment_id,
+                 i.contract_id,
+                 p.amount,
+                 p.type,
+                 p.payment_date,
+                 p.payment_method,
+                 p.financial_transaction_id,
+                 p.reverses_payment_id,
+                 p.user_id,
+                 p.created_by,
+                 i.status as parcela_status,
+                 i.amount as parcela_amount,
+                 i."amountPaid" as parcela_paid
+            from public.payments p
+            left join public.installments i on i.id = p.installment_id
+           where lower(coalesce(p.type, '')) = 'payment' and p.account_id is null
+           order by p.payment_date desc
+           limit 50
+        ) x
     ), '[]'::jsonb)
   )
 )) as forense_contratos;
