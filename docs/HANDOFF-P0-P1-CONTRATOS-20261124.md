@@ -1,10 +1,10 @@
 # Handoff — scripts estruturais P0/P1 de Contratos (24/11/2026)
 
-> **Estado: P0 e P1 APLICADOS E VALIDADOS (18:24:54 e 18:29:06 UTC).**
+> **Estado final: P0 e P1 APLICADOS E VALIDADOS (18:24:54 e 18:29:06 UTC) e
+> investigação de lentidão ENCERRADA (benchmark final 19:02:51 UTC).**
 > Nenhum UPDATE/DELETE foi escrito. Nenhum rollback aplicado.
 > Nenhuma credencial foi tratada no chat.
-> Frente aberta: percepção de lentidão relatada após as mudanças — medição
-> preparada em `docs/BENCHMARK-POS-P0-P1-20261124.sql`, ainda não executada.
+> Handoff completo para a próxima tarefa: `docs/HANDOFF-FECHAMENTO-20261124.md`.
 
 ## 1. Escopo decidido
 
@@ -165,10 +165,15 @@ era o estado anterior.
 - Sem escrita em `UPDATE`/`DELETE` de dados em nenhuma hipótese.
 - A aplicação é feita pelo usuário no SQL Editor do Supabase, não por deploy.
 
-## 9. Frente aberta — lentidão percebida após P0/P1
+## 9. Frente de lentidão percebida após P0/P1 — ENCERRADA
 
-Usuário relatou que o sistema parece mais lento após as mudanças. **Causa ainda
-não confirmada**: nenhuma medição de ponta a ponta foi feita depois do P0/P1.
+> Registro histórico do início da investigação. O desfecho (causa confirmada,
+> correções aplicadas e benchmark final) está no fim desta seção e no handoff
+> `docs/HANDOFF-FECHAMENTO-20261124.md`.
+
+Usuário relatou que o sistema parece mais lento após as mudanças. No início,
+**causa ainda não confirmada**: nenhuma medição de ponta a ponta havia sido feita
+depois do P0/P1.
 
 Hipóteses rankingadas pelas evidências já existentes:
 
@@ -191,7 +196,8 @@ Hipóteses rankingadas pelas evidências já existentes:
 Ferramenta preparada: `docs/BENCHMARK-POS-P0-P1-20261124.sql` — uma única
 célula, somente leitura, 5 repetições, mediana, role real da aplicação,
 comparação com RLS e sem RLS, controles `to_jsonb` × colunas diretas e
-`ROLLBACK` final. **Não executado.** Somente com autorização explícita.
+`ROLLBACK` final. Executado somente com autorização explícita (ver resultados
+abaixo).
 
 Nenhuma mudança de policy, view, função ou índice será aplicada para
 performance sem que essa medição aponte a causa.
