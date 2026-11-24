@@ -64,8 +64,8 @@ select jsonb_pretty(jsonb_build_object(
 
   'distribuicao_pagamentos', coalesce((
     select jsonb_agg(jsonb_build_object(
-             'tipo', coalesce(type, 'nulo'),
-             'sem_conta', (account_id is null),
+             'tipo', coalesce(tipo, 'nulo'),
+             'sem_conta', sem_conta,
              'total', total
            ) order by tipo, sem_conta)
       from (
