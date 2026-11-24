@@ -13,7 +13,7 @@ select jsonb_pretty(jsonb_build_object(
   'coletado_em', now(),
   'pg_version', current_setting('server_version'),
 
-  'aviso', 'Registros abaixosão CANDIDATOS a inconsistência. A correção só deve ser escrita depois de comparar com as funções completas e com os pagamentos vinculados.',
+  'aviso', 'Registros abaixo são CANDIDATOS a inconsistência. A correção só deve ser escrita depois de comparar com as funções completas e com os pagamentos vinculados.',
 
   'colunas', (
     select jsonb_object_agg(table_name || '.' || column_name, data_type order by table_name, ordinal_position)
