@@ -9,7 +9,7 @@
 >
 > **Otimização de performance em 23/11/2026:** lotes P0.2/P0.3 (Gemini enxuto e Dashboard com 7 queries), P0.1 (AuthProvider único), P1.2, P1.3 e P2 publicados. Diagnóstico e deploys em `docs/OTIMIZACAO-PERFORMANCE-20261123.md`. P1.1 (banco/RLS) foi aplicado, validado e mantido: funções de sessão ~2,3× a ~4× mais rápidas; alerta de Disk IO investigado e descartado como causa; rollback não aplicado. Continuidade em `docs/HANDOFF-P1-1-20261123.md`.
 >
-> **Auditoria do módulo Contratos em 24/11/2026:** diagnóstico estrutural e forense executados somente leitura; 26/17 candidatos a inconsistência são quase certamente falsos positivos (juros/multa e fórmula do trigger), e os 9 pagamentos sem conta parecem legado intencional. Nenhuma escrita em banco. Aguardando `docs/VALIDACAO-CONTRATOS-20261124.sql` para fechar. Handoff em `docs/HANDOFF-CONTRATOS-20261124.md`.
+> **Auditoria do módulo Contratos em 24/11/2026:** diagnóstico estrutural e forense executados somente leitura. Validação final recebida: totais 44/44 explicados pela fórmula do trigger e 9 pagamentos sem conta recuperável (legado) — sem correção. A hipótese de juros/multa para os 26 pagamentos acima do valor foi **refutada**; aguardando `docs/INVESTIGACAO-EXCESSO-26-20261124.sql`. Nenhuma escrita em banco. Resultado em `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`; handoff em `docs/HANDOFF-CONTRATOS-20261124.md`.
 
 ## Gemini — chave única no servidor (2026-11-23)
 

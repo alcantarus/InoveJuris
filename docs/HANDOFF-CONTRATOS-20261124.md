@@ -3,7 +3,7 @@
 > Documento de continuidade para retomar a auditoria do módulo Contratos.
 > Nenhuma alteração de código, schema, policy, grant ou dado foi executada.
 > Nenhuma credencial foi tratada no chat.
-> `main` e `origin/main` em **`83925dd`**.
+> `main` e `origin/main` alinhados; ver `git log -1` para o hash corrente.
 
 ---
 
@@ -16,9 +16,10 @@ A auditoria do módulo Contratos passou por quatro etapas:
 | Relatório técnico estático (código/UI, regras, banco) | Entregue ao usuário |
 | Diagnóstico estrutural somente leitura | Executado; resultado colado e documentado |
 | Forense dos 26 / 17 / 9 candidatos | Executado; resultado colado e analisado |
-| Validação final para confirmar falsos positivos | **Script pronto, aguardando execução/retorno** |
+| Validação final para confirmar falsos positivos | **Executada; resultado colado e documentado** |
+| Investigação dos 26 que sobraram | **Script pronto, aguardando execução/retorno** |
 
-A leitura da forense indicou que **26 e 17 muito provavelmente são falsos positivos** do diagnóstico inicial. A validação final foi escrita exatamente para confirmar isso antes de escrever qualquer UPDATE/DELETE.
+A validação confirmou que os **totais (44/44)** e os **9 pagamentos sem conta** não exigem correção. A hipótese de que os **26** seriam juros/multa foi **refutada**: `interest=0` e `fine=0` em toda a amostra. O excesso precisa ser investigado contra `payments`/`financial_transactions` antes de qualquer UPDATE. Resultado em `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`.
 
 ---
 
@@ -29,7 +30,9 @@ A leitura da forense indicou que **26 e 17 muito provavelmente são falsos posit
 | `docs/DIAGNOSTICO-CONTRATOS-20261124.sql` | Diagnóstico estrutural: tabelas, colunas, constraints, índices, functions, triggers, policies, views, grants e contagens de consistência. Uma célula `diagnostico_contratos`. |
 | `docs/DIAGNOSTICO-CONTRATOS-RESULTADO-20261124.md` | Resultado confirmado do diagnóstico, com hipóteses derrubadas e confirmadas. |
 | `docs/FORENSE-CONTRATOS-20261124.sql` | Forense somente leitura dos 26 / 17 / 9: colunas completas, funções completas, pagamentos vinculados e amostras. Uma célula `forense_contratos`. |
-| `docs/VALIDACAO-CONTRATOS-20261124.sql` | Validação final: `excesso ≈ interest + fine`, `amountReceivable` pela fórmula real do trigger e conta recuperável nos 9 pagamentos. Uma célula `validacao_contratos`. **Aguardando retorno.** |
+| `docs/VALIDACAO-CONTRATOS-20261124.sql` | Validação final executada: `excesso ≈ interest + fine`, `amountReceivable` pela fórmula real do trigger e conta recuperável nos 9 pagamentos. Uma célula `validacao_contratos`. |
+| `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md` | Resultado colado e interpretação: 26 não explicados, 44/44 totais explicados, 0 contas recuperáveis. |
+| `docs/INVESTIGACAO-EXCESSO-26-20261124.sql` | Investigação somente leitura dos 26: `amountPaid` × soma de `payments` × transações. Células `investigacao_excesso_26` e `candidatos_conta_9`. **Aguardando retorno.** |
 | `docs/HANDOFF-CONTRATOS-20261124.md` | Este documento. |
 
 ---
@@ -96,22 +99,24 @@ A leitura da forense indicou que **26 e 17 muito provavelmente são falsos posit
 
 | Lote | Situação provável | Evidência |
 |---|---|---|
-| **26 pagamentos acima do valor** | **Falso positivo** | Existe `installments.interest` e `fine`. `process_installment_payment` 9args soma `p_amount_paid` (que inclui juros/multa) em `amountPaid` e também acumula `interest`/`fine`. |
-| **17 totais inconsistentes** | **Falso positivo meu** | O trigger `fn_recalculate_contract_totals()` v4 calcula `amountReceivable` com `SUM(GREATEST(amount - amountPaid,0)) FILTER (...)` e overrides para Cancelado/Estornado/Pro bono. Ex.: contrato 134 `Estornado` com `amountReceivable=0` está correto. |
-| **9 pagamentos sem conta** | **Provavelmente legado intencional** | Todos com `payment_method=null`. A sobrecarga de 5 args da própria RPC diz que sem conta o registro fica “sem impacto de saldo”. Alguns têm `financial_transaction_id`, outros não. |
+| **26 pagamentos acima do valor** | **Hipótese refutada; em investigação** | Validação: `explicados_por_juros_multa=0`, `nao_explicados=26`, com `interest=0` e `fine=0` na amostra. O excesso pode ser juros/multa embutidos no valor pago, excesso real ou acumulação duplicada — ainda sem distinção. |
+| **17 totais inconsistentes** | **Falso positivo confirmado** | Validação pela fórmula real do trigger: 44 candidatos pela fórmula ingênua, **44 explicados**, 0 não explicados. Ex.: contrato 134 `Estornado` com `amountReceivable=0` está correto. |
+| **9 pagamentos sem conta** | **Legado intencional / sem conta recuperável** | 5 têm transação, mas `transaction_account_id=null`; 4 não têm transação; `com_conta_na_transacao=0`. Não há conta para preencher pelo vínculo direto. |
 
-**Decisão até aqui:** não escrever UPDATE/DELETE. A validação final confirmará se sobra algo real.
+**Decisão até aqui:** não escrever UPDATE/DELETE. Totais e 9 pagamentos estão fechados; restam os 26, que exigem a investigação de `payments`/transações antes de qualquer correção.
 
 ---
 
 ## 6. Próximo passo ao retomar
 
-1. Rodar **`docs/VALIDACAO-CONTRATOS-20261124.sql`** no SQL Editor.
-2. Colar a célula **`validacao_contratos`**.
-3. Interpretar:
-   - se `nao_explicados = 0` nos dois primeiros blocos e `sem_conta_na_transacao` não oferece conta recuperável → **não há correção de dados a fazer**; apenas documentar os falsos positivos;
-   - se sobrar algum `nao_explicados`, escrever UPDATE pontual com `WHERE id = ...`, backup dos valores anteriores e rollback.
-4. Só depois, e com autorização explícita, preparar os scripts estruturais P0 (policies do portal, views com `Estornado`, `search_all`) e P1 (índices/unicidade).
+1. ~~Rodar `docs/VALIDACAO-CONTRATOS-20261124.sql` e colar `validacao_contratos`.~~ **Feito** (ver `docs/VALIDACAO-CONTRATOS-RESULTADO-20261124.md`).
+2. Rodar **`docs/INVESTIGACAO-EXCESSO-26-20261124.sql`** no SQL Editor.
+3. Colar as células **`investigacao_excesso_26`** e **`candidatos_conta_9`**.
+4. Interpretar os 26:
+   - se `pago_confere_com_pagamentos` e as transações confirmam o valor → excesso é entrada real (juros/multa embutidos ou pagamento acima do principal); **não reduzir `amountPaid`**;
+   - se `pago_maior_que_pagamentos`/`sem_pagamento_vinculado` → revisar acumulação antes de escrever;
+   - somente com evidência e autorização explícita: UPDATE pontual com `WHERE id = ...`, backup dos valores anteriores e rollback.
+5. Só depois, e com autorização explícita, preparar os scripts estruturais P0 (policies do portal, views com `Estornado`, `search_all`) e P1 (índices/unicidade).
 
 ---
 
@@ -122,10 +127,10 @@ A leitura da forense indicou que **26 e 17 muito provavelmente são falsos posit
 - PowerShell sem `&&`; separar comandos com `;`.
 - `tsconfig.tsbuildinfo` precisa ser restaurado com `git checkout -- tsconfig.tsbuildinfo` após builds.
 - Editar arquivos com `edit` para mudanças pontuais e `write` para arquivos novos/completos.
-- Preferir `C:\Users\MARILIA\AppData\Local\Temp\opencode` como temporário.
+- Preferir `C:\Users\ALCANTARUS\AppData\Local\Temp\opencode` como temporário (conforme ambiente atual).
 
 ---
 
 ## 8. Resumo de uma linha
 
-> Auditoria do módulo Contratos concluída na parte estrutural; 26 e 17 são quase certamente falsos positivos explicados por juros/multa e pela fórmula do trigger; 9 pagamentos sem conta parecem legado intencional; aguardando `validacao_contratos` para fechar sem mexer em dados — e, depois, corrigir somente policies, views e `search_all` com autorização.
+> Auditoria estrutural fechada; validação confirmou 44/44 totais corretos e 9 pagamentos legado sem conta recuperável; a hipótese juros/multa para os 26 foi refutada e agora depende da investigação de `payments`/transações; nenhuma escrita em banco — correções de policies, views e `search_all` só com autorização.
