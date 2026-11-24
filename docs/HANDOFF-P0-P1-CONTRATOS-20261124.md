@@ -303,6 +303,40 @@ coluna `environment` não é `text`, o catálogo normalizou a comparação para
 `(environment)::text = COALESCE(...)`, equivalente à expressão original
 `_rls_can_access((environment)::text)`.
 
+### Benchmark de produção após FORWARD + FIX (18:52:52 UTC)
+
+`docs/BENCHMARK-POS-P0-P1-20261124.sql` repetido: PG 17.6, `authenticated`,
+`production`, 1 sessão ativa, 5 repetições, contagens inalteradas.
+
+| Série | Pré-InitPlan (18:40:45) | Pós-FIX (18:52:52) | Ganho |
+|---|---:|---:|---:|
+| `clients` | 163,286 ms | **13,720 ms** | ~11,9× |
+| `installments` | 114,463 ms | **1,071 ms** | ~106,9× |
+| `payments` | 111,596 ms | **1,072 ms** | ~104,1× |
+| `vw_dashboard_receivables_metrics` | 113,487 ms | **1,150 ms** | ~98,7× |
+| `vw_dashboard_top_defaulters` | 103,475 ms | **15,644 ms** | ~6,6× |
+| `contracts` | 78,985 ms | **0,941 ms** | ~83,9× |
+| `vw_dashboard_receivables_forecast` | 21,697 ms | **0,898 ms** | ~24,2× |
+| `processes` | 10,245 ms | **0,707 ms** | ~14,5× |
+| `commission_payments` | 9,632 ms | **0,753 ms** | ~12,8× |
+| `search_all('ana','production')` | 81,822 ms | **21,253 ms** | ~3,9× |
+
+A causa confirmada de lentidão (RLS por linha) está corrigida: as tabelas
+centrais caíram de 79–163 ms para ~1 ms. As séries
+`_auth_session_payload` falharam com `permission denied` porque o benchmark as
+executa como `authenticated` — artefato pré-existente do script, sem relação
+com a mudança e sem efeito nas demais séries.
+
+**Resíduo rastreável:** os ~13,7 ms restantes em `clients` explicam quase todo
+o resíduo das duas séries que ainda chamam atenção —
+`vw_dashboard_top_defaulters` (15,6 ms) faz `JOIN clients`, e `search_all`
+(21,3 ms) busca em `clients` e `contracts`. A suspeita é a policy
+`P0 portal indicador` em `clients`, não a `P0 sessao` (que já mede ~0,9 ms em
+outras tabelas). Nenhuma nova mudança será feita sem medir isso antes:
+`docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` foi preparado para isolar a função
+`_rls_portal_indicator_id()`, os predicados `IN` (atual) e `EXISTS` (original)
+e os planos correspondentes.
+
 ### Estado atual dos scripts
 
 | Arquivo | Estado |
@@ -311,10 +345,11 @@ coluna `environment` não é `text`, o catálogo normalizou a comparação para
 | `docs/FIX-RLS-INIPLAN-REMANESCENTES-20261124.sql` | **Aplicado** (8 policies restantes) |
 | `docs/VERIFY-RLS-INIPLAN-20261124.sql` | **Executado**: 55 InitPlan, 0 forma direta, 0 argumento coluna |
 | `docs/ROLLBACK-RLS-INIPLAN-20261124.sql` | Corrigido e disponível; **não aplicado** |
+| `docs/BENCHMARK-PORTAL-CLIENTS-20261124.sql` | Preparado, somente leitura, **não executado** |
 
-Pendente: repetir `docs/BENCHMARK-POS-P0-P1-20261124.sql` (somente leitura, com
-sessão ativa) para medir o ganho real em produção. Se houver divergência,
-aplicar o `ROLLBACK` corrigido.
+Pendente: executar o benchmark de portal para decidir, com dados, se o resíduo
+de `clients` justifica nova mudança. Se qualquer mudança futura divergir, o
+`ROLLBACK` corrigido está disponível.
 
 Sem novos grants e sem novas funções: a expressão usa somente
 `_rls_can_access(text)`, já executável por `anon`/`authenticated`, e
