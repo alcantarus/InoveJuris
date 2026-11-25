@@ -28,6 +28,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import DashboardLayout from '../dashboard-layout'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cn, formatDate, formatCurrency, formatPercent } from '@/lib/utils'
+import { filterEffectiveReceipts } from '@/lib/payments'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 
 interface ChildbirthReportItem {
@@ -213,12 +214,17 @@ function RelatoriosPageContent() {
   // Filter raw data when filter or raw data changes
   useEffect(() => {
     if (rawRecebimentosData.length > 0) {
-      const processed: RecebimentoItem[] = rawRecebimentosData
+      // Recebimento estornado não é receita: nem a entrada original nem a
+      // reversão entram no relatório. Sem isso, o estorno (gravado com valor
+      // positivo) era somado ao total e o recebimento original continuava
+      // listado, inflando o período.
+      const effectiveReceipts = filterEffectiveReceipts(rawRecebimentosData)
+
+      const processed: RecebimentoItem[] = effectiveReceipts
         .filter((item: any) => {
-          const passesType = item.type !== 'reversal' || Number(item.amount) > 0;
-          if (!recebimentosTagFilter) return passesType;
+          if (!recebimentosTagFilter) return true;
           const tags = item.installments?.contracts?.clients?.tags || [];
-          return passesType && tags.some((t: string) => t.toLowerCase().includes(recebimentosTagFilter.toLowerCase()));
+          return tags.some((t: string) => t.toLowerCase().includes(recebimentosTagFilter.toLowerCase()));
         })
         .map((item: any) => {
           const clientName = item.installments?.contracts?.clients?.name || 'Cliente Avulso / Não informado'
@@ -313,6 +319,8 @@ function RelatoriosPageContent() {
           description,
           account_id,
           category_id,
+          installment_id,
+          reverses_payment_id,
           bank_accounts(id, name),
           financial_categories(id, name),
           installments(

@@ -10,6 +10,7 @@ import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
 import { supabase, processContractCancellation } from '@/lib/supabase'
 import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado, normalizeSearchText } from '@/lib/utils'
+import { filterEffectiveReceipts } from '@/lib/payments'
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
@@ -447,15 +448,15 @@ export default function ContasAReceberPage() {
     // Recebido este mês
     const { data: paymentsData } = await supabase
       .from('payments')
-      .select('amount, payment_date, description')
+      .select('id, amount, payment_date, description, type, installment_id, reverses_payment_id')
       .gte('payment_date', firstDayOfMonth)
       .lte('payment_date', todayStr);
     
-    // Filtra pagamentos, excluindo aqueles que contêm "estorno" na descrição ou "reversal" no tipo
-    const filteredPayments = paymentsData?.filter((p: any) => 
-      (!p.description || !p.description.toLowerCase().includes('estorno')) &&
-      (!p.type || p.type.toLowerCase() !== 'reversal')
-    ) || [];
+    // Recebimento estornado não compõe o caixa: descarta a reversão e o
+    // pagamento original que ela desfez. O filtro por descrição permanece
+    // como proteção para estornos antigos gravados como 'payment'.
+    const filteredPayments = filterEffectiveReceipts(paymentsData || [])
+      .filter((p: any) => !p.description || !p.description.toLowerCase().includes('estorno'));
 
     const totalReceived = filteredPayments.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
     setReceivedThisMonth(totalReceived);
