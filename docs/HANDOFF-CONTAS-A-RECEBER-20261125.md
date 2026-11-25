@@ -1,7 +1,9 @@
 # Handoff — Checagem forense de Contas a Receber (25/11/2026)
 
-> Estado do repositório ao sair: `main` em **`7075e30`**, árvore limpa.
-> **Tarefa concluída:** usuário rodou o SQL e colou a célula; relatório escrito.
+> Estado do repositório ao sair: `main` em **`b327910`** mais o commit deste
+> rastreio, árvore limpa.
+> **Tarefa em curso:** SQL de rastreio escrito e validado; aguardando o usuário
+> rodá-lo e colar a célula `rastreio_reversoes_20261125`.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
 ## 1. O que está feito
@@ -16,23 +18,39 @@ aplicada ontem (24/11) em Contratos.
 | Instância de teste | **parada e removida** (`pgcheck`, `pgcheck-stub.sql`, `pgcheck.log`) |
 | Execução em produção | **Feita pelo usuário em 25/11, 18:31:15 UTC e reexecutada às 18:40:03 UTC (resultados idênticos)** |
 | Relatório de resultado | **Escrito** — `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` |
+| `docs/RASTREIO-ESTORNOS-20261125.sql` | **Escrito e validado** em PostgreSQL 18 descartável; **pendente de execução pelo usuário** |
 
 ## 2. Próximo passo (retomar exatamente aqui)
 
-A checagem forense está concluída. O relatório
-`docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` registra os achados e
-os próximos passos sugeridos — todos dependem de autorização explícita e medição
-prévia. Resumo do que ficou aberto:
+A checagem forense está concluída e o **rastreio das 13 parcelas candidatas já
+está preparado** em `docs/RASTREIO-ESTORNOS-20261125.sql`. Retomar exatamente
+aqui:
 
-1. Rastrear as 9 reversões sem vínculo (R$ 14.800,00) e as 8 parcelas com
-   `amountPaid` divergente; prioridade para as reversões a maior (parcelas 147 e 87).
-2. Rastrear as 5 parcelas `Quitado` com saldo (R$ 4.310,00).
-3. Decidir duas regras de negócio: estorno órfão no KPI do mês e parcela
-   `Prorrogada` no campo “vencido” da view.
-4. Verificar isolamento da view `contract_receivables_summary`
-   (sem `security_invoker`) em tarefa separada.
+1. Usuário abre o SQL Editor e roda `docs/RASTREIO-ESTORNOS-20261125.sql`
+   **inteiro** (começa com `-- Rastreio forense`, não com `#`).
+2. Usuário copia a **única célula** `rastreio_reversoes_20261125` e cola no chat.
+3. Agente interpreta a célula e escreve o relatório de rastreio, separando
+   estorno com origem identificável, estorno sem origem e `Quitado` com saldo.
+   Nenhuma correção é aplicada sem autorização explícita, medição prévia e
+   forward/verify/rollback.
 
-Nenhum `UPDATE`/`DELETE` foi feito; o script terminou em `rollback`.
+O que o rastreio cobre:
+
+- 9 reversões sem `reverses_payment_id` (R$ 14.800,00) nas parcelas 129, 147
+  (duas), 87, 113, 122, 227, 103 e 148.
+- 5 parcelas `Quitado` com saldo (R$ 4.310,00): 194, 231, 207, 230 e 237,
+  incluindo as parcelas irmãs de cada contrato (para identificar residual).
+- Histórico linha a linha com saldo acumulado, transação financeira vinculada,
+  descrição, conta, categoria, método e usuários.
+- Candidatos a pagamento original por valor + parcela, reprodutindo a
+  heurística de `lib/payments.ts`, com o candidato dentro da janela do mês da
+  tela separado do candidato no histórico completo.
+- `audit_logs` de parcelas, contratos e payments, e observações `[ESTORNO]`.
+- Ainda em aberto, após o rastreio: decidir a regra do KPI para estorno órfão e
+  a regra de “vencido” para `Prorrogada`; verificar o isolamento da view
+  `contract_receivables_summary` em tarefa separada.
+
+Nenhum `UPDATE`/`DELETE` foi feito; ambos os scripts terminam em `rollback`.
 
 > **Lembrete:** o assistente **não lê imagens**. Pedir o resultado em texto.
 
@@ -69,6 +87,9 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
 2. `pg_get_constraintdef(oid)` ambíguo — virou `pg_get_constraintdef(con.oid)`.
 3. Bloco `total_recebido_divergente` com SQL quebrado — reescrito.
 4. Convenção de sinal da reversão — `soma_geral` virou `soma_pagamentos − soma_reversoes`.
+5. No rastreio: `jsonb_agg` aninhado em `parcelas_dos_contratos_alvo` e
+   `contratos_dos_alvos` — resolvido com as CTEs `parcelas_por_contrato` e
+   `obs_por_contrato`. Validado com `ON_ERROR_STOP=1` (saída 0, uma célula).
 
 ## 7. Pendências arrastadas (não relacionadas a esta checagem)
 
