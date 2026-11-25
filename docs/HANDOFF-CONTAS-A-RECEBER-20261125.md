@@ -1,7 +1,7 @@
 # Handoff — Checagem forense de Contas a Receber (25/11/2026)
 
 > Estado do repositório ao sair: `main` em **`7075e30`**, árvore limpa.
-> **Tarefa em curso: aguardando o usuário rodar o SQL e colar a célula.**
+> **Tarefa concluída:** usuário rodou o SQL e colou a célula; relatório escrito.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
 ## 1. O que está feito
@@ -14,17 +14,25 @@ aplicada ontem (24/11) em Contratos.
 | `docs/DIAGNOSTICO-CONTAS-A-RECEBER-20261125.sql` | **escrito, validado e commitado** (`7075e30`, pushado) |
 | Sintaxe/semântica | **validada** em PostgreSQL 18 descartável e isolado (porta 5433, schema stub) |
 | Instância de teste | **parada e removida** (`pgcheck`, `pgcheck-stub.sql`, `pgcheck.log`) |
-| Execução em produção | **PENDENTE — só o usuário faz, no SQL Editor** |
-| Relatório de resultado | **PENDENTE** — `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` |
+| Execução em produção | **Feita pelo usuário em 25/11, 18:31:15 UTC** |
+| Relatório de resultado | **Escrito** — `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` |
 
 ## 2. Próximo passo (retomar exatamente aqui)
 
-1. Usuário abre o **SQL Editor do Supabase** e roda `docs/DIAGNOSTICO-CONTAS-A-RECEBER-20261125.sql`
-   **inteiro**.
-2. Usuário copia a **única célula** `diagnostico_contas_a_receber` e cola no chat.
-3. O agente analisa a célula e escreve
-   `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md`,
-   no padrão de `docs/DIAGNOSTICO-CONTRATOS-RESULTADO-20261124.md`.
+A checagem forense está concluída. O relatório
+`docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` registra os achados e
+os próximos passos sugeridos — todos dependem de autorização explícita e medição
+prévia. Resumo do que ficou aberto:
+
+1. Rastrear as 9 reversões sem vínculo (R$ 14.800,00) e as 8 parcelas com
+   `amountPaid` divergente; prioridade para as reversões a maior (parcelas 147 e 87).
+2. Rastrear as 5 parcelas `Quitado` com saldo (R$ 4.310,00).
+3. Decidir duas regras de negócio: estorno órfão no KPI do mês e parcela
+   `Prorrogada` no campo “vencido” da view.
+4. Verificar isolamento da view `contract_receivables_summary`
+   (sem `security_invoker`) em tarefa separada.
+
+Nenhum `UPDATE`/`DELETE` foi feito; o script terminou em `rollback`.
 
 > **Lembrete:** o assistente **não lê imagens**. Pedir o resultado em texto.
 
