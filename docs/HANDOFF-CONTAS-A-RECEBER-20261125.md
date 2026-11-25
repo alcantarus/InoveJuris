@@ -1,7 +1,10 @@
 # Handoff — Checagem forense de Contas a Receber (25/11/2026)
 
-> Estado do repositório ao sair: `main` em **`3235ec6`** mais os documentos
-> deste rastreio, árvore limpa.
+> Estado do repositório ao sair: `main` em **`ff28f8e`**, árvore limpa,
+> publicado no GitHub.
+> **Sessão encerrada em 25/11/2026 a pedido do usuário.** Tudo o que foi feito
+> está salvo e documentado; o trabalho fica retomado em outro momento, começando
+> exatamente pelo item 1 da seção 2 abaixo.
 > **Tarefa em curso:** rastreio executado e interpretado; célula complementar
 > somente leitura preparada, aguardando o usuário rodá-la e colar
 > `rastreio_complementar_20261125`.
