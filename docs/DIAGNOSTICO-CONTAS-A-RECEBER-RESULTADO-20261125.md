@@ -7,7 +7,9 @@
 
 Fonte: célula `diagnostico_contas_a_receber` de
 `docs/DIAGNOSTICO-CONTAS-A-RECEBER-20261125.sql`, executada em produção pelo
-usuário às `2026-11-25T18:31:15.460836+00:00` (PG 17.6). O script é somente
+usuário às `2026-11-25T18:31:15.460836+00:00` (PG 17.6) e reexecutado às
+`2026-11-25T18:40:03.780406+00:00`. As duas execuções retornaram **valores
+idênticos em todos os indicadores**; só `coletado_em` mudou. O script é somente
 leitura e termina em `rollback`. **Nenhuma alteração foi feita**; nenhum
 `INSERT`/`UPDATE`/`DELETE` foi executado.
 

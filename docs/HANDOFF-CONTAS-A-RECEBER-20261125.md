@@ -14,7 +14,7 @@ aplicada ontem (24/11) em Contratos.
 | `docs/DIAGNOSTICO-CONTAS-A-RECEBER-20261125.sql` | **escrito, validado e commitado** (`7075e30`, pushado) |
 | Sintaxe/semântica | **validada** em PostgreSQL 18 descartável e isolado (porta 5433, schema stub) |
 | Instância de teste | **parada e removida** (`pgcheck`, `pgcheck-stub.sql`, `pgcheck.log`) |
-| Execução em produção | **Feita pelo usuário em 25/11, 18:31:15 UTC** |
+| Execução em produção | **Feita pelo usuário em 25/11, 18:31:15 UTC e reexecutada às 18:40:03 UTC (resultados idênticos)** |
 | Relatório de resultado | **Escrito** — `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` |
 
 ## 2. Próximo passo (retomar exatamente aqui)
