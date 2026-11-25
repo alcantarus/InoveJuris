@@ -1304,16 +1304,16 @@ function RelatoriosPageContent() {
         )}
 
         {/* Report Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4">
           <button
             onClick={() => setActiveReport('deadlines')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'deadlines'
                 ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-500/20'
                 : 'bg-white border-slate-200 hover:border-indigo-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'deadlines' ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Clock size={20} />
@@ -1321,20 +1321,20 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'deadlines' ? 'text-indigo-900' : 'text-slate-700'}`}>
               Prazos Processuais
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Processos próximos do vencimento
             </p>
           </button>
 
           <button
             onClick={() => setActiveReport('childbirth')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'childbirth'
                 ? 'bg-rose-50 border-rose-200 ring-2 ring-rose-500/20'
                 : 'bg-white border-slate-200 hover:border-rose-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'childbirth' ? 'bg-rose-200 text-rose-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Baby size={20} />
@@ -1342,20 +1342,20 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'childbirth' ? 'text-rose-900' : 'text-slate-700'}`}>
               Previsão de Partos
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Salário-Maternidade (Financiamento)
             </p>
           </button>
 
           <button
             onClick={() => setActiveReport('birthdays')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'birthdays'
                 ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20'
                 : 'bg-white border-slate-200 hover:border-emerald-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'birthdays' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Gift size={20} />
@@ -1363,20 +1363,20 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'birthdays' ? 'text-emerald-900' : 'text-slate-700'}`}>
               Aniversariantes
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Próximos aniversários de clientes
             </p>
           </button>
 
           <button
             onClick={() => setActiveReport('commissions')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'commissions'
                 ? 'bg-amber-50 border-amber-200 ring-2 ring-amber-500/20'
                 : 'bg-white border-slate-200 hover:border-amber-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'commissions' ? 'bg-amber-200 text-amber-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Coins size={20} />
@@ -1384,20 +1384,20 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'commissions' ? 'text-amber-900' : 'text-slate-700'}`}>
               Comissões
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Relatório de comissões por indicador
             </p>
           </button>
 
           <button
             onClick={() => setActiveReport('gps')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'gps'
                 ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500/20'
                 : 'bg-white border-slate-200 hover:border-blue-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'gps' ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Calendar size={20} />
@@ -1405,20 +1405,20 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'gps' ? 'text-blue-900' : 'text-slate-700'}`}>
               Controle de GPS
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Vencimentos e pagamentos de GPS
             </p>
           </button>
 
           <button
             onClick={() => setActiveReport('recebimentos')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'recebimentos'
                 ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20'
                 : 'bg-white border-slate-200 hover:border-emerald-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'recebimentos' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Receipt size={20} />
@@ -1426,19 +1426,19 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'recebimentos' ? 'text-emerald-900' : 'text-slate-700'}`}>
               Recebimentos
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Extrato de entradas por período
             </p>
           </button>
           <button
             onClick={() => setActiveReport('a-receber')}
-            className={`p-4 rounded-xl border text-left transition-all ${
+            className={`col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-xl border text-left transition-all ${
               activeReport === 'a-receber'
                 ? 'bg-amber-50 border-amber-200 ring-2 ring-amber-500/20'
                 : 'bg-white border-slate-200 hover:border-amber-200 hover:bg-slate-50'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${
               activeReport === 'a-receber' ? 'bg-amber-200 text-amber-700' : 'bg-slate-100 text-slate-500'
             }`}>
               <Coins size={20} />
@@ -1446,7 +1446,7 @@ function RelatoriosPageContent() {
             <h3 className={`font-bold ${activeReport === 'a-receber' ? 'text-amber-900' : 'text-slate-700'}`}>
               A Receber
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="hidden sm:block text-sm text-slate-500 mt-1">
               Controle de valores a receber
             </p>
           </button>
