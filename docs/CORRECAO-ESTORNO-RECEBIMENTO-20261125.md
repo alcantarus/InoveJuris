@@ -92,6 +92,13 @@ END $$;
 COMMIT;
 ```
 
-## Pendência
+## Validação funcional (25/11/2026)
 
-Reteste funcional do recebimento parcial de R$ 811,00 na parcela 207 pelo usuário.
+Reteste aprovado pelo usuário na tela:
+
+- recebimento parcial de **R$ 811,00** na parcela 207 (contrato 120, Jessica Gomes Alves de Souza);
+- parcela 1: valor 1.621,00 / pago 811,00 / a receber 0,00 / `Quitado`;
+- parcela 2 (residual): valor 810,00 / pago 0,00 / a receber 810,00 / `Aberto`;
+- extrato do contrato: recebimento PIX 1.621,00, estorno 1.621,00 e novo recebimento PIX 811,00 — total recebido 811,00.
+
+O fluxo estorno → novo recebimento parcial está fechado.

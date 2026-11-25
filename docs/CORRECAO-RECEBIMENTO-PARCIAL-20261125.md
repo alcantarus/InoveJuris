@@ -97,6 +97,12 @@ END $$;
 COMMIT;
 ```
 
-## Pendência
+## Validação funcional (25/11/2026)
 
-Validação funcional do recebimento parcial pelo usuário na tela (mesmo título que falhou). Nenhum outro ponto do módulo foi alterado.
+Reteste aprovado pelo usuário na tela, com o recebimento parcial de R$ 811,00 na parcela 207 (contrato 120):
+
+- parcela original `Quitado` com pago 811,00 e a receber 0,00;
+- residual `Aberto` com 810,00;
+- extrato mostrando o recebimento integral de 1.621,00, o estorno e o novo recebimento de 811,00, com total recebido 811,00.
+
+Fluxo de estorno seguido de recebimento parcial validado ponta a ponta.
