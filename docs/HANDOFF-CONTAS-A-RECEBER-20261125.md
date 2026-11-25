@@ -1,9 +1,10 @@
 # Handoff — Checagem forense de Contas a Receber (25/11/2026)
 
-> Estado do repositório ao sair: `main` em **`b327910`** mais o commit deste
-> rastreio, árvore limpa.
-> **Tarefa em curso:** SQL de rastreio escrito e validado; aguardando o usuário
-> rodá-lo e colar a célula `rastreio_reversoes_20261125`.
+> Estado do repositório ao sair: `main` em **`3235ec6`** mais os documentos
+> deste rastreio, árvore limpa.
+> **Tarefa em curso:** rastreio executado e interpretado; célula complementar
+> somente leitura preparada, aguardando o usuário rodá-la e colar
+> `rastreio_complementar_20261125`.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
 ## 1. O que está feito
@@ -18,23 +19,29 @@ aplicada ontem (24/11) em Contratos.
 | Instância de teste | **parada e removida** (`pgcheck`, `pgcheck-stub.sql`, `pgcheck.log`) |
 | Execução em produção | **Feita pelo usuário em 25/11, 18:31:15 UTC e reexecutada às 18:40:03 UTC (resultados idênticos)** |
 | Relatório de resultado | **Escrito** — `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` |
-| `docs/RASTREIO-ESTORNOS-20261125.sql` | **Escrito e validado** em PostgreSQL 18 descartável; **pendente de execução pelo usuário** |
+| `docs/RASTREIO-ESTORNOS-20261125.sql` | **Executado pelo usuário em 25/11, 18:50:55 UTC** (PG 17.6), célula única, terminou em `rollback` |
+| Relatório do rastreio | **Escrito** — `docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md` |
+| `docs/RASTREIO-COMPLEMENTAR-20261125.sql` | **Preparado** (somente leitura, célula `rastreio_complementar_20261125`); **pendente de execução pelo usuário** e sem validação em instância descartável nesta rodada |
 
 ## 2. Próximo passo (retomar exatamente aqui)
 
-A checagem forense está concluída e o **rastreio das 13 parcelas candidatas já
-está preparado** em `docs/RASTREIO-ESTORNOS-20261125.sql`. Retomar exatamente
-aqui:
+A checagem forense e o rastreio das 13 parcelas estão **concluídos e
+interpretados** em `docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md`. Retomar
+exatamente aqui:
 
-1. Usuário abre o SQL Editor e roda `docs/RASTREIO-ESTORNOS-20261125.sql`
-   **inteiro** (começa com `-- Rastreio forense`, não com `#`).
-2. Usuário copia a **única célula** `rastreio_reversoes_20261125` e cola no chat.
-3. Agente interpreta a célula e escreve o relatório de rastreio, separando
-   estorno com origem identificável, estorno sem origem e `Quitado` com saldo.
-   Nenhuma correção é aplicada sem autorização explícita, medição prévia e
-   forward/verify/rollback.
+1. Usuário abre o SQL Editor e roda `docs/RASTREIO-COMPLEMENTAR-20261125.sql`
+   **inteiro** (começa com `-- Rastreio complementar`, não com `#`).
+2. Usuário copia a **única célula** `rastreio_complementar_20261125` e cola no
+   chat.
+3. Agente interpreta: (a) se o pagamento `3715c3de…` ainda existe e em que mês
+   está, para fechar a decisão do KPI; (b) se a parcela 239 tem pagamento
+   próprio, para fechar a anomalia da parcela 231.
+4. Decisões de negócio continuam em aberto: regra do estorno órfão no KPI,
+   destino dos R$ 1.000,00 da parcela 231 e definição de `Prorrogada` no campo
+   “vencido”. Nenhuma correção é aplicada sem autorização explícita, medição
+   prévia e forward/verify/rollback.
 
-O que o rastreio cobre:
+O que o rastreio cobriu:
 
 - 9 reversões sem `reverses_payment_id` (R$ 14.800,00) nas parcelas 129, 147
   (duas), 87, 113, 122, 227, 103 e 148.
@@ -46,11 +53,18 @@ O que o rastreio cobre:
   heurística de `lib/payments.ts`, com o candidato dentro da janela do mês da
   tela separado do candidato no histórico completo.
 - `audit_logs` de parcelas, contratos e payments, e observações `[ESTORNO]`.
-- Ainda em aberto, após o rastreio: decidir a regra do KPI para estorno órfão e
-  a regra de “vencido” para `Prorrogada`; verificar o isolamento da view
-  `contract_receivables_summary` em tarefa separada.
+- Resultado do rastreio: 9 reversões classificadas em quatro mecanismos —
+  conversão de pagamento em reversão (113 e 122, em 22/11 00:10:42 UTC com
+  `performed_by=null`), vínculo removido (227), reversão sem origem de mesmo
+  valor (147, 87, 129) e candidato só na mesma data/depois (103, 148). Das 5
+  parcelas `Quitado` com saldo, 4 têm residual `Aberto` regular (257, 256,
+  240, 244) e a 231 tem a residual 239 **nascida quitada** sem pagamento próprio.
 
-Nenhum `UPDATE`/`DELETE` foi feito; ambos os scripts terminam em `rollback`.
+Ainda em aberto: decidir a regra do KPI para estorno órfão, o destino dos
+R$ 1.000,00 da parcela 231 e a regra de “vencido” para `Prorrogada`; verificar
+o isolamento da view `contract_receivables_summary` em tarefa separada.
+
+Nenhum `UPDATE`/`DELETE` foi feito; os três scripts terminam em `rollback`.
 
 > **Lembrete:** o assistente **não lê imagens**. Pedir o resultado em texto.
 
