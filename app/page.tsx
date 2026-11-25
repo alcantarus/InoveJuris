@@ -53,7 +53,6 @@ import { AreaEfficiencyCard } from '@/components/dashboard/dynamic/AreaEfficienc
 import GlobalActionCenter from '@/components/tasks/GlobalActionCenter'
 import TodayFocusWidget from '@/components/tasks/TodayFocusWidget'
 import BirthdayWidget from '@/components/dashboard/BirthdayWidget'
-import { BirthdayChecker } from '@/components/BirthdayChecker'
 import TaskKanban from '@/components/tasks/TaskKanban'
 
 // Recharts fica em um chunk separado: o dashboard carrega primeiro e os
@@ -99,7 +98,6 @@ const MemoProcessVelocityCard = React.memo(ProcessVelocityCard)
 const MemoCashFlowForecastCard = React.memo(CashFlowForecastCard)
 const MemoAreaEfficiencyCard = React.memo(AreaEfficiencyCard)
 const MemoBirthdayWidget = React.memo(BirthdayWidget)
-const MemoBirthdayChecker = React.memo(BirthdayChecker)
 const MemoTaskKanban = React.memo(TaskKanban)
 const MemoGlobalActionCenter = React.memo(GlobalActionCenter)
 const MemoLiquidityGapCard = React.memo(LiquidityGapCard, (a, b) => a.gap === b.gap && a.isVisible === b.isVisible)
@@ -143,15 +141,6 @@ const StatCard = ({ label, value, change, trend, icon: Icon, color, bg }: any) =
 };
 
 const MemoStatCard = React.memo(StatCard)
-
-const DASHBOARD_SECTIONS = [
-  { id: 'visao-geral', label: 'Visão geral' },
-  { id: 'prioridades', label: 'Prioridades' },
-  { id: 'financeiro', label: 'Financeiro' },
-  { id: 'relatorios', label: 'Relatórios' },
-  { id: 'pessoas', label: 'Pessoas' },
-  { id: 'auditoria', label: 'Auditoria' },
-] as const
 
 const SectionHeader = ({ id, title, subtitle }: { id: string; title: string; subtitle?: string }) => (
   <div id={id} className="scroll-mt-28 pt-2">
@@ -804,8 +793,6 @@ export default function Page() {
               </select>
             </div>
 
-            <MemoBirthdayChecker />
-
             <button 
               onClick={generateRuleBasedInsight}
               disabled={isGeneratingInsight}
@@ -825,19 +812,6 @@ export default function Page() {
             </p>
           </div>
         )}
-
-        {/* Navegação entre seções */}
-        <nav className="sticky top-0 z-30 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
-          {DASHBOARD_SECTIONS.map(section => (
-            <a
-              key={section.id}
-              href={`#${section.id}`}
-              className="shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-            >
-              {section.label}
-            </a>
-          ))}
-        </nav>
 
         <SectionHeader id="visao-geral" title="Visão geral" subtitle="Acesso rápido, prazos e indicadores do escritório" />
 

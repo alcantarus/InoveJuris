@@ -16,7 +16,6 @@ export default function BirthdayWidget() {
   const [generatedCards, setGeneratedCards] = useState<string[]>([])
   const [selectedClient, setSelectedClient] = useState<BirthdayPerson | null>(null)
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const hasCelebratedRef = useRef(false)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   const checkBirthdays = useCallback(async () => {
@@ -45,11 +44,11 @@ export default function BirthdayWidget() {
     checkBirthdays()
   }, [checkBirthdays])
 
-  // Celebração de abertura: um único estouro de confete dentro do card,
-  // apenas quando há aniversariante hoje. Dispara quando o card entra na
-  // viewport (a seção fica abaixo da dobra) e respeita "reduzir movimento".
+  // Celebração: confete contido no card enquanto ele estiver visível.
+  // Dispara um estouro inicial e mantém um gotejo suave para deixar claro
+  // que hoje há aniversariante. Respeita "reduzir movimento".
   useEffect(() => {
-    if (birthdays.length === 0 || hasCelebratedRef.current) return
+    if (birthdays.length === 0) return
 
     const canvas = confettiCanvasRef.current
     const card = cardRef.current
@@ -62,65 +61,87 @@ export default function BirthdayWidget() {
       return
     }
 
-    const celebrate = confetti.create(canvas, { resize: true, useWorker: true })
+    // Sem worker: mais compatível entre navegadores e suficiente para o card.
+    const celebrate = confetti.create(canvas, { resize: true })
     const colors = ['#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#10b981']
-    let timer: number | undefined
+    let interval: number | undefined
 
-    const fire = () => {
-      hasCelebratedRef.current = true
-      timer = window.setTimeout(() => {
-        celebrate({
-          particleCount: 80,
-          spread: 70,
-          startVelocity: 28,
-          gravity: 0.9,
-          scalar: 0.9,
-          ticks: 150,
-          origin: { x: 0.5, y: 0.35 },
-          colors,
-        })
-        // Dois estouros curtos nas laterais dão volume sem cobrir o conteúdo.
-        celebrate({
-          particleCount: 28,
-          angle: 60,
-          spread: 55,
-          startVelocity: 32,
-          origin: { x: 0, y: 0.6 },
-          colors,
-        })
-        celebrate({
-          particleCount: 28,
-          angle: 120,
-          spread: 55,
-          startVelocity: 32,
-          origin: { x: 1, y: 0.6 },
-          colors,
-        })
-      }, 250)
+    const burst = (strong: boolean) => {
+      celebrate({
+        particleCount: strong ? 70 : 16,
+        spread: strong ? 70 : 55,
+        startVelocity: strong ? 28 : 20,
+        gravity: 0.85,
+        scalar: strong ? 0.9 : 0.75,
+        ticks: strong ? 150 : 110,
+        origin: { x: 0.5, y: 0.3 },
+        colors,
+      })
+      if (!strong) return
+      // Estouros laterais dão volume ao primeiro impacto.
+      celebrate({
+        particleCount: 24,
+        angle: 60,
+        spread: 55,
+        startVelocity: 30,
+        origin: { x: 0, y: 0.6 },
+        colors,
+      })
+      celebrate({
+        particleCount: 24,
+        angle: 120,
+        spread: 55,
+        startVelocity: 30,
+        origin: { x: 1, y: 0.6 },
+        colors,
+      })
+    }
+
+    const start = () => {
+      if (interval !== undefined) return
+      burst(true)
+      interval = window.setInterval(() => burst(false), 3000)
+    }
+
+    const stop = () => {
+      if (interval === undefined) return
+      window.clearInterval(interval)
+      interval = undefined
     }
 
     if (typeof IntersectionObserver === 'undefined') {
-      fire()
+      start()
       return () => {
-        if (timer) window.clearTimeout(timer)
+        stop()
         celebrate.reset()
       }
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return
-        observer.disconnect()
-        fire()
+        if (entries.some((entry) => entry.isIntersecting)) start()
+        else stop()
       },
-      { threshold: 0.35 }
+      { threshold: 0.15 }
     )
 
     observer.observe(card)
 
+    // Pausa quando a aba perde o foco e retoma se o card continua visível.
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stop()
+        return
+      }
+      const rect = card.getBoundingClientRect()
+      if (rect.bottom > 0 && rect.top < window.innerHeight) start()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       observer.disconnect()
-      if (timer) window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      stop()
       celebrate.reset()
     }
   }, [birthdays.length])
@@ -161,7 +182,7 @@ export default function BirthdayWidget() {
           Aniversariantes de Hoje
         </h2>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200">
+          <span className="inline-flex animate-pulse items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200">
             <PartyPopper className="h-3.5 w-3.5" />
             Hoje!
           </span>
