@@ -56,4 +56,5 @@ Para o contrato 120 em 25/11/2026:
 ## Verificação
 
 - `npx tsc --noEmit` sem erros;
+- vínculo do estorno confirmado em produção: o `payments` de estorno da parcela 207 tem `reverses_payment_id` apontando para o pagamento original de 1.621,00 (diagnóstico de 25/11/2026, somente leitura);
 - conferência visual pendente pelo usuário na tela de Relatórios.

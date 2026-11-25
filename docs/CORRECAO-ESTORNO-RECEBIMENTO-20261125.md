@@ -102,3 +102,19 @@ Reteste aprovado pelo usuário na tela:
 - extrato do contrato: recebimento PIX 1.621,00, estorno 1.621,00 e novo recebimento PIX 811,00 — total recebido 811,00.
 
 O fluxo estorno → novo recebimento parcial está fechado.
+
+## Evidência de auditoria (diagnóstico somente leitura)
+
+Execução de `docs/DIAGNOSTICO-PARCELA-207-20261125.sql` em 25/11/2026 (`coletado_em=2026-11-25T07:58:01Z`), sem escrita:
+
+| Objeto | Estado |
+|---|---|
+| Parcela 207 | `Quitado`, `amount = 1.621,00`, `amountPaid = 811,00` |
+| Parcela 256 (residual) | `Aberto`, `amount = 810,00`, `amountPaid = 0` |
+| Contrato 120 | `Parcial`, recebido 811,00 / a receber 810,00 |
+| `payments` | 1.621,00 (`payment`) → 1.621,00 (`reversal`, `reverses_payment_id` = pagamento original) → 811,00 (`payment`, `financial_transaction_id = 1281`) |
+| `financial_transactions` | apenas a transação 1281, de 811,00 |
+
+A trilha de auditoria registra a sequência `Prorrogada → Quitado → Estornado → Quitado → Parcial` nas parcelas e `Prorrogado → Quitado → Estornado → Parcial` no contrato, tudo dentro das transações correspondentes. O estorno tem vínculo explícito com o pagamento original, o que permite ao relatório excluir corretamente o par estornado.
+
+Observação: a residual herda o vencimento original (24/11/2026), por isso aparece como 1 dia em atraso — comportamento esperado do desdobramento.
