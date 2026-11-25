@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Gift, X, ChevronRight, Image as ImageIcon, CheckCircle2, Calendar, Sparkles, PartyPopper, Printer } from 'lucide-react'
@@ -106,6 +106,8 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
   }
 
   const [todayString, setTodayString] = useState('')
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const triggerCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
     setTodayString(new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))
@@ -118,6 +120,86 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
     }
   }, [])
 
+  // Confete contínuo na pílula enquanto ela estiver visível. A pílula é
+  // pequena, então os estouros são curtos e leves para não atrapalhar o clique.
+  useEffect(() => {
+    if (!hasChecked || birthdays.length === 0 || isOpen) return
+
+    const trigger = triggerRef.current
+    const canvas = triggerCanvasRef.current
+    if (!trigger || !canvas) return
+
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return
+    }
+
+    const celebrate = confetti.create(canvas, { resize: true })
+    const colors = ['#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#10b981']
+    let interval: number | undefined
+
+    const burst = () => {
+      celebrate({
+        particleCount: 12,
+        spread: 70,
+        startVelocity: 14,
+        gravity: 0.4,
+        scalar: 0.45,
+        ticks: 90,
+        origin: { x: 0.5, y: 0.55 },
+        colors,
+      })
+    }
+
+    const start = () => {
+      if (interval !== undefined) return
+      burst()
+      interval = window.setInterval(burst, 2200)
+    }
+
+    const stop = () => {
+      if (interval === undefined) return
+      window.clearInterval(interval)
+      interval = undefined
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      start()
+      return () => {
+        stop()
+        celebrate.reset()
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) start()
+        else stop()
+      },
+      { threshold: 0.5 }
+    )
+    observer.observe(trigger)
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stop()
+        return
+      }
+      const rect = trigger.getBoundingClientRect()
+      if (rect.bottom > 0 && rect.top < window.innerHeight) start()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('visibilitychange', handleVisibility)
+      stop()
+      celebrate.reset()
+    }
+  }, [hasChecked, birthdays.length, isOpen])
+
   if (!hasChecked || birthdays.length === 0) return null
 
   return (
@@ -127,18 +209,26 @@ export function BirthdayChecker({ className = '' }: { className?: string }) {
       {!isOpen && (
         <button
           type="button"
+          ref={triggerRef}
           onClick={() => setIsOpen(true)}
           title="Ver aniversariantes de hoje"
           aria-label={`Aniversariantes de hoje: ${pendingBirthdays.length} pendente(s)`}
-          className={`inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-500 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 ${className}`}
+          className={`relative inline-flex items-center gap-1.5 overflow-hidden rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-500 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 ${className}`}
         >
-          <Gift className="h-4 w-4" />
-          <span className="text-xs font-medium">Aniversariantes</span>
-          {pendingBirthdays.length > 0 && (
-            <span className="ml-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
-              {pendingBirthdays.length}
-            </span>
-          )}
+          <canvas
+            ref={triggerCanvasRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-0 h-full w-full"
+          />
+          <span className="relative z-10 inline-flex items-center gap-1.5">
+            <Gift className="h-4 w-4" />
+            <span className="text-xs font-medium">Aniversariantes</span>
+            {pendingBirthdays.length > 0 && (
+              <span className="ml-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
+                {pendingBirthdays.length}
+              </span>
+            )}
+          </span>
         </button>
       )}
 

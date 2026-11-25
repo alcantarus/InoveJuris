@@ -53,6 +53,7 @@ import { AreaEfficiencyCard } from '@/components/dashboard/dynamic/AreaEfficienc
 import GlobalActionCenter from '@/components/tasks/GlobalActionCenter'
 import TodayFocusWidget from '@/components/tasks/TodayFocusWidget'
 import BirthdayWidget from '@/components/dashboard/BirthdayWidget'
+import { BirthdayChecker } from '@/components/BirthdayChecker'
 import TaskKanban from '@/components/tasks/TaskKanban'
 
 // Recharts fica em um chunk separado: o dashboard carrega primeiro e os
@@ -98,6 +99,7 @@ const MemoProcessVelocityCard = React.memo(ProcessVelocityCard)
 const MemoCashFlowForecastCard = React.memo(CashFlowForecastCard)
 const MemoAreaEfficiencyCard = React.memo(AreaEfficiencyCard)
 const MemoBirthdayWidget = React.memo(BirthdayWidget)
+const MemoBirthdayChecker = React.memo(BirthdayChecker)
 const MemoTaskKanban = React.memo(TaskKanban)
 const MemoGlobalActionCenter = React.memo(GlobalActionCenter)
 const MemoLiquidityGapCard = React.memo(LiquidityGapCard, (a, b) => a.gap === b.gap && a.isVisible === b.isVisible)
@@ -764,6 +766,8 @@ export default function Page() {
           
           <div className="flex flex-wrap items-center gap-3">
             <GlobalPrivacyToggle />
+
+            <MemoBirthdayChecker />
 
             {/* Filters */}
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
