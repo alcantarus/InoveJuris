@@ -92,7 +92,7 @@ select jsonb_pretty(jsonb_build_object(
     select coalesce(jsonb_agg(jsonb_build_object(
              'contract_id', b.contract_id,
              'ambiente', b.environment,
-             'cliente', c.name,
+             'cliente', cl.name,
              'contrato_status', c.status,
              'contrato_valor', c."contractValue",
              'contrato_recebido', c."amountReceived",
@@ -109,6 +109,7 @@ select jsonb_pretty(jsonb_build_object(
       from base b
       join aberto_por_contrato a on a.contract_id = b.contract_id
       join public.contracts c on c.id = b.contract_id
+      left join public.clients cl on cl.id = c.client_id
      where b.entra_no_aberto
        and b.saldo > 0.01
        and (a.aberto - b.saldo) <= 0.01
