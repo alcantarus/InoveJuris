@@ -109,10 +109,11 @@ interface RecebimentoItem {
 type ReportType = 'childbirth' | 'deadlines' | 'birthdays' | 'commissions' | 'gps' | 'recebimentos' | 'a-receber'
 
 /**
- * Ordena a Previsão de Partos com os partos que ainda vão acontecer no topo
- * (o mais próximo primeiro) e os que já ocorreram no fim (o mais recente
- * primeiro). O botão Crescente/Decrescente inverte a ordem dentro de cada
- * grupo, mas nunca traz um parto já ocorrido para cima de um futuro.
+ * Ordena a Previsão de Partos em dois blocos cronológicos: os partos que
+ * ainda vão acontecer no topo (do mais próximo ao mais distante) e os que já
+ * ocorreram no fim (do mais recente ao mais antigo). O botão
+ * Crescente/Decrescente apenas inverte a ordem interna de cada bloco, sem
+ * nunca trazer um parto já ocorrido para cima de um futuro.
  */
 const sortChildbirthData = (
   items: ChildbirthReportItem[],
@@ -138,7 +139,12 @@ const sortChildbirthData = (
     if (Number.isNaN(dateA)) return 1
     if (Number.isNaN(dateB)) return -1
 
-    return direction === 'asc' ? dateA - dateB : dateB - dateA
+    // "Crescente": futuros do mais próximo ao mais distante e já ocorridos do
+    // mais recente ao mais antigo. Em "Decrescente" cada bloco inverte.
+    const asc = direction === 'asc'
+    return aOccurred
+      ? (asc ? dateB - dateA : dateA - dateB)
+      : (asc ? dateA - dateB : dateB - dateA)
   })
 }
 
@@ -660,13 +666,13 @@ function RelatoriosPageContent() {
             )}>
               {item.status === 'Cancelado'
                 ? 'CANCELADO'
-                : item.isBorn
-                  ? item.daysRemaining === 0
+                : item.daysRemaining < 0
+                  ? `Ocorreu há ${Math.abs(item.daysRemaining)} dias`
+                  : item.isBorn
                     ? 'Nasceu hoje'
-                    : `Ocorreu há ${Math.abs(item.daysRemaining)} dias`
-                  : item.daysRemaining === 0
-                    ? 'É hoje!'
-                    : `Faltam ${item.daysRemaining} dias`}
+                    : item.daysRemaining === 0
+                      ? 'É hoje!'
+                      : `Faltam ${item.daysRemaining} dias`}
             </span>
           )
         }
