@@ -38,6 +38,8 @@ interface ChildbirthReportItem {
   phone: string
   childbirthDate: string
   rn_birth_date: string | null
+  /** true quando a Data Parto está preenchida (o bebê já nasceu). */
+  isBorn: boolean
   daysRemaining: number
   isProBono: boolean
   isFinanced: boolean
@@ -123,8 +125,8 @@ const sortChildbirthData = (
   }
 
   return [...items].sort((a, b) => {
-    const aOccurred = Boolean(a.rn_birth_date) || a.daysRemaining < 0
-    const bOccurred = Boolean(b.rn_birth_date) || b.daysRemaining < 0
+    const aOccurred = a.isBorn || a.daysRemaining < 0
+    const bOccurred = b.isBorn || b.daysRemaining < 0
 
     if (aOccurred !== bOccurred) return aOccurred ? 1 : -1
 
@@ -648,7 +650,7 @@ function RelatoriosPageContent() {
             <span className={cn(`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold`,
               item.status === 'Cancelado'
                 ? 'bg-[#ea9999]/10 text-slate-400 line-through'
-                : item.daysRemaining < 0
+                : item.isBorn || item.daysRemaining < 0
                   ? 'bg-slate-100 text-slate-600'
                   : item.daysRemaining <= 30
                     ? 'bg-rose-100 text-rose-700'
@@ -658,8 +660,10 @@ function RelatoriosPageContent() {
             )}>
               {item.status === 'Cancelado'
                 ? 'CANCELADO'
-                : item.daysRemaining < 0
-                  ? `Ocorreu há ${Math.abs(item.daysRemaining)} dias`
+                : item.isBorn
+                  ? item.daysRemaining === 0
+                    ? 'Nasceu hoje'
+                    : `Ocorreu há ${Math.abs(item.daysRemaining)} dias`
                   : item.daysRemaining === 0
                     ? 'É hoje!'
                     : `Faltam ${item.daysRemaining} dias`}
@@ -1085,14 +1089,17 @@ function RelatoriosPageContent() {
         today.setHours(0, 0, 0, 0)
 
         const processedData: ChildbirthReportItem[] = data.map((item: any) => {
-          // Garante que a data seja interpretada corretamente no fuso local
-          const [year, month, day] = item.childbirthDate.split('-').map(Number);
-          const cbDate = new Date(year, month - 1, day);
+          const isBorn = Boolean(item.rn_birth_date)
+          // A Data Parto prevalece; a Previsão Parto só é usada quando ela não existe.
+          const reference = (isBorn ? item.rn_birth_date : item.childbirthDate) || item.childbirthDate
+          // Datas "YYYY-MM-DD" são interpretadas no fuso local, não em UTC.
+          const [year, month, day] = reference.slice(0, 10).split('-').map(Number);
+          const referenceDate = new Date(year, month - 1, day);
           
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
-          const diffTime = cbDate.getTime() - today.getTime();
+          const diffTime = referenceDate.getTime() - today.getTime();
           const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)); // Usar round para evitar erros de arredondamento próximos à meia-noite
           
           return {
@@ -1102,6 +1109,7 @@ function RelatoriosPageContent() {
             phone: item.clients?.phone || 'N/A',
             childbirthDate: item.childbirthDate,
             rn_birth_date: item.rn_birth_date,
+            isBorn,
             daysRemaining: diffDays,
             isProBono: item.isProBono || false,
             isFinanced: item.isFinanced || false,
