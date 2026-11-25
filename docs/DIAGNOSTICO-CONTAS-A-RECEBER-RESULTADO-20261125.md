@@ -1,5 +1,10 @@
 # Diagnóstico de Contas a Receber — resultado confirmado (25/11/2026)
 
+> **Atenção: este arquivo é Markdown, não SQL.** Não cole este conteúdo no SQL
+> Editor — o `#` do título causa `ERROR: 42601: syntax error at or near "#"`.
+> O script executável é `docs/DIAGNOSTICO-CONTAS-A-RECEBER-20261125.sql`
+> (célula `diagnostico_contas_a_receber`), que já foi rodado e interpretado.
+
 Fonte: célula `diagnostico_contas_a_receber` de
 `docs/DIAGNOSTICO-CONTAS-A-RECEBER-20261125.sql`, executada em produção pelo
 usuário às `2026-11-25T18:31:15.460836+00:00` (PG 17.6). O script é somente
