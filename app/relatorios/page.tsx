@@ -106,6 +106,40 @@ interface RecebimentoItem {
 
 type ReportType = 'childbirth' | 'deadlines' | 'birthdays' | 'commissions' | 'gps' | 'recebimentos' | 'a-receber'
 
+/**
+ * Ordena a Previsão de Partos com os partos que ainda vão acontecer no topo
+ * (o mais próximo primeiro) e os que já ocorreram no fim (o mais recente
+ * primeiro). O botão Crescente/Decrescente inverte a ordem dentro de cada
+ * grupo, mas nunca traz um parto já ocorrido para cima de um futuro.
+ */
+const sortChildbirthData = (
+  items: ChildbirthReportItem[],
+  direction: 'asc' | 'desc'
+): ChildbirthReportItem[] => {
+  const dateValue = (value: string | null | undefined) => {
+    if (!value) return Number.NaN
+    // Datas "YYYY-MM-DD" são interpretadas no fuso local, não em UTC.
+    return new Date(`${value.slice(0, 10)}T00:00:00`).getTime()
+  }
+
+  return [...items].sort((a, b) => {
+    const aOccurred = Boolean(a.rn_birth_date) || a.daysRemaining < 0
+    const bOccurred = Boolean(b.rn_birth_date) || b.daysRemaining < 0
+
+    if (aOccurred !== bOccurred) return aOccurred ? 1 : -1
+
+    // Partos já ocorridos usam a data real do nascimento quando existir.
+    const dateA = dateValue(aOccurred ? a.rn_birth_date || a.childbirthDate : a.childbirthDate)
+    const dateB = dateValue(bOccurred ? b.rn_birth_date || b.childbirthDate : b.childbirthDate)
+
+    if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0
+    if (Number.isNaN(dateA)) return 1
+    if (Number.isNaN(dateB)) return -1
+
+    return direction === 'asc' ? dateA - dateB : dateB - dateA
+  })
+}
+
 // Componente de Badge para o status do INSS
 const StatusBadge = ({ protocolNumber }: { protocolNumber: string | null | undefined }) => {
   const isProtocolled = protocolNumber && protocolNumber.trim() !== ''
@@ -840,12 +874,7 @@ function RelatoriosPageContent() {
   // Re-sort when sortOrder changes
   useEffect(() => {
     if (activeReport === 'childbirth' && childbirthData.length > 0) {
-      const sorted = [...childbirthData].sort((a, b) => {
-        const dateA = new Date(a.childbirthDate).getTime()
-        const dateB = new Date(b.childbirthDate).getTime()
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
-      })
-      setChildbirthData(sorted)
+      setChildbirthData(prev => sortChildbirthData(prev, sortOrder))
     } else if (activeReport === 'deadlines' && deadlineData.length > 0) {
       const sorted = [...deadlineData].sort((a, b) => {
         const dateA = new Date(a.deadlineDate).getTime()
@@ -1080,13 +1109,7 @@ function RelatoriosPageContent() {
           }
         })
 
-        processedData.sort((a, b) => {
-          const dateA = new Date(a.childbirthDate).getTime()
-          const dateB = new Date(b.childbirthDate).getTime()
-          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
-        })
-
-        setChildbirthData(processedData)
+        setChildbirthData(sortChildbirthData(processedData, sortOrder))
       }
     } catch (error) {
       console.error('Error fetching childbirth data:', error)
