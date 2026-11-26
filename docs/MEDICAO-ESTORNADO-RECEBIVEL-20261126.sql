@@ -16,6 +16,10 @@
 -- Objetivo: medir o impacto antes de preparar forward/verify/rollback, sem
 -- mexer em dados. As definições retornadas são necessárias para escrever o
 -- forward sobre o estado real do banco (que pode diferir do código no repo).
+--
+-- Corrigido em 26/11 após erro 21000: funções com o mesmo nome podem ter mais
+-- de uma assinatura. Os flags usam bool_or e as definições são agregadas, sem
+-- subconsulta escalar que exija uma única linha.
 
 begin;
 
@@ -119,24 +123,26 @@ select jsonb_pretty(jsonb_build_object(
     full join por_ambiente p on p.environment = v.environment
   ), '{}'::jsonb),
 
+  -- Atenção: funções podem ter mais de uma assinatura (sobrecarga). Por isso
+  -- os.flags usam bool_or e as definições são agregadas em array, sem LIMIT.
   'objetos_que_excluem_estornado', jsonb_build_object(
     'view_contract_receivables_summary', coalesce((
       select pg_get_viewdef(to_regclass('public.contract_receivables_summary'), true) ilike '%estornado%'
     ), false),
     'fn_recalculate_contract_totals', coalesce((
-      select pg_get_functiondef(p.oid) ilike '%estornado%'
+      select bool_or(pg_get_functiondef(p.oid) ilike '%estornado%')
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'fn_recalculate_contract_totals'
     ), false),
     'process_installment_payment', coalesce((
-      select pg_get_functiondef(p.oid) ilike '%estornado%'
+      select bool_or(pg_get_functiondef(p.oid) ilike '%estornado%')
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'process_installment_payment'
     ), false),
     'process_installment_estorno', coalesce((
-      select pg_get_functiondef(p.oid) ilike '%estornado%'
+      select bool_or(pg_get_functiondef(p.oid) ilike '%estornado%')
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'process_installment_estorno'
@@ -152,7 +158,7 @@ select jsonb_pretty(jsonb_build_object(
         and pg_get_viewdef(c.oid, true) ilike '%estornado%'
     ),
     'desdobramento_v8_aceita_estornado', coalesce((
-      select pg_get_functiondef(p.oid) ilike '%v8 20261125%'
+      select bool_or(pg_get_functiondef(p.oid) ilike '%v8 20261125%')
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'rpc_recebimento_com_desdobramento'
@@ -172,31 +178,60 @@ select jsonb_pretty(jsonb_build_object(
     'vw_dashboard_top_defaulters', (
       select pg_get_viewdef(to_regclass('public.vw_dashboard_top_defaulters'), true)
     ),
-    'fn_recalculate_contract_totals', (
-      select pg_get_functiondef(p.oid)
+    'fn_recalculate_contract_totals', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'args', pg_get_function_identity_arguments(p.oid),
+        'definicao', pg_get_functiondef(p.oid)
+      ) order by p.oid::text)
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'fn_recalculate_contract_totals'
-    ),
-    'process_installment_payment', (
-      select pg_get_functiondef(p.oid)
+    ), '[]'::jsonb),
+    'process_installment_payment', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'args', pg_get_function_identity_arguments(p.oid),
+        'definicao', pg_get_functiondef(p.oid)
+      ) order by p.oid::text)
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'process_installment_payment'
-    ),
-    'process_installment_estorno', (
-      select pg_get_functiondef(p.oid)
+    ), '[]'::jsonb),
+    'process_installment_estorno', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'args', pg_get_function_identity_arguments(p.oid),
+        'definicao', pg_get_functiondef(p.oid)
+      ) order by p.oid::text)
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'process_installment_estorno'
-    ),
-    'rpc_recebimento_com_desdobramento', (
-      select pg_get_functiondef(p.oid)
+    ), '[]'::jsonb),
+    'rpc_recebimento_com_desdobramento', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'args', pg_get_function_identity_arguments(p.oid),
+        'definicao', pg_get_functiondef(p.oid)
+      ) order by p.oid::text)
       from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and p.proname = 'rpc_recebimento_com_desdobramento'
-    )
+    ), '[]'::jsonb)
   ),
+
+  'funcoes_sobrecarregadas', coalesce((
+    select jsonb_object_agg(q.proname, q.quantidade)
+    from (
+      select p.proname, count(*)::int as quantidade
+      from pg_proc p
+      where p.pronamespace = 'public'::regnamespace
+        and p.proname in (
+          'fn_recalculate_contract_totals',
+          'process_installment_payment',
+          'process_installment_estorno',
+          'rpc_recebimento_com_desdobramento'
+        )
+      group by p.proname
+      having count(*) > 1
+    ) q
+  ), '{}'::jsonb),
 
   'como_interpretar', jsonb_build_object(
     'impacto', 'a_receber_apos / vencido_apos / previsao_30d_apos mostram quanto os KPIs mudariam se estornado passasse a ser recebível.',
