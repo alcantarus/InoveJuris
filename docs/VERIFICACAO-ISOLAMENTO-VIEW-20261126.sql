@@ -13,8 +13,10 @@
 --
 -- PRÉ-CONDIÇÃO: manter o app aberto no ambiente a testar. O heartbeat atualiza
 -- `user_sessions.last_seen_at` a cada 20 s; a função aceita até 90 s.
--- Se não houver sessão recente em algum ambiente, o campo correspondente virá
--- nulo e o aviso indicará a necessidade de repetir com o app aberto.
+-- O cookie `app_env` é único por navegador: meça com o app em `production`,
+-- troque para `test` no app, aguarde o heartbeat e rode de novo. Se não houver
+-- sessão recente em algum ambiente, o campo correspondente virá nulo e os
+-- campos `sessoes_sem_logout` / `ultimo_visto_em` dirão o motivo.
 --
 -- Somente leitura em dados de negócio: nenhum INSERT/UPDATE/DELETE. Termina em
 -- ROLLBACK. Como usar: rodar o arquivo inteiro no SQL Editor e copiar a ÚNICA
@@ -58,10 +60,21 @@ declare
   v_proprio bigint;
   v_fora    bigint;
   v_base    bigint;
+  v_qtd     bigint;
+  v_ultimo  timestamptz;
 begin
   foreach v_env in array array['production','test']::text[]
   loop
     v_prefix := case when v_env = 'production' then 'iso.p' else 'iso.t' end;
+
+    -- Diagnóstico: sessões sem logout no ambiente, mesmo que estejam antigas.
+    select count(*), max(s.last_seen_at)
+      into v_qtd, v_ultimo
+      from public.user_sessions s
+     where s.environment = v_env
+       and s.logout_at is null;
+    perform set_config(v_prefix || '.qtd_sessoes', v_qtd::text, true);
+    perform set_config(v_prefix || '.ultimo_visto', coalesce(v_ultimo::text, ''), true);
 
     select s.id, s.user_id
       into v_sid, v_uid
@@ -125,7 +138,7 @@ select jsonb_pretty(jsonb_build_object(
   'pg_version', current_setting('server_version'),
   'ambiente_dos_dados', 'Banco único: production e test são valores da coluna environment, não bancos separados.',
   'aviso', 'Somente leitura. Nenhuma linha de negócio foi alterada; o script termina em ROLLBACK.',
-  'pre_condicao', 'App aberto no ambiente a testar (heartbeat de 20 s; limite de 90 s na sessão).',
+  'pre_condicao', 'App aberto no ambiente a testar (heartbeat de 20 s; limite de 90 s). O cookie app_env é um só por navegador: meça production, troque para test no app, aguarde o heartbeat e rode de novo.',
 
   'estrutura_da_view', jsonb_build_object(
     'coluna_environment', coalesce(current_setting('iso.tem_coluna_environment', true), 'desconhecido'),
@@ -141,6 +154,10 @@ select jsonb_pretty(jsonb_build_object(
 
     'production', jsonb_build_object(
       'sessao_encontrada', coalesce(current_setting('iso.p.sessao_encontrada', true), 'false')::boolean,
+      'sessoes_sem_logout', case
+        when current_setting('iso.p.qtd_sessoes', true) is null then null
+        else current_setting('iso.p.qtd_sessoes')::bigint end,
+      'ultimo_visto_em', nullif(coalesce(current_setting('iso.p.ultimo_visto', true), ''), ''),
       'sessao_valida', case
         when current_setting('iso.p.sessao_valida', true) is null then null
         else current_setting('iso.p.sessao_valida')::boolean end,
@@ -160,6 +177,10 @@ select jsonb_pretty(jsonb_build_object(
 
     'test', jsonb_build_object(
       'sessao_encontrada', coalesce(current_setting('iso.t.sessao_encontrada', true), 'false')::boolean,
+      'sessoes_sem_logout', case
+        when current_setting('iso.t.qtd_sessoes', true) is null then null
+        else current_setting('iso.t.qtd_sessoes')::bigint end,
+      'ultimo_visto_em', nullif(coalesce(current_setting('iso.t.ultimo_visto', true), ''), ''),
       'sessao_valida', case
         when current_setting('iso.t.sessao_valida', true) is null then null
         else current_setting('iso.t.sessao_valida')::boolean end,
@@ -182,6 +203,8 @@ select jsonb_pretty(jsonb_build_object(
     'isolado', 'view_de_outro_ambiente = 0 e view_total = contracts_via_rls no mesmo ambiente.',
     'possivel_vazamento', 'view_de_outro_ambiente > 0 ou view_total > contracts_via_rls.',
     'limitacao', 'Contagens iguais não provam ausência de vazamento em todas as colunas; provam que a view não trouxe linhas do outro ambiente nesta sessão. Se a view não expõe `environment`, os campos view_do_ambiente/view_de_outro_ambiente ficam nulos e só a comparação com contracts_via_rls é possível.',
+    'sem_sessao', 'Se sessao_encontrada=false: sessoes_sem_logout=0 significa que é preciso entrar no app; ultimo_visto_em antigo significa que é preciso deixar a aba aberta e atualizar (heartbeat de 20 s) antes de rodar de novo.',
+    'isolamento_no_cliente', 'Além do RLS nas tabelas, lib/supabase.ts injeta .eq(environment, ambiente_atual) nas consultas, inclusive na view. Este script mede o isolamento no banco; o app pode ser isolado também no cliente.',
     'se_vazar', 'Não corrigir dados: avaliar forward/verify/rollback para security_invoker ou filtro explícito por environment na view.'
   )
 
