@@ -340,12 +340,19 @@ begin
            'contas_divergentes', count(*) filter (where abs(current_balance - saldo_calculado) > 0.01),
            'delta_total', coalesce(sum(current_balance - saldo_calculado), 0),
            'por_ambiente', coalesce((
-             select jsonb_object_agg(environment, jsonb_build_object(
-                      'contas', count(*),
-                      'divergentes', count(*) filter (where abs(current_balance - saldo_calculado) > 0.01),
-                      'delta', coalesce(sum(current_balance - saldo_calculado), 0)
-                    ))
-               from saldo group by environment
+             select jsonb_object_agg(q.environment, q.detalhe)
+               from (
+                 select s.environment,
+                        jsonb_build_object(
+                          'contas', count(*),
+                          'divergentes', count(*) filter (
+                            where abs(s.current_balance - s.saldo_calculado) > 0.01
+                          ),
+                          'delta', coalesce(sum(s.current_balance - s.saldo_calculado), 0)
+                        ) as detalhe
+                   from saldo s
+                  group by s.environment
+               ) q
            ), '{}'::jsonb),
            'detalhe_divergentes', coalesce((
              select jsonb_agg(jsonb_build_object(
