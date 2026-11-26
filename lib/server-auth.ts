@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase-service'
+import { resolveOrganizationId } from '@/lib/organization'
 
 export class AdminAuthError extends Error {
   status: number
@@ -16,6 +17,7 @@ export type SessionContext = {
   environment: string
   userId: number
   user: Record<string, any>
+  organizationId: string | null
 }
 
 export type AdminContext = SessionContext
@@ -52,7 +54,11 @@ export async function requireSessionContext(): Promise<SessionContext> {
     throw new AdminAuthError('Sessão inválida.', 401)
   }
 
-  return { sessionId, environment, userId, user }
+  // O tenant do contexto segue o mesmo mapa do JWT e do trigger do banco:
+  // test usa a organizacao demo; production usa o vinculo do usuario.
+  const organizationId = await resolveOrganizationId(client, environment, user)
+
+  return { sessionId, environment, userId, user, organizationId }
 }
 
 /**

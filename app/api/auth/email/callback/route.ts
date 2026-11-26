@@ -109,9 +109,10 @@ export async function GET(request: Request) {
       },
       category: 'integration',
       description: `OAuth2 tokens for ${state} email integration`,
-      environment: 'production', // Always store in production env for system-wide access? Or respect current env? Let's use 'production' as default for system settings.
+      environment: 'production', // configuracao global: sem tenant, sem organization_id
+      organization_id: null,
       updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') + '.000Z',
-    }, { onConflict: 'key, environment' });
+    }, { onConflict: 'key,environment,organization_id' });
 
     // Also update the main smtp_config to use this provider if desired?
     // Or just let the user select it. For now, we just store the connection.

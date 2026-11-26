@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getAppEnv } from './env'
-import { getAccessToken, getSessionToken } from './session-token'
+import { getAccessToken, getSessionOrganizationId, getSessionToken } from './session-token'
 
 // Helper to ensure URL is valid or fallback
 const getValidUrl = (url: string | undefined, fallback: string, name: string) => {
@@ -22,6 +22,50 @@ export const defaultKeyProd = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 // We now ONLY use the Production database for both environments (Logical Isolation)
 const clients = new Map<string, any>();
+
+// Somente estas tabelas possuem a coluna organization_id (medido em 26/11/2026).
+// Fora desta lista o Proxy nao injeta o filtro, para nao quebrar consultas.
+const TABELAS_COM_ORGANIZATION_ID = new Set<string>([
+  'bank_accounts',
+  'birthday_messages',
+  'birthday_templates',
+  'client_documents',
+  'client_interactions',
+  'client_onboarding_tokens',
+  'client_tags',
+  'clients',
+  'commission_payments',
+  'contracts',
+  'document_templates',
+  'financial_categories',
+  'financial_transactions',
+  'indicator_tokens',
+  'indicators',
+  'installments',
+  'kanban_boards',
+  'kanban_columns',
+  'law_areas',
+  'lawyers',
+  'legal_contract_workflow',
+  'legal_contracts',
+  'login_attempts',
+  'marketing_logs',
+  'notifications',
+  'payments',
+  'permissions',
+  'process_deadlines',
+  'processes',
+  'products',
+  'role_permissions',
+  'roles',
+  'system_settings',
+  'tasks',
+  'template_variables',
+  'trusted_devices',
+  'user_roles',
+  'user_sessions',
+  'users',
+]);
 
 // Token de sessão (F4b-2b / Fase A). Sem token, a requisição sai como hoje.
 // Com token, o Bearer da chave publicável é substituído pelo JWT de sessão.
@@ -117,11 +161,15 @@ export const supabase = new Proxy({} as any, {
     if (prop === 'from') {
       return (table: string) => {
         const queryBuilder = client.from(table)
-        
+        const currentOrg = TABELAS_COM_ORGANIZATION_ID.has(table)
+          ? getSessionOrganizationId()
+          : null
+
         // The following tables are global or handle isolation differently:
         // 'users' is shared across environments
         // 'user_sessions' is global to track all logins
         // 'geo_cache' is a global IP cache
+        // 'organizations' e o catalogo global: nao tem coluna environment
         // 'client_onboarding_tokens' e 'indicator_tokens' são tabelas de link
         // público: o token já limita o registro, e o indicador não tem ambiente
         // selecionado no navegador.
@@ -132,6 +180,7 @@ export const supabase = new Proxy({} as any, {
           table === 'users' || 
           table === 'user_sessions' || 
           table === 'geo_cache' || 
+          table === 'organizations' ||
           table === 'client_onboarding_tokens' ||
           table === 'indicator_tokens' ||
           table === 'contract_diseases'
@@ -151,13 +200,15 @@ export const supabase = new Proxy({} as any, {
                   
                   if (prop === 'insert' || prop === 'upsert') {
                     const data = args[0];
+                    const orgField = currentOrg ? { organization_id: currentOrg } : {};
                     const newData = Array.isArray(data)
-                      ? data.map((item: any) => ({ ...item, environment: currentEnv }))
-                      : { ...data, environment: currentEnv };
+                      ? data.map((item: any) => ({ ...item, environment: currentEnv, ...orgField }))
+                      : { ...data, environment: currentEnv, ...orgField };
                     result = target[prop](newData, ...args.slice(1));
                   } else if (prop === 'select' || prop === 'update' || prop === 'delete') {
                     // Inject environment filter immediately after the action method
                     result = target[prop](...args).eq('environment', currentEnv);
+                    if (currentOrg) result = result.eq('organization_id', currentOrg);
                   } else {
                     // For other methods (eq, order, limit, etc.), just execute them
                     result = value.apply(target, args);

@@ -52,10 +52,11 @@ export async function POST(request: Request) {
           key,
           value: body.value,
           environment: admin.environment,
+          organization_id: admin.organizationId,
           updated_at: new Date().toISOString(),
           updated_by: admin.userId,
         },
-        { onConflict: 'key,environment' }
+        { onConflict: 'key,environment,organization_id' }
       )
       .select('key, environment, updated_at')
       .single()

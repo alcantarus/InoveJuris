@@ -174,9 +174,10 @@ export async function POST(request: Request) {
         .upsert({
           key: 'backup_status',
           value: JSON.stringify(backupStatus),
-          environment: appEnv
+          environment: appEnv,
+          organization_id: admin.organizationId
         }, {
-          onConflict: 'key,environment'
+          onConflict: 'key,environment,organization_id'
         });
       
       if (updateError) {
@@ -223,9 +224,10 @@ export async function POST(request: Request) {
             status: 'FAILURE',
             error_message: error.message || 'Falha desconhecida ao gerar backup'
           }),
-          environment: appEnv
+          environment: appEnv,
+          organization_id: admin?.organizationId ?? null
         }, {
-          onConflict: 'key,environment'
+          onConflict: 'key,environment,organization_id'
         });
       console.log('Backup failure logged to system_settings');
     } catch (logError) {

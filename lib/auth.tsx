@@ -300,6 +300,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || 'Erro ao trocar de ambiente.' }
       }
 
+      if (data.token) setSessionToken(data.token)
+
       const updatedUser = withEnvironment(user, newEnv)
       localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
       localStorage.setItem(ACTIVITY_KEY, Date.now().toString())

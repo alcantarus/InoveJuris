@@ -21,11 +21,13 @@ export const getSupabaseServer = async () => {
           // 'users' is shared across environments
           // 'user_sessions' is global to track all logins
           // 'geo_cache' is a global IP cache
+          // 'organizations' e o catalogo global: nao tem coluna environment
           // 'client_onboarding_tokens' must be accessible globally for the onboarding flow
           if (
             table === 'users' || 
             table === 'user_sessions' || 
             table === 'geo_cache' ||
+            table === 'organizations' ||
             table === 'client_onboarding_tokens'
           ) {
             return queryBuilder

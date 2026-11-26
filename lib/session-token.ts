@@ -45,3 +45,23 @@ export function setSessionToken(token: string | null | undefined) {
 export function getSessionToken(): string | null {
   return currentToken
 }
+
+/** organization_id assinado no JWT de sessao; nunca vem de origem do cliente. */
+export function getSessionOrganizationId(): string | null {
+  const token = getSessionToken()
+  if (!token) return null
+
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const payload = JSON.parse(atob(padded))
+    const value = payload?.organization_id
+
+    return typeof value === 'string' && value.trim() !== '' ? value : null
+  } catch {
+    return null
+  }
+}

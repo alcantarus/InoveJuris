@@ -4,6 +4,7 @@ import { getSupabaseServer } from '@/lib/supabase-server'
 import { UAParser } from 'ua-parser-js'
 import { AppEnv } from '@/lib/env'
 import { signSessionToken } from '@/lib/jwt'
+import { resolveOrganizationId } from '@/lib/organization'
 
 const isEnv = (value: unknown): value is AppEnv => value === 'production' || value === 'test'
 
@@ -65,6 +66,25 @@ function fail(error: string, status = 400) {
   return NextResponse.json({ success: false, error }, { status })
 }
 
+async function getUserForSession(supabaseClient: any, sessionId: string) {
+  const { data: sessionRow, error: sessionRowError } = await supabaseClient
+    .from('user_sessions')
+    .select('user_id')
+    .eq('id', sessionId)
+    .is('logout_at', null)
+    .maybeSingle()
+
+  if (sessionRowError || sessionRow?.user_id == null) return null
+
+  const { data: userRow, error: userError } = await supabaseClient
+    .from('users')
+    .select('id, is_superadmin, organization_id')
+    .eq('id', sessionRow.user_id)
+    .maybeSingle()
+
+  return userError ? null : userRow
+}
+
 /**
  * Anexa o token de sessão à resposta. Sem chave configurada, devolve o payload
  * original — a Fase A é opcional em tempo de execução.
@@ -73,17 +93,25 @@ async function withSessionToken(
   payload: Record<string, any>,
   sessionId: string | null,
   environment: AppEnv,
-  user: any
+  user: any,
+  supabaseClient?: any
 ) {
   if (!sessionId || !user) return payload
 
   try {
+    // O tenant do JWT segue o ambiente ativo, nao o vinculo fixo do usuario.
+    // Em test, todos os sessoes usam a organizacao demo; em production,
+    // usamos a organizacao do usuario validado.
+    const organizationId = supabaseClient
+      ? await resolveOrganizationId(supabaseClient, environment, user)
+      : null
+
     const signed = await signSessionToken({
       userId: user.id,
       sessionId,
       environment,
       isSuperadmin: user.is_superadmin === true,
-      organizationId: typeof user.organization_id === 'string' ? user.organization_id : null,
+      organizationId,
     })
     if (!signed) return payload
     return { ...payload, token: signed.token, token_expires_at: signed.expiresAt }
@@ -147,7 +175,8 @@ export async function POST(request: Request) {
           { success: true, user: data.user },
           String(data.sessionId),
           environment,
-          data.user
+          data.user,
+          supabase
         )
       )
       setAuthCookies(response, String(data.sessionId), environment)
@@ -169,7 +198,8 @@ export async function POST(request: Request) {
           { valid: true, user: data.user },
           context.sessionId,
           context.environment,
-          data.user
+          data.user,
+          supabase
         )
       )
     }
@@ -203,12 +233,19 @@ export async function POST(request: Request) {
         return response
       }
 
+      // app_heartbeat devolve apenas { valid: true }. Buscamos o usuario da
+      // sessao ja validada para renovar o JWT, inclusive o claim
+      // organization_id, sem chamar app_validate_session (que regravaria
+      // last_seen_at e falsificaria o contador de inatividade).
+      const heartbeatUser = await getUserForSession(supabase, context.sessionId)
+
       return NextResponse.json(
         await withSessionToken(
           { valid: true },
           context.sessionId,
           context.environment,
-          data.user
+          heartbeatUser,
+          supabase
         )
       )
     }
@@ -234,7 +271,18 @@ export async function POST(request: Request) {
       if (error) return fail('Não foi possível trocar de ambiente.', 500)
       if (!data?.success) return fail(data?.error || 'Não foi possível trocar de ambiente.', 403)
 
-      const response = NextResponse.json({ success: true })
+      // O cookie ja muda de ambiente; o JWT tambem precisa ser reassinado antes
+      // do reload, para nenhuma consulta usar o tenant antigo.
+      const switchUser = await getUserForSession(supabase, context.sessionId)
+      const response = NextResponse.json(
+        await withSessionToken(
+          { success: true },
+          context.sessionId,
+          body.environment,
+          switchUser,
+          supabase
+        )
+      )
       setAuthCookies(response, context.sessionId, body.environment)
       return response
     }
