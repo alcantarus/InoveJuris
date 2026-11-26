@@ -15,6 +15,11 @@
 --
 -- NÃO grava vínculo, não atualiza saldo, não apaga nada. Termina em ROLLBACK.
 --
+-- AMBIENTE (regra permanente): banco único; `environment='production'` é
+-- produção e `environment='test'` é homologação, na mesma instância. Este
+-- script não filtra por ambiente: a interpretação deve declarar quais rótulos
+-- apareceram. Ver docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md.
+--
 -- Como usar: executar o arquivo inteiro no SQL Editor e copiar a ÚNICA célula
 -- `rastreio_reversoes_20261125`.
 

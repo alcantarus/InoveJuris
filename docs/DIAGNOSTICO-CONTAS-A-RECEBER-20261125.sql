@@ -5,6 +5,11 @@
 -- tela de Contas a Receber realmente usa. Mede se os KPIs, a view e os filtros
 -- da interface batem com os dados. NÃO corrige nada. Termina em ROLLBACK.
 --
+-- AMBIENTE (regra permanente): banco único; `environment='production'` é
+-- produção e `environment='test'` é homologação, na mesma instância. Este
+-- script não filtra por ambiente: a interpretação deve declarar quais rótulos
+-- apareceram. Ver docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md.
+--
 -- Fontes de dados da tela (app/contas-a-receber/page.tsx):
 --   - view contract_receivables_summary (lista de contratos)
 --   - installments (parcelas do contrato)

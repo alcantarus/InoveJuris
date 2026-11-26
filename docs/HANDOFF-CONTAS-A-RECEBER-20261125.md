@@ -1,13 +1,13 @@
 # Handoff — Checagem forense de Contas a Receber (25/11/2026)
 
-> Estado do repositório ao sair: `main` em **`ff28f8e`**, árvore limpa,
-> publicado no GitHub.
-> **Sessão encerrada em 25/11/2026 a pedido do usuário.** Tudo o que foi feito
-> está salvo e documentado; o trabalho fica retomado em outro momento, começando
+> Estado do repositório ao sair: `main` no commit desta interpretação, árvore
+> limpa, publicado no GitHub.
+> **Retomada em 26/11/2026:** usuário rodou a célula complementar; agente a
+> interpretou e corrigiu o relatório. Checagem forense, rastreio e complemento
+> **encerrados** — não há célula de SQL pendente.
+> **Tarefa em curso:** nenhuma execução de banco. Restam decisões de regra
+> (KPI e “vencido”) e verificação isolada da view, para outro momento, começando
 > exatamente pelo item 1 da seção 2 abaixo.
-> **Tarefa em curso:** rastreio executado e interpretado; célula complementar
-> somente leitura preparada, aguardando o usuário rodá-la e colar
-> `rastreio_complementar_20261125`.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
 ## 1. O que está feito
@@ -24,25 +24,31 @@ aplicada ontem (24/11) em Contratos.
 | Relatório de resultado | **Escrito** — `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` |
 | `docs/RASTREIO-ESTORNOS-20261125.sql` | **Executado pelo usuário em 25/11, 18:50:55 UTC** (PG 17.6), célula única, terminou em `rollback` |
 | Relatório do rastreio | **Escrito** — `docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md` |
-| `docs/RASTREIO-COMPLEMENTAR-20261125.sql` | **Preparado** (somente leitura, célula `rastreio_complementar_20261125`); **pendente de execução pelo usuário** e sem validação em instância descartável nesta rodada |
+| `docs/RASTREIO-COMPLEMENTAR-20261125.sql` | **Executado pelo usuário em 26/11, 10:53:53 UTC** (PG 17.6), célula única, terminou em `rollback`; sem validação prévia em instância descartável |
+| Interpretação final | **Escrita** — `docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md` corrigido com as refutações da célula complementar |
 
 ## 2. Próximo passo (retomar exatamente aqui)
 
-A checagem forense e o rastreio das 13 parcelas estão **concluídos e
-interpretados** em `docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md`. Retomar
-exatamente aqui:
+A checagem forense, o rastreio das 13 parcelas e a célula complementar estão
+**concluídos e interpretados** em
+`docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md`. Retomar exatamente aqui:
 
-1. Usuário abre o SQL Editor e roda `docs/RASTREIO-COMPLEMENTAR-20261125.sql`
-   **inteiro** (começa com `-- Rastreio complementar`, não com `#`).
-2. Usuário copia a **única célula** `rastreio_complementar_20261125` e cola no
-   chat.
-3. Agente interpreta: (a) se o pagamento `3715c3de…` ainda existe e em que mês
-   está, para fechar a decisão do KPI; (b) se a parcela 239 tem pagamento
-   próprio, para fechar a anomalia da parcela 231.
-4. Decisões de negócio continuam em aberto: regra do estorno órfão no KPI,
-   destino dos R$ 1.000,00 da parcela 231 e definição de `Prorrogada` no campo
-   “vencido”. Nenhuma correção é aplicada sem autorização explícita, medição
-   prévia e forward/verify/rollback.
+1. **Decidir a regra do KPI** para a reversão órfã da parcela 227: a entrada de
+   R$ 1.000,00 de 21/11 (`3715c3de…`, transação 1248) foi **apagada** em 22/11
+   00:10:42 UTC e a reversão de R$ 1.000,00, também de 21/11, permanece sendo
+   subtraída. Não é devolução de mês anterior.
+2. **Decidir a regra de “vencido”** para `Prorrogada` (diferença de definição,
+   não de dado).
+3. **Verificar o isolamento da view** `contract_receivables_summary` em tarefa
+   separada, com JWT de outro ambiente.
+4. Nenhuma correção é aplicada sem autorização explícita, medição prévia e
+   forward/verify/rollback. Nenhuma célula de SQL está pendente.
+
+Atenção ao escopo (regra permanente): as consultas rodaram no **banco único**
+(PG 17.6), onde `production` e `test` são rótulos da coluna `environment`, não
+bancos separados. Todas as linhas da célula complementar são
+`environment=test`; no primeiro rastreio havia também linhas `production`
+(parcelas 147 e 148). Ver `docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md`.
 
 O que o rastreio cobriu:
 
@@ -59,13 +65,21 @@ O que o rastreio cobriu:
 - Resultado do rastreio: 9 reversões classificadas em quatro mecanismos —
   conversão de pagamento em reversão (113 e 122, em 22/11 00:10:42 UTC com
   `performed_by=null`), vínculo removido (227), reversão sem origem de mesmo
-  valor (147, 87, 129) e candidato só na mesma data/depois (103, 148). Das 5
-  parcelas `Quitado` com saldo, 4 têm residual `Aberto` regular (257, 256,
-  240, 244) e a 231 tem a residual 239 **nascida quitada** sem pagamento próprio.
+  valor (147, 87, 129) e candidato só na mesma data/depois (103, 148).
+- Resultado da célula complementar: o original da 227 (`3715c3de…`) tinha
+  `payment_date=21/11` e foi **excluído** em 22/11 00:10:42 UTC (`performed_by=null`),
+  junto com a remoção do vínculo da reversão; a hipótese “original fora da
+  janela do mês” está **refutada**. As cinco reversões antigas têm
+  `qtd_logs=0` e não podem ser datadas por `audit_logs`. A parcela 239 foi
+  criada `Aberto` em 21/11 23:38:12 e quitada em 22/11 20:13:51 com pagamento
+  próprio `046c7262…` (conta 11, `Cartão de Débito`, transação 1271); a suspeita
+  de “residual nascida quitada sem pagamento” está **refutada**. Os R$ 4.310,00
+  das cinco `Quitado` com saldo são desdobramentos regulares (257, 256, 240,
+  239 e 244).
 
-Ainda em aberto: decidir a regra do KPI para estorno órfão, o destino dos
-R$ 1.000,00 da parcela 231 e a regra de “vencido” para `Prorrogada`; verificar
-o isolamento da view `contract_receivables_summary` em tarefa separada.
+Ainda em aberto: decidir a regra do KPI para estorno órfão e a regra de
+“vencido” para `Prorrogada`; verificar o isolamento da view
+`contract_receivables_summary` em tarefa separada.
 
 Nenhum `UPDATE`/`DELETE` foi feito; os três scripts terminam em `rollback`.
 
@@ -119,7 +133,11 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
 
 ## 8. Contexto técnico útil
 
-- Produção: **PostgreSQL 17.6**.
+- **REGRA PERMANENTE (26/11/2026):** **um único banco** (PostgreSQL 17.6) com
+  dois ambientes lógicos — `production` e `test` (homologação) — separados pela
+  coluna `environment`. Não há banco separado para homologação. Toda rotina
+  deve declarar o ambiente consultado e incluir `environment` no filtro ou no
+  resultado. Ver `docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md`.
 - `payments.id` é **uuid** (baseline do repo diz BIGINT); `payment_date` é **timestamptz**.
 - `installments` **não tem** `updated_at`.
 - View `contract_receivables_summary` em produção tem `overdue_amount`,

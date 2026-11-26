@@ -15,8 +15,17 @@
 --
 -- NÃO grava vínculo, não atualiza saldo, não apaga nada. Termina em ROLLBACK.
 --
+-- AMBIENTE (regra permanente): banco único; `environment='production'` é
+-- produção e `environment='test'` é homologação, na mesma instância. Todas as
+-- linhas desta célula são `test`, mas vieram do banco único. A interpretação
+-- deve declarar o rótulo. Ver docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md.
+--
 -- Como usar: executar o arquivo inteiro no SQL Editor e copiar a ÚNICA célula
 -- `rastreio_complementar_20261125`.
+--
+-- Executado pelo usuário em 26/11/2026 às 10:53:53 UTC (PG 17.6), em uma única
+-- célula, terminado em ROLLBACK e interpretado em
+-- docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md.
 --
 -- Validação: escrito com os mesmos padrões do rastreio anterior, que foi
 -- validado em PostgreSQL 18 descartável. Nesta rodada não havia instância

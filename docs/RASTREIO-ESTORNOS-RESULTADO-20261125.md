@@ -1,20 +1,38 @@
-# Rastreio forense das reversões — resultado confirmado (25/11/2026)
+# Rastreio forense das reversões — resultado confirmado (25/11, complementado em 26/11/2026)
 
 > **Atenção: este arquivo é Markdown, não SQL.** Não cole este conteúdo no SQL
 > Editor — o `#` do título causa `ERROR: 42601: syntax error at or near "#"`.
-> O script executável é `docs/RASTREIO-ESTORNOS-20261125.sql`
-> (célula `rastreio_reversoes_20261125`), que já foi rodado e interpretado.
+> Os scripts executáveis são `docs/RASTREIO-ESTORNOS-20261125.sql`
+> (célula `rastreio_reversoes_20261125`) e
+> `docs/RASTREIO-COMPLEMENTAR-20261125.sql`
+> (célula `rastreio_complementar_20261125`), ambos já rodados e interpretados.
 
-Fonte: célula `rastreio_reversoes_20261125` de
-`docs/RASTREIO-ESTORNOS-20261125.sql`, executada em produção pelo usuário às
-`2026-11-25T18:50:55.180187+00:00` (PG 17.6). O script é somente leitura e
-termina em `rollback`. **Nenhuma alteração foi feita**; nenhum
-`INSERT`/`UPDATE`/`DELETE` foi executado. Nenhum vínculo foi gravado e nenhum
-saldo foi baixado.
+Fonte principal: célula `rastreio_reversoes_20261125` de
+`docs/RASTREIO-ESTORNOS-20261125.sql`, executada pelo usuário às
+`2026-11-25T18:50:55.180187+00:00` (PG 17.6). Fonte complementar: célula
+`rastreio_complementar_20261125` de `docs/RASTREIO-COMPLEMENTAR-20261125.sql`,
+executada pelo usuário às `2026-11-26T10:53:53.395161+00:00` (PG 17.6). A
+célula complementar foi recebida duas vezes no chat, idêntica; foi tratada como
+**uma única execução**. Ambos os scripts são somente leitura e terminam em
+`rollback`. **Nenhuma alteração foi feita**; nenhum `INSERT`/`UPDATE`/`DELETE`
+foi executado. Nenhum vínculo foi gravado e nenhum saldo foi baixado.
+
+**Origem dos dados (regra permanente):** as duas consultas rodaram no SQL
+Editor conectado ao **banco único** de produção (PostgreSQL 17.6). Dentro dele
+existem dois ambientes lógicos — `production` e `test` (homologação) —
+distinguidos pela **coluna `environment`**. **Não existe banco físico separado
+para homologação.** Os scripts não filtraram por ambiente e trouxeram linhas
+dos dois rótulos. Todas as linhas examinadas na célula complementar — parcelas
+227, 231 e 239, os três pagamentos e toda a auditoria — são **`test`**. No
+primeiro rastreio, as parcelas 147 e 148 são `production`; as demais são
+`test`. Regra completa em
+`docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md`.
 
 Este documento é a continuação de
 `docs/DIAGNOSTICO-CONTAS-A-RECEBER-RESULTADO-20261125.md` e segue o mesmo padrão:
-**fato confirmado**, **classificação** e **decisão ainda em aberto**.
+**fato confirmado**, **classificação** e **decisão ainda em aberto**. As
+inferências do primeiro rastreio que a célula complementar refutou estão
+marcadas como **refutada** abaixo.
 
 ---
 
@@ -24,15 +42,16 @@ Este documento é a continuação de
 |---|---|
 | As 9 reversões sem vínculo explicam os R$ 14.800,00? | **Sim.** As 9 linhas somam exatamente R$ 14.800,00 nas mesmas 8 parcelas do diagnóstico. |
 | São todas do mesmo tipo de problema? | **Não.** São **quatro mecanismos distintos**: 2 pagamentos convertidos em reversão, 1 vínculo explícito removido, 4 reversões sem origem de mesmo valor no histórico e 2 com candidato só na mesma data/depois. |
-| Há estorno duplo, vínculo apontando para pagamento inexistente ou estorno em parcela diferente? | **Não.** O diagnóstico descartou os três; o rastreio trouxe um vínculo **removido** (parcela 227), não um vínculo apontando para pagamento inexistente. |
-| O KPI de novembro é afetado por qual reversão? | **Apenas uma:** a da parcela 227 (`60fe1d1b…`, R$ 1.000,00, 21/11). É a única com `esta_no_mes_da_tela=true`. |
-| As 5 parcelas `Quitado` com saldo são erros? | **Quatro não:** são desdobramentos com parcela residual criada no mesmo instante. **Uma é anômala:** a parcela 231. |
-| O `amountPaid` das 5 está errado? | **Não.** As 5 têm `amount_paid_bate_historico=true`: o salvo bate com `pagamentos − reversões`. O que diverge é o **status `Quitado`** (ou o valor da parcela), não o pagamento. |
+| Há estorno duplo, vínculo apontando para pagamento inexistente ou estorno em parcela diferente? | **Não.** O diagnóstico descartou os três. O rastreio trouxe um vínculo **removido** (parcela 227), e a célula complementar mostrou que o original foi **apagado** — não um vínculo apontando para pagamento inexistente. |
+| O KPI de novembro é afetado por qual reversão? | **Apenas uma:** a da parcela 227 (`60fe1d1b…`, R$ 1.000,00, 21/11). É a única com `esta_no_mes_da_tela=true`. A entrada original de 21/11 foi apagada; a reversão permanece. |
+| As 5 parcelas `Quitado` com saldo são erros? | **Não.** São **cinco desdobramentos regulares**: cada uma tem uma parcela residual criada `Aberto`. A suspeita de anomalia na parcela 231 foi **refutada** pela célula complementar. |
+| O `amountPaid` das 5 está errado? | **Não.** As 5 têm `amount_paid_bate_historico=true`: o salvo bate com `pagamentos − reversões`. O saldo aparente da original foi transferido para a residual: quatro seguem `Aberto` (a receber) e a 239 foi quitada com pagamento próprio. |
 
-**Conclusão central:** não há pagamento perdido. O que existe é um conjunto de
-lançamentos **manuais/legados** que produziu reversões sem origem rastreável e
-um desdobramento incompleto na parcela 231. A decisão sobre o KPI continua em
-aberto e nenhuma correção foi aplicada.
+**Conclusão central:** não há pagamento perdido e não resta anomalia financeira
+no grupo das 5 parcelas `Quitado` com saldo. O que existe é um conjunto de
+lançamentos **manuais/legados** que produziu reversões sem origem rastreável.
+A única decisão financeira em aberto é a **regra do KPI** diante da reversão
+da parcela 227; nenhuma correção foi aplicada.
 
 ---
 
@@ -124,9 +143,20 @@ seguinte. A parcela 227 passou de `Parcial` (1.000,00 pago) para `Estornado`
 (0,00) às `22:08:14.795187+00:00`.
 
 Este é o caso que interessa ao KPI de novembro: é a **única reversão da lista
-com `esta_no_mes_da_tela=true`**. O original `3715c3de…` não aparece na célula,
-então não é possível saber, com estes dados, se ele estava dentro ou fora da
-janela do mês.
+com `esta_no_mes_da_tela=true`**. A célula complementar encerrou a dúvida sobre
+o original:
+
+| Instante (UTC) | Ação registrada | Evidência |
+|---|---|---|
+| 21/11 22:07:52.202727 | `INSERT` do pagamento `3715c3de…`, R$ 1.000,00, conta 9, categoria 1, `payment_date=21/11`, transação financeira **1248**, `created_by=2` | log `15901` (old_data do `DELETE`) e log `15832` |
+| 21/11 22:08:14.795187 | `UPDATE` do pagamento original: `financial_transaction_id` **1248 → nulo**, `performed_by=null`; `INSERT` da reversão `60fe1d1b…` com `reverses_payment_id=3715c3de…`, conta 11, `payment_date=21/11`; parcela 227 `Parcial → Estornado` | logs `15835`, `15838`, `15836` |
+| 22/11 00:10:42.202385 | `UPDATE` da reversão: `reverses_payment_id` → nulo, `performed_by=null`; **`DELETE` do pagamento original**, com `old_data` completo, `performed_by=null` | logs `15902`, `15901` |
+
+`original_da_reversao_227=null` e `reversoes_que_apontam_para_o_original=0`
+confirmam que não há linha viva. **Hipótese refutada:** o original **não estava
+fora da janela do mês** — ele tinha `payment_date=2026-11-21`, foi criado em
+21/11 e depois **excluído** de `payments` em 22/11 00:10:42 UTC. Todas essas
+linhas são `environment=test` no banco de produção.
 
 ### 3.4 Mecanismo C — reversão sem origem de mesmo valor (parcelas 147, 87 e 129)
 
@@ -192,19 +222,20 @@ padrão de rotina (`process_installment_estorno`) nestes oito contratos.
 
 | Reversão | Ambiente | Data | `esta_no_mes_da_tela` | Efeito no KPI de novembro |
 |---|---|---|---|---|
-| 227 / contrato 134 | teste | 21/11 | **sim** | Única subtraída de novembro; original fora da janela |
+| 227 / contrato 134 | teste | 21/11 | **sim** | Única subtraída de novembro; entrada original de 21/11 apagada em 22/11 |
 | Outras 8 | produção e teste | março a abril | não | Nenhum — a tela carrega só `payments` do mês corrente |
 
 A aritmética do KPI segue correta: **36.032,44 − 2.621,00 − 1.621,00 =
-31.790,44**. O ponto em aberto é o mesmo do diagnóstico, agora com evidência
-de origem: a reversão de R$ 1.000,00 da parcela 227 teve o vínculo
-`3715c3de…` **removido em 22/11 00:10:42 UTC**, e o destino desse pagamento
-original não consta na célula.
+31.790,44**. A célula complementar acrescenta um fato novo: a entrada de
+R$ 1.000,00 de 21/11 **existeu e foi excluída** de `payments` em 22/11
+00:10:42 UTC, enquanto a reversão de R$ 1.000,00, também de 21/11,
+**permanece** e é subtraída. Ou seja, o KPI desconta uma devolução cuja entrada
+não está mais na tabela — não é uma devolução de mês anterior.
 
 **Não é erro de soma.** É decisão de regra: ou o KPI mostra só entradas do mês
 menos estornos de entradas do mês, ou mostra o saldo de caixa do mês incluindo
-devoluções de meses anteriores. Qualquer mudança em `lib/payments.ts` depende
-dessa decisão.
+devoluções de entradas já removidas/atípicas. Qualquer mudança em
+`lib/payments.ts` depende dessa decisão.
 
 ---
 
@@ -214,52 +245,64 @@ dessa decisão.
 
 Todas as cinco têm **`amount_paid_bate_historico=true`**: `amountPaid` é igual
 a `pagamentos − reversões` em todas. Ou seja, **o pagamento salvo está certo**.
-O que precisa de decisão é o **status `Quitado`** diante de um saldo devedor —
-ou a revisão do valor original da parcela.
+O status `Quitado` com saldo aparente não é erro: é o desenho do desdobramento —
+a original é encerrada com a parte paga e a parte restante é inscrita em uma
+parcela irmã. Quatro irmãs seguem `Aberto` e a 239 foi quitada no dia seguinte
+com pagamento próprio.
 
 | Parcela | Contrato | Valor | `amountPaid` | Falta | Pagamentos | Líquido | Residual visível |
 |---:|---:|---:|---:|---:|---:|---:|---|
 | 194 | 107 | 3.000,00 | 1.500,00 | 1.500,00 | 1 × 1.500,00 | 1.500,00 | **257** (1.500,00, `Aberto`) |
 | 207 | 120 | 1.621,00 | 811,00 | 810,00 | 1.621,00 + 811,00; 1 estorno de 1.621,00 com vínculo | 811,00 | **256** (810,00, `Aberto`) |
 | 230 | 135 | 2.000,00 | 1.500,00 | 500,00 | 1.000,00 + 500,00 | 1.500,00 | **240** (500,00, `Aberto`) |
-| 231 | 135 | 2.000,00 | 1.000,00 | 1.000,00 | 1 × 1.000,00 | 1.000,00 | **239** (1.000,00, **`Quitado`**) — anômalo |
+| 231 | 135 | 2.000,00 | 1.000,00 | 1.000,00 | 1 × 1.000,00 | 1.000,00 | **239** (1.000,00; `Aberto` de 21/11 e `Quitado` em 22/11 com pagamento próprio) |
 | 237 | 135 | 2.000,00 | 1.500,00 | 500,00 | 1 × 1.500,00 | 1.500,00 | **244** (500,00, `Aberto`) |
 
-### 5.2 Quatro desdobramentos regulares
+### 5.2 Cinco desdobramentos regulares
 
-Nas parcelas **194, 207, 230 e 237** a parcela residual foi criada **no mesmo
-instante** em que a original foi marcada como `Quitado`:
+Nas parcelas **194, 207, 230, 231 e 237** a parcela residual foi criada **no
+mesmo instante** em que a original foi marcada como `Quitado`:
 
 - **194 → 257:** `07:52:53.405226+00:00` (25/11, produção). O contrato 107 foi
   `Quitado` e voltou a `Parcial` com `amountReceivable=1.500,00` na mesma
   transação.
 - **207 → 256:** `07:48:06.290129+00:00` (25/11, produção), depois do ciclo
-  recebimento → estorno vínculado → novo recebimento de 811,00.
+  recebimento → estorno vinculado → novo recebimento de 811,00.
 - **230 → 240:** `2026-11-22T00:01:08.213398+00:00` (teste), na transição
   `Parcial → Quitado` de 1.000,00 para 1.500,00.
+- **231 → 239:** `2026-11-21T23:38:12.640373+00:00` (teste), na transição
+  `Aberto → Quitado` com 1.000,00; a residual 239 entrou `Aberto` com
+  `amountPaid=0,00` no mesmo instante e foi quitada no dia seguinte.
 - **237 → 244:** `2026-11-22T20:13:33.049909+00:00` (teste), na transição
   `Aberto → Quitado` com 1.500,00.
 
-Nesses quatro casos o saldo visível na parcela original é **o esperado pelo
-desdobramento**: o restante vive na parcela irmã `Aberto`. Somam
-**R$ 3.310,00** (1.500 + 810 + 500 + 500).
+Nesses cinco casos o saldo visível na parcela original é **o esperado pelo
+desdobramento**: o restante vive na parcela irmã. Somam **R$ 4.310,00**
+(1.500 + 810 + 500 + 1.000 + 500).
 
-### 5.3 A anomalia da parcela 231
+### 5.3 A parcela 231 — suspeita refutada
 
-A parcela 231 foi aberta e marcada `Quitado` com 1.000,00 às
-`2026-11-21T23:38:12.640373+00:00`. No **mesmo instante** foi criada a parcela
-**239**, número 11, valor 1.000,00 — mas já com status **`Quitado`** e
-`amountPaid=1.000,00`.
+A primeira célula mostrava a parcela 239 já `Quitado` com R$ 1.000,00 e nenhum
+`payment` correspondente entre os registros retornados. Isso levantou a suspeita
+de uma residual **“nascida quitada sem recebimento próprio”**. A célula
+complementar **refutou** essa inferência:
 
-O pagamento `9dc6e441-a731-4bc6-baa3-90899c26b4df` (1.000,00, conta Carteira,
-transação financeira 1250) está lançado na **parcela 231**, não na 239. A
-célula não traz nenhum `payment` para a parcela 239. Resultado: a residual
-**nasceu quitada sem recebimento próprio**, enquanto a original ficou com
-R$ 1.000,00 em aberto.
+| Instante (UTC) | Fato | Evidência |
+|---|---|---|
+| 21/11 23:38:12.640373 | Parcela 231 `Aberto → Quitado`, `amountPaid` 0 → 1.000,00; **INSERT da parcela 239 como `Aberto`**, número 11, valor 1.000,00, `amountPaid=0,00` — mesma transação | logs `15872` e `15874` |
+| 21/11 23:38:12.640373 | Pagamento da 231: `9dc6e441-a731-4bc6-baa3-90899c26b4df`, R$ 1.000,00, conta 8, categoria 1, `payment_date=21/11`, transação financeira **1250** | log `15878` e `transacoes_vinculadas` |
+| 22/11 20:13:51.471768 | Pagamento **próprio** da 239: `046c7262-51ac-4c7f-a10f-7be2ce9adc31`, R$ 1.000,00, conta 11, `Cartão de Débito`, categoria 1, `payment_date=22/11`, transação financeira **1271**; parcela 239 `Aberto → Quitado` | log `16003`, `historico_parcelas_227_231_239` e `transacoes_vinculadas` |
 
-É o único R$ 1.000,00 dos R$ 4.310,00 que **não tem residual `Aberto`**
-correspondente. O contrato 135 mostra `amountReceived=19.000,00` e
-`amountReceivable=1.000,00`, coerente com o desdobramento incompleto.
+Conclusão: a residual ficou `Aberto` por cerca de 20 horas e depois foi quitada
+com **recebimento próprio**. Não há pagamento reaproveitado, nem linha
+financeira ausente nesse grupo. Os R$ 4.310,00 das cinco parcelas são
+desdobramentos regulares. As duas transações vinculadas são uma para cada
+parcela (1250 na 231, 1271 na 239).
+
+**Sobre a transação 1248:** ela aparece apenas no par original/reversão da
+parcela 227, já datado e encerrado pela auditoria. Não é necessária nova
+célula de SQL para as decisões em aberto; uma consulta específica só faria
+sentido em uma conciliação de caixa separada.
 
 ---
 
@@ -267,13 +310,18 @@ correspondente. O contrato 135 mostra `amountReceived=19.000,00` e
 
 | Objeto | Evidência |
 |---|---|
-| 3 linhas em `payments` | `2026-11-22T00:10:42.202385+00:00`, ambiente teste, **`performed_by=null`**: duas conversões `payment → reversal` (113, 122) e a remoção do vínculo da 227. |
+| 3 linhas em `payments` | `2026-11-22T00:10:42.202385+00:00`, `environment=test`, **`performed_by=null`**: duas conversões `payment → reversal` (113, 122) e a remoção do vínculo da 227. |
+| Original da 227 | `INSERT` em 21/11 22:07:52 (`created_by=2`), desvinculação da transação 1248 às 22:08:14 (`performed_by=null`) e **`DELETE`** em 22/11 00:10:42 (`performed_by=null`), com `payment_date=21/11` no `old_data`. |
 | Parcelas 113, 122, 227 | Status alterado em 21/11, entre `22:08:14` e `23:27:33`, todas por `performed_by=2`. |
 | Parcelas 194, 207 | Correções em 25/11 entre `07:37:25` e `07:52:53`, por `performed_by=2`; incluem o ciclo de estorno vínculado da 207. |
-| Parcela 231 / contrato 135 | Abertura e quitação em 21/11; vários ajustes de `amountReceived` no contrato 135 até `2026-11-22T20:13:51.471768+00:00`. |
-| Reversões 147, 87, 129, 103, 148 | **Nenhuma linha** em `auditoria_pagamentos` na célula — não é possível datá-las com estes dados. |
+| Parcelas 231 e 239 | 231 aberta e quitada em 21/11 23:38:12; 239 criada `Aberto` no mesmo instante e quitada em 22/11 20:13:51 com pagamento próprio; todas por `performed_by=2`. |
+| Reversões antigas | A célula complementar confirmou **`qtd_logs=0`** nos cinco UUIDs `543ce837…`, `b02ef217…`, `ba58e2cc…`, `e672c672…` e `fbf7f49b…`. Não é possível datá-las com `audit_logs`. |
 
-Limitações registradas pelo próprio script:
+Todas as linhas da célula complementar são `environment=test` no banco de
+produção. A ausência de log não prova que o lançamento nunca existiu — apenas
+que `audit_logs` não registrou a ação.
+
+Limitações registradas pelos scripts:
 
 - `payments` e `installments` **não têm `updated_at`**; `audit_logs` é o único
   meio de datar mudanças.
@@ -293,9 +341,9 @@ Limitações registradas pelo próprio script:
    atual evita aproximação, e a célula mostra que em 103 e 148 o candidato só
    existe na mesma data/depois.
 3. Não baixar `amountPaid` das 5 parcelas `Quitado` com saldo: o salvo bate com
-   o histórico, e quatro já têm residual criado.
-4. Não “fechar” a parcela 239 nem transferir o pagamento da 231 sem decidir o
-   que aconteceu com o desdobramento — o pagamento pertence à 231.
+   o histórico e as cinco têm residual criada, com recebimento próprio.
+4. Não transferir o pagamento `9dc6e441…` da parcela 231 para a 239: cada
+   parcela tem o seu (transações 1250 e 1271, respectivamente).
 5. Não alterar a regra do KPI nem a definição de “vencido” (`Prorrogada`) sem
    decisão de negócio registrada.
 6. Não usar `CREATE INDEX CONCURRENTLY` no SQL Editor (erro `25001`).
@@ -304,20 +352,20 @@ Limitações registradas pelo próprio script:
 
 ## 8. Próximos passos
 
-1. **Decidir a regra do KPI** para a reversão órfã da parcela 227. Antes disso,
-   uma célula complementar somente leitura pode dizer onde ficou o pagamento
-   `3715c3de-f5ed-4ce9-a2ff-ca75fa43a3b9` e se a parcela 239 tem algum
-   pagamento próprio (`docs/RASTREIO-COMPLEMENTAR-20261125.sql`).
-2. **Decidir o destino dos R$ 1.000,00 da parcela 231**: manter o saldo na
-   231, desfazer a quitação da 239 ou realocar o pagamento. São três saídas de
-   negócio diferentes; nenhuma foi aplicada.
-3. **Manter a decisão de “vencido” em aberto** — a divergência de
+1. **Decidir a regra do KPI** para a reversão órfã da parcela 227, agora com
+   evidência completa: a entrada de R$ 1.000,00 de 21/11 foi apagada em 22/11
+   00:10:42 UTC e a reversão de R$ 1.000,00 da mesma data permanece sendo
+   subtraída. Definir a regra antes de qualquer mudança em `lib/payments.ts`.
+2. **Manter a decisão de “vencido” em aberto** — a divergência de
    `Prorrogada` continua sendo diferença de definição, não de dado.
-4. **Verificar o isolamento da view** `contract_receivables_summary` em tarefa
+3. **Verificar o isolamento da view** `contract_receivables_summary` em tarefa
    separada, com JWT de outro ambiente.
-5. Para qualquer mudança: medir antes, escrever forward/verify/rollback em uma
+4. Para qualquer mudança: medir antes, escrever forward/verify/rollback em uma
    única célula, pedir autorização explícita e aplicar somente pelo usuário no
    SQL Editor.
+
+Não há mais célula de SQL pendente nesta checagem: as duas foram executadas e
+interpretadas.
 
 ---
 
@@ -329,10 +377,15 @@ vínculo removido, quatro não têm origem de mesmo valor no histórico e duas s
 encontram candidato na mesma data/depois. As 8 parcelas e os R$ 14.800,00
 continuam exatos, mas agora com mecanismo classificado.
 
-Das 5 parcelas `Quitado` com saldo, **R$ 3.310,00 são desdobramentos regulares**
-com residual `Aberto` e **R$ 1.000,00 são a anomalia da parcela 231**, cuja
-residual 239 nasceu quitada sem pagamento próprio.
+Das 5 parcelas `Quitado` com saldo, **todos os R$ 4.310,00 são desdobramentos
+regulares**: as residuais 257, 256, 240, 244 e 239 nasceram `Aberto`, e a 239
+foi quitada em 22/11 com pagamento próprio. A suspeita de anomalia na parcela
+231, levantada pela primeira célula, foi **refutada** pela complementar.
 
-Nenhuma correção financeira foi aplicada. O rastreio rodou dentro de
-`begin … rollback`, não persistiu nada e nenhum rollback de mudança anterior
+A única decisão financeira em aberto é a regra do KPI: a entrada de R$ 1.000,00
+de 21/11 da parcela 227 foi excluída de `payments`, mas a reversão de
+R$ 1.000,00 da mesma data continua sendo subtraída.
+
+Nenhuma correção financeira foi aplicada. Ambos os scripts rodaram dentro de
+`begin … rollback`, não persistiram nada e nenhum rollback de mudança anterior
 foi acionado.
