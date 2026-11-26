@@ -27,10 +27,11 @@
 
 begin;
 
+-- Tabela temporaria de apoio: some com o ROLLBACK final (sem ON COMMIT DROP).
 create temp table diag_caixa_blocos (
   bloco    text primary key,
   conteudo jsonb not null
-) on commit drop;
+);
 
 do $diag$
 declare
