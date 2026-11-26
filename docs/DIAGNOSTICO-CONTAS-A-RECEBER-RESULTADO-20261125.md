@@ -23,7 +23,7 @@ divergência** e **hipótese refutada**. Segue o padrão de
 
 | Pergunta da checagem | Resposta com base nos dados |
 |---|---|
-| O KPI “Recebido este Mês” reproduz a regra do app? | **Sim, aritmeticamente.** Bruto R$ 36.032,44 − R$ 2.621,00 (reversões) − R$ 1.621,00 (pagamentos estornados com vínculo) = **R$ 31.790,44**. Há uma decisão de regra em aberto: uma reversão de R$ 1.000,00 em novembro não tem vínculo e seu recebimento original é de outro mês. |
+| O KPI “Recebido este Mês” reproduz a regra do app? | **Sim, aritmeticamente.** Bruto R$ 36.032,44 − R$ 2.621,00 (reversões) − R$ 1.621,00 (pagamentos estornados com vínculo) = **R$ 31.790,44**. A hipótese de que a reversão órfã de R$ 1.000,00 tivesse original em outro mês foi **refutada** em 26/11: o original era de 21/11 e foi apagado. O par é neutro na regra atual; não é necessário alterar o código. |
 | A “Previsão (30d)” inclui contrato cancelado ou parcela sem saldo? | **Não.** 7 parcelas, R$ 21.923,20, zero sem saldo e zero de contrato cancelado. |
 | `amountPaid` bate com pagamentos − reversões? | **Não em 8 parcelas.** As 8 diferenças somam **R$ 14.800,00**, exatamente a soma das 9 reversões sem vínculo. É uma única família de causa, não oito problemas distintos. |
 | Existem pagamentos órfãos sem parcela? | **Não.** Zero. |
@@ -132,19 +132,19 @@ comportamento a partir do código e dos dados; não há auditoria em
 | − descrição contendo “estorno” | R$ 0,00 |
 | **Líquido segundo a regra reproduzida** | **R$ 31.790,44** |
 
-A conta fecha exatamente. O único ponto sensível é a reversão sem vínculo
-`60fe1d1b-10ad-47c7-aab0-11a4078297d0` (21/11, parcela 227/contrato 134,
-R$ 1.000,00, “Estorno: erro no sistema”): ela é subtraída de novembro, mas seu
-recebimento original está fora do mês e, portanto, não é excluído de novembro.
-O helper citado no handoff cobre estornos antigos sem vínculo por valor + parcela;
-aqui ele remove o pagamento original, que já não estava na janela do mês. O
-resultado é um mês com uma saída de caixa sem entrada correspondente na mesma
-janela.
+A conta fecha exatamente. A célula complementar de 26/11 **refutou** a hipótese
+que havia aqui: o recebimento original `3715c3de…` **não estava fora do mês** —
+ele tinha `payment_date=21/11` e foi **excluído** de `payments` em 22/11
+00:10:42 UTC, no mesmo instante em que o vínculo da reversão foi removido.
 
-**Não é erro de soma.** É uma decisão de regra de negócio: ou o KPI deve mostrar
-apenas entradas do mês menos estornos de entradas do mês, ou deve mostrar o
-saldo de caixa do mês incluindo devoluções de meses anteriores. Precisa de
-decisão explícita antes de qualquer mudança em `lib/payments.ts`.
+**Não é erro de soma e não é necessário alterar `lib/payments.ts`.** A reversão
+já é excluída pelo `type='reversal'`. Se o pagamento original ainda existisse, a
+heurística por valor + parcela também o excluiria; como ele foi apagado, não há
+nada a remover. Nos dois cenários o líquido é o mesmo: **R$ 31.790,44**. O par
+entrada/estorno é neutro na regra atual. Ver
+`docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md` e
+`docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md` (todas as linhas envolvidas são
+`test` no banco único).
 
 ---
 
