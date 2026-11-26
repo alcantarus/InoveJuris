@@ -158,26 +158,37 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
 
 1. **Validações manuais (usuário):** logout/expiração de sessão; permissão em `ProfilesTab`;
    upload/IA em Marketing; impersonação em `/usuarios`; conferência no iPhone.
-2. **Vencimento da parcela residual** — explicação para o usuário em 26/11:
-   `rpc_recebimento_com_desdobramento` (`app/setup/page.tsx`, insert da parcela
-   remanescente) copia `"dueDate"` da parcela original. Assim, após um
+2. **Vencimento da parcela residual — DECISÃO APROVADA EM 26/11: manter como
+   está.** `rpc_recebimento_com_desdobramento` (`app/setup/page.tsx`, insert da
+   parcela remanescente) copia `"dueDate"` da parcela original. Assim, após um
    pagamento parcial, o saldo remanescente continua com o vencimento antigo e
    pode entrar em `overdue_amount`/`is_overdue` da view no mesmo dia da baixa.
-   **Não é erro de dado**: é regra de negócio. As alternativas são (a) manter a
-   data do título, (b) usar a data do pagamento parcial como novo vencimento ou
-   (c) alinhar ao vencimento da próxima parcela em aberto. Qualquer mudança
-   afeta a Previsão (30d), os KPIs de atraso e, se mexer em parcelas já
-   criadas, exige autorização e forward/verify/rollback com medição prévia.
-3. **Recebimento em lote de `Estornado`** — explicação para o usuário em
-   26/11: `isBatchEligible` (`app/contas-a-receber/page.tsx:364`) exclui
-   `estornado`/`estornada` do lote e do “selecionar todos”; o botão individual
-   **Receber** só desabilita `Quitado` e `Cancelada` (`:1088`). Portanto uma
-   parcela `Estornado` com `amountPaid = 0` e saldo devedor pode ser recebida
-   individualmente, mas não entra no lote. No banco, `rpc_receber_parcela_com_metodo`
-   também não barra `Estornado`. A decisão é se o lote deve alinhar ao
-   individual (incluir `Estornado` com saldo) ou se o individual deve ser
-   restrito. Recomenda-se critério por **saldo devedor**, não só por status.
-   Nenhuma das duas opções foi implementada.
+   **Não é erro de dado**: é regra de negócio. Se houver acordo de prazo, usar a
+   ação **Prorrogar**, que registra `original_due_date`. Nenhuma mudança em
+   código, view ou dados.
+3. **Recebimento em lote de `Estornado` — aguardando decisão.** Explicação
+   detalhada ao usuário em 26/11:
+   - O **lote** é o botão “Receber Selecionados (N)” (`:948`): o usuário marca
+     várias parcelas pelos checkboxes e um assistente recebe uma por uma, com
+     mesma conta/categoria/forma de pagamento e contador “1 de N”
+     (`handleBatchConfirm`, `:254`).
+   - O **estorno** (`process_installment_estorno`, `app/setup/page.tsx:903`)
+     desfaz um recebimento já baixado: marca `status='Estornado'`, zera
+     `amountPaid`, apaga a movimentação financeira original e insere um
+     pagamento `reversal`. A parcela volta a ter saldo devedor, mas deixa de
+     estar `Aberto`.
+   - `isBatchEligible` (`:364`) exclui `estornado`/`estornada` do lote e do
+     “selecionar todos” (`:983`); o botão individual **Receber** só desabilita
+     `Quitado` e `Cancelada` (`:1088`). Portanto uma parcela `Estornado` com
+     `amountPaid = 0` pode ser recebida individualmente, mas não entra no lote.
+     A RPC `rpc_receber_parcela_com_metodo` também não barra `Estornado`.
+   - **Recomendação revisada em 26/11:** retirar a sugestão anterior de
+     “incluir no lote por saldo devedor”. A view `contract_receivables_summary`
+     e a Previsão 30d (`:417`) **excluem** `estornado`. Incluir só no lote criaria
+     um recebimento que os KPIs não contam. A decisão de fundo é: (a) tratar
+     `Estornado` como dívida a receber — nesse caso é preciso alinhar lote, view
+     e Previsão, não só o lote; ou (b) tratá-lo como item encerrado — nesse caso
+     bloquear também o recebimento individual. Nenhuma opção foi implementada.
 
 ## 8. Contexto técnico útil
 
