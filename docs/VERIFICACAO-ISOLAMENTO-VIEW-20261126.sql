@@ -52,8 +52,8 @@ do $$
 declare
   v_env     text;
   v_prefix  text;
-  v_sid     uuid;
-  v_uid     uuid;
+  v_sid     text;
+  v_uid     text;
   v_ok      boolean;
   v_tem_env boolean;
   v_total   bigint;
@@ -76,7 +76,7 @@ begin
     perform set_config(v_prefix || '.qtd_sessoes', v_qtd::text, true);
     perform set_config(v_prefix || '.ultimo_visto', coalesce(v_ultimo::text, ''), true);
 
-    select s.id, s.user_id
+    select s.id::text, s.user_id::text
       into v_sid, v_uid
       from public.user_sessions s
      where s.environment = v_env
@@ -91,9 +91,9 @@ begin
     if v_sid is not null then
       perform set_config('request.jwt.claims', jsonb_build_object(
         'role',          'authenticated',
-        'session_id',    v_sid::text,
+        'session_id',    v_sid,
         'environment',   v_env,
-        'sub',           v_uid::text,
+        'sub',           v_uid,
         'is_superadmin', false
       )::text, true);
       perform set_config('role', 'authenticated', true);

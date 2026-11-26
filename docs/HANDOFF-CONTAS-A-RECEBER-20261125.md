@@ -56,6 +56,11 @@ A checagem forense, o rastreio das 13 parcelas e a célula complementar estão
    somente leitura, declara o banco único e separa os dois rótulos; termina em
    `rollback`. Se apontar vazamento, preparar forward/verify/rollback **sem
    aplicar**.
+   - 1ª execução (26/11, 11:58:48 UTC): estrutura da view lida, mas
+     `sessao_encontrada=false` nos dois ambientes e contagens `null`.
+   - 2ª execução: falha `22P02` — `user_sessions.user_id` é numérico (`2`) e
+     tinha sido declarado `uuid` no bloco; corrigido para `text` (o mesmo
+     padrão de `docs/VALIDACAO-P1-1-20261123.sql`), sem mudança na lógica.
 4. Nenhuma correção é aplicada sem autorização explícita, medição prévia e
    forward/verify/rollback. A única célula pendente agora é a do item 3.
 
