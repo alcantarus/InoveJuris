@@ -210,7 +210,7 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
      30d 10.000,00; `production` 320.655,80 / 65.270,00 / 50 / 19.329,60.
      Parcelas estornadas e saldo inalterados (3 / R$ 15.000,00 em `test`).
      `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql` disponível, **não acionado**.
-   - **Pendente de autorização explícita (UPDATE em dados):** o verify apontou
+   - **Autorizada pelo usuário em 26/11, ainda não executada (UPDATE em dados):** o verify apontou
      `amount_receivable_desatualizado=3` em `test` e `0` em `production`; os 3
      contratos seguirão com `contracts."amountReceivable"` antigo até um evento
      em parcelas/pagamentos. Preparados

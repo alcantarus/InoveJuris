@@ -122,14 +122,14 @@ correção, os 3 contratos de `test` continuariam com o valor antigo (R$ 15.000,
 no total) em `/contratos` e no dashboard até o próximo recebimento, enquanto a
 view `contract_receivables_summary` já mostra R$ 30.000,00. O script faz
 `UPDATE` **somente** nesses contratos, com guarda de abort se aparecer qualquer
-contrato de `production` ou mais de 10 afetados. **Aguardando autorização
-explícita do usuário; não executado.**
+contrato de `production` ou mais de 10 afetados. **Autorizada pelo usuário em
+26/11; ainda não executada.**
 
 ## 5. Execução (pelo usuário)
 
 1. ✅ `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` — estrutural; sem dados. **Aplicado.**
 2. ✅ `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` — estrutura e KPIs conferidos às 12:44:20 UTC.
-3. ⏳ `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` — **aguarda autorização explícita** (UPDATE em 3 contratos de `test`).
+3. ⏳ `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` — **autorizada pelo usuário em 26/11** (UPDATE em 3 contratos de `test`), aguardando execução.
 4. ⏳ Verify novamente; `amount_receivable_desatualizado` deve passar a `0` nos dois ambientes.
 
 Se algo divergir: rollback de dados (se aplicado) e rollback estrutural, nessa
