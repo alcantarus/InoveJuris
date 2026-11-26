@@ -107,8 +107,8 @@ código do repositório (versões v7/v8).
 | `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql` | restaura as definições do backup | preparado, **não acionado** |
 
 As definições originais ficaram guardadas em
-`public.backup_estornado_recebivel_20261126`. Nenhum dado de negócio foi
-alterado; nenhum rollback foi acionado.
+`public.backup_estornado_recebivel_20261126`. Nenhum dado foi alterado nesta
+etapa; nenhum rollback foi acionado.
 
 ### Dados — preparado, **depende de autorização explícita**
 
@@ -122,15 +122,19 @@ correção, os 3 contratos de `test` continuariam com o valor antigo (R$ 15.000,
 no total) em `/contratos` e no dashboard até o próximo recebimento, enquanto a
 view `contract_receivables_summary` já mostra R$ 30.000,00. O script faz
 `UPDATE` **somente** nesses contratos, com guarda de abort se aparecer qualquer
-contrato de `production` ou mais de 10 afetados. **Autorizada pelo usuário em
-26/11; ainda não executada.**
+contrato de `production` ou mais de 10 afetados. **Executada pelo usuário em
+26/11 às 12:50:01.655136+00:00:** contratos 74 (0,00 → 2.000,00), 76
+(0,00 → 3.000,00) e 134 (0,00 → 10.000,00), todos `environment=test`, total
+R$ 15.000,00. Nenhum contrato de `production` afetado. Verify final pendente.
 
 ## 5. Execução (pelo usuário)
 
 1. ✅ `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` — estrutural; sem dados. **Aplicado.**
 2. ✅ `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` — estrutura e KPIs conferidos às 12:44:20 UTC.
-3. ⏳ `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` — **autorizada pelo usuário em 26/11** (UPDATE em 3 contratos de `test`), aguardando execução.
+3. ✅ `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` — executada às 12:50:01 UTC (UPDATE em 3 contratos de `test`).
 4. ⏳ Verify novamente; `amount_receivable_desatualizado` deve passar a `0` nos dois ambientes.
 
 Se algo divergir: rollback de dados (se aplicado) e rollback estrutural, nessa
-ordem. Até agora **nenhuma linha de negócio foi alterada**.
+ordem. A etapa estrutural não alterou linhas; a etapa de dados alterou somente
+as 3 colunas `amountReceivable` já listadas, com backup em
+`public.backup_estornado_recebivel_dados_20261126`.
