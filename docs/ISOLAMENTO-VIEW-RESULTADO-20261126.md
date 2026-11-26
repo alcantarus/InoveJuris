@@ -48,34 +48,33 @@ A soma é simétrica: **125 = 106 + 19** nos dois sentidos.
   fora de `next_due_date`, `overdue_amount`, `overdue_installments` e
   `is_overdue`, como decidido pelo usuário.
 
-## 4. Correção proposta (preparada, **não aplicada**)
+## 4. Correção aplicada e verificada
 
-A correção recomendada é marcar a view com `security_invoker = on`, para que
-ela passe a respeitar o RLS das tabelas-base — o mesmo padrão já usado em outras
-views do projeto (F5/F7). Ela não altera a definição SQL nem dados.
+A correção foi marcar a view com `security_invoker = on`, para que ela passe a
+respeitar o RLS das tabelas-base — o mesmo padrão já usado em outras views do
+projeto (F5/F7). A definição SQL e os dados não foram alterados.
 
 | Arquivo | Função | Estado |
 |---|---|---|
-| `docs/FORWARD-ISOLAMENTO-VIEW-20261126.sql` | aplica `security_invoker = on` com checagem de privilégios | **preparado, não aplicado** |
-| `docs/VERIFY-ISOLAMENTO-VIEW-20261126.sql` | repetição das contagens por ambiente + estrutura | **preparado, não executado** |
-| `docs/ROLLBACK-ISOLAMENTO-VIEW-20261126.sql` | volta a `RESET (security_invoker)` | **preparado, não aplicado** |
+| `docs/PRECHECK-ISOLAMENTO-VIEW-20261126.sql` | confirma privilégios e estado inicial | executado em 12:20:58 UTC |
+| `docs/FORWARD-ISOLAMENTO-VIEW-20261126.sql` | aplica `security_invoker = on` com checagem de privilégios | **aplicado pelo usuário em 26/11** |
+| `docs/VERIFY-ISOLAMENTO-VIEW-20261126.sql` | repete as contagens por ambiente | medições feitas com o script de verificação original |
+| `docs/ROLLBACK-ISOLAMENTO-VIEW-20261126.sql` | volta a `RESET (security_invoker)` | **não aplicado** |
 
-**Aplicação exige autorização explícita do usuário.** Antes do forward, a
-medição prévia acima já registra o estado original; depois do forward, o verify
-deve mostrar `view_total = contracts_via_rls` e `view_de_outro_ambiente = 0`
-em ambos os ambientes.
+Pré-checagem: view existe, `reloptions=""`, `security_invoker_on=false`,
+`SELECT` de `authenticated` concedido em `contracts`, `clients` e
+`installments`, e `pronto_para_forward=true`.
 
-Pré-checagem executada pelo usuário em 26/11, 12:20:58 UTC
-(`docs/PRECHECK-ISOLAMENTO-VIEW-20261126.sql`): view existe, `reloptions=""`,
-`security_invoker_on=false`, `SELECT` de `authenticated` concedido em
-`contracts`, `clients` e `installments`, e `pronto_para_forward=true`.
+### Medição pós-forward
 
-**Forward aplicado pelo usuário em 26/11** (horário exato não informado; a
-aplicação foi confirmada pelo catálogo: `reloptions=security_invoker=on` e
-definição da view inalterada). Primeira medição pós-forward, com sessão em
-`test` às 12:22:26 UTC: `view_total=19`, `view_do_ambiente=19`,
-`view_de_outro_ambiente=0`, `contracts_via_rls=19`. **Falta a medição de
-`production`** para encerrar o verify. Nenhum dado de negócio foi alterado.
+| Ambiente da sessão | Coletado em (UTC) | View total | Próprias | De outro | RLS | Resultado |
+|---|---|---:|---:|---:|---:|---|
+| `test` | 2026-11-26 12:22:26 | 19 | 19 | 0 | 19 | isolado |
+| `production` | 2026-11-26 12:25:02 | 106 | 106 | 0 | 106 | isolado |
+
+Estrutura confirmada no catálogo: `reloptions=security_invoker=on`, sem
+alteração na definição da view. **Item 2 encerrado com sucesso.** O rollback
+não foi acionado e nenhuma linha de negócio foi alterada.
 
 ## 5. Limitações
 

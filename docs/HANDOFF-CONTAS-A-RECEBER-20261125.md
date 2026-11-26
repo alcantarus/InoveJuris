@@ -12,8 +12,9 @@
 > `production` às 12:06:38 UTC e em `test` às 12:09:37 UTC). A view **vaza
 > linhas do outro ambiente no banco** em ambos os sentidos; na tela o filtro
 > do cliente esconde o cruzamento. Relatório em
-> `docs/ISOLAMENTO-VIEW-RESULTADO-20261126.md`. Forward/verify/rollback da
-> correção estão **preparados e não aplicados**, aguardando autorização.
+> `docs/ISOLAMENTO-VIEW-RESULTADO-20261126.md`. O forward com
+> `security_invoker=on` foi **aplicado pelo usuário e verificado nos dois
+> ambientes** (teste 19/19/0, produção 106/106/0). Rollback não acionado.
 > **Item 3 explicado** na seção 7; nenhuma mudança implementada.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
@@ -66,13 +67,14 @@ A checagem forense, o rastreio das 13 parcelas e a célula complementar estão
      `authenticated`); chamada movida para antes do `set role`.
    - 4ª execução (12:06:38 UTC): medição de `production` — 125 / 106 / 19 / RLS 106.
    - 5ª execução (12:09:37 UTC): medição de `test` — 125 / 19 / 106 / RLS 19.
-4. **CORREÇÃO ESTRUTURAL — preparada, não aplicada:** a recomendação é
-   `security_invoker = on` na view, para herdar o RLS das tabelas-base. Arquivos
-   prontos: `docs/FORWARD-ISOLAMENTO-VIEW-20261126.sql` (com pré-checagem de
-   privilégios), `docs/VERIFY-ISOLAMENTO-VIEW-20261126.sql` (nova medição) e
-   `docs/ROLLBACK-ISOLAMENTO-VIEW-20261126.sql`. **Aplicação depende de
-   autorização explícita do usuário.** Nenhuma correção é aplicada sem
-   autorização, medição prévia e forward/verify/rollback.
+4. **CORREÇÃO ESTRUTURAL — aplicada e verificada em 26/11/2026:** o usuário
+   rodou o precheck (`pronto_para_forward=true`) e o forward
+   (`security_invoker=on`). Verificação pós-forward: sessão em `test` às
+   12:22:26 UTC com `19/19/0` e sessão em `production` às 12:25:02 UTC com
+   `106/106/0` (view total / próprias / de outro), ambas iguais a
+   `contracts_via_rls`. Definição da view inalterada, rollback **não**
+   acionado, nenhum dado de negócio alterado. Detalhes em
+   `docs/ISOLAMENTO-VIEW-RESULTADO-20261126.md`.
 
 Atenção ao escopo (regra permanente): as consultas rodaram no **banco único**
 (PG 17.6), onde `production` e `test` são rótulos da coluna `environment`, não
