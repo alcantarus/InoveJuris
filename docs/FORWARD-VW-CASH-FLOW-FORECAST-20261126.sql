@@ -14,7 +14,8 @@
 --     parcela 227 (test, Estornado): 10.000,00, previsto 9.000,00 -> inalterado
 --     parcela 238 (test, Cancelada, contrato Cancelado): previsto 1.350,00
 --       -> deve sair da view
---   Previsto pos-forward: production R$ 30.122,64 (8->7 linhas);
+--   Previsto pos-forward: production R$ 30.122,64 (8->8 linhas: nenhuma
+--     cancelada em production, só o valor da parcial muda);
 --     test R$ 11.000,00 (3->2 linhas).
 --
 -- Efeito esperado: somente a definicao da view. Nenhum dado de negocio alterado.

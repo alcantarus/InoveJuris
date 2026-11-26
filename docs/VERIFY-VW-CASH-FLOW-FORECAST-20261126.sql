@@ -12,7 +12,8 @@
 -- Critério estrutural: 8 colunas na ordem original, security_invoker=on,
 -- SELECT concedido a anon e authenticated, cálculo com saldo nas parciais.
 -- Critério de resultado (medição prévia de 13:30:53 UTC):
---   production: 8 linhas / R$ 31.922,64 -> 7 linhas / R$ 30.122,64
+--   production: 8 linhas / R$ 31.922,64 -> 8 linhas / R$ 30.122,64
+--     (nenhuma cancelada em production; só o valor da parcial muda)
 --   test:       3 linhas / R$ 12.350,00 -> 2 linhas / R$ 11.000,00
 --   parcela 140 (production, Parcial): 2.700,00 -> 900,00
 --   parcela 227 (test, Estornado): 9.000,00 (inalterada)
@@ -127,7 +128,7 @@ select jsonb_pretty(jsonb_build_object(
 
   'conferencia', jsonb_build_object(
     'production_linhas', coalesce((select linhas from por_ambiente where environment = 'production'), -1),
-    'production_linhas_esperado', 7,
+    'production_linhas_esperado', 8,
     'production_previsto', coalesce((select previsto from por_ambiente where environment = 'production'), -1),
     'production_previsto_esperado', 30122.64,
     'test_linhas', coalesce((select linhas from por_ambiente where environment = 'test'), -1),
@@ -141,7 +142,7 @@ select jsonb_pretty(jsonb_build_object(
 
   'criterio_de_sucesso', jsonb_build_object(
     'estrutura', 'view_existe=true, security_invoker_on=true, colunas_ok=true, anon_select=true, authenticated_select=true, usa_saldo_nas_parciais=true.',
-    'resultado', 'production 7 linhas/30122.64; test 2 linhas/11000.00; parcela 140=900; parcela 227=9000; parcela 238 ausente; quitadas 2+1; 0 canceladas.',
+    'resultado', 'production 8 linhas/30122.64; test 2 linhas/11000.00; parcela 140=900; parcela 227=9000; parcela 238 ausente; quitadas 2+1; 0 canceladas.',
     'observacao', 'Os totais são da medição prévia de 26/11. Operações novas no app podem alterar os números; o critério decisivo é o estrutural somado aos três pontos.',
     'se_divergir', 'Rodar docs/ROLLBACK-VW-CASH-FLOW-FORECAST-20261126.sql e enviar o resultado.'
   )
