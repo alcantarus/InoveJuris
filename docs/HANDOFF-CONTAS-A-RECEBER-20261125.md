@@ -65,6 +65,17 @@ A checagem forense, o rastreio das 13 parcelas e a célula complementar estão
      `set_config('role','authenticated')`, e esse papel não tem EXECUTE nela;
      a chamada foi movida para antes da troca de papel, como no script de
      validação P1.1.
+   - 4ª execução (26/11, 12:06:38 UTC): **medição de `production` obtida** —
+     sessão válida, `view_total=125`, `view_do_ambiente=106`,
+     `view_de_outro_ambiente=19`, `contracts_via_rls=106`. Ou seja, **a view
+     vaza 19 linhas `test` para uma sessão `production`** no banco (sem RLS na
+     view e sem `security_invoker`). A tela não as mostra porque
+     `lib/supabase.ts` injeta `.eq('environment', ambiente)` em toda consulta,
+     inclusive na view. `test` ficou sem sessão (`sessoes_sem_logout=0`) e
+     precisa de nova execução com o app naquele ambiente.
+   - Correção estrutural (avaliar `security_invoker` ou filtro explícito por
+     `environment` na view) **não foi aplicada**: depende da medição de `test`,
+     de forward/verify/rollback preparados e de autorização explícita.
 4. Nenhuma correção é aplicada sem autorização explícita, medição prévia e
    forward/verify/rollback. A única célula pendente agora é a do item 3.
 
