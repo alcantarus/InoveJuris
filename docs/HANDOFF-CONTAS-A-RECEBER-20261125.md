@@ -1,13 +1,17 @@
 # Handoff — Checagem forense de Contas a Receber (25/11/2026)
 
-> Estado do repositório ao sair: `main` no commit desta interpretação, árvore
-> limpa, publicado no GitHub.
+> Estado do repositório ao sair: `main` no commit desta retomada, árvore limpa,
+> publicado no GitHub.
 > **Retomada em 26/11/2026:** usuário rodou a célula complementar; agente a
 > interpretou e corrigiu o relatório. Checagem forense, rastreio e complemento
 > **encerrados** — não há célula de SQL pendente.
-> **Tarefa em curso:** nenhuma execução de banco. Restam decisões de regra
-> (KPI e “vencido”) e verificação isolada da view, para outro momento, começando
-> exatamente pelo item 1 da seção 2 abaixo.
+> **Item 1 aprovado pelo usuário em 26/11/2026:** manter o KPI inalterado e
+> `Prorrogada` fora de “vencido”. Nenhuma mudança em `lib/payments.ts`, na view
+> ou em dados de negócio.
+> **Item 2 em curso:** `docs/VERIFICACAO-ISOLAMENTO-VIEW-20261126.sql` escrito,
+> **ainda não executado**; depende de o usuário manter o app aberto nos dois
+> ambientes e colar a célula `verificacao_isolamento_view_20261126`.
+> **Item 3 pendente de explicação**, após os itens 1 e 2 — ver seção 7.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
 ## 1. O que está feito
@@ -33,16 +37,27 @@ A checagem forense, o rastreio das 13 parcelas e a célula complementar estão
 **concluídos e interpretados** em
 `docs/RASTREIO-ESTORNOS-RESULTADO-20261125.md`. Retomar exatamente aqui:
 
-1. **Decidir a regra do KPI** para a reversão órfã da parcela 227: a entrada de
-   R$ 1.000,00 de 21/11 (`3715c3de…`, transação 1248) foi **apagada** em 22/11
+1. **REGRA DO KPI — decidida e aprovada em 26/11/2026:** manter
+   `lib/payments.ts` e o KPI “Recebido este Mês” **inalterados**. A entrada de
+   R$ 1.000,00 de 21/11 (`3715c3de…`, transação 1248) foi apagada em 22/11
    00:10:42 UTC e a reversão de R$ 1.000,00, também de 21/11, permanece sendo
-   subtraída. Não é devolução de mês anterior.
-2. **Decidir a regra de “vencido”** para `Prorrogada` (diferença de definição,
-   não de dado).
-3. **Verificar o isolamento da view** `contract_receivables_summary` em tarefa
-   separada, com JWT de outro ambiente.
+   subtraída; se a entrada existisse, a heurística por valor + parcela também a
+   removeria. O par é neutro: líquido **R$ 31.790,44** nos dois cenários.
+   Todas as linhas são `environment=test` no banco único.
+2. **REGRA DE “VENCIDO” — decidida e aprovada em 26/11/2026:** manter
+   `Prorrogada` **fora** de `overdue_amount`, `overdue_installments` e
+   `is_overdue` na view `contract_receivables_summary`. Parcela prorrogada teve
+   o vencimento estendido; não é inadimplente. É definição, não erro de dado:
+   a view permanece como está.
+3. **VERIFICAÇÃO DE ISOLAMENTO — em curso:** rodar
+   `docs/VERIFICACAO-ISOLAMENTO-VIEW-20261126.sql` inteiro, com o app aberto em
+   `production` e em `test` (heartbeat de 20 s, limite de 90 s na sessão), e
+   colar a ÚNICA célula `verificacao_isolamento_view_20261126`. O script é
+   somente leitura, declara o banco único e separa os dois rótulos; termina em
+   `rollback`. Se apontar vazamento, preparar forward/verify/rollback **sem
+   aplicar**.
 4. Nenhuma correção é aplicada sem autorização explícita, medição prévia e
-   forward/verify/rollback. Nenhuma célula de SQL está pendente.
+   forward/verify/rollback. A única célula pendente agora é a do item 3.
 
 Atenção ao escopo (regra permanente): as consultas rodaram no **banco único**
 (PG 17.6), onde `production` e `test` são rótulos da coluna `environment`, não
