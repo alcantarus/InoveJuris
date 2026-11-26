@@ -230,13 +230,24 @@ parcelas_div as (
          coalesce(sum(p.amount) filter (
            where lower(btrim(coalesce(p.type, ''))) = 'reversal'
          ), 0) as soma_estornos,
+         coalesce(sum(p.amount) filter (
+           where lower(btrim(coalesce(p.type, ''))) = 'payment'
+         ), 0)
+         - coalesce(sum(p.amount) filter (
+           where lower(btrim(coalesce(p.type, ''))) = 'reversal'
+         ), 0) as soma_liquida,
          count(p.id) as qtd_pagamentos
     from public.installments i
     left join public.payments p on p.installment_id = i.id
    group by i.id, i.environment, i.status, i.amount, i."amountPaid"
-  having abs(coalesce(i."amountPaid", 0) - coalesce(sum(p.amount) filter (
-           where lower(btrim(coalesce(p.type, ''))) = 'payment'
-         ), 0)) > 0.01
+  having abs(coalesce(i."amountPaid", 0) - (
+    coalesce(sum(p.amount) filter (
+      where lower(btrim(coalesce(p.type, ''))) = 'payment'
+    ), 0)
+    - coalesce(sum(p.amount) filter (
+      where lower(btrim(coalesce(p.type, ''))) = 'reversal'
+    ), 0)
+  )) > 0.01
 ),
 parcelas_detalhe as (
   select coalesce((
@@ -248,7 +259,8 @@ parcelas_detalhe as (
              'amountPaid', d."amountPaid",
              'soma_pagamentos', d.soma_pagamentos,
              'soma_estornos', d.soma_estornos,
-             'divergencia', coalesce(d."amountPaid", 0) - d.soma_pagamentos,
+             'soma_liquida', d.soma_liquida,
+             'divergencia', coalesce(d."amountPaid", 0) - d.soma_liquida,
              'contrato_id', (
                select i.contract_id from public.installments i
                 where i.id = d.parcela_id

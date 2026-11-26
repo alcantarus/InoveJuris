@@ -444,19 +444,27 @@ pagamentos as (
     'pagamentos_valor_nao_positivo', (
       select count(*) from public.payments where coalesce(amount, 0) <= 0
     ),
-    'parcelas_amountpaid_diferente_soma_pagamentos', (
+    'parcelas_amountpaid_diferente_liquido_pagamentos', (
       select count(*) from (
         select i.id,
                i."amountPaid",
                coalesce(sum(p.amount) filter (
                  where lower(btrim(coalesce(p.type,''))) = 'payment'
-               ), 0) as soma
+               ), 0)
+               - coalesce(sum(p.amount) filter (
+                 where lower(btrim(coalesce(p.type,''))) = 'reversal'
+               ), 0) as soma_liquida
           from public.installments i
           left join public.payments p on p.installment_id = i.id
          group by i.id, i."amountPaid"
-        having abs(coalesce(i."amountPaid",0) - coalesce(sum(p.amount) filter (
-                 where lower(btrim(coalesce(p.type,''))) = 'payment'
-               ), 0)) > 0.01
+        having abs(coalesce(i."amountPaid",0) - (
+          coalesce(sum(p.amount) filter (
+            where lower(btrim(coalesce(p.type,''))) = 'payment'
+          ), 0)
+          - coalesce(sum(p.amount) filter (
+            where lower(btrim(coalesce(p.type,''))) = 'reversal'
+          ), 0)
+        )) > 0.01
       ) d
     )
   ) as valor
