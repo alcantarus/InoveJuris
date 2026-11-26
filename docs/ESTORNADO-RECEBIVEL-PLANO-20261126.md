@@ -65,9 +65,15 @@ KPIs medidos após o forward — idênticos à previsão:
 | Parcelas estornadas / saldo | 3 / R$ 15.000,00 | 0 / R$ 0,00 |
 
 Integridade: nenhuma parcela, pagamento ou transação alterado. O forward
-estrutural mexeu apenas em DDL de view/gatilho. **Pendência:** `test` ainda
-mostra `amount_receivable_desatualizado=3` (3 contratos com o campo
-`contracts."amountReceivable"` no valor antigo); `production` mostra `0`.
+estrutural mexeu apenas em DDL de view/gatilho.
+
+### Verify final — 26/11/2026, 12:54:50.848899+00:00
+
+Após o forward de dados, o mesmo script foi executado novamente. Estrutura e
+KPIs permaneceram idênticos aos valores acima e
+`amount_receivable_desatualizado=0` em **`test` e `production`**. Parcelas
+estornadas e saldo também inalterados (3 / R$ 15.000,00 em `test`; 0 / R$ 0,00
+em `production`). Nenhum rollback foi acionado.
 
 ## 3. O que foi encontrado no banco
 
@@ -125,16 +131,17 @@ view `contract_receivables_summary` já mostra R$ 30.000,00. O script faz
 contrato de `production` ou mais de 10 afetados. **Executada pelo usuário em
 26/11 às 12:50:01.655136+00:00:** contratos 74 (0,00 → 2.000,00), 76
 (0,00 → 3.000,00) e 134 (0,00 → 10.000,00), todos `environment=test`, total
-R$ 15.000,00. Nenhum contrato de `production` afetado. Verify final pendente.
+R$ 15.000,00. Nenhum contrato de `production` afetado. Verify final favorável
+às 12:54:50 UTC (`amount_receivable_desatualizado=0` nos dois ambientes).
 
 ## 5. Execução (pelo usuário)
 
 1. ✅ `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` — estrutural; sem dados. **Aplicado.**
 2. ✅ `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` — estrutura e KPIs conferidos às 12:44:20 UTC.
 3. ✅ `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` — executada às 12:50:01 UTC (UPDATE em 3 contratos de `test`).
-4. ⏳ Verify novamente; `amount_receivable_desatualizado` deve passar a `0` nos dois ambientes.
+4. ✅ Verify final às 12:54:50 UTC; `amount_receivable_desatualizado=0` nos dois ambientes.
 
-Se algo divergir: rollback de dados (se aplicado) e rollback estrutural, nessa
-ordem. A etapa estrutural não alterou linhas; a etapa de dados alterou somente
-as 3 colunas `amountReceivable` já listadas, com backup em
-`public.backup_estornado_recebivel_dados_20261126`.
+A etapa estrutural não alterou linhas; a etapa de dados alterou somente as 3
+colunas `amountReceivable` já listadas, com backup em
+`public.backup_estornado_recebivel_dados_20261126`. **Item 3 encerrado com
+sucesso**; os rollbacks de dados e estrutural seguem disponíveis, não acionados.

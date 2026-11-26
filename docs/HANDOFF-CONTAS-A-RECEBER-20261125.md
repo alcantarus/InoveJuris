@@ -214,9 +214,12 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
      o verify anterior apontara `amount_receivable_desatualizado=3` em `test` e
      `0` em `production`. O forward corrigiu os contratos 74 (0,00 → 2.000,00),
      76 (0,00 → 3.000,00) e 134 (0,00 → 10.000,00), todos `environment=test`,
-     total R$ 15.000,00; nenhum contrato de `production` afetado. Verify final
-     pendente. `docs/ROLLBACK-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` disponível,
-     **não acionado**. Plano em `docs/ESTORNADO-RECEBIVEL-PLANO-20261126.md`.
+     total R$ 15.000,00; nenhum contrato de `production` afetado. **Verify final
+     em 26/11 às 12:54:50.848899+00:00:** `amount_receivable_desatualizado=0`
+     em `test` e `production`, estrutura e KPIs mantidos. Item 3 encerrado;
+     `docs/ROLLBACK-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` e
+     `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql` disponíveis, **não acionados**.
+     Plano em `docs/ESTORNADO-RECEBIVEL-PLANO-20261126.md`.
 
 ## 8. Contexto técnico útil
 
