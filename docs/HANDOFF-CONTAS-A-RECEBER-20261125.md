@@ -8,10 +8,13 @@
 > **Item 1 aprovado pelo usuário em 26/11/2026:** manter o KPI inalterado e
 > `Prorrogada` fora de “vencido”. Nenhuma mudança em `lib/payments.ts`, na view
 > ou em dados de negócio.
-> **Item 2 em curso:** `docs/VERIFICACAO-ISOLAMENTO-VIEW-20261126.sql` escrito,
-> **ainda não executado**; depende de o usuário manter o app aberto nos dois
-> ambientes e colar a célula `verificacao_isolamento_view_20261126`.
-> **Item 3 pendente de explicação**, após os itens 1 e 2 — ver seção 7.
+> **Item 2 concluído em 26/11/2026:** as duas medições foram feitas (sessão em
+> `production` às 12:06:38 UTC e em `test` às 12:09:37 UTC). A view **vaza
+> linhas do outro ambiente no banco** em ambos os sentidos; na tela o filtro
+> do cliente esconde o cruzamento. Relatório em
+> `docs/ISOLAMENTO-VIEW-RESULTADO-20261126.md`. Forward/verify/rollback da
+> correção estão **preparados e não aplicados**, aguardando autorização.
+> **Item 3 explicado** na seção 7; nenhuma mudança implementada.
 > Deploy: a Vercel publica automaticamente a partir de `main`.
 
 ## 1. O que está feito
@@ -49,35 +52,27 @@ A checagem forense, o rastreio das 13 parcelas e a célula complementar estão
    `is_overdue` na view `contract_receivables_summary`. Parcela prorrogada teve
    o vencimento estendido; não é inadimplente. É definição, não erro de dado:
    a view permanece como está.
-3. **VERIFICAÇÃO DE ISOLAMENTO — em curso:** rodar
-   `docs/VERIFICACAO-ISOLAMENTO-VIEW-20261126.sql` inteiro, com o app aberto em
-   `production` e em `test` (heartbeat de 20 s, limite de 90 s na sessão), e
-   colar a ÚNICA célula `verificacao_isolamento_view_20261126`. O script é
-   somente leitura, declara o banco único e separa os dois rótulos; termina em
-   `rollback`. Se apontar vazamento, preparar forward/verify/rollback **sem
-   aplicar**.
-   - 1ª execução (26/11, 11:58:48 UTC): estrutura da view lida, mas
-     `sessao_encontrada=false` nos dois ambientes e contagens `null`.
-   - 2ª execução: falha `22P02` — `user_sessions.user_id` é numérico (`2`) e
-     tinha sido declarado `uuid` no bloco; corrigido para `text` (o mesmo
-     padrão de `docs/VALIDACAO-P1-1-20261123.sql`), sem mudança na lógica.
-   - 3ª execução: falha `42501` — `_rls_session_valid()` foi chamada depois de
-     `set_config('role','authenticated')`, e esse papel não tem EXECUTE nela;
-     a chamada foi movida para antes da troca de papel, como no script de
-     validação P1.1.
-   - 4ª execução (26/11, 12:06:38 UTC): **medição de `production` obtida** —
-     sessão válida, `view_total=125`, `view_do_ambiente=106`,
-     `view_de_outro_ambiente=19`, `contracts_via_rls=106`. Ou seja, **a view
-     vaza 19 linhas `test` para uma sessão `production`** no banco (sem RLS na
-     view e sem `security_invoker`). A tela não as mostra porque
-     `lib/supabase.ts` injeta `.eq('environment', ambiente)` em toda consulta,
-     inclusive na view. `test` ficou sem sessão (`sessoes_sem_logout=0`) e
-     precisa de nova execução com o app naquele ambiente.
-   - Correção estrutural (avaliar `security_invoker` ou filtro explícito por
-     `environment` na view) **não foi aplicada**: depende da medição de `test`,
-     de forward/verify/rollback preparados e de autorização explícita.
-4. Nenhuma correção é aplicada sem autorização explícita, medição prévia e
-   forward/verify/rollback. A única célula pendente agora é a do item 3.
+3. **VERIFICAÇÃO DE ISOLAMENTO — concluída em 26/11/2026:** duas medições,
+   uma com sessão em `production` e outra em `test`. Resultado completo em
+   `docs/ISOLAMENTO-VIEW-RESULTADO-20261126.md`: `view_total=125` com 106
+   linhas próprias e 19 do outro ambiente em cada sessão; `contracts_via_rls`
+   igual às linhas próprias. **A view vaza linhas do outro ambiente no banco**;
+   a tela não as mostra porque `lib/supabase.ts` injeta
+   `.eq('environment', ambiente)` em toda consulta, inclusive na view.
+   - 1ª execução (11:58:48 UTC): sem sessão nos dois ambientes; contagens `null`.
+   - 2ª execução: falha `22P02` (`user_sessions.user_id` numérico declarado
+     como `uuid`); corrigido para `text`.
+   - 3ª execução: falha `42501` (`_rls_session_valid()` sem EXECUTE para
+     `authenticated`); chamada movida para antes do `set role`.
+   - 4ª execução (12:06:38 UTC): medição de `production` — 125 / 106 / 19 / RLS 106.
+   - 5ª execução (12:09:37 UTC): medição de `test` — 125 / 19 / 106 / RLS 19.
+4. **CORREÇÃO ESTRUTURAL — preparada, não aplicada:** a recomendação é
+   `security_invoker = on` na view, para herdar o RLS das tabelas-base. Arquivos
+   prontos: `docs/FORWARD-ISOLAMENTO-VIEW-20261126.sql` (com pré-checagem de
+   privilégios), `docs/VERIFY-ISOLAMENTO-VIEW-20261126.sql` (nova medição) e
+   `docs/ROLLBACK-ISOLAMENTO-VIEW-20261126.sql`. **Aplicação depende de
+   autorização explícita do usuário.** Nenhuma correção é aplicada sem
+   autorização, medição prévia e forward/verify/rollback.
 
 Atenção ao escopo (regra permanente): as consultas rodaram no **banco único**
 (PG 17.6), onde `production` e `test` são rótulos da coluna `environment`, não
@@ -161,10 +156,26 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
 
 1. **Validações manuais (usuário):** logout/expiração de sessão; permissão em `ProfilesTab`;
    upload/IA em Marketing; impersonação em `/usuarios`; conferência no iPhone.
-2. **Vencimento da parcela residual** — hoje herda a data do título; é regra de negócio,
-   decidir antes de alterar.
-3. **Recebimento em lote de `Estornado`** — `isBatchEligible` em `app/contas-a-receber/page.tsx`
-   ainda exclui `estornado`/`estornada`; o individual já aceita quando `amountPaid = 0`.
+2. **Vencimento da parcela residual** — explicação para o usuário em 26/11:
+   `rpc_recebimento_com_desdobramento` (`app/setup/page.tsx`, insert da parcela
+   remanescente) copia `"dueDate"` da parcela original. Assim, após um
+   pagamento parcial, o saldo remanescente continua com o vencimento antigo e
+   pode entrar em `overdue_amount`/`is_overdue` da view no mesmo dia da baixa.
+   **Não é erro de dado**: é regra de negócio. As alternativas são (a) manter a
+   data do título, (b) usar a data do pagamento parcial como novo vencimento ou
+   (c) alinhar ao vencimento da próxima parcela em aberto. Qualquer mudança
+   afeta a Previsão (30d), os KPIs de atraso e, se mexer em parcelas já
+   criadas, exige autorização e forward/verify/rollback com medição prévia.
+3. **Recebimento em lote de `Estornado`** — explicação para o usuário em
+   26/11: `isBatchEligible` (`app/contas-a-receber/page.tsx:364`) exclui
+   `estornado`/`estornada` do lote e do “selecionar todos”; o botão individual
+   **Receber** só desabilita `Quitado` e `Cancelada` (`:1088`). Portanto uma
+   parcela `Estornado` com `amountPaid = 0` e saldo devedor pode ser recebida
+   individualmente, mas não entra no lote. No banco, `rpc_receber_parcela_com_metodo`
+   também não barra `Estornado`. A decisão é se o lote deve alinhar ao
+   individual (incluir `Estornado` com saldo) ou se o individual deve ser
+   restrito. Recomenda-se critério por **saldo devedor**, não só por status.
+   Nenhuma das duas opções foi implementada.
 
 ## 8. Contexto técnico útil
 
