@@ -65,6 +65,12 @@ medição prévia acima já registra o estado original; depois do forward, o ver
 deve mostrar `view_total = contracts_via_rls` e `view_de_outro_ambiente = 0`
 em ambos os ambientes.
 
+Pré-checagem executada pelo usuário em 26/11, 12:20:58 UTC
+(`docs/PRECHECK-ISOLAMENTO-VIEW-20261126.sql`): view existe, `reloptions=""`,
+`security_invoker_on=false`, `SELECT` de `authenticated` concedido em
+`contracts`, `clients` e `installments`, e `pronto_para_forward=true`. O
+forward ainda **não foi aplicado**.
+
 ## 5. Limitações
 
 - Contagens iguais provam que a view não trouxe linhas do outro ambiente na
