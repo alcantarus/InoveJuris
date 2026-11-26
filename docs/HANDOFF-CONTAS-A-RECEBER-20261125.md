@@ -166,29 +166,36 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
    **Não é erro de dado**: é regra de negócio. Se houver acordo de prazo, usar a
    ação **Prorrogar**, que registra `original_due_date`. Nenhuma mudança em
    código, view ou dados.
-3. **Recebimento em lote de `Estornado` — aguardando decisão.** Explicação
-   detalhada ao usuário em 26/11:
-   - O **lote** é o botão “Receber Selecionados (N)” (`:948`): o usuário marca
-     várias parcelas pelos checkboxes e um assistente recebe uma por uma, com
-     mesma conta/categoria/forma de pagamento e contador “1 de N”
-     (`handleBatchConfirm`, `:254`).
-   - O **estorno** (`process_installment_estorno`, `app/setup/page.tsx:903`)
-     desfaz um recebimento já baixado: marca `status='Estornado'`, zera
-     `amountPaid`, apaga a movimentação financeira original e insere um
-     pagamento `reversal`. A parcela volta a ter saldo devedor, mas deixa de
-     estar `Aberto`.
-   - `isBatchEligible` (`:364`) exclui `estornado`/`estornada` do lote e do
-     “selecionar todos” (`:983`); o botão individual **Receber** só desabilita
-     `Quitado` e `Cancelada` (`:1088`). Portanto uma parcela `Estornado` com
-     `amountPaid = 0` pode ser recebida individualmente, mas não entra no lote.
-     A RPC `rpc_receber_parcela_com_metodo` também não barra `Estornado`.
-   - **Recomendação revisada em 26/11:** retirar a sugestão anterior de
-     “incluir no lote por saldo devedor”. A view `contract_receivables_summary`
-     e a Previsão 30d (`:417`) **excluem** `estornado`. Incluir só no lote criaria
-     um recebimento que os KPIs não contam. A decisão de fundo é: (a) tratar
-     `Estornado` como dívida a receber — nesse caso é preciso alinhar lote, view
-     e Previsão, não só o lote; ou (b) tratá-lo como item encerrado — nesse caso
-     bloquear também o recebimento individual. Nenhuma opção foi implementada.
+3. **`Estornado` como recebível — DECISÃO APROVADA EM 26/11.** O usuário
+   definiu: "o estorno é uma operação de desfazimento de um recebimento
+   equivocado; ao desfazer o recebimento, a parcela/título volta ao estado de
+   devedor, a receber". Isso confirma a correção já aplicada em 25/11 no
+   desdobramento (`docs/CORRECAO-ESTORNO-RECEBIMENTO-20261125.sql`, v8: estorno
+   limpo com `amountPaid = 0` pode ser recebido inclusive de forma parcial).
+   **O que falta é alinhar as regras de leitura**, sem alterar dados nem o rótulo
+   `Estornado` (o histórico da reversão fica em `payments` e nas observações do
+   contrato):
+   - **Front (`app/contas-a-receber/page.tsx`):** `isBatchEligible` (`:364`) e os
+     checkboxes (`:983`, `:1054`, `:1149`) — incluir estornada no lote;
+     `getInstallmentFlags` (`:397`) — estornada pode contar como atrasada;
+     `totalOpen` (`:417`) — incluir saldo estornado; Previsão 30d (`:468`)
+     — incluir `Estornado` no `.in('status', ...)`. Manter `Prorrogada` fora de
+     "vencido", conforme decisão do item 1.
+   - **Banco:** view `contract_receivables_summary` (quatro filtros com
+     `estornado`), trigger `fn_recalculate_contract_totals` (v4: filtro de
+     `amountReceivable` na linha 1232) e as funções `process_installment_payment`
+     e `process_installment_estorno` (cálculo de `amountReceivable`), além das
+     views de dashboard `vw_dashboard_receivables_forecast`,
+     `vw_dashboard_receivables_metrics` e `vw_dashboard_top_defaulters`, que o
+     P0 de 24/11 alterou para excluir `Estornado`.
+   - **Não mexer:** KPI "Recebido este Mês" (`lib/payments.ts`), conforme decisão
+     do item 1; nenhum `UPDATE`/`DELETE` em dados de negócio.
+   - **Medição prévia preparada, ainda não executada:**
+     `docs/MEDICAO-ESTORNADO-RECEBIVEL-20261126.sql` (uma célula, somente
+     leitura, termina em `rollback`) quantifica parcelas/saldos estornados,
+     impacto em `a_receber`/`vencido`/Previsão 30d/lote e captura as definições
+     reais dos objetos. Depois dela, preparar forward/verify/rollback **sem
+     aplicar**. Nenhuma mudança foi implementada até aqui.
 
 ## 8. Contexto técnico útil
 
