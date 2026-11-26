@@ -406,6 +406,61 @@ export default function ContasAReceberPage() {
     return { isLate, daysLate }
   }
 
+  // Quantidade original de parcelas do contrato. A subparcela residual nasce
+  // com numeração acima desse total (ex.: 5 originais + residual nº 6).
+  const contractInstallmentsCount = Number(
+    selectedContract?.contracts?.installmentsCount ??
+    selectedContract?.installmentsCount ??
+    0
+  )
+
+  // Classifica a linha para a tela:
+  // - residual: numeração acima do total original (ou duplicidade de vencimento
+  //   quando o total não está disponível);
+  // - desdobrada: parcela original que foi fechada com pagamento parcial e teve
+  //   o saldo transferido para uma residual.
+  const getInstallmentRole = (i: any) => {
+    const numero = Number(i.installmentNumber || 0)
+    const valor = Number(i.amount || 0)
+    const pago = Number(i.amountPaid || 0)
+    const status = String(i.status || '').toLowerCase()
+
+    let isResidual = contractInstallmentsCount > 0 && numero > contractInstallmentsCount
+
+    // Fallback quando o contrato não informa o total de parcelas: dentro do
+    // mesmo vencimento, a linha de menor numeração é a origem e a de valor
+    // menor é a residual. Evita marcar duas parcelas originais que apenas
+    // compartilham a data.
+    if (contractInstallmentsCount === 0) {
+      const mesmas = installments.filter(
+        (x: any) => String(x.dueDate || '').slice(0, 10) === String(i.dueDate || '').slice(0, 10)
+      )
+      const origem = mesmas.reduce((menor: any, x: any) => {
+        const n = Number(x.installmentNumber || 0)
+        return !menor || n < Number(menor.installmentNumber || 0) ? x : menor
+      }, null)
+      if (origem && mesmas.length > 1) {
+        const numeroOrigem = Number(origem.installmentNumber || 0)
+        const valorOrigem = Number(origem.amount || 0)
+        isResidual = numero > numeroOrigem && valor < valorOrigem - 0.01
+      }
+    }
+
+    const isDesdobrada =
+      !isResidual &&
+      status === 'quitado' &&
+      pago > 0 &&
+      pago < valor - 0.01
+
+    return { isResidual, isDesdobrada }
+  }
+
+  const cancelBlocked = Boolean(selectedContract) && (
+    selectedContract.status === 'Cancelado' ||
+    isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) ||
+    installments.some((i: any) => Number(i.amountPaid || 0) > 0)
+  )
+
   const receivableKpis = React.useMemo(() => {
     const active = contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado')
     return {
@@ -429,7 +484,10 @@ export default function ContasAReceberPage() {
     clients: { name: c.client_name },
     status: c.contract_status,
     contractValue: c.contract_value,
-    amountReceived: c.amount_received
+    amountReceived: c.amount_received,
+    // Necessário para identificar a subparcela residual (numeração acima do
+    // total original de parcelas).
+    installmentsCount: c.contracts?.installmentsCount ?? c.installmentsCount ?? null
   })
 
   const fetchLookups = React.useCallback(async () => {
@@ -499,7 +557,7 @@ export default function ContasAReceberPage() {
 
     ;({ data: contractsData, error: contractsError } = await supabase
       .from('contracts')
-      .select('id, isProBono, isFinanced, contractNumber'))
+      .select('id, isProBono, isFinanced, contractNumber, installmentsCount'))
 
     // Fallback: alguns ambientes podem não ter contractNumber ou ter nome diferente
     if (contractsError) {
@@ -533,7 +591,16 @@ export default function ContasAReceberPage() {
       toast.error('Erro ao buscar parcelas')
       console.error(error)
     } else {
-      setInstallments(data || [])
+      // Ordena por vencimento e, no mesmo vencimento, por número. Assim a
+      // subparcela residual (que herda a data da parcela original) aparece
+      // ao lado da origem, em vez de no fim da lista.
+      const ordered = [...(data || [])].sort((a: any, b: any) => {
+        const dueA = String(a.dueDate || '').slice(0, 10)
+        const dueB = String(b.dueDate || '').slice(0, 10)
+        if (dueA !== dueB) return dueA.localeCompare(dueB)
+        return Number(a.installmentNumber || 0) - Number(b.installmentNumber || 0)
+      })
+      setInstallments(ordered)
     }
     setLoading(false)
   }, [])
@@ -960,10 +1027,17 @@ export default function ContasAReceberPage() {
                 <button 
                   className={cn(
                     "flex-1 md:flex-none px-4 py-2 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed",
-                    (selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || installments.some(i => Number(i.amountPaid || 0) > 0)) ? "bg-slate-400" : "bg-rose-600 hover:bg-rose-700"
+                    cancelBlocked ? "bg-slate-400" : "bg-rose-600 hover:bg-rose-700"
                   )}
                   onClick={cancelContract}
-                  disabled={selectedContract.status === 'Cancelado' || isContractQuitado(selectedContract.status, selectedContract.contractValue, selectedContract.amountReceived) || installments.some(i => Number(i.amountPaid || 0) > 0)}
+                  disabled={cancelBlocked}
+                  title={
+                    selectedContract.status === 'Cancelado'
+                      ? 'Contrato já cancelado'
+                      : cancelBlocked
+                        ? 'Cancelamento bloqueado: contrato quitado ou com pagamento registrado'
+                        : 'Cancelar contrato'
+                  }
                 >
                   {selectedContract.status === 'Cancelado' ? 'Contrato Cancelado' : 'Cancelar Contrato'}
                 </button>
@@ -1041,6 +1115,7 @@ export default function ContasAReceberPage() {
                     <tr><td colSpan={8} className="p-4 text-center">Carregando...</td></tr>
                   ) : installments.map((i, index) => {
                     const { isLate, daysLate } = getInstallmentFlags(i)
+                    const { isResidual, isDesdobrada } = getInstallmentRole(i)
 
                     return (
                     <motion.tr 
@@ -1060,8 +1135,24 @@ export default function ContasAReceberPage() {
                         />
                       </td>
                       <td className="p-4 font-medium text-slate-900">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {i.installmentNumber}
+                          {isResidual && (
+                            <span
+                              className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 border border-sky-200"
+                              title="Subparcela residual gerada pelo desdobramento de uma parcela parcial"
+                            >
+                              Residual
+                            </span>
+                          )}
+                          {isDesdobrada && (
+                            <span
+                              className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200"
+                              title="Parcela original fechada com pagamento parcial; o saldo foi transferido para a residual"
+                            >
+                              Desdobrada
+                            </span>
+                          )}
                           {isLate && (
                             <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider", daysLate > 30 ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-700")}>
                               {daysLate} dias atraso
@@ -1081,7 +1172,13 @@ export default function ContasAReceberPage() {
                       </td>
                       <td className="p-4 text-slate-900 font-medium">{formatCurrency(i.amount, isVisible('receivable_installment_value'))}</td>
                       <td className="p-4 text-slate-600">{formatCurrency(i.amountPaid || 0, isVisible('receivable_installment_paid'))}</td>
-                      <td className="p-4 text-emerald-600 font-bold">{formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))}</td>
+                      <td className="p-4 text-emerald-600 font-bold">
+                        {isDesdobrada ? (
+                          <span className="text-slate-400 font-normal" title="Saldo transferido para a parcela residual">—</span>
+                        ) : (
+                          formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))
+                        )}
+                      </td>
                       <td className="p-4">
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
                           {i.status}
@@ -1132,7 +1229,11 @@ export default function ContasAReceberPage() {
                   <div className="p-8 text-center text-sm text-slate-500">Nenhuma parcela encontrada.</div>
                 ) : installments.map((i, index) => {
                   const { isLate, daysLate } = getInstallmentFlags(i)
-                  const isClosed = i.status === 'Quitado' || i.status?.toLowerCase() === 'cancelada'
+                  const { isResidual, isDesdobrada } = getInstallmentRole(i)
+                  const isCancelled = i.status?.toLowerCase() === 'cancelada'
+                  // Quitado bloqueia ações, mas NÃO deve riscar a linha: parcela
+                  // quitada é concluída, não cancelada.
+                  const isClosed = i.status === 'Quitado' || isCancelled
                   const canReverse = (i.status === 'Quitado' || i.status === 'Parcial') && Number(i.amountPaid || 0) > 0
                   const contractCancelled = selectedContract.status?.toLowerCase() === 'cancelado'
 
@@ -1142,7 +1243,7 @@ export default function ContasAReceberPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className={cn("p-4 space-y-3", (contractCancelled || isClosed) && "bg-rose-50 line-through text-slate-400")}
+                      className={cn("p-4 space-y-3", (contractCancelled || isCancelled) && "bg-rose-50 line-through text-slate-400")}
                     >
                       <div className="flex justify-between items-start gap-3">
                         <label className="flex items-center gap-3 min-w-0">
@@ -1153,7 +1254,25 @@ export default function ContasAReceberPage() {
                             disabled={!isBatchEligible(i.status)}
                             onChange={() => toggleSelection(i.id)}
                           />
-                          <span className="font-semibold text-slate-900">Parcela {i.installmentNumber}</span>
+                          <span className="font-semibold text-slate-900 flex flex-wrap items-center gap-2">
+                            Parcela {i.installmentNumber}
+                            {isResidual && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 border border-sky-200"
+                                title="Subparcela residual gerada pelo desdobramento de uma parcela parcial"
+                              >
+                                Residual
+                              </span>
+                            )}
+                            {isDesdobrada && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200"
+                                title="Parcela original fechada com pagamento parcial; o saldo foi transferido para a residual"
+                              >
+                                Desdobrada
+                              </span>
+                            )}
+                          </span>
                         </label>
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold shrink-0", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
                           {i.status}
@@ -1201,7 +1320,13 @@ export default function ContasAReceberPage() {
                               {isVisible('receivable_installment_balance') ? <Eye size={11} /> : <EyeOff size={11} />}
                             </button>
                           </div>
-                          <div className="font-bold text-emerald-600 break-words">{formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))}</div>
+                          <div className="font-bold text-emerald-600 break-words">
+                            {isDesdobrada ? (
+                              <span className="text-slate-400 font-normal" title="Saldo transferido para a parcela residual">—</span>
+                            ) : (
+                              formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))
+                            )}
+                          </div>
                         </div>
                       </div>
 
