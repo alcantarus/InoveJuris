@@ -96,10 +96,12 @@ begin
         'sub',           v_uid,
         'is_superadmin', false
       )::text, true);
-      perform set_config('role', 'authenticated', true);
-
+      -- A validação da sessão é chamada como superuser: `authenticated` não
+      -- tem EXECUTE em _rls_session_valid. A troca de papel vem depois.
       select public._rls_session_valid() into v_ok;
       perform set_config(v_prefix || '.sessao_valida', coalesce(v_ok, false)::text, true);
+
+      perform set_config('role', 'authenticated', true);
 
       execute 'select count(*) from public.contract_receivables_summary' into v_total;
       execute 'select count(*) from public.contracts' into v_base;
