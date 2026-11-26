@@ -361,8 +361,10 @@ export default function ContasAReceberPage() {
   }
 
   // Somente parcelas com saldo em aberto entram no recebimento em lote.
+  // Estornado continua elegível: o estorno desfaz o recebimento e devolve o
+  // título à condição de devedor (decisão de 26/11/2026).
   const isBatchEligible = (status?: string) =>
-    !['quitado', 'cancelada', 'cancelado', 'estornado', 'estornada']
+    !['quitado', 'cancelada', 'cancelado']
       .includes((status || '').toLowerCase())
 
   // Regras compartilhadas entre a tabela (desktop) e os cards (mobile).
@@ -396,7 +398,9 @@ export default function ContasAReceberPage() {
 
   const getInstallmentFlags = (i: any) => {
     const status = String(i.status || '').toLowerCase()
-    const naoAtrasam = ['quitado', 'cancelada', 'cancelado', 'estornado', 'prorrogada', 'prorrogado']
+    // Estornado voltou a ser devedor: pode contar como atrasado.
+    // Prorrogada continua fora de "vencido" (decisão de 26/11/2026).
+    const naoAtrasam = ['quitado', 'cancelada', 'cancelado', 'prorrogada', 'prorrogado']
     const isLate = i.dueDate < todayBR && !naoAtrasam.includes(status)
     const daysLate = isLate ? Math.floor((new Date(todayBR).getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0
     return { isLate, daysLate }
@@ -414,7 +418,7 @@ export default function ContasAReceberPage() {
       totalOpen: !selectedContract
         ? active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
         : installments
-            .filter(i => !['quitado','cancelada','cancelado','estornado','prorrogada','prorrogado'].includes(String(i.status || '').toLowerCase()))
+            .filter(i => !['quitado','cancelada','cancelado','prorrogada','prorrogado'].includes(String(i.status || '').toLowerCase()))
             .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0),
     }
   }, [contracts, installments, selectedContract, todayBR])
@@ -462,15 +466,15 @@ export default function ContasAReceberPage() {
     setReceivedThisMonth(totalReceived);
 
     // Previsão 30 dias
-    // Apenas parcelas ainda recebíveis. Usar IN (em vez de excluir casos
-    // conhecidos) evita contar Estornado. Cancelada/Quitado ficam de fora;
-    // o fluxo de cancelamento já marca as parcelas do contrato como Cancelada.
+    // Estornado entra: o estorno devolve o título ao devedor. Cancelada e
+    // Quitado ficam de fora; o fluxo de cancelamento já marca as parcelas do
+    // contrato como Cancelada.
     const { data: installmentsData } = await supabase
       .from('installments')
       .select('amount, amountPaid')
       .gte('dueDate', todayStr)
       .lte('dueDate', thirtyDaysStr)
-      .in('status', ['Aberto', 'Parcial', 'Atrasada', 'Prorrogada']);
+      .in('status', ['Aberto', 'Parcial', 'Atrasada', 'Prorrogada', 'Estornado']);
 
     const totalForecast = installmentsData?.reduce((acc: number, i: any) => acc + (Number(i.amount || 0) - Number(i.amountPaid || 0)), 0) || 0;
     setForecast30d(totalForecast);

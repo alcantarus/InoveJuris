@@ -190,12 +190,26 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
      P0 de 24/11 alterou para excluir `Estornado`.
    - **Não mexer:** KPI "Recebido este Mês" (`lib/payments.ts`), conforme decisão
      do item 1; nenhum `UPDATE`/`DELETE` em dados de negócio.
-   - **Medição prévia preparada, ainda não executada:**
+   - **Medição prévia executada em 26/11, 12:38:50 UTC:**
      `docs/MEDICAO-ESTORNADO-RECEBIVEL-20261126.sql` (uma célula, somente
-     leitura, termina em `rollback`) quantifica parcelas/saldos estornados,
-     impacto em `a_receber`/`vencido`/Previsão 30d/lote e captura as definições
-     reais dos objetos. Depois dela, preparar forward/verify/rollback **sem
-     aplicar**. Nenhuma mudança foi implementada até aqui.
+     leitura, `rollback`). Resultado: `test` 3 estornadas / R$ 15.000,00 de
+     saldo / 2 vencidas (R$ 5.000,00) / 3 contratos; `production` zero em tudo.
+     KPIs em `test`: a receber 15.000 → 30.000, vencido 14.000 → 19.000,
+     previsão 30d 0 → 10.000, lote 7 → 10. As definições reais mostraram que
+     `process_installment_payment` (2 sobrecargas) e `process_installment_estorno`
+     **não** excluem estornado; quem recalcula é o gatilho v4.
+   - **Preparado, não aplicado:** front editado em
+     `app/contas-a-receber/page.tsx` (`:364`, `:397`, `:417`, `:468`) e scripts
+     `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql`,
+     `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` e
+     `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql`. Plano em
+     `docs/ESTORNADO-RECEBIVEL-PLANO-20261126.md`.
+   - **Pendente de autorização explícita (UPDATE em dados):** os 3 contratos de
+     `test` ficariam com `contracts."amountReceivable"` desatualizado até um
+     evento em parcelas/pagamentos. Preparados
+     `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` e
+     `docs/ROLLBACK-ESTORNADO-RECEBIVEL-DADOS-20261126.sql`, com guarda contra
+     contratos de `production`. Nenhum banco foi alterado até aqui.
 
 ## 8. Contexto técnico útil
 
