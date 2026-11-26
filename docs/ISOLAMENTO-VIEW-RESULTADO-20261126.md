@@ -68,8 +68,14 @@ em ambos os ambientes.
 Pré-checagem executada pelo usuário em 26/11, 12:20:58 UTC
 (`docs/PRECHECK-ISOLAMENTO-VIEW-20261126.sql`): view existe, `reloptions=""`,
 `security_invoker_on=false`, `SELECT` de `authenticated` concedido em
-`contracts`, `clients` e `installments`, e `pronto_para_forward=true`. O
-forward ainda **não foi aplicado**.
+`contracts`, `clients` e `installments`, e `pronto_para_forward=true`.
+
+**Forward aplicado pelo usuário em 26/11** (horário exato não informado; a
+aplicação foi confirmada pelo catálogo: `reloptions=security_invoker=on` e
+definição da view inalterada). Primeira medição pós-forward, com sessão em
+`test` às 12:22:26 UTC: `view_total=19`, `view_do_ambiente=19`,
+`view_de_outro_ambiente=0`, `contracts_via_rls=19`. **Falta a medição de
+`production`** para encerrar o verify. Nenhum dado de negócio foi alterado.
 
 ## 5. Limitações
 
