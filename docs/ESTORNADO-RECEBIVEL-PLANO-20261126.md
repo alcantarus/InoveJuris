@@ -1,4 +1,4 @@
-# `Estornado` como título a receber — medição e plano (26/11/2026)
+# `Estornado` como título a receber — medição, aplicação e verificação (26/11/2026)
 
 > **Regra permanente:** um único banco (PostgreSQL 17.6). `production` e `test`
 > são valores da coluna `environment`, não bancos separados. Ver
@@ -37,8 +37,37 @@ dado alterado.
 | Vencido (view) | R$ 14.000 → **R$ 19.000** | R$ 65.270,00 |
 | Previsão 30d | R$ 0 → **R$ 10.000** | R$ 19.329,60 |
 
-O impacto em `production` é **zero**. As três views de dashboard também excluem
-`Estornado` hoje (P0 de 24/11) e voltarão a incluí-lo.
+O impacto em `production` é **zero**. As três views de dashboard também
+excluíam `Estornado` (P0 de 24/11) e passaram a incluí-lo após o forward.
+
+### Resultado do verify — 26/11/2026, 12:44:20.654672+00:00
+
+Script `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql`, executado pelo usuário,
+uma única célula (`verificacao_estornado_recebivel_20261126`), somente leitura,
+`rollback` final. Estrutura confirmada:
+
+| Verificação | Resultado |
+|---|---|
+| `view_sem_estornado` | `true` |
+| `view_security_invoker_on` | `true` (isolamento do item 2 preservado) |
+| `gatilho_sem_estornado_no_filtro` | `true` |
+| `gatilho_preserva_rotulo_estornado` | `true` |
+| `dashboards_com_estornado` | `0` |
+
+KPIs medidos após o forward — idênticos à previsão:
+
+| Métrica | `test` | `production` |
+|---|---:|---:|
+| A receber | R$ 30.000,00 | R$ 320.655,80 |
+| Vencido | R$ 19.000,00 | R$ 65.270,00 |
+| Previsão 30d | R$ 10.000,00 | R$ 19.329,60 |
+| Lote elegíveis | 10 | 50 |
+| Parcelas estornadas / saldo | 3 / R$ 15.000,00 | 0 / R$ 0,00 |
+
+Integridade: nenhuma parcela, pagamento ou transação alterado. O forward
+estrutural mexeu apenas em DDL de view/gatilho. **Pendência:** `test` ainda
+mostra `amount_receivable_desatualizado=3` (3 contratos com o campo
+`contracts."amountReceivable"` no valor antigo); `production` mostra `0`.
 
 ## 3. O que foi encontrado no banco
 
@@ -56,9 +85,9 @@ Objetos que realmente excluem `estornado` do recebível:
 As definições reais foram capturadas na medição porque o banco está à frente do
 código do repositório (versões v7/v8).
 
-## 4. Mudanças preparadas
+## 4. Mudanças
 
-### Front — já editadas no repositório, **não publicadas**
+### Front — editadas e publicadas em `main` no commit `0cc6bdb`
 
 `app/contas-a-receber/page.tsx`:
 
@@ -69,13 +98,17 @@ código do repositório (versões v7/v8).
 
 `Prorrogada` continua fora de atrasado/vencido.
 
-### Banco — preparado, **não aplicado**
+### Banco — forward estrutural **aplicado e verificado**
 
 | Arquivo | Função | Estado |
 |---|---|---|
-| `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` | DDL da view, do gatilho e das 3 views de dashboard, com backup e pré-validação | **preparado, não aplicado** |
-| `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` | estrutura + KPIs + integridade dos dados por ambiente | preparado, não executado |
-| `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql` | restaura as definições do backup | preparado, não aplicado |
+| `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` | DDL da view, do gatilho e das 3 views de dashboard, com backup e pré-validação | **aplicado pelo usuário em 26/11; verify favorável às 12:44:20 UTC** |
+| `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` | estrutura + KPIs + integridade dos dados por ambiente | executado às 12:44:20 UTC |
+| `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql` | restaura as definições do backup | preparado, **não acionado** |
+
+As definições originais ficaram guardadas em
+`public.backup_estornado_recebivel_20261126`. Nenhum dado de negócio foi
+alterado; nenhum rollback foi acionado.
 
 ### Dados — preparado, **depende de autorização explícita**
 
@@ -83,18 +116,21 @@ código do repositório (versões v7/v8).
 `docs/ROLLBACK-ESTORNADO-RECEBIVEL-DADOS-20261126.sql`.
 
 Motivo: o gatilho recalcula `contracts."amountReceivable"` apenas em eventos de
-`installments`/`payments`. Sem esta correção, os 3 contratos de `test`
-continuariam com R$ 15.000,00 em `/contratos` e no dashboard até o próximo
-recebimento, enquanto a view passaria a mostrar R$ 30.000,00. O script faz
+`installments`/`payments`. O verify de 12:44:20 UTC confirmou a divergência:
+`amount_receivable_desatualizado=3` em `test` e `0` em `production`. Sem esta
+correção, os 3 contratos de `test` continuariam com o valor antigo (R$ 15.000,00
+no total) em `/contratos` e no dashboard até o próximo recebimento, enquanto a
+view `contract_receivables_summary` já mostra R$ 30.000,00. O script faz
 `UPDATE` **somente** nesses contratos, com guarda de abort se aparecer qualquer
-contrato de `production` ou mais de 10 afetados. **Não executar sem autorização.**
+contrato de `production` ou mais de 10 afetados. **Aguardando autorização
+explícita do usuário; não executado.**
 
-## 5. Ordem sugerida de execução (pelo usuário)
+## 5. Execução (pelo usuário)
 
-1. `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` — estrutural; sem dados.
-2. `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` — conferir estrutura e KPIs.
-3. Se aprovado, e **com autorização explícita**, o forward de dados.
-4. Verify novamente; `amount_receivable_desatualizado` deve ser 0.
+1. ✅ `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql` — estrutural; sem dados. **Aplicado.**
+2. ✅ `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` — estrutura e KPIs conferidos às 12:44:20 UTC.
+3. ⏳ `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` — **aguarda autorização explícita** (UPDATE em 3 contratos de `test`).
+4. ⏳ Verify novamente; `amount_receivable_desatualizado` deve passar a `0` nos dois ambientes.
 
 Se algo divergir: rollback de dados (se aplicado) e rollback estrutural, nessa
-ordem. Nenhuma linha de negócio foi alterada até o momento.
+ordem. Até agora **nenhuma linha de negócio foi alterada**.

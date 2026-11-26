@@ -198,18 +198,26 @@ Contra o que `app/contas-a-receber/page.tsx` realmente lê:
      previsão 30d 0 → 10.000, lote 7 → 10. As definições reais mostraram que
      `process_installment_payment` (2 sobrecargas) e `process_installment_estorno`
      **não** excluem estornado; quem recalcula é o gatilho v4.
-   - **Preparado, não aplicado:** front editado em
-     `app/contas-a-receber/page.tsx` (`:364`, `:397`, `:417`, `:468`) e scripts
-     `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql`,
-     `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql` e
-     `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql`. Plano em
-     `docs/ESTORNADO-RECEBIVEL-PLANO-20261126.md`.
-   - **Pendente de autorização explícita (UPDATE em dados):** os 3 contratos de
-     `test` ficariam com `contracts."amountReceivable"` desatualizado até um
-     evento em parcelas/pagamentos. Preparados
+   - **Front publicado em `main` no commit `0cc6bdb`:** mudanças em
+     `app/contas-a-receber/page.tsx` (`:364`, `:397`, `:417`, `:468`).
+   - **Forward estrutural aplicado pelo usuário e verificado em 26/11 às
+     12:44:20.654672+00:00:** `docs/FORWARD-ESTORNADO-RECEBIVEL-20261126.sql`
+     alterou apenas DDL; `docs/VERIFY-ESTORNADO-RECEBIVEL-20261126.sql`
+     confirmou `view_sem_estornado=true`, `view_security_invoker_on=true`,
+     `gatilho_sem_estornado_no_filtro=true`,
+     `gatilho_preserva_rotulo_estornado=true`, `dashboards_com_estornado=0`.
+     KPIs: `test` a receber 30.000,00 / vencido 19.000,00 / lote 10 / previsão
+     30d 10.000,00; `production` 320.655,80 / 65.270,00 / 50 / 19.329,60.
+     Parcelas estornadas e saldo inalterados (3 / R$ 15.000,00 em `test`).
+     `docs/ROLLBACK-ESTORNADO-RECEBIVEL-20261126.sql` disponível, **não acionado**.
+   - **Pendente de autorização explícita (UPDATE em dados):** o verify apontou
+     `amount_receivable_desatualizado=3` em `test` e `0` em `production`; os 3
+     contratos seguirão com `contracts."amountReceivable"` antigo até um evento
+     em parcelas/pagamentos. Preparados
      `docs/FORWARD-ESTORNADO-RECEBIVEL-DADOS-20261126.sql` e
      `docs/ROLLBACK-ESTORNADO-RECEBIVEL-DADOS-20261126.sql`, com guarda contra
-     contratos de `production`. Nenhum banco foi alterado até aqui.
+     contratos de `production`. Nenhum dado de negócio foi alterado até aqui.
+     Plano em `docs/ESTORNADO-RECEBIVEL-PLANO-20261126.md`.
 
 ## 8. Contexto técnico útil
 
