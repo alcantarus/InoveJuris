@@ -391,29 +391,9 @@ export default function MovimentacoesPage() {
       if (result.error) throw result.error
       const data = result.data
 
-      // 2. Update Account Balance(s)
-      if (submission.type === 'income') {
-        await supabase.rpc('update_account_balance', { acc_id: String(submission.account_id), amount_change: Number(submission.amount) })
-      } else if (submission.type === 'expense') {
-        await supabase.rpc('update_account_balance', { acc_id: String(submission.account_id), amount_change: -Number(submission.amount) })
-      } else if (submission.type === 'transfer') {
-        await supabase.rpc('update_account_balance', { acc_id: String(submission.account_id), amount_change: -Number(submission.amount) })
-        await supabase.rpc('update_account_balance', { acc_id: String(submission.destination_account_id), amount_change: Number(submission.amount) })
-      }
-
-      const updateBalance = async (id: string, change: number) => {
-        const acc = accounts.find(a => a.id === id)
-        if (acc) {
-          await supabase.from('bank_accounts').update({ current_balance: Number(acc.current_balance) + change }).eq('id', id)
-        }
-      }
-
-      if (submission.type === 'income') await updateBalance(String(submission.account_id), Number(submission.amount))
-      if (submission.type === 'expense') await updateBalance(String(submission.account_id), -Number(submission.amount))
-      if (submission.type === 'transfer') {
-        await updateBalance(String(submission.account_id), -Number(submission.amount))
-        await updateBalance(String(submission.destination_account_id), Number(submission.amount))
-      }
+      // 2. O saldo é atualizado exclusivamente pelo trigger trigger_update_balance.
+      //    A RPC update_account_balance(acc_id, amount_change) não existe no banco
+      //    e o UPDATE manual com valor em cache podia sobrescrever o saldo correto.
 
       if (data) setTransactions(prev => [data[0], ...prev])
       setIsModalOpen(false)
@@ -509,22 +489,7 @@ export default function MovimentacoesPage() {
   const handleDelete = async (transaction: Transaction) => {
     if (window.confirm('Tem certeza que deseja excluir esta movimentação? O saldo das contas será estornado.')) {
       try {
-        // 1. Estornar saldo
-        const updateBalance = async (id: number, change: number) => {
-          const acc = accounts.find(a => a.id === id)
-          if (acc) {
-            await supabase.from('bank_accounts').update({ current_balance: Number(acc.current_balance) + change }).eq('id', id)
-          }
-        }
-
-        if (transaction.type === 'income') await updateBalance(transaction.account_id, -Number(transaction.amount))
-        if (transaction.type === 'expense') await updateBalance(transaction.account_id, Number(transaction.amount))
-        if (transaction.type === 'transfer') {
-          await updateBalance(transaction.account_id, Number(transaction.amount))
-          if (transaction.destination_account_id) await updateBalance(transaction.destination_account_id, -Number(transaction.amount))
-        }
-
-        // 2. Deletar transação
+        // O estorno de saldo é feito pelo trigger trigger_update_balance no DELETE.
         await supabase.from('financial_transactions').delete().eq('id', transaction.id)
         
         setTransactions(prev => prev.filter(t => t.id !== transaction.id))
