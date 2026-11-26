@@ -191,7 +191,7 @@ rls as (
              select jsonb_agg(jsonb_build_object(
                       'nome', p.policyname,
                       'comando', p.cmd,
-                      'permissiva', p.permissive::text = 'r',
+                      'permissiva', p.permissive::text = 'P',
                       'usuarios', p.roles::text[],
                       'using', p.qual,
                       'check', p.with_check
@@ -546,7 +546,7 @@ riscos as (
       select array_to_string(c.reloptions, ',') ilike '%security_invoker=on%'
         from pg_class c where c.oid = to_regclass('public.vw_cash_flow_forecast')
     ), false),
-    'rls_permissiva_em_tabela_financeira', (
+    'policies_com_using_nulo_ou_true', (
       select count(*) from pg_policies p
        where p.schemaname = 'public'
          and p.tablename in (select tabela from tabelas)
