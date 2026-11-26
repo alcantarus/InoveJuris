@@ -10,168 +10,126 @@
 -- declara o ambiente consultado ou devolve o ambiente no resultado.
 -- Ver docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md.
 --
--- Objetivo: medir saude do modulo antes de decidir qualquer correcao.
--- Areas cobertas:
---   1. catalogo real de colunas (baseline do repo pode estar defasado);
---   2. constraints, indices, triggers e definicoes de funcoes RPC;
---   3. RLS/policies das tabelas financeiras;
---   4. view vw_cash_flow_forecast (environment, security_invoker, numeros);
---   5. contagens e valores por ambiente;
---   6. saldo persistido x saldo recalculado por conta;
---   7. integridade de lancamentos e duplicatas;
---   8. vinculos de pagamentos/estornos com o caixa;
---   9. chamadas reais das RPCs de caixa e Projecao 30 dias;
---  10. sinais de risco ja identificados no codigo, confirmados ou nao no banco.
+-- Reescrito sem tabela temporaria e sem bloco DO: tudo e resolvido em uma
+-- única consulta com CTEs, para evitar dependencia de estado entre
+-- instrucoes no SQL Editor.
 --
--- O usuario executa e cola a celula de resultado. Nada e alterado.
+-- Usuario executa e cola a celula de resultado. Nada e alterado.
 
 begin;
 
--- Tabela temporaria de apoio: some com o ROLLBACK final (sem ON COMMIT DROP).
-create temp table diag_caixa_blocos (
-  bloco    text primary key,
-  conteudo jsonb not null
-);
-
-do $diag$
-declare
-  v_tabelas  text[] := array[
-    'bank_accounts', 'financial_categories', 'financial_transactions',
-    'payments', 'installments'
-  ];
-  v_funcoes  text[] := array[
-    'update_account_balance', 'get_financial_summary',
-    'get_financial_chart_data', 'get_future_receivables_projection',
-    'rpc_receber_parcela_com_metodo', 'process_installment_payment',
-    'process_installment_estorno'
-  ];
-  v_views    text[] := array[
-    'vw_cash_flow_forecast', 'vw_dashboard_receivables_forecast',
-    'vw_dashboard_receivables_metrics', 'vw_dashboard_top_defaulters'
-  ];
-  v_ambientes text[] := array['production', 'test'];
-  v_env      text;
-  v_t        text;
-  v_json     jsonb;
-  v_json2    jsonb;
-  v_linha    jsonb;
-  v_ini      date := date_trunc('month', current_date)::date;
-  v_fim      date := (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date;
-begin
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('aviso', jsonb_build_object(
-    'diagnostico', 'diagnostico_fluxo_caixa_20261126',
-    'coletado_em', now(),
-    'pg_version', current_setting('server_version'),
-    'banco_unico', 'production e test sao valores da coluna environment, nao bancos separados.',
-    'ambientes_consultados', to_jsonb(v_ambientes),
-    'aviso', 'Somente leitura; nenhuma linha de negocio alterada. Termina em ROLLBACK.',
-    'periodo_mes_atual', jsonb_build_object('inicio', v_ini, 'fim', v_fim),
-    'proposito', 'Medicao previa para decidir se ha correcao estrutural/de dados. Nao aplicar nada sem autorizacao explicita.'
-  ));
-
-  -- 1) Catalogo real de colunas ---------------------------------------------
-  select jsonb_object_agg(t, case
-           when to_regclass('public.' || t) is null then jsonb_build_object('existe', false)
-           else jsonb_build_object(
-             'existe', true,
-             'colunas', coalesce((
-               select jsonb_agg(jsonb_build_object(
-                        'coluna', column_name,
-                        'tipo', data_type,
-                        'nulo', is_nullable
-                      ) order by ordinal_position)
-                 from information_schema.columns
-                where table_schema = 'public' and table_name = t
-             ), '[]'::jsonb)
-           )
-         end)
-    into v_json
-    from unnest(v_tabelas) as t;
-
-  with colunas as (
-    select table_name, column_name
-      from information_schema.columns
-     where table_schema = 'public'
-  ), verificadas (chave, tabela, coluna) as (
-    values
-      ('financial_transactions.environment','financial_transactions','environment'),
-      ('financial_transactions.date','financial_transactions','date'),
-      ('financial_transactions.amount','financial_transactions','amount'),
-      ('financial_transactions.type','financial_transactions','type'),
-      ('financial_transactions.account_id','financial_transactions','account_id'),
-      ('financial_transactions.destination_account_id','financial_transactions','destination_account_id'),
-      ('financial_transactions.category_id','financial_transactions','category_id'),
-      ('financial_transactions.payment_method','financial_transactions','payment_method'),
-      ('bank_accounts.environment','bank_accounts','environment'),
-      ('bank_accounts.initial_balance','bank_accounts','initial_balance'),
-      ('bank_accounts.current_balance','bank_accounts','current_balance'),
-      ('financial_categories.environment','financial_categories','environment'),
-      ('financial_categories.type','financial_categories','type'),
-      ('payments.environment','payments','environment'),
-      ('payments.financial_transaction_id','payments','financial_transaction_id'),
-      ('payments.reverses_payment_id','payments','reverses_payment_id'),
-      ('payments.payment_method','payments','payment_method'),
-      ('installments.type','installments','type'),
-      ('installments.original_due_date','installments','original_due_date')
-  )
-  select jsonb_object_agg(v.chave, e.existe)
-    into v_json2
-    from verificadas v
+with params as (
+  select date_trunc('month', current_date)::date as ini,
+         (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date as fim
+),
+tabelas(tabela) as (
+  values ('bank_accounts'), ('financial_categories'), ('financial_transactions'),
+         ('payments'), ('installments')
+),
+funcoes(nome) as (
+  values ('update_account_balance'), ('get_financial_summary'),
+         ('get_financial_chart_data'), ('get_future_receivables_projection'),
+         ('rpc_receber_parcela_com_metodo'), ('process_installment_payment'),
+         ('process_installment_estorno')
+),
+views_analisadas(nome) as (
+  values ('vw_cash_flow_forecast'), ('vw_dashboard_receivables_forecast'),
+         ('vw_dashboard_receivables_metrics'), ('vw_dashboard_top_defaulters')
+),
+ambientes(environment) as (
+  values ('production'), ('test')
+),
+colunas as (
+  select table_name, column_name, data_type, is_nullable, ordinal_position
+    from information_schema.columns
+   where table_schema = 'public'
+),
+catalogo_base as (
+  select t.tabela,
+         case when to_regclass('public.' || t.tabela) is null
+              then jsonb_build_object('existe', false)
+              else jsonb_build_object(
+                     'existe', true,
+                     'colunas', coalesce((
+                       select jsonb_agg(jsonb_build_object(
+                                'coluna', c.column_name,
+                                'tipo', c.data_type,
+                                'nulo', c.is_nullable
+                              ) order by c.ordinal_position)
+                         from colunas c where c.table_name = t.tabela
+                     ), '[]'::jsonb)
+                   )
+         end as detalhe
+    from tabelas t
+),
+catalogo as (
+  select jsonb_object_agg(tabela, detalhe) as valor from catalogo_base
+),
+colunas_chave_base(chave, tabela, coluna) as (
+  values
+    ('financial_transactions.environment','financial_transactions','environment'),
+    ('financial_transactions.date','financial_transactions','date'),
+    ('financial_transactions.amount','financial_transactions','amount'),
+    ('financial_transactions.type','financial_transactions','type'),
+    ('financial_transactions.account_id','financial_transactions','account_id'),
+    ('financial_transactions.destination_account_id','financial_transactions','destination_account_id'),
+    ('financial_transactions.category_id','financial_transactions','category_id'),
+    ('financial_transactions.payment_method','financial_transactions','payment_method'),
+    ('bank_accounts.environment','bank_accounts','environment'),
+    ('bank_accounts.initial_balance','bank_accounts','initial_balance'),
+    ('bank_accounts.current_balance','bank_accounts','current_balance'),
+    ('financial_categories.environment','financial_categories','environment'),
+    ('financial_categories.type','financial_categories','type'),
+    ('payments.environment','payments','environment'),
+    ('payments.financial_transaction_id','payments','financial_transaction_id'),
+    ('payments.reverses_payment_id','payments','reverses_payment_id'),
+    ('payments.payment_method','payments','payment_method'),
+    ('installments.type','installments','type'),
+    ('installments.original_due_date','installments','original_due_date')
+),
+colunas_chave as (
+  select jsonb_object_agg(x.chave, e.existe) as valor
+    from colunas_chave_base x
     cross join lateral (
       select exists(
         select 1 from colunas c
-         where c.table_name = v.tabela and c.column_name = v.coluna
+         where c.table_name = x.tabela and c.column_name = x.coluna
       ) as existe
-    ) e;
-
-  v_json := coalesce(v_json, '{}'::jsonb) || jsonb_build_object(
-    'colunas_chave', coalesce(v_json2, '{}'::jsonb),
-    'schema_migrations_existe', to_regclass('public.schema_migrations') is not null
-  );
-
-  insert into diag_caixa_blocos (bloco, conteudo) values ('catalogo', v_json);
-
-  -- 2) Constraints, indices, triggers, funcoes e views ----------------------
-  select jsonb_object_agg(t, coalesce((
+    ) e
+),
+restricoes as (
+  select jsonb_object_agg(t.tabela, coalesce((
            select jsonb_agg(jsonb_build_object(
-                    'nome', conname,
-                    'tipo', contype,
-                    'definicao', pg_get_constraintdef(c.oid)
-                  ) order by conname)
-             from pg_constraint c
-            where c.conrelid = to_regclass('public.' || t)
-         ), '[]'::jsonb))
-    into v_json
-    from unnest(v_tabelas) as t;
-
-  v_json2 := (
-    select coalesce(jsonb_agg(jsonb_build_object(
-             'nome', i.indexname, 'definicao', i.indexdef
-           ) order by i.indexname), '[]'::jsonb)
-      from pg_indexes i
-     where i.schemaname = 'public' and i.tablename = any(v_tabelas)
-  );
-
-  v_json := v_json || jsonb_build_object('indices', coalesce(v_json2, '[]'::jsonb));
-
-  v_json2 := (
-    select coalesce(jsonb_agg(jsonb_build_object(
-             'nome', g.tgname,
-             'definicao', pg_get_triggerdef(g.oid),
-             'desativado', g.tgenabled = 'D'
-           ) order by g.tgname), '[]'::jsonb)
-      from pg_trigger g
-     where g.tgrelid = to_regclass('public.financial_transactions')
-       and not g.tgisinternal
-  );
-
-  v_json := v_json || jsonb_build_object(
-    'triggers_financial_transactions', coalesce(v_json2, '[]'::jsonb)
-  );
-
-  select jsonb_object_agg(n, coalesce((
+                    'nome', k.conname,
+                    'tipo', k.contype,
+                    'definicao', pg_get_constraintdef(k.oid)
+                  ) order by k.conname)
+             from pg_constraint k
+            where k.conrelid = to_regclass('public.' || t.tabela)
+         ), '[]'::jsonb)) as valor
+    from tabelas t
+),
+indices as (
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'tabela', i.tablename, 'nome', i.indexname, 'definicao', i.indexdef
+         ) order by i.tablename, i.indexname), '[]'::jsonb) as valor
+    from pg_indexes i
+   where i.schemaname = 'public' and i.tablename in (
+     select tabela from tabelas
+   )
+),
+triggers_caixa as (
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'nome', g.tgname,
+           'definicao', pg_get_triggerdef(g.oid),
+           'desativado', g.tgenabled = 'D'
+         ) order by g.tgname), '[]'::jsonb) as valor
+    from pg_trigger g
+   where g.tgrelid = to_regclass('public.financial_transactions')
+     and not g.tgisinternal
+),
+funcoes_detalhe as (
+  select jsonb_object_agg(f.nome, coalesce((
            select jsonb_agg(jsonb_build_object(
                     'args', pg_get_function_identity_arguments(p.oid),
                     'retorno', pg_get_function_result(p.oid),
@@ -187,47 +145,47 @@ begin
                     ) then pg_get_functiondef(p.oid) else null end
                   ) order by pg_get_function_identity_arguments(p.oid))
              from pg_proc p
-            where p.pronamespace = 'public'::regnamespace and p.proname = n
-         ), '[]'::jsonb))
-    into v_json2
-    from unnest(v_funcoes) as n;
-
-  v_json := v_json || jsonb_build_object(
-    'funcoes', coalesce(v_json2, '{}'::jsonb)
-  );
-
-  select jsonb_object_agg(n, case
-           when to_regclass('public.' || n) is null then jsonb_build_object('existe', false)
+            where p.pronamespace = 'public'::regnamespace and p.proname = f.nome
+         ), '[]'::jsonb)) as valor
+    from funcoes f
+),
+views_detalhe as (
+  select jsonb_object_agg(v.nome, case
+           when to_regclass('public.' || v.nome) is null
+                then jsonb_build_object('existe', false)
            else jsonb_build_object(
-             'existe', true,
-             'reloptions', coalesce((
-               select array_to_string(c.reloptions, ',')
-                 from pg_class c where c.oid = to_regclass('public.' || n)
-             ), ''),
-             'security_invoker_on', coalesce((
-               select array_to_string(c.reloptions, ',')
-                 from pg_class c where c.oid = to_regclass('public.' || n)
-             ), '') ilike '%security_invoker=on%',
-             'colunas', coalesce((
-               select jsonb_agg(column_name order by ordinal_position)
-                 from information_schema.columns
-                where table_schema = 'public' and table_name = n
-             ), '[]'::jsonb),
-             'definicao', pg_get_viewdef(to_regclass('public.' || n), true)
-           )
-         end)
-    into v_json2
-    from unnest(v_views) as n;
-
-  v_json := v_json || jsonb_build_object('views', coalesce(v_json2, '{}'::jsonb));
-
-  insert into diag_caixa_blocos (bloco, conteudo) values ('estrutura', v_json);
-
-  -- 3) RLS e policies -------------------------------------------------------
-  select jsonb_object_agg(t, jsonb_build_object(
+                  'existe', true,
+                  'reloptions', coalesce((
+                    select array_to_string(c.reloptions, ',')
+                      from pg_class c where c.oid = to_regclass('public.' || v.nome)
+                  ), ''),
+                  'security_invoker_on', coalesce((
+                    select array_to_string(c.reloptions, ',')
+                      from pg_class c where c.oid = to_regclass('public.' || v.nome)
+                  ), '') ilike '%security_invoker=on%',
+                  'colunas', coalesce((
+                    select jsonb_agg(c.column_name order by c.ordinal_position)
+                      from colunas c where c.table_name = v.nome
+                  ), '[]'::jsonb),
+                  'definicao', pg_get_viewdef(to_regclass('public.' || v.nome), true)
+                )
+         end) as valor
+    from views_analisadas v
+),
+estrutura as (
+  select jsonb_build_object(
+           'restricoes', (select valor from restricoes),
+           'indices', (select valor from indices),
+           'triggers_financial_transactions', (select valor from triggers_caixa),
+           'funcoes', (select valor from funcoes_detalhe),
+           'views', (select valor from views_detalhe)
+         ) as valor
+),
+rls as (
+  select jsonb_object_agg(t.tabela, jsonb_build_object(
            'rls_ativo', coalesce((
              select c.relrowsecurity from pg_class c
-              where c.oid = to_regclass('public.' || t)
+              where c.oid = to_regclass('public.' || t.tabela)
            ), false),
            'policies', coalesce((
              select jsonb_agg(jsonb_build_object(
@@ -239,50 +197,49 @@ begin
                       'check', p.with_check
                     ) order by p.policyname)
                from pg_policies p
-              where p.schemaname = 'public' and p.tablename = t
+              where p.schemaname = 'public' and p.tablename = t.tabela
            ), '[]'::jsonb)
-         ))
-    into v_json
-    from unnest(v_tabelas) as t;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('rls', coalesce(v_json, '{}'::jsonb));
-
-  -- 4) Contagens e valores por ambiente -------------------------------------
-  with env as (
-    select unnest(v_ambientes) as environment
-  ), ft as (
-    select environment,
-           count(*) as n,
-           count(*) filter (where lower(btrim(coalesce(type,''))) = 'income') as n_in,
-           count(*) filter (where lower(btrim(coalesce(type,''))) = 'expense') as n_out,
-           count(*) filter (where lower(btrim(coalesce(type,''))) = 'transfer') as n_transf,
-           coalesce(sum(amount) filter (where lower(btrim(coalesce(type,''))) = 'income'), 0) as v_in,
-           coalesce(sum(amount) filter (where lower(btrim(coalesce(type,''))) = 'expense'), 0) as v_out,
-           coalesce(sum(amount) filter (where lower(btrim(coalesce(type,''))) = 'transfer'), 0) as v_transf,
-           count(*) filter (where date >= v_ini and date <= v_fim) as n_mes
-      from public.financial_transactions
-     group by environment
-  ), ba as (
-    select environment, count(*) as n,
-           coalesce(sum(current_balance), 0) as saldo,
-           coalesce(sum(initial_balance), 0) as inicial
-      from public.bank_accounts group by environment
-  ), fc as (
-    select environment, count(*) as n from public.financial_categories group by environment
-  ), pa as (
-    select environment,
-           count(*) as n,
-           count(*) filter (where lower(btrim(coalesce(type,''))) = 'payment') as n_pag,
-           count(*) filter (where lower(btrim(coalesce(type,''))) = 'reversal') as n_est,
-           coalesce(sum(amount) filter (where lower(btrim(coalesce(type,''))) = 'payment'), 0) as v_pag
-      from public.payments group by environment
-  ), ins as (
-    select environment, count(*) as n,
-           count(*) filter (where lower(btrim(coalesce(status,''))) = 'estornado') as n_estornado
-      from public.installments group by environment
-  )
-  select jsonb_object_agg(env.environment, jsonb_build_object(
+         )) as valor
+    from tabelas t
+),
+ft as (
+  select f.environment,
+         count(*) as n,
+         count(*) filter (where lower(btrim(coalesce(f.type,''))) = 'income') as n_in,
+         count(*) filter (where lower(btrim(coalesce(f.type,''))) = 'expense') as n_out,
+         count(*) filter (where lower(btrim(coalesce(f.type,''))) = 'transfer') as n_transf,
+         coalesce(sum(f.amount) filter (where lower(btrim(coalesce(f.type,''))) = 'income'), 0) as v_in,
+         coalesce(sum(f.amount) filter (where lower(btrim(coalesce(f.type,''))) = 'expense'), 0) as v_out,
+         coalesce(sum(f.amount) filter (where lower(btrim(coalesce(f.type,''))) = 'transfer'), 0) as v_transf,
+         count(*) filter (where f.date >= p.ini and f.date <= p.fim) as n_mes
+    from public.financial_transactions f
+    cross join params p
+   group by f.environment, p.ini, p.fim
+),
+ba as (
+  select environment, count(*) as n,
+         coalesce(sum(current_balance), 0) as saldo,
+         coalesce(sum(initial_balance), 0) as inicial
+    from public.bank_accounts group by environment
+),
+fc as (
+  select environment, count(*) as n from public.financial_categories group by environment
+),
+pa as (
+  select environment,
+         count(*) as n,
+         count(*) filter (where lower(btrim(coalesce(type,''))) = 'payment') as n_pag,
+         count(*) filter (where lower(btrim(coalesce(type,''))) = 'reversal') as n_est,
+         coalesce(sum(amount) filter (where lower(btrim(coalesce(type,''))) = 'payment'), 0) as v_pag
+    from public.payments group by environment
+),
+ins as (
+  select environment, count(*) as n,
+         count(*) filter (where lower(btrim(coalesce(status,''))) = 'estornado') as n_estornado
+    from public.installments group by environment
+),
+por_ambiente as (
+  select jsonb_object_agg(e.environment, jsonb_build_object(
            'transacoes', coalesce(ft.n, 0),
            'lancamentos_income', coalesce(ft.n_in, 0),
            'lancamentos_expense', coalesce(ft.n_out, 0),
@@ -302,43 +259,41 @@ begin
            'valor_pagamentos', coalesce(pa.v_pag, 0),
            'parcelas', coalesce(ins.n, 0),
            'parcelas_estornadas', coalesce(ins.n_estornado, 0)
-         ))
-    into v_json
-    from env
-    left join ft on ft.environment = env.environment
-    left join ba on ba.environment = env.environment
-    left join fc on fc.environment = env.environment
-    left join pa on pa.environment = env.environment
-    left join ins on ins.environment = env.environment;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('por_ambiente', coalesce(v_json, '{}'::jsonb));
-
-  -- 5) Saldo persistido x saldo recalculado ---------------------------------
-  with saldo as (
-    select a.id as account_id,
-           a.environment,
-           a.name,
-           a.initial_balance,
-           a.current_balance,
-           a.initial_balance
-             + coalesce((select sum(f.amount) from public.financial_transactions f
-                          where f.account_id = a.id
-                            and lower(btrim(coalesce(f.type,''))) = 'income'), 0)
-             - coalesce((select sum(f.amount) from public.financial_transactions f
-                          where f.account_id = a.id
-                            and lower(btrim(coalesce(f.type,''))) = 'expense'), 0)
-             - coalesce((select sum(f.amount) from public.financial_transactions f
-                          where f.account_id = a.id
-                            and lower(btrim(coalesce(f.type,''))) = 'transfer'), 0)
-             + coalesce((select sum(f.amount) from public.financial_transactions f
-                          where f.destination_account_id = a.id
-                            and lower(btrim(coalesce(f.type,''))) = 'transfer'), 0) as saldo_calculado
-      from public.bank_accounts a
-  )
+         )) as valor
+    from ambientes e
+    left join ft on ft.environment = e.environment
+    left join ba on ba.environment = e.environment
+    left join fc on fc.environment = e.environment
+    left join pa on pa.environment = e.environment
+    left join ins on ins.environment = e.environment
+),
+saldo_base as (
+  select a.id as account_id,
+         a.environment,
+         a.name,
+         a.initial_balance,
+         a.current_balance,
+         a.initial_balance
+           + coalesce((select sum(f.amount) from public.financial_transactions f
+                        where f.account_id = a.id
+                          and lower(btrim(coalesce(f.type,''))) = 'income'), 0)
+           - coalesce((select sum(f.amount) from public.financial_transactions f
+                        where f.account_id = a.id
+                          and lower(btrim(coalesce(f.type,''))) = 'expense'), 0)
+           - coalesce((select sum(f.amount) from public.financial_transactions f
+                        where f.account_id = a.id
+                          and lower(btrim(coalesce(f.type,''))) = 'transfer'), 0)
+           + coalesce((select sum(f.amount) from public.financial_transactions f
+                        where f.destination_account_id = a.id
+                          and lower(btrim(coalesce(f.type,''))) = 'transfer'), 0) as saldo_calculado
+    from public.bank_accounts a
+),
+saldo as (
   select jsonb_build_object(
            'contas', count(*),
-           'contas_divergentes', count(*) filter (where abs(current_balance - saldo_calculado) > 0.01),
+           'contas_divergentes', count(*) filter (
+             where abs(current_balance - saldo_calculado) > 0.01
+           ),
            'delta_total', coalesce(sum(current_balance - saldo_calculado), 0),
            'por_ambiente', coalesce((
              select jsonb_object_agg(q.environment, q.detalhe)
@@ -351,30 +306,26 @@ begin
                           ),
                           'delta', coalesce(sum(s.current_balance - s.saldo_calculado), 0)
                         ) as detalhe
-                   from saldo s
+                   from saldo_base s
                   group by s.environment
                ) q
            ), '{}'::jsonb),
            'detalhe_divergentes', coalesce((
              select jsonb_agg(jsonb_build_object(
-                      'environment', environment,
-                      'account_id', account_id,
-                      'conta', name,
-                      'persistido', current_balance,
-                      'calculado', saldo_calculado,
-                      'delta', current_balance - saldo_calculado
-                    ) order by environment, account_id)
-               from saldo
-              where abs(current_balance - saldo_calculado) > 0.01
+                      'environment', s.environment,
+                      'account_id', s.account_id,
+                      'conta', s.name,
+                      'persistido', s.current_balance,
+                      'calculado', s.saldo_calculado,
+                      'delta', s.current_balance - s.saldo_calculado
+                    ) order by s.environment, s.account_id)
+               from saldo_base s
+              where abs(s.current_balance - s.saldo_calculado) > 0.01
            ), '[]'::jsonb)
-         )
-    into v_json
-    from saldo;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('saldo', coalesce(v_json, '{}'::jsonb));
-
-  -- 6) Integridade de lancamentos -------------------------------------------
+         ) as valor
+    from saldo_base
+),
+integridade as (
   select jsonb_build_object(
     'transacoes_valor_nao_positivo', (
       select count(*) from public.financial_transactions where coalesce(amount, 0) <= 0
@@ -456,12 +407,9 @@ begin
         join public.bank_accounts a on a.id = f.destination_account_id
        where f.environment is distinct from a.environment
     )
-  ) into v_json;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('integridade', coalesce(v_json, '{}'::jsonb));
-
-  -- 7) Pagamentos e estornos x caixa ----------------------------------------
+  ) as valor
+),
+pagamentos as (
   select jsonb_build_object(
     'pagamentos_sem_transacao_vinculada', (
       select count(*) from public.payments where financial_transaction_id is null
@@ -511,66 +459,58 @@ begin
                ), 0)) > 0.01
       ) d
     )
-  ) into v_json;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('pagamentos', coalesce(v_json, '{}'::jsonb));
-
-  -- 8) View de previsao e RPCs em producao ----------------------------------
-  v_json := jsonb_build_object('vw_cash_flow_forecast', '{}'::jsonb,
-                               'get_financial_summary_mes_atual', '{}'::jsonb,
-                               'get_future_receivables_projection', '{}'::jsonb);
-
-  if exists (select 1 from information_schema.columns
-              where table_schema = 'public' and table_name = 'vw_cash_flow_forecast'
-                and column_name = 'environment')
-     and exists (select 1 from information_schema.columns
-              where table_schema = 'public' and table_name = 'vw_cash_flow_forecast'
-                and column_name = 'expected_amount')
-  then
-    execute 'select coalesce(jsonb_object_agg(environment, jsonb_build_object(''linhas'', n, ''valor_previsto'', vl)), ''{}''::jsonb)'
-         || ' from (select environment, count(*) n, coalesce(sum(expected_amount),0) vl'
-         || ' from public.vw_cash_flow_forecast where environment is not null group by environment) q'
-      into v_json2;
-    v_json := jsonb_set(v_json, '{vw_cash_flow_forecast}', coalesce(v_json2, '{}'::jsonb));
-  else
-    v_json := jsonb_set(v_json, '{vw_cash_flow_forecast}',
-      jsonb_build_object('erro', 'view sem environment ou sem expected_amount; nao consultada'));
-  end if;
-
-  if to_regprocedure('public.get_financial_summary(date,date,bigint,bigint,text)') is not null then
-    v_json2 := '{}'::jsonb;
-    foreach v_env in array v_ambientes loop
-      execute 'select coalesce(jsonb_object_agg(transaction_type, total_amount), ''{}''::jsonb)'
-           || ' from (select * from public.get_financial_summary($1,$2,null,null,$3)) q'
-           || ' where transaction_type is not null'
-        into v_linha using v_ini, v_fim, v_env;
-      v_json2 := v_json2 || jsonb_build_object(v_env, coalesce(v_linha, '{}'::jsonb));
-    end loop;
-    v_json := jsonb_set(v_json, '{get_financial_summary_mes_atual}', v_json2);
-  else
-    v_json := jsonb_set(v_json, '{get_financial_summary_mes_atual}',
-      jsonb_build_object('erro', 'assinatura esperada nao encontrada'));
-  end if;
-
-  if to_regprocedure('public.get_future_receivables_projection(text)') is not null then
-    v_json2 := '{}'::jsonb;
-    foreach v_env in array v_ambientes loop
-      execute 'select coalesce(jsonb_object_agg(due_month, total_amount), ''{}''::jsonb)'
-           || ' from public.get_future_receivables_projection($1)'
-        into v_linha using v_env;
-      v_json2 := v_json2 || jsonb_build_object(v_env, coalesce(v_linha, '{}'::jsonb));
-    end loop;
-    v_json := jsonb_set(v_json, '{get_future_receivables_projection}', v_json2);
-  else
-    v_json := jsonb_set(v_json, '{get_future_receivables_projection}',
-      jsonb_build_object('erro', 'assinatura (text) nao encontrada'));
-  end if;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('rpc_e_view', coalesce(v_json, '{}'::jsonb));
-
-  -- 9) Sinais de risco do codigo, confirmados no catalogo --------------------
+  ) as valor
+),
+forecast as (
+  select environment, count(*) as n,
+         coalesce(sum(expected_amount), 0) as vl
+    from public.vw_cash_flow_forecast
+   where environment is not null
+   group by environment
+),
+rpc_mes as (
+  select e.environment, q.transaction_type, q.total_amount
+    from params p
+    cross join ambientes e
+    cross join lateral public.get_financial_summary(
+      p.ini, p.fim, null, null, e.environment
+    ) q
+),
+projecao as (
+  select e.environment, q.due_month, q.total_amount
+    from ambientes e
+    cross join lateral public.get_future_receivables_projection(e.environment) q
+),
+rpc_e_view as (
+  select jsonb_build_object(
+    'vw_cash_flow_forecast', coalesce((
+      select jsonb_object_agg(environment, jsonb_build_object(
+               'linhas', n, 'valor_previsto', vl
+             ))
+        from forecast
+    ), '{}'::jsonb),
+    'get_financial_summary_mes_atual', coalesce((
+      select jsonb_object_agg(q.environment, q.detalhe)
+        from (
+          select r.environment,
+                 jsonb_object_agg(r.transaction_type, r.total_amount) as detalhe
+            from rpc_mes r
+           where r.transaction_type is not null
+           group by r.environment
+        ) q
+    ), '{}'::jsonb),
+    'get_future_receivables_projection', coalesce((
+      select jsonb_object_agg(q.environment, q.detalhe)
+        from (
+          select pr.environment,
+                 jsonb_object_agg(pr.due_month, pr.total_amount) as detalhe
+            from projecao pr
+           group by pr.environment
+        ) q
+    ), '{}'::jsonb)
+  ) as valor
+),
+riscos as (
   select jsonb_build_object(
     'frontend_kpi_usado_limite_100', true,
     'triggers_update_balance_em_financial_transactions', (
@@ -591,18 +531,16 @@ begin
          and pg_get_function_identity_arguments(p.oid) ilike '%amount_change%'
     ),
     'installments_tem_coluna_type', exists (
-      select 1 from information_schema.columns
-       where table_schema = 'public' and table_name = 'installments' and column_name = 'type'
+      select 1 from colunas c
+       where c.table_name = 'installments' and c.column_name = 'type'
     ),
     'financial_transactions_tem_payment_method', exists (
-      select 1 from information_schema.columns
-       where table_schema = 'public' and table_name = 'financial_transactions'
-         and column_name = 'payment_method'
+      select 1 from colunas c
+       where c.table_name = 'financial_transactions' and c.column_name = 'payment_method'
     ),
     'vw_cash_flow_forecast_tem_environment', exists (
-      select 1 from information_schema.columns
-       where table_schema = 'public' and table_name = 'vw_cash_flow_forecast'
-         and column_name = 'environment'
+      select 1 from colunas c
+       where c.table_name = 'vw_cash_flow_forecast' and c.column_name = 'environment'
     ),
     'vw_cash_flow_forecast_security_invoker_on', coalesce((
       select array_to_string(c.reloptions, ',') ilike '%security_invoker=on%'
@@ -611,19 +549,38 @@ begin
     'rls_permissiva_em_tabela_financeira', (
       select count(*) from pg_policies p
        where p.schemaname = 'public'
-         and p.tablename = any(v_tabelas)
+         and p.tablename in (select tabela from tabelas)
          and (p.qual is null or btrim(p.qual) = 'true')
     ),
+    'schema_migrations_existe', to_regclass('public.schema_migrations') is not null,
     'nota', 'Sinais do codigo: saldo ajustado por trigger + RPC + UPDATE manual em movimentacoes; KPIs da visao geral limitados a 100 linhas; previstas usam installments.type; RPCs nao passam pelo proxy de environment.'
-  ) into v_json;
-
-  insert into diag_caixa_blocos (bloco, conteudo)
-  values ('riscos_codigo', coalesce(v_json, '{}'::jsonb));
-
-end
-$diag$;
-
-select jsonb_pretty(jsonb_object_agg(bloco, conteudo order by bloco)) as diagnostico_fluxo_caixa_20261126
-  from diag_caixa_blocos;
+  ) as valor
+)
+select jsonb_pretty(jsonb_build_object(
+  'aviso', jsonb_build_object(
+    'diagnostico', 'diagnostico_fluxo_caixa_20261126',
+    'coletado_em', now(),
+    'pg_version', current_setting('server_version'),
+    'banco_unico', 'production e test sao valores da coluna environment, nao bancos separados.',
+    'ambientes_consultados', (select jsonb_agg(environment) from ambientes),
+    'aviso', 'Somente leitura; nenhuma linha de negocio alterada. Termina em ROLLBACK.',
+    'periodo_mes_atual', jsonb_build_object(
+      'inicio', (select ini from params), 'fim', (select fim from params)
+    ),
+    'proposito', 'Medicao previa para decidir se ha correcao estrutural/de dados. Nao aplicar nada sem autorizacao explicita.'
+  ),
+  'catalogo', (select valor from catalogo) || jsonb_build_object(
+    'colunas_chave', (select valor from colunas_chave),
+    'schema_migrations_existe', to_regclass('public.schema_migrations') is not null
+  ),
+  'estrutura', (select valor from estrutura),
+  'rls', (select valor from rls),
+  'por_ambiente', (select valor from por_ambiente),
+  'saldo', (select valor from saldo),
+  'integridade', (select valor from integridade),
+  'pagamentos', (select valor from pagamentos),
+  'rpc_e_view', (select valor from rpc_e_view),
+  'riscos_codigo', (select valor from riscos)
+)) as diagnostico_fluxo_caixa_20261126;
 
 rollback;
