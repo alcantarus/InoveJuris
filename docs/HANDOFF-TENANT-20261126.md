@@ -437,8 +437,39 @@ Código — `app/contas-a-receber/page.tsx` alterado (não comitado, não public
 Validação: `npx tsc --noEmit` OK; `npx eslint` sem erros (1 warning pré-existente
 em `receivableKpis`). `tsconfig.tsbuildinfo` restaurado.
 
-Pendente: teste funcional de novo desdobramento em `test` pelo usuário, revisão
-do diff e — só com pedido explícito — commit/deploy.
+Publicado: commit `c6e2fe3`, deploy `dpl_96YurBhHU6AErsCE5Jw8Y6KavLsG`
+(**Ready**, alias `https://inove-juris.vercel.app`). Pendente: teste funcional de
+novo desdobramento em `test` pelo usuário (`1 → 1.1 → 1.1.1` e bloqueio de
+estorno na parcela com filha).
+
+---
+
+## 6.6. `permissions` como catálogo global — aplicado e validado (26/11/2026)
+
+Correção do risco real da §6.1, executada sem tocar em dados:
+
+- `lib/supabase.ts`: `permissions` removida de `TABELAS_COM_ORGANIZATION_ID` e
+  acrescentada ao `if` de tabelas globais (early return).
+- `lib/supabase-server.ts`: `permissions` acrescentada à allowlist global.
+- `tsc` OK; `eslint` 0 erros e 0 warnings; `tsconfig.tsbuildinfo` restaurado.
+- Commit `05f7dad`, deploy `dpl_A8MNTHZwwa7skQWB8gMEKXNWGYoP` (**Ready**, alias
+  `https://inove-juris.vercel.app`).
+
+Verificação `docs/VERIFY-PERMISSIONS-CATALOGO-GLOBAL-20261126.sql` (rodada pelo
+usuário em `test`): `slugs_no_catalogo = 22`, `vinculos_test = 23`,
+`permissoes_duplicadas_no_test = 0`, `vinculos_sem_slug = 0`, **PASS**.
+
+Validação na tela: `/usuarios` em `test` mostra “Nenhum usuário encontrado” —
+**esperado** (`users` 5/0 e `user_roles` 4/0; RLS por `organization_id = demo`).
+O teste decisivo foi o modal **Novo Usuário → Perfil de Acesso (RBAC)**: ao
+selecionar um perfil, os módulos são marcados automaticamente a partir dos
+slugs. **Confirmado pelo usuário: funcionando.**
+
+Nenhum `INSERT`/`UPDATE` em dados de negócio. A alternativa de duplicar o
+catálogo no demo continua não recomendada e não foi executada.
+
+**Teste 1 = OK**: claim ✅, `dados_isolados` ✅, `erro_console` ✅ e `permissions`
+✅. Próximo: Teste 2 (configurações/backup/OAuth).
 
 ---
 
@@ -447,7 +478,7 @@ do diff e — só com pedido explícito — commit/deploy.
 1. ~~Confirmar se o código foi publicado/reiniciado~~ — **feito**: commit `49cfb21`, deploy aplicado.
 2. ~~Logout e login novo em `test`~~ — **feito**; claim lido com a UUID demo.
 3. ~~Rodar o diagnóstico do console do Teste 1~~ — **feito**: `organizacao_no_token` = demo.
-4. ~~Fechar o Teste 1 com `dados_isolados` e `erro_console`~~ — **os três itens passaram**: claim ✅, `dados_isolados` ✅ (ver §6), `erro_console` ✅ (sem erros relatados em `test`/Contas a Receber). **Teste 1 = OK.** Confirmação formal restante: `/usuarios` e a lista de permissões dos perfis (ver §6.1) antes de mexer em `permissions`.
+4. ~~Fechar o Teste 1 com `dados_isolados` e `erro_console`~~ — **os três itens passaram**: claim ✅, `dados_isolados` ✅ (ver §6), `erro_console` ✅ (sem erros relatados em `test`/Contas a Receber). **Teste 1 = OK.** Confirmação formal de `/usuarios` e da lista de permissões dos perfis também fechada: ver §6.6 (modal Novo Usuário → Perfil de Acesso marca os módulos).
 5. Se tudo fechar, **Teste 1 = OK** → seguir para Teste 2 (configurações/backup/OAuth);
    depois prazos, responsáveis legais, comissão e somente ao final recebimento/estorno/cancelamento.
 

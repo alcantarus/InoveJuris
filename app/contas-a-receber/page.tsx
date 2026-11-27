@@ -48,6 +48,8 @@ export default function ContasAReceberPage() {
   const [receiveModalOpen, setReceiveModalOpen] = useState(false)
   const [prorogueModalOpen, setProrogueModalOpen] = useState(false)
   const [reverseModalOpen, setReverseModalOpen] = useState(false)
+  const [collapseMode, setCollapseMode] = useState(false)
+  const [collapseCount, setCollapseCount] = useState(0)
   const [statementModalOpen, setStatementModalOpen] = useState(false)
   const [adjustModalOpen, setAdjustModalOpen] = useState(false)
   const [estornoReason, setEstornoReason] = useState('')
@@ -351,11 +353,18 @@ export default function ContasAReceberPage() {
 
   const openReverseModal = (inst: any) => {
     // Parcela com filha não pode ser estornada isolada: o saldo ficaria órfão.
-    if (getChildren(inst).length > 0) {
+    if (getChildren(inst).length > 0 && !canCollapse(inst)) {
       toast.error('Estorne a partir da última subparcela')
       return
     }
     setActiveInstallment(inst)
+    setReverseModalOpen(true)
+  }
+
+  const openCollapseModal = (inst: any) => {
+    setActiveInstallment(inst)
+    setCollapseCount(getActiveDescendants(inst).length)
+    setCollapseMode(true)
     setReverseModalOpen(true)
   }
 
@@ -449,6 +458,42 @@ export default function ContasAReceberPage() {
         Number(x.parent_installment_id) === Number(i?.id)
     )
 
+  // Descendentes ativos: ignoramos Reabsorvida/Cancelada, que não fazem mais
+  // parte da dívida nem da árvore exibida.
+  const getActiveDescendants = (i: any) => {
+    const found: any[] = []
+    const walk = (parentId: any) => {
+      for (const x of installments) {
+        if (x.parent_installment_id == null) continue
+        if (Number(x.parent_installment_id) !== Number(parentId)) continue
+        const s = String(x.status || '').toLowerCase()
+        if (s === 'reabsorvida' || s === 'cancelada' || s === 'cancelado') continue
+        found.push(x)
+        walk(x.id)
+      }
+    }
+    walk(i?.id)
+    return found
+  }
+
+  // Regra B: a mãe só pode ser estornada se todas as folhas ativas da subárvore
+  // estiverem Estornado e nenhum descendente tiver valor pago.
+  const canCollapse = (i: any) => {
+    if (Number(i?.amountPaid || 0) <= 0) return false
+    const descendants = getActiveDescendants(i)
+    if (descendants.length === 0) return false
+    if (descendants.some((x: any) => Number(x.amountPaid || 0) > 0)) return false
+    return descendants.every((x: any) => {
+      const hasActiveChild = descendants.some(
+        (y: any) =>
+          y.parent_installment_id != null &&
+          Number(y.parent_installment_id) === Number(x.id)
+      )
+      if (hasActiveChild) return true
+      return String(x.status || '').toLowerCase() === 'estornado'
+    })
+  }
+
   const getParentLabel = (i: any) => {
     const parentId = i?.parent_installment_id
     if (parentId != null) {
@@ -533,6 +578,7 @@ export default function ContasAReceberPage() {
       depth,
       parentLabel: getParentLabel(i),
       childLabel: firstChild ? getInstallmentLabel(firstChild) : null,
+      canCollapse: canCollapse(i),
     }
   }
 
@@ -694,7 +740,11 @@ export default function ContasAReceberPage() {
         if (dueA !== dueB) return dueA.localeCompare(dueB)
         return Number(a.installmentNumber || 0) - Number(b.installmentNumber || 0)
       })
-      setInstallments(ordered)
+      // Reabsorvida não participa mais da dívida nem da árvore exibida.
+      const visible = ordered.filter(
+        (a: any) => String(a.status || '').toLowerCase() !== 'reabsorvida'
+      )
+      setInstallments(visible)
     }
     setLoading(false)
   }, [])
@@ -1209,9 +1259,10 @@ export default function ContasAReceberPage() {
                     <tr><td colSpan={8} className="p-4 text-center">Carregando...</td></tr>
                   ) : installments.map((i, index) => {
                     const { isLate, daysLate } = getInstallmentFlags(i)
-                    const { isResidual, isDesdobrada, isAtiva, hasChildren, depth, parentLabel, childLabel } = getInstallmentRole(i)
+                    const { isResidual, isDesdobrada, isAtiva, hasChildren, depth, parentLabel, childLabel, canCollapse } = getInstallmentRole(i)
                     const label = getInstallmentLabel(i)
-                    const estornoBloqueado = hasChildren
+                    const estornoBloqueado = hasChildren && !canCollapse
+                    const estornoComColapso = hasChildren && canCollapse
 
                     return (
                     <motion.tr 
@@ -1341,8 +1392,12 @@ export default function ContasAReceberPage() {
                         <button 
                           className={cn("text-rose-600 hover:text-rose-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (((i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0) || estornoBloqueado) && "pointer-events-none")}
                           disabled={(i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0 || estornoBloqueado}
-                          title={estornoBloqueado ? 'Estorne a partir da última subparcela' : undefined}
-                          onClick={() => openReverseModal(i)}
+                          title={estornoBloqueado
+                            ? 'Estorne a partir da última subparcela'
+                            : estornoComColapso
+                              ? 'Estorna esta parcela e reabsorve as subparcelas'
+                              : undefined}
+                          onClick={() => estornoComColapso ? openCollapseModal(i) : openReverseModal(i)}
                         >
                           Estornar
                         </button>
@@ -1362,13 +1417,13 @@ export default function ContasAReceberPage() {
                   <div className="p-8 text-center text-sm text-slate-500">Nenhuma parcela encontrada.</div>
                 ) : installments.map((i, index) => {
                   const { isLate, daysLate } = getInstallmentFlags(i)
-                  const { isResidual, isDesdobrada, isAtiva, hasChildren, depth, parentLabel, childLabel } = getInstallmentRole(i)
+                  const { isResidual, isDesdobrada, isAtiva, hasChildren, depth, parentLabel, childLabel, canCollapse } = getInstallmentRole(i)
                   const label = getInstallmentLabel(i)
                   const isCancelled = i.status?.toLowerCase() === 'cancelada'
                   // Quitado bloqueia ações, mas NÃO deve riscar a linha: parcela
                   // quitada é concluída, não cancelada.
                   const isClosed = i.status === 'Quitado' || isCancelled
-                  const canReverse = (i.status === 'Quitado' || i.status === 'Parcial') && Number(i.amountPaid || 0) > 0 && !hasChildren
+                  const canReverse = (i.status === 'Quitado' || i.status === 'Parcial') && Number(i.amountPaid || 0) > 0 && (!hasChildren || canCollapse)
                   const contractCancelled = selectedContract.status?.toLowerCase() === 'cancelado'
 
                   return (
@@ -1532,8 +1587,12 @@ export default function ContasAReceberPage() {
                         <button
                           className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-semibold", !canReverse && "pointer-events-none opacity-40")}
                           disabled={!canReverse}
-                          title={hasChildren ? 'Estorne a partir da última subparcela' : undefined}
-                          onClick={() => openReverseModal(i)}
+                          title={hasChildren && !canCollapse
+                            ? 'Estorne a partir da última subparcela'
+                            : hasChildren && canCollapse
+                              ? 'Estorna esta parcela e reabsorve as subparcelas'
+                              : undefined}
+                          onClick={() => hasChildren && canCollapse ? openCollapseModal(i) : openReverseModal(i)}
                         >Estornar</button>
                       </div>
                     </motion.div>
@@ -1995,10 +2054,17 @@ export default function ContasAReceberPage() {
           )}
         </Modal>
 
-        <Modal isOpen={reverseModalOpen} onClose={() => setReverseModalOpen(false)} title="Estornar Parcela">
+        <Modal isOpen={reverseModalOpen} onClose={() => { setReverseModalOpen(false); setCollapseMode(false) }} title="Estornar Parcela">
           {activeInstallment && (
             <div className="space-y-4">
               <p>Parcela: {getInstallmentLabel(activeInstallment)} - {selectedContract?.clients?.name}</p>
+
+              {collapseMode && (
+                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  Esta ação estorna a parcela e <b>reabsorve {collapseCount} subparcela(s)</b>. As linhas
+                  serão marcadas como <b>Reabsorvida</b>, desvinculadas da árvore e ocultas da tela.
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Motivo do Estorno *</label>
@@ -2027,18 +2093,23 @@ export default function ContasAReceberPage() {
                 className="w-full bg-rose-600 text-white p-2 rounded-lg disabled:opacity-50" 
                 disabled={!estornoReason || !estornoAccountId}
                 onClick={async () => {
-                  const { error } = await supabase.rpc('process_installment_estorno', { 
-                    p_installment_id: activeInstallment.id,
-                    p_reason: estornoReason,
-                    p_account_id: Number(estornoAccountId),
-                    p_user_id: user?.id || null
-                  })
+                  const { error } = await supabase.rpc(
+                    collapseMode ? 'process_installment_estorno_colapso' : 'process_installment_estorno',
+                    {
+                      p_installment_id: activeInstallment.id,
+                      p_reason: estornoReason,
+                      p_account_id: Number(estornoAccountId),
+                      p_user_id: user?.id || null
+                    }
+                  )
                   if (error) {
-                    toast.error('Erro ao estornar parcela')
+                    toast.error(error.message || 'Erro ao estornar parcela')
                     console.error(error)
                   } else {
-                    toast.success('Parcela estornada com sucesso!')
+                    toast.success(collapseMode ? 'Parcela estornada e subparcelas reabsorvidas!' : 'Parcela estornada com sucesso!')
                     setReverseModalOpen(false)
+                    setCollapseMode(false)
+                    setCollapseCount(0)
                     setEstornoReason('')
                     setEstornoAccountId('')
                     if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
