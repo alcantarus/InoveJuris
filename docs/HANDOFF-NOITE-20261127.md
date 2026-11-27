@@ -24,7 +24,7 @@
 
 Último deploy: commit `fab1218` — Vercel **success** (*Deployment has
 completed*), status publicado no commit. Alias `https://inove-juris.vercel.app`.
-`HEAD = origin/main = fab1218`; árvore limpa.
+`HEAD = origin/main`; último deploy funcional: `fab1218`; árvore limpa.
 
 ---
 
