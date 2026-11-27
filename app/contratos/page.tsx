@@ -1092,7 +1092,13 @@ export default function FinanceiroPage() {
 
   // Calculate totals from contracts
   const totals = useMemo(() => ({
-    receivable: contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceivable), 0),
+    // "A Receber" = saldo ainda pendente. Contratos Quitado e Cancelado não
+    // entram, alinhando o KPI ao de Contas a Receber.
+    receivable: contracts.reduce((acc, c) => {
+      const status = String(c.status || '').toLowerCase()
+      if (status === 'cancelado' || status === 'quitado') return acc
+      return acc + Number(c.amountReceivable || 0)
+    }, 0),
     received: contracts.reduce((acc, c) => c.status === 'Cancelado' ? acc : acc + Number(c.amountReceived), 0),
     count: contracts.filter(c => c.status !== 'Cancelado').length,
   }), [contracts])
