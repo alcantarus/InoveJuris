@@ -673,13 +673,14 @@ export default function ContasAReceberPage() {
 
     ;({ data: contractsData, error: contractsError } = await supabase
       .from('contracts')
-      .select('id, isProBono, isFinanced, contractNumber, installmentsCount'))
+      .select('id, isProBono, isFinanced, installmentsCount'))
 
-    // Fallback: alguns ambientes podem não ter contractNumber ou ter nome diferente
+    // Fallback reduzido: mantém os campos usados no cálculo e deixa o badge
+    // de número de contrato cair no id quando não houver número disponível.
     if (contractsError) {
       const retry = await supabase
         .from('contracts')
-        .select('id, isProBono, isFinanced')
+        .select('id, isProBono, isFinanced, installmentsCount')
       contractsData = retry.data
       contractsError = retry.error
       if (contractsError) {
