@@ -92,6 +92,11 @@ export default function ContasAReceberPage() {
 
   const todayBR = getTodayBR()
 
+  // A Receber sempre derivado de valor do contrato - recebido. Evita usar o
+  // campo gravado, que pode ficar desatualizado em cadeias legadas.
+  const getContractReceivable = (c: any) =>
+    Math.max(0, Number(c?.contract_value || 0) - Number(c?.amount_received || 0))
+
   const sortedContracts = React.useMemo(() => {
     let sortableContracts = [...contracts];
     if (sortConfig !== null) {
@@ -110,8 +115,8 @@ export default function ContasAReceberPage() {
           aValue = Number(a.amount_received || 0);
           bValue = Number(b.amount_received || 0);
         } else if (sortConfig.key === 'amount_to_receive') {
-          aValue = Number(a.amount_to_receive || 0);
-          bValue = Number(b.amount_to_receive || 0);
+          aValue = getContractReceivable(a);
+          bValue = getContractReceivable(b);
         } else if (sortConfig.key === 'next_due_date') {
           aValue = a.next_due_date || '';
           bValue = b.next_due_date || '';
@@ -145,7 +150,7 @@ export default function ContasAReceberPage() {
           `"${c.processNumber || ''}"`,
           c.contract_value || 0,
           c.amount_received || 0,
-          c.amount_to_receive || 0,
+          getContractReceivable(c),
           c.next_due_date ? formatDate(c.next_due_date) : '',
           c.contract_status || ''
         ])
@@ -592,7 +597,7 @@ export default function ContasAReceberPage() {
     const active = contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado')
     const receivedSelected = installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0)
     return {
-      totalToReceive: active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0),
+      totalToReceive: active.reduce((acc, c) => acc + getContractReceivable(c), 0),
       totalOverdue: active
         .reduce((acc, c) => acc + Number(c.overdue_amount || 0), 0),
       totalReceived: !selectedContract
@@ -603,7 +608,7 @@ export default function ContasAReceberPage() {
       // estornada reaberta + residual quitada). Usar valor do contrato menos
       // o efetivamente recebido evita essa duplicidade.
       totalOpen: !selectedContract
-        ? active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
+        ? active.reduce((acc, c) => acc + getContractReceivable(c), 0)
         : Math.max(0, Number(selectedContract.contractValue || 0) - receivedSelected),
     }
   }, [contracts, installments, selectedContract, todayBR])
@@ -615,7 +620,7 @@ export default function ContasAReceberPage() {
     status: c.contract_status,
     contractValue: c.contract_value,
     amountReceived: c.amount_received,
-    amountReceivable: c.amount_to_receive,
+    amountReceivable: getContractReceivable(c),
     // Necessário para identificar a subparcela residual (numeração acima do
     // total original de parcelas).
     installmentsCount: c.contracts?.installmentsCount ?? c.installmentsCount ?? null
@@ -1019,7 +1024,7 @@ export default function ContasAReceberPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-right text-slate-600">{formatCurrency(c.amount_to_receive, isVisible('receivable_table_to_receive'))}</td>
+                    <td className="p-4 text-right text-slate-600">{formatCurrency(getContractReceivable(c), isVisible('receivable_table_to_receive'))}</td>
                     <td className="p-4 text-slate-600">{c.next_due_date ? formatDate(c.next_due_date) : '-'}</td>
                     <td className="p-4">
                       <span className={cn(
@@ -1124,7 +1129,7 @@ export default function ContasAReceberPage() {
                             {isVisible('receivable_table_to_receive') ? <Eye size={11} /> : <EyeOff size={11} />}
                           </button>
                         </div>
-                        <div className="text-slate-600 break-words">{formatCurrency(c.amount_to_receive, isVisible('receivable_table_to_receive'))}</div>
+                        <div className="text-slate-600 break-words">{formatCurrency(getContractReceivable(c), isVisible('receivable_table_to_receive'))}</div>
                       </div>
                       <div className="min-w-0">
                         <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Próx. Vencimento</div>
