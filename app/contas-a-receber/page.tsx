@@ -598,14 +598,13 @@ export default function ContasAReceberPage() {
       totalReceived: !selectedContract
         ? contracts.reduce((acc, c) => acc + Number(c.amount_received || 0), 0)
         : receivedSelected,
-      // Com contrato selecionado, usar o saldo gravado no contrato evita
-      // duplicar a dívida em cadeias legadas sem vínculo (parcela estornada
-      // reaberta + residual quitada). Fallback para ambientes sem o campo.
+      // O campo amountReceivable gravado no contrato vem da soma de parcelas
+      // em aberto e duplica a dívida em cadeias legadas sem vínculo (parcela
+      // estornada reaberta + residual quitada). Usar valor do contrato menos
+      // o efetivamente recebido evita essa duplicidade.
       totalOpen: !selectedContract
         ? active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
-        : selectedContract.amountReceivable != null
-          ? Number(selectedContract.amountReceivable)
-          : Math.max(0, Number(selectedContract.contractValue || 0) - receivedSelected),
+        : Math.max(0, Number(selectedContract.contractValue || 0) - receivedSelected),
     }
   }, [contracts, installments, selectedContract, todayBR])
 
