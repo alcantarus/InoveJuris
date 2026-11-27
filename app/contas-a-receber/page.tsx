@@ -9,7 +9,7 @@ import { DollarSign, Search, Calendar, CheckCircle2, Clock, AlertCircle, Plus, R
 import { motion } from 'motion/react'
 import { useAuth } from '@/lib/auth'
 import { supabase, processContractCancellation } from '@/lib/supabase'
-import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado, normalizeSearchText } from '@/lib/utils'
+import { formatCurrency, formatDate, getStatusColor, getRowColor, cn, getTodayBR, isContractQuitado, normalizeSearchText, formatInstallmentStatus } from '@/lib/utils'
 import { filterEffectiveReceipts } from '@/lib/payments'
 import { toast } from 'react-hot-toast'
 import { CurrencyInput } from '@/components/CurrencyInput'
@@ -1373,7 +1373,7 @@ export default function ContasAReceberPage() {
                       </td>
                       <td className="p-4">
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
-                          {i.status}
+                          {formatInstallmentStatus(i.status)}
                         </span>
                       </td>
                       <td className="p-4 flex flex-wrap gap-3">
@@ -1517,7 +1517,7 @@ export default function ContasAReceberPage() {
                           </span>
                         </label>
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold shrink-0", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
-                          {i.status}
+                          {formatInstallmentStatus(i.status)}
                         </span>
                       </div>
 

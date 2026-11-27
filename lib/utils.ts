@@ -250,6 +250,29 @@ export function getRowColor(status: string): string {
   }
 }
 
+// Status de parcela (feminino) para exibição. Os valores gravados no banco
+// permanecem os canônicos (masculinos) — a formatação é só visual.
+export function formatInstallmentStatus(status?: string | null): string {
+  const map: Record<string, string> = {
+    Aberto: 'Aberta',
+    aberto: 'Aberta',
+    Parcial: 'Parcial',
+    Quitado: 'Quitada',
+    quitado: 'Quitada',
+    Cancelado: 'Cancelada',
+    Cancelada: 'Cancelada',
+    Prorrogado: 'Prorrogada',
+    Prorrogada: 'Prorrogada',
+    Antecipado: 'Antecipada',
+    Atrasada: 'Atrasada',
+    Estornado: 'Estornada',
+    Estornada: 'Estornada',
+    Reabsorvida: 'Reabsorvida',
+  }
+  const raw = String(status ?? '').trim()
+  return map[raw] ?? raw
+}
+
 export function getStatusColor(status: string): string {
   switch (status) {
     case 'Cancelado': return 'text-rose-700 bg-rose-100'

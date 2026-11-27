@@ -37,7 +37,7 @@ import { Modal } from '@/components/Modal'
 import { BirthdayCardGenerator } from '@/components/BirthdayCardGenerator'
 import { KPICard } from '@/components/ui/KPICard'
 import { supabase, isSupabaseConfigured, processContractCancellation } from '@/lib/supabase'
-import { cn, formatProcessNumber, formatDate, formatCurrency, formatCurrencyEditable, removeAccents, getStatusColor, getTodayBR, isContractQuitado } from '@/lib/utils'
+import { cn, formatProcessNumber, formatDate, formatCurrency, formatCurrencyEditable, removeAccents, getStatusColor, getTodayBR, isContractQuitado, formatInstallmentStatus } from '@/lib/utils'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { AutoResizeText } from '@/components/ui/AutoResizeText'
 import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
@@ -2232,7 +2232,7 @@ export default function FinanceiroPage() {
                                       displayStatus === 'Cancelado' ? "bg-slate-100 text-slate-600" :
                                       "bg-slate-100 text-slate-600"
                                     )}>
-                                      {displayStatus}
+                                      {formatInstallmentStatus(displayStatus)}
                                     </span>
                                   </td>
                               <td className="px-4 py-3 text-right">
