@@ -590,18 +590,22 @@ export default function ContasAReceberPage() {
 
   const receivableKpis = React.useMemo(() => {
     const active = contracts.filter(c => c.contract_status !== 'Cancelado' && c.contract_status !== 'Quitado')
+    const receivedSelected = installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0)
     return {
       totalToReceive: active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0),
       totalOverdue: active
         .reduce((acc, c) => acc + Number(c.overdue_amount || 0), 0),
       totalReceived: !selectedContract
         ? contracts.reduce((acc, c) => acc + Number(c.amount_received || 0), 0)
-        : installments.reduce((acc, i) => acc + Number(i.amountPaid || 0), 0),
+        : receivedSelected,
+      // Com contrato selecionado, usar o saldo gravado no contrato evita
+      // duplicar a dívida em cadeias legadas sem vínculo (parcela estornada
+      // reaberta + residual quitada). Fallback para ambientes sem o campo.
       totalOpen: !selectedContract
         ? active.reduce((acc, c) => acc + Number(c.amount_to_receive || 0), 0)
-        : installments
-            .filter(i => !['quitado','cancelada','cancelado','prorrogada','prorrogado'].includes(String(i.status || '').toLowerCase()))
-            .reduce((acc, i) => acc + (Number(i.amount) - Number(i.amountPaid || 0)), 0),
+        : selectedContract.amountReceivable != null
+          ? Number(selectedContract.amountReceivable)
+          : Math.max(0, Number(selectedContract.contractValue || 0) - receivedSelected),
     }
   }, [contracts, installments, selectedContract, todayBR])
 
@@ -612,6 +616,7 @@ export default function ContasAReceberPage() {
     status: c.contract_status,
     contractValue: c.contract_value,
     amountReceived: c.amount_received,
+    amountReceivable: c.amount_to_receive,
     // Necessário para identificar a subparcela residual (numeração acima do
     // total original de parcelas).
     installmentsCount: c.contracts?.installmentsCount ?? c.installmentsCount ?? null

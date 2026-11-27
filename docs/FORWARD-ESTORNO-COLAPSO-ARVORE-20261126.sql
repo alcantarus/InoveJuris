@@ -36,6 +36,36 @@ begin
 end
 $guard$;
 
+-- A constraint canônica não aceitava o novo status. Ampliar a lista antes de
+-- criar a RPC (idempotente: não mexe se 'Reabsorvida' já estiver permitido).
+do $status$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname = 'check_installment_status'
+       and conrelid = 'public.installments'::regclass
+  ) then
+    raise exception 'Abortado: check_installment_status não encontrada.';
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+     where conname = 'check_installment_status'
+       and conrelid = 'public.installments'::regclass
+       and pg_get_constraintdef(oid) like '%Reabsorvida%'
+  ) then
+    execute 'alter table public.installments drop constraint check_installment_status';
+    execute $ddl$
+      alter table public.installments add constraint check_installment_status
+      check (status in (
+        'Aberto', 'Parcial', 'Quitado', 'Cancelado', 'Cancelada',
+        'Prorrogada', 'Prorrogado', 'Atrasada', 'Estornado', 'Reabsorvida'
+      ))
+    $ddl$;
+  end if;
+end
+$status$;
+
 create or replace function public.process_installment_estorno_colapso(
   p_installment_id bigint,
   p_reason text,

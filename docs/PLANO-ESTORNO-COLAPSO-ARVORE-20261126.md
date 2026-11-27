@@ -71,6 +71,8 @@ Nada é `DELETE`ado. Nenhum dado é alterado pelo agente.
 | `docs/FORWARD-ESTORNO-COLAPSO-ARVORE-20261126.sql` | cria a RPC nova (você roda no SQL Editor) |
 | `docs/VERIFY-ESTORNO-COLAPSO-ARVORE-20261126.sql` | checagem estrutural, somente leitura |
 | `docs/ROLLBACK-ESTORNO-COLAPSO-ARVORE-20261126.sql` | remove somente a RPC |
+| `docs/FORWARD-CHECK-REABSORVIDA-20261127.sql` | patch da constraint em `test` (o `FORWARD` completo já traz o passo) |
+| `docs/ROLLBACK-CHECK-REABSORVIDA-20261127.sql` | restaura a constraint (sem linhas `Reabsorvida`) |
 
 Rollback **não desfaz** colapsos já usados: linhas `Reabsorvida` exigiriam
 decisão e autorização separadas para voltar à árvore.
@@ -82,6 +84,9 @@ decisão e autorização separadas para voltar à árvore.
 1. **Código do front primeiro** (item 5), com `tsc`/`eslint`.
 2. Você roda o `FORWARD` em **test** e cola o resultado.
 3. Você roda o `VERIFY` em **test** e cola o resultado.
+   - Em `test`, se o `FORWARD` original já tiver sido rodado antes da correção
+     da constraint, aplicar `FORWARD-CHECK-REABSORVIDA-20261127.sql` antes do
+     teste funcional (o `FORWARD` completo já contém esse passo).
 4. Teste funcional em **test** (item 6).
 5. Só depois: `FORWARD` + `VERIFY` em **production** e commit/publicação, com
    pedido explícito.
