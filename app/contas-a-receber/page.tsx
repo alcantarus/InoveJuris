@@ -283,7 +283,7 @@ export default function ContasAReceberPage() {
         p_date: getTodayBR(),
         p_description:
           batchDescription ||
-          `Recebimento em lote - parcela ${current.installmentNumber ?? current.id}`,
+          `Recebimento em lote - parcela ${getInstallmentLabel(current)}`,
         p_account_id: batchAccount,
         p_category_id: batchCategory,
         p_payment_method: batchMethod,
@@ -350,6 +350,11 @@ export default function ContasAReceberPage() {
   }
 
   const openReverseModal = (inst: any) => {
+    // Parcela com filha não pode ser estornada isolada: o saldo ficaria órfão.
+    if (getChildren(inst).length > 0) {
+      toast.error('Estorne a partir da última subparcela')
+      return
+    }
     setActiveInstallment(inst)
     setReverseModalOpen(true)
   }
@@ -414,45 +419,121 @@ export default function ContasAReceberPage() {
     0
   )
 
+  // --- Árvore de parcelas: 1 -> 1.1 -> 1.1.1 --------------------------------
+  // Linhas novas trazem parent_installment_id + installment_path. O legado
+  // continua classificado pelo número antigo (sem backfill).
+  const getInstallmentLabel = (i: any) => {
+    const path = String(i?.installment_path || '').trim()
+    return path || String(i?.installmentNumber ?? i?.id ?? '')
+  }
+
+  const comparePaths = (a: string, b: string) => {
+    const sa = a.split('.').map(Number)
+    const sb = b.split('.').map(Number)
+    for (let k = 0; k < Math.min(sa.length, sb.length); k++) {
+      if (sa[k] !== sb[k]) return sa[k] - sb[k]
+    }
+    return sa.length - sb.length
+  }
+
+  const getTreeRootNumber = (i: any) => {
+    const path = String(i?.installment_path || '').trim()
+    if (path) return Number(path.split('.')[0]) || 0
+    return Number(i?.installmentNumber || 0)
+  }
+
+  const getChildren = (i: any) =>
+    installments.filter(
+      (x: any) =>
+        x.parent_installment_id != null &&
+        Number(x.parent_installment_id) === Number(i?.id)
+    )
+
+  const getParentLabel = (i: any) => {
+    const parentId = i?.parent_installment_id
+    if (parentId != null) {
+      const parent = installments.find(
+        (x: any) => Number(x.id) === Number(parentId)
+      )
+      if (parent) return getInstallmentLabel(parent)
+    }
+    const path = String(i?.installment_path || '').trim()
+    return path.includes('.') ? path.slice(0, path.lastIndexOf('.')) : null
+  }
+
   // Classifica a linha para a tela:
-  // - residual: numeração acima do total original (ou duplicidade de vencimento
-  //   quando o total não está disponível);
-  // - desdobrada: parcela original que foi fechada com pagamento parcial e teve
-  //   o saldo transferido para uma residual.
+  // - desdobrada: tem filha (saldo já transferido) ou, no legado, foi fechada
+  //   com pagamento parcial;
+  // - residual: é filha e é folha;
+  // - ativa: raiz sem filha e ainda em aberto.
   const getInstallmentRole = (i: any) => {
     const numero = Number(i.installmentNumber || 0)
     const valor = Number(i.amount || 0)
     const pago = Number(i.amountPaid || 0)
     const status = String(i.status || '').toLowerCase()
+    const path = String(i.installment_path || '').trim()
 
-    let isResidual = contractInstallmentsCount > 0 && numero > contractInstallmentsCount
+    const children = getChildren(i)
+    const hasChildren = children.length > 0
+    const isChild = i.parent_installment_id != null || path.includes('.')
+    const depth = path ? Math.max(0, path.split('.').length - 1) : 0
 
-    // Fallback quando o contrato não informa o total de parcelas: dentro do
-    // mesmo vencimento, a linha de menor numeração é a origem e a de valor
-    // menor é a residual. Evita marcar duas parcelas originais que apenas
-    // compartilham a data.
-    if (contractInstallmentsCount === 0) {
-      const mesmas = installments.filter(
-        (x: any) => String(x.dueDate || '').slice(0, 10) === String(i.dueDate || '').slice(0, 10)
-      )
-      const origem = mesmas.reduce((menor: any, x: any) => {
-        const n = Number(x.installmentNumber || 0)
-        return !menor || n < Number(menor.installmentNumber || 0) ? x : menor
-      }, null)
-      if (origem && mesmas.length > 1) {
-        const numeroOrigem = Number(origem.installmentNumber || 0)
-        const valorOrigem = Number(origem.amount || 0)
-        isResidual = numero > numeroOrigem && valor < valorOrigem - 0.01
+    let isResidual = isChild && !hasChildren
+
+    // Fallback legado: sem vínculo/path, usa a numeração acima do total
+    // original. Quando o contrato não informa o total, compara o vencimento.
+    if (!path && i.parent_installment_id == null) {
+      isResidual = contractInstallmentsCount > 0 && numero > contractInstallmentsCount
+
+      if (contractInstallmentsCount === 0) {
+        const mesmas = installments.filter(
+          (x: any) =>
+            String(x.dueDate || '').slice(0, 10) ===
+            String(i.dueDate || '').slice(0, 10)
+        )
+        const origem = mesmas.reduce((menor: any, x: any) => {
+          const n = Number(x.installmentNumber || 0)
+          return !menor || n < Number(menor.installmentNumber || 0) ? x : menor
+        }, null)
+        if (origem && mesmas.length > 1) {
+          const numeroOrigem = Number(origem.installmentNumber || 0)
+          const valorOrigem = Number(origem.amount || 0)
+          isResidual = numero > numeroOrigem && valor < valorOrigem - 0.01
+        }
       }
     }
 
     const isDesdobrada =
-      !isResidual &&
-      status === 'quitado' &&
-      pago > 0 &&
-      pago < valor - 0.01
+      hasChildren ||
+      (!isResidual && status === 'quitado' && pago > 0 && pago < valor - 0.01)
 
-    return { isResidual, isDesdobrada }
+    const isAtiva =
+      !isResidual &&
+      !isDesdobrada &&
+      !['quitado', 'cancelada', 'cancelado'].includes(status)
+
+    const orderedChildren = [...children].sort((a: any, b: any) => {
+      const pa = String(a.installment_path || '').trim()
+      const pb = String(b.installment_path || '').trim()
+      if (pa || pb) {
+        if (!pa) return -1
+        if (!pb) return 1
+        return comparePaths(pa, pb)
+      }
+      return Number(a.installmentNumber || 0) - Number(b.installmentNumber || 0)
+    })
+    const firstChild = orderedChildren[0]
+
+    return {
+      isResidual,
+      isDesdobrada,
+      isAtiva,
+      isChild,
+      hasChildren,
+      depth,
+      parentLabel: getParentLabel(i),
+      childLabel: firstChild ? getInstallmentLabel(firstChild) : null,
+    }
   }
 
   const cancelBlocked = Boolean(selectedContract) && (
@@ -591,10 +672,23 @@ export default function ContasAReceberPage() {
       toast.error('Erro ao buscar parcelas')
       console.error(error)
     } else {
-      // Ordena por vencimento e, no mesmo vencimento, por número. Assim a
-      // subparcela residual (que herda a data da parcela original) aparece
-      // ao lado da origem, em vez de no fim da lista.
+      // Ordem da árvore: raiz por número, filhas logo após a mãe
+      // (1, 1.1, 1.1.1, 2, 2.1, 3). Linhas sem path caem na ordem antiga por
+      // vencimento, dentro da mesma raiz — compatível com o legado.
       const ordered = [...(data || [])].sort((a: any, b: any) => {
+        const rootA = getTreeRootNumber(a)
+        const rootB = getTreeRootNumber(b)
+        if (rootA !== rootB) return rootA - rootB
+
+        const pathA = String(a.installment_path || '').trim()
+        const pathB = String(b.installment_path || '').trim()
+        if (pathA || pathB) {
+          if (!pathA) return -1
+          if (!pathB) return 1
+          const byPath = comparePaths(pathA, pathB)
+          if (byPath !== 0) return byPath
+        }
+
         const dueA = String(a.dueDate || '').slice(0, 10)
         const dueB = String(b.dueDate || '').slice(0, 10)
         if (dueA !== dueB) return dueA.localeCompare(dueB)
@@ -1115,7 +1209,9 @@ export default function ContasAReceberPage() {
                     <tr><td colSpan={8} className="p-4 text-center">Carregando...</td></tr>
                   ) : installments.map((i, index) => {
                     const { isLate, daysLate } = getInstallmentFlags(i)
-                    const { isResidual, isDesdobrada } = getInstallmentRole(i)
+                    const { isResidual, isDesdobrada, isAtiva, hasChildren, depth, parentLabel, childLabel } = getInstallmentRole(i)
+                    const label = getInstallmentLabel(i)
+                    const estornoBloqueado = hasChildren
 
                     return (
                     <motion.tr 
@@ -1135,29 +1231,60 @@ export default function ContasAReceberPage() {
                         />
                       </td>
                       <td className="p-4 font-medium text-slate-900">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {i.installmentNumber}
-                          {isResidual && (
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span
-                              className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 border border-sky-200"
-                              title="Subparcela residual gerada pelo desdobramento de uma parcela parcial"
+                              className={cn(
+                                "inline-flex items-center rounded-lg border px-2 py-1 font-semibold",
+                                depth === 0
+                                  ? "bg-slate-100 border-slate-200 text-slate-700"
+                                  : hasChildren
+                                    ? "bg-white border-violet-200 text-violet-700"
+                                    : "bg-sky-50 border-sky-200 text-sky-700"
+                              )}
+                              style={{ marginLeft: depth * 16 }}
+                              title={depth > 0 ? `Caminho: ${label}` : undefined}
                             >
-                              Residual
+                              {depth > 0 && <span className="mr-1 text-slate-300">└</span>}
+                              {label}
                             </span>
-                          )}
-                          {isDesdobrada && (
-                            <span
-                              className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200"
-                              title="Parcela original fechada com pagamento parcial; o saldo foi transferido para a residual"
-                            >
-                              Desdobrada
-                            </span>
-                          )}
-                          {isLate && (
-                            <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider", daysLate > 30 ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-700")}>
-                              {daysLate} dias atraso
-                            </span>
-                          )}
+                            {isDesdobrada && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200"
+                                title="Parcela com subparcela: o saldo foi transferido para a próxima"
+                              >
+                                Desdobrada
+                              </span>
+                            )}
+                            {isResidual && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 border border-sky-200"
+                                title="Subparcela residual gerada pelo desdobramento de uma parcela parcial"
+                              >
+                                Residual
+                              </span>
+                            )}
+                            {isAtiva && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                title="Parcela ativa, sem desdobramento"
+                              >
+                                Ativa
+                              </span>
+                            )}
+                            {isLate && (
+                              <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider", daysLate > 30 ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-700")}>
+                                {daysLate} dias atraso
+                              </span>
+                            )}
+                          </div>
+                          <span className="mt-1 text-[10px] text-slate-400">
+                            {parentLabel
+                              ? `saldo da parcela ${parentLabel}`
+                              : contractInstallmentsCount > 0
+                                ? `parcela original ${i.installmentNumber} de ${contractInstallmentsCount}`
+                                : 'parcela original'}
+                          </span>
                         </div>
                       </td>
                       <td className="p-4 text-slate-600">
@@ -1174,7 +1301,12 @@ export default function ContasAReceberPage() {
                       <td className="p-4 text-slate-600">{formatCurrency(i.amountPaid || 0, isVisible('receivable_installment_paid'))}</td>
                       <td className="p-4 text-emerald-600 font-bold">
                         {isDesdobrada ? (
-                          <span className="text-slate-400 font-normal" title="Saldo transferido para a parcela residual">—</span>
+                          <span className="text-slate-400 font-normal" title={childLabel ? `Saldo na ${childLabel}` : 'Saldo transferido para a parcela residual'}>
+                            —
+                            <span className="block text-[9px] font-medium text-slate-400">
+                              {childLabel ? `saldo na ${childLabel}` : 'saldo na residual'}
+                            </span>
+                          </span>
                         ) : (
                           formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))
                         )}
@@ -1207,8 +1339,9 @@ export default function ContasAReceberPage() {
                           Prorrogar
                         </button>
                         <button 
-                          className={cn("text-rose-600 hover:text-rose-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", ((i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0) && "pointer-events-none")}
-                          disabled={i.status !== 'Quitado' && i.status !== 'Parcial' || Number(i.amountPaid || 0) <= 0}
+                          className={cn("text-rose-600 hover:text-rose-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (((i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0) || estornoBloqueado) && "pointer-events-none")}
+                          disabled={(i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0 || estornoBloqueado}
+                          title={estornoBloqueado ? 'Estorne a partir da última subparcela' : undefined}
                           onClick={() => openReverseModal(i)}
                         >
                           Estornar
@@ -1229,12 +1362,13 @@ export default function ContasAReceberPage() {
                   <div className="p-8 text-center text-sm text-slate-500">Nenhuma parcela encontrada.</div>
                 ) : installments.map((i, index) => {
                   const { isLate, daysLate } = getInstallmentFlags(i)
-                  const { isResidual, isDesdobrada } = getInstallmentRole(i)
+                  const { isResidual, isDesdobrada, isAtiva, hasChildren, depth, parentLabel, childLabel } = getInstallmentRole(i)
+                  const label = getInstallmentLabel(i)
                   const isCancelled = i.status?.toLowerCase() === 'cancelada'
                   // Quitado bloqueia ações, mas NÃO deve riscar a linha: parcela
                   // quitada é concluída, não cancelada.
                   const isClosed = i.status === 'Quitado' || isCancelled
-                  const canReverse = (i.status === 'Quitado' || i.status === 'Parcial') && Number(i.amountPaid || 0) > 0
+                  const canReverse = (i.status === 'Quitado' || i.status === 'Parcial') && Number(i.amountPaid || 0) > 0 && !hasChildren
                   const contractCancelled = selectedContract.status?.toLowerCase() === 'cancelado'
 
                   return (
@@ -1245,6 +1379,19 @@ export default function ContasAReceberPage() {
                       transition={{ delay: index * 0.05 }}
                       className={cn("p-4 space-y-3", (contractCancelled || isCancelled) && "bg-rose-50 line-through text-slate-400")}
                     >
+                      {depth > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
+                          <span>Parcela</span>
+                          {label.split('.').map((_, idx, arr) => (
+                            <React.Fragment key={idx}>
+                              {idx > 0 && <span>›</span>}
+                              <span className={idx === arr.length - 1 ? 'font-semibold text-violet-700' : ''}>
+                                {arr.slice(0, idx + 1).join('.')}
+                              </span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex justify-between items-start gap-3">
                         <label className="flex items-center gap-3 min-w-0">
                           <input
@@ -1254,24 +1401,55 @@ export default function ContasAReceberPage() {
                             disabled={!isBatchEligible(i.status)}
                             onChange={() => toggleSelection(i.id)}
                           />
-                          <span className="font-semibold text-slate-900 flex flex-wrap items-center gap-2">
-                            Parcela {i.installmentNumber}
-                            {isResidual && (
+                          <span className="min-w-0">
+                            <span className="font-semibold text-slate-900 flex flex-wrap items-center gap-2">
                               <span
-                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 border border-sky-200"
-                                title="Subparcela residual gerada pelo desdobramento de uma parcela parcial"
+                                className={cn(
+                                  "inline-flex items-center rounded-lg border px-2 py-1",
+                                  depth === 0
+                                    ? "bg-slate-100 border-slate-200 text-slate-700"
+                                    : hasChildren
+                                      ? "bg-white border-violet-200 text-violet-700"
+                                      : "bg-sky-50 border-sky-200 text-sky-700"
+                                )}
+                                style={{ marginLeft: depth * 12 }}
+                                title={depth > 0 ? `Caminho: ${label}` : undefined}
                               >
-                                Residual
+                                {depth > 0 && <span className="mr-1 text-slate-300">└</span>}
+                                {label}
                               </span>
-                            )}
-                            {isDesdobrada && (
-                              <span
-                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200"
-                                title="Parcela original fechada com pagamento parcial; o saldo foi transferido para a residual"
-                              >
-                                Desdobrada
-                              </span>
-                            )}
+                              {isDesdobrada && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200"
+                                  title="Parcela com subparcela: o saldo foi transferido para a próxima"
+                                >
+                                  Desdobrada
+                                </span>
+                              )}
+                              {isResidual && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 border border-sky-200"
+                                  title="Subparcela residual gerada pelo desdobramento de uma parcela parcial"
+                                >
+                                  Residual
+                                </span>
+                              )}
+                              {isAtiva && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                  title="Parcela ativa, sem desdobramento"
+                                >
+                                  Ativa
+                                </span>
+                              )}
+                            </span>
+                            <span className="block mt-1 text-[10px] text-slate-400">
+                              {parentLabel
+                                ? `saldo da parcela ${parentLabel}`
+                                : contractInstallmentsCount > 0
+                                  ? `parcela original ${i.installmentNumber} de ${contractInstallmentsCount}`
+                                  : 'parcela original'}
+                            </span>
                           </span>
                         </label>
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold shrink-0", getStatusColor(i.status), i.status?.toLowerCase() === 'cancelada' && "line-through")}>
@@ -1322,7 +1500,12 @@ export default function ContasAReceberPage() {
                           </div>
                           <div className="font-bold text-emerald-600 break-words">
                             {isDesdobrada ? (
-                              <span className="text-slate-400 font-normal" title="Saldo transferido para a parcela residual">—</span>
+                              <span className="text-slate-400 font-normal" title={childLabel ? `Saldo na ${childLabel}` : 'Saldo transferido para a parcela residual'}>
+                                —
+                                <span className="block text-[9px] font-medium text-slate-400">
+                                  {childLabel ? `saldo na ${childLabel}` : 'saldo na residual'}
+                                </span>
+                              </span>
                             ) : (
                               formatCurrency(i.status === 'Quitado' ? 0 : (i.amount - (i.amountPaid || 0)), isVisible('receivable_installment_balance'))
                             )}
@@ -1349,6 +1532,7 @@ export default function ContasAReceberPage() {
                         <button
                           className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-semibold", !canReverse && "pointer-events-none opacity-40")}
                           disabled={!canReverse}
+                          title={hasChildren ? 'Estorne a partir da última subparcela' : undefined}
                           onClick={() => openReverseModal(i)}
                         >Estornar</button>
                       </div>
@@ -1364,7 +1548,7 @@ export default function ContasAReceberPage() {
           {activeInstallment && (
             <div className="space-y-6">
               <div className="p-4 bg-slate-50 rounded-lg">
-                <p className="text-sm text-slate-500">Parcela: {activeInstallment.installmentNumber}</p>
+                <p className="text-sm text-slate-500">Parcela: {getInstallmentLabel(activeInstallment)}</p>
                 <p className="font-bold text-lg">{selectedContract?.clients?.name}</p>
                 <div className="flex justify-between mt-2 text-sm">
                   <span>Valor Original: {formatCurrency(activeInstallment.amount, isVisible('receivable_installment_value'))}</span>
@@ -1493,7 +1677,7 @@ export default function ContasAReceberPage() {
             <div className="space-y-6">
               <div className="p-4 bg-slate-50 rounded-lg">
                 <p className="text-sm text-slate-500">
-                  Parcela: {batchCurrentInstallment.installmentNumber}
+                  Parcela: {getInstallmentLabel(batchCurrentInstallment)}
                   {batchCurrentInstallment.dueDate
                     ? ` · vence ${formatDate(batchCurrentInstallment.dueDate)}`
                     : ''}
@@ -1644,7 +1828,7 @@ export default function ContasAReceberPage() {
         <Modal isOpen={prorogueModalOpen} onClose={() => setProrogueModalOpen(false)} title="Prorrogar Parcela">
           {activeInstallment && (
             <div className="space-y-4">
-              <p>Parcela: {activeInstallment.installmentNumber} - {selectedContract?.clients?.name}</p>
+              <p>Parcela: {getInstallmentLabel(activeInstallment)} - {selectedContract?.clients?.name}</p>
               {activeInstallment.original_due_date && String(activeInstallment.original_due_date).split('T')[0] !== String(activeInstallment.dueDate || '').split('T')[0] && (
                 <p className="text-xs text-slate-500">Data original: {formatDate(activeInstallment.original_due_date)}</p>
               )}
@@ -1693,7 +1877,7 @@ export default function ContasAReceberPage() {
         <Modal isOpen={adjustModalOpen} onClose={() => setAdjustModalOpen(false)} title="Ajustar previsão de recebimento">
           {activeInstallment && (
             <div className="space-y-4">
-              <p className="text-sm text-slate-700">Parcela: <span className="font-medium">{activeInstallment.installmentNumber}</span> - {selectedContract?.clients?.name}</p>
+              <p className="text-sm text-slate-700">Parcela: <span className="font-medium">{getInstallmentLabel(activeInstallment)}</span> - {selectedContract?.clients?.name}</p>
               <div className="p-3 bg-slate-50 rounded-lg text-sm space-y-1">
                 <p><span className="text-slate-500">Data prevista atual:</span> {formatDate(activeInstallment.dueDate)}</p>
                 {activeInstallment.original_due_date && (
@@ -1814,7 +1998,7 @@ export default function ContasAReceberPage() {
         <Modal isOpen={reverseModalOpen} onClose={() => setReverseModalOpen(false)} title="Estornar Parcela">
           {activeInstallment && (
             <div className="space-y-4">
-              <p>Parcela: {activeInstallment.installmentNumber} - {selectedContract?.clients?.name}</p>
+              <p>Parcela: {getInstallmentLabel(activeInstallment)} - {selectedContract?.clients?.name}</p>
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Motivo do Estorno *</label>
