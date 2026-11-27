@@ -16,6 +16,7 @@ import { CurrencyInput } from '@/components/CurrencyInput'
 import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ContractStatementModal } from '@/components/contas-a-receber/ContractStatementModal'
 import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
+import { ReverseInstallmentModal } from '@/components/contas-a-receber/ReverseInstallmentModal'
 
 const PAYMENT_METHODS = [
   'Dinheiro',
@@ -52,8 +53,7 @@ export default function ContasAReceberPage() {
   const [collapseCount, setCollapseCount] = useState(0)
   const [statementModalOpen, setStatementModalOpen] = useState(false)
   const [adjustModalOpen, setAdjustModalOpen] = useState(false)
-  const [estornoReason, setEstornoReason] = useState('')
-  const [estornoAccountId, setEstornoAccountId] = useState('')
+  const [reverseOpenToken, setReverseOpenToken] = useState(0)
   const [activeInstallment, setActiveInstallment] = useState<any>(null)
   const [paymentHistory, setPaymentHistory] = useState<any[]>([])
   const [receiveAmount, setReceiveAmount] = useState(0)
@@ -363,6 +363,8 @@ export default function ContasAReceberPage() {
       return
     }
     setActiveInstallment(inst)
+    setCollapseMode(false)
+    setReverseOpenToken(token => token + 1)
     setReverseModalOpen(true)
   }
 
@@ -370,6 +372,7 @@ export default function ContasAReceberPage() {
     setActiveInstallment(inst)
     setCollapseCount(getActiveDescendants(inst).length)
     setCollapseMode(true)
+    setReverseOpenToken(token => token + 1)
     setReverseModalOpen(true)
   }
 
@@ -2055,74 +2058,25 @@ export default function ContasAReceberPage() {
           )}
         </Modal>
 
-        <Modal isOpen={reverseModalOpen} onClose={() => { setReverseModalOpen(false); setCollapseMode(false) }} title={collapseMode ? 'Desfazer Desdobramento' : 'Estornar Parcela'}>
-          {activeInstallment && (
-            <div className="space-y-4">
-              <p>Parcela: {getInstallmentLabel(activeInstallment)} - {selectedContract?.clients?.name}</p>
-
-              {collapseMode && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                  Esta ação desfaz o desdobramento: estorna o valor recebido nesta parcela e
-                  <b> reabsorve {collapseCount} subparcela(s)</b>. As linhas serão marcadas como
-                  <b> Reabsorvida</b>, desvinculadas da árvore e ocultas da tela; a parcela volta a
-                  dever o valor original.
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Motivo do Estorno *</label>
-                <input 
-                  type="text" 
-                  value={estornoReason}
-                  onChange={(e) => setEstornoReason(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
-                  placeholder="Ex: Pagamento devolvido"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Conta Bancária (para onde o valor volta) *</label>
-                <select 
-                  value={estornoAccountId}
-                  onChange={(e) => setEstornoAccountId(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
-                >
-                  <option value="">Selecione uma conta...</option>
-                  {bankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-              </div>
-
-              <button 
-                className="w-full bg-rose-600 text-white p-2 rounded-lg disabled:opacity-50" 
-                disabled={!estornoReason || !estornoAccountId}
-                onClick={async () => {
-                  const { error } = await supabase.rpc(
-                    collapseMode ? 'process_installment_estorno_colapso' : 'process_installment_estorno',
-                    {
-                      p_installment_id: activeInstallment.id,
-                      p_reason: estornoReason,
-                      p_account_id: Number(estornoAccountId),
-                      p_user_id: user?.id || null
-                    }
-                  )
-                  if (error) {
-                    toast.error(error.message || 'Erro ao estornar parcela')
-                    console.error(error)
-                  } else {
-                    toast.success(collapseMode ? 'Parcela estornada e subparcelas reabsorvidas!' : 'Parcela estornada com sucesso!')
-                    setReverseModalOpen(false)
-                    setCollapseMode(false)
-                    setCollapseCount(0)
-                    setEstornoReason('')
-                    setEstornoAccountId('')
-                    if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
-                    fetchContracts()
-                    fetchDashboardMetrics()
-                  }
-              }}>{collapseMode ? 'Confirmar desdobramento' : 'Confirmar Estorno'}</button>
-            </div>
-          )}
-        </Modal>
+        {activeInstallment && (
+          <ReverseInstallmentModal
+            key={`${activeInstallment.id}-${collapseMode ? 'colapso' : 'estorno'}-${reverseOpenToken}`}
+            isOpen={reverseModalOpen}
+            onClose={() => { setReverseModalOpen(false); setCollapseMode(false); setCollapseCount(0) }}
+            installmentId={activeInstallment.id}
+            installmentLabel={getInstallmentLabel(activeInstallment)}
+            clientName={selectedContract?.clients?.name}
+            bankAccounts={bankAccounts}
+            collapseMode={collapseMode}
+            collapseCount={collapseCount}
+            userId={user?.id || null}
+            onSuccess={() => {
+              if (selectedContract?.id) fetchInstallmentsForContract(selectedContract.id)
+              fetchContracts()
+              fetchDashboardMetrics()
+            }}
+          />
+        )}
 
         <ContractStatementModal 
           isOpen={statementModalOpen} 
