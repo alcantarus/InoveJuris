@@ -52,7 +52,6 @@ const TABELAS_COM_ORGANIZATION_ID = new Set<string>([
   'marketing_logs',
   'notifications',
   'payments',
-  'permissions',
   'process_deadlines',
   'processes',
   'products',
@@ -169,7 +168,9 @@ export const supabase = new Proxy({} as any, {
         // 'users' is shared across environments
         // 'user_sessions' is global to track all logins
         // 'geo_cache' is a global IP cache
-        // 'organizations' e o catalogo global: nao tem coluna environment
+        // 'organizations' e 'permissions' são catálogo global: o Proxy não
+        // filtra por ambiente. app_get_rbac() já lê permissions sem filtro;
+        // filtrar só no cliente deixava /usuarios sem slugs em `test`.
         // 'client_onboarding_tokens' e 'indicator_tokens' são tabelas de link
         // público: o token já limita o registro, e o indicador não tem ambiente
         // selecionado no navegador.
@@ -181,6 +182,7 @@ export const supabase = new Proxy({} as any, {
           table === 'user_sessions' || 
           table === 'geo_cache' || 
           table === 'organizations' ||
+          table === 'permissions' ||
           table === 'client_onboarding_tokens' ||
           table === 'indicator_tokens' ||
           table === 'contract_diseases'
