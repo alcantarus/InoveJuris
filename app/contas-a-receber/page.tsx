@@ -17,6 +17,7 @@ import { usePrivacy } from '@/components/providers/PrivacyProvider'
 import { ContractStatementModal } from '@/components/contas-a-receber/ContractStatementModal'
 import { ContractNumberBadge } from '@/components/ui/ContractNumberBadge'
 import { ReverseInstallmentModal } from '@/components/contas-a-receber/ReverseInstallmentModal'
+import { ReceiveInstallmentModal, type LastPaymentSelection } from '@/components/contas-a-receber/ReceiveInstallmentModal'
 
 const PAYMENT_METHODS = [
   'Dinheiro',
@@ -55,12 +56,8 @@ export default function ContasAReceberPage() {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false)
   const [reverseOpenToken, setReverseOpenToken] = useState(0)
   const [activeInstallment, setActiveInstallment] = useState<any>(null)
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([])
-  const [receiveAmount, setReceiveAmount] = useState(0)
-  const [paymentAccount, setPaymentAccount] = useState('')
-  const [paymentCategory, setPaymentCategory] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('')
-  const [paymentDescription, setPaymentDescription] = useState('')
+  const [lastPayment, setLastPayment] = useState<LastPaymentSelection>({ account: '', category: '', method: '' })
+  const [receiveOpenToken, setReceiveOpenToken] = useState(0)
   const [batchPaymentModalOpen, setBatchPaymentModalOpen] = useState(false)
   const [batchAccount, setBatchAccount] = useState('')
   const [batchCategory, setBatchCategory] = useState('')
@@ -73,7 +70,6 @@ export default function ContasAReceberPage() {
   const [batchSuccessCount, setBatchSuccessCount] = useState(0)
   const [batchErrorCount, setBatchErrorCount] = useState(0)
   const batchProcessingRef = React.useRef(false)
-  const receiveProcessingRef = React.useRef(false)
   const [prorogueDate, setProrogueDate] = useState('')
   const [adjustDate, setAdjustDate] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
@@ -230,9 +226,9 @@ export default function ContasAReceberPage() {
     setBatchProcessing(false)
     setBatchAmount(batchSaldo(eligible[0]))
     setBatchDescription('')
-    setBatchAccount(paymentAccount || '')
-    setBatchCategory(paymentCategory || '')
-    setBatchMethod(paymentMethod || '')
+    setBatchAccount(lastPayment.account || '')
+    setBatchCategory(lastPayment.category || '')
+    setBatchMethod(lastPayment.method || '')
     setBatchPaymentModalOpen(true)
   }
 
@@ -304,9 +300,7 @@ export default function ContasAReceberPage() {
       const nextSuccess = batchSuccessCount + 1
       setBatchSuccessCount(nextSuccess)
       // Guarda a última escolha para pré-preencher as próximas parcelas.
-      setPaymentAccount(batchAccount)
-      setPaymentCategory(batchCategory)
-      setPaymentMethod(batchMethod)
+      setLastPayment({ account: batchAccount, category: batchCategory, method: batchMethod })
 
       if (batchStep + 1 >= batchQueue.length) {
         toast.success(`${nextSuccess} parcela(s) recebida(s) com sucesso!`)
@@ -327,18 +321,9 @@ export default function ContasAReceberPage() {
     }
   };
 
-  const openReceiveModal = async (inst: any) => {
+  const openReceiveModal = (inst: any) => {
     setActiveInstallment(inst)
-    setReceiveAmount(inst.amount - (inst.amountPaid || 0))
-    
-    // Buscar histórico de pagamentos
-    const { data } = await supabase
-      .from('payments')
-      .select('*, bank_accounts(name), financial_categories(name)')
-      .eq('installment_id', inst.id)
-      .order('payment_date', { ascending: false })
-    
-    setPaymentHistory(data || [])
+    setReceiveOpenToken(token => token + 1)
     setReceiveModalOpen(true)
   }
 
@@ -1607,125 +1592,28 @@ export default function ContasAReceberPage() {
           </div>
         )}
         
-        <Modal isOpen={receiveModalOpen} onClose={() => setReceiveModalOpen(false)} title="Receber Parcela">
-          {activeInstallment && (
-            <div className="space-y-6">
-              <div className="p-4 bg-slate-50 rounded-lg">
-                <p className="text-sm text-slate-500">Parcela: {getInstallmentLabel(activeInstallment)}</p>
-                <p className="font-bold text-lg">{selectedContract?.clients?.name}</p>
-                <div className="flex justify-between mt-2 text-sm">
-                  <span>Valor Original: {formatCurrency(activeInstallment.amount, isVisible('receivable_installment_value'))}</span>
-                  <span className="font-bold text-emerald-600">Saldo: {formatCurrency(activeInstallment.amount - (activeInstallment.amountPaid || 0), isVisible('receivable_installment_balance'))}</span>
-                </div>
-              </div>
-
-              {paymentHistory.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-slate-700">Histórico de Pagamentos</h3>
-                  <div className="bg-slate-50 rounded-lg divide-y divide-slate-200">
-                    {paymentHistory.map((p) => (
-                      <div key={p.id} className="p-3 text-sm flex justify-between">
-                        <span>
-                          {formatDate(p.payment_date)}
-                          {p.payment_method ? ` · ${p.payment_method}` : ''} - {p.description || 'Pagamento'}
-                        </span>
-                        <span className="font-medium">{formatCurrency(p.amount, isVisible('receivable_installment_paid'))}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Valor a Receber</label>
-                  <CurrencyInput value={receiveAmount} onChange={setReceiveAmount} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Conta</label>
-                  <select value={paymentAccount} onChange={(e) => setPaymentAccount(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20">
-                    <option value="">Selecione uma conta</option>
-                    {bankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20">
-                    <option value="">Selecione a forma</option>
-                    {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                  <select value={paymentCategory} onChange={(e) => setPaymentCategory(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20">
-                    <option value="">Selecione uma categoria</option>
-                    {financialCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-                  <input type="text" value={paymentDescription} onChange={(e) => setPaymentDescription(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20" />
-                </div>
-                <button
-                  className="w-full bg-emerald-600 text-white p-3 rounded-lg font-bold hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!paymentAccount || !paymentCategory || !paymentMethod}
-                  onClick={async () => {
-                    if (receiveProcessingRef.current) return
-                    if (!paymentAccount || !paymentCategory || !paymentMethod) {
-                      toast.error('Selecione a conta, a categoria e a forma de pagamento.')
-                      return
-                    }
-
-                    const valor = Number(receiveAmount)
-                    const saldo = Number(activeInstallment.amount || 0) - Number(activeInstallment.amountPaid || 0)
-
-                    if (valor <= 0) {
-                      toast.error('Informe um valor maior que zero.')
-                      return
-                    }
-                    if (valor > saldo + 0.01) {
-                      toast.error('O valor não pode ser maior que o saldo da parcela.')
-                      return
-                    }
-
-                    const isPartial = valor < saldo - 0.01
-
-                    receiveProcessingRef.current = true
-                    try {
-                      const { error } = await supabase.rpc('rpc_receber_parcela_com_metodo', {
-                        p_installment_id: activeInstallment.id,
-                        p_amount_paid: valor,
-                        p_date: getTodayBR(),
-                        p_description: paymentDescription,
-                        p_account_id: paymentAccount,
-                        p_category_id: paymentCategory,
-                        p_payment_method: paymentMethod,
-                        p_user_id: user?.id,
-                        p_interest: 0,
-                        p_fine: 0
-                      })
-
-                      if (error) {
-                        toast.error(error.message || 'Erro ao processar pagamento')
-                        console.error(error)
-                      } else {
-                        toast.success(isPartial ? 'Pagamento parcial processado com desdobramento!' : 'Pagamento processado com sucesso!')
-                        setReceiveModalOpen(false)
-                        if (selectedContract?.id) {
-                          fetchInstallmentsForContract(selectedContract.id)
-                          fetchContracts()
-                          fetchDashboardMetrics()
-                        }
-                      }
-                    } finally {
-                      receiveProcessingRef.current = false
-                    }
-                  }}
-                >Confirmar Recebimento</button>
-              </div>
-            </div>
-          )}
-        </Modal>
+        {activeInstallment && (
+          <ReceiveInstallmentModal
+            key={`${activeInstallment.id}-${receiveOpenToken}`}
+            isOpen={receiveModalOpen}
+            onClose={() => setReceiveModalOpen(false)}
+            installment={activeInstallment}
+            installmentLabel={getInstallmentLabel(activeInstallment)}
+            clientName={selectedContract?.clients?.name}
+            bankAccounts={bankAccounts}
+            financialCategories={financialCategories}
+            userId={user?.id || null}
+            isVisible={isVisible}
+            onSuccess={(selection) => {
+              setLastPayment(selection)
+              if (selectedContract?.id) {
+                fetchInstallmentsForContract(selectedContract.id)
+                fetchContracts()
+                fetchDashboardMetrics()
+              }
+            }}
+          />
+        )}
 
         <Modal
           isOpen={batchPaymentModalOpen}
