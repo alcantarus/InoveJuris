@@ -88,10 +88,10 @@ declare
   v_has_estornado boolean;
   v_new_status text;
   v_desc_pago numeric(12,2);
-  v_folhas_invalidas bigint;
   v_reabsorvidas bigint;
 begin
-  -- colapso v1 20261126 — uma transação: estorna a mãe e reabsorve os descendentes.
+  -- colapso v2 20261127 — uma transação: estorna a mãe e reabsorve os descendentes.
+  -- Regra unificada: basta que nenhum descendente tenha valor pago.
 
   if p_user_id is not null and not exists (select 1 from users where id = p_user_id) then
     p_user_id := null;
@@ -111,40 +111,25 @@ begin
     raise exception 'Esta parcela não possui valor pago para estornar';
   end if;
 
-  -- Regra B: descendentes sem pago e todas as folhas ativas Estornado.
+  -- Regra unificada: nenhum descendente ativo com valor pago. Folha Aberta ou
+  -- Estornado, ambas com Pago = 0, são elegíveis para reabsorção.
   with recursive subtree as (
-    select id, parent_installment_id, status, "amountPaid"
+    select id, parent_installment_id, "amountPaid"
       from installments
      where id = p_installment_id
     union all
-    select c.id, c.parent_installment_id, c.status, c."amountPaid"
+    select c.id, c.parent_installment_id, c."amountPaid"
       from installments c
       join subtree s on c.parent_installment_id = s.id
      where c.status not in ('Reabsorvida', 'Cancelada', 'Cancelado')
-  ),
-  folhas as (
-    select s.*
-      from subtree s
-     where s.id <> p_installment_id
-       and not exists (
-         select 1 from subtree x where x.parent_installment_id = s.id
-       )
   )
-  select
-    (select coalesce(sum(coalesce("amountPaid", 0)), 0)
-       from subtree where id <> p_installment_id),
-    (select count(*)
-       from folhas
-      where lower(coalesce(status, '')) <> 'estornado'
-         or coalesce("amountPaid", 0) <> 0)
-    into v_desc_pago, v_folhas_invalidas;
+  select coalesce(sum(coalesce("amountPaid", 0)), 0)
+    into v_desc_pago
+    from subtree
+   where id <> p_installment_id;
 
   if v_desc_pago <> 0 then
-    raise exception 'Existem pagamentos nas subparcelas. Estorne as folhas antes de colapsar.';
-  end if;
-
-  if v_folhas_invalidas > 0 then
-    raise exception 'Todas as folhas da cadeia devem estar Estornado antes de estornar esta parcela.';
+    raise exception 'Existem pagamentos nas subparcelas. Estorne as folhas antes de desfazer o desdobramento.';
   end if;
 
   v_contract_id := v_installment.contract_id;
@@ -269,7 +254,7 @@ revoke all on function public.process_installment_estorno_colapso(bigint, text, 
 grant execute on function public.process_installment_estorno_colapso(bigint, text, bigint, bigint) to authenticated, service_role;
 
 comment on function public.process_installment_estorno_colapso(bigint, text, bigint, bigint) is
-  'v1 20261126 — estorno de parcela com reabsorcao da subarvore; exige folhas Estornado e sem pagamento.';
+  'v2 20261127 — desfaz desdobramento: exige apenas que nenhum descendente tenha pago.';
 
 -- Verificação estrutural (contagens, sem despejar registros).
 select current_database() as database,
@@ -279,7 +264,7 @@ select current_database() as database,
        (select count(*) from pg_proc p
          where p.pronamespace = 'public'::regnamespace
            and p.proname = 'process_installment_estorno_colapso'
-           and pg_get_functiondef(p.oid) like '%colapso v1 20261126%') as versao_ok,
+           and pg_get_functiondef(p.oid) like '%colapso v2 20261127%') as versao_ok,
        (select count(*) from public.installments
          where status = 'Reabsorvida') as reabsorvidas_antes_do_teste;
 

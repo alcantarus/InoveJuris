@@ -133,3 +133,41 @@ decisão e autorização separadas para voltar à árvore.
 - Não atualizar Supabase CLI de `2.75.0` para `v3.4.0`.
 - Não comitar/publicar sem pedido explícito.
 - Toda rotina declara/filtra/traz `environment`.
+
+---
+
+## 8. Adendo de 27/11 — regra unificada aplicada (substitui B)
+
+> Atualizado em 27/11: a regra A foi aprovada e implementada no front e na RPC.
+> Ela **engloba** a regra B: basta que nenhum descendente ativo tenha `Pago > 0`;
+> folha `Aberto` ou `Estornado` com `Pago = 0` são elegíveis.
+>
+> Arquivos: `FORWARD-REGRA-A-ESTORNO-COLAPSO-20261127.sql`,
+> `VERIFY-REGRA-A-ESTORNO-COLAPSO-20261127.sql` e
+> `ROLLBACK-REGRA-A-ESTORNO-COLAPSO-20261127.sql`. O `FORWARD` original também
+> foi atualizado para a v2.
+
+### Histórico do impasse que motivou a mudança
+
+A regra B (exigir folhas `Estornado`) foi implementada e gerou um impasse real:
+a parcela `2` pagou 1.000 e gerou a `2.1` de 2.000, mas a `2.1` está `Aberto`
+com `Pago = 0`. Como não há pago nela, ela não pode ser estornada; exigir que
+ela esteja `Estornado` deixa a `2` sem possibilidade de colapso.
+
+**Proposta (não implementada):** adotar a **regra A** — o colapso é permitido
+quando **nenhum descendente ativo tiver `Pago > 0`**, aceitando folhas
+`Aberto` ou `Estornado`. Isso reflete a operação correta: o que se desfaz é o
+desdobramento da mãe, não um pagamento da folha.
+
+Mudanças necessárias quando aprovada:
+
+1. `canCollapse` no front: remover a exigência de `status === 'estornado'`,
+   mantendo a checagem de `amountPaid = 0` na subárvore.
+2. RPC `process_installment_estorno_colapso`: remover o `if v_folhas_invalidas > 0`
+   (a verificação de `v_desc_pago <> 0` permanece).
+3. Renomear a ação das parcelas com filha para **“Desfazer desdobramento”**,
+   preservando “Estornar” para folhas com pago.
+4. Novo `FORWARD`/`VERIFY`/`ROLLBACK` para a RPC, com testes em `test`.
+
+Registrado em `docs/HANDOFF-NOITE-20261127.md` §5. Nada foi alterado no banco
+nem no front além do que já está publicado.

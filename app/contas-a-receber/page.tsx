@@ -359,7 +359,7 @@ export default function ContasAReceberPage() {
   const openReverseModal = (inst: any) => {
     // Parcela com filha não pode ser estornada isolada: o saldo ficaria órfão.
     if (getChildren(inst).length > 0 && !canCollapse(inst)) {
-      toast.error('Estorne a partir da última subparcela')
+      toast.error('Estorne as subparcelas com valor pago antes de desfazer o desdobramento')
       return
     }
     setActiveInstallment(inst)
@@ -481,22 +481,14 @@ export default function ContasAReceberPage() {
     return found
   }
 
-  // Regra B: a mãe só pode ser estornada se todas as folhas ativas da subárvore
-  // estiverem Estornado e nenhum descendente tiver valor pago.
+  // Regra unificada: a mãe pode desfazer o desdobramento quando nenhum
+  // descendente ativo tiver valor pago. Folha Aberta ou Estornado, ambas com
+  // Pago = 0, são elegíveis — basta não haver dinheiro na subárvore.
   const canCollapse = (i: any) => {
     if (Number(i?.amountPaid || 0) <= 0) return false
     const descendants = getActiveDescendants(i)
     if (descendants.length === 0) return false
-    if (descendants.some((x: any) => Number(x.amountPaid || 0) > 0)) return false
-    return descendants.every((x: any) => {
-      const hasActiveChild = descendants.some(
-        (y: any) =>
-          y.parent_installment_id != null &&
-          Number(y.parent_installment_id) === Number(x.id)
-      )
-      if (hasActiveChild) return true
-      return String(x.status || '').toLowerCase() === 'estornado'
-    })
+    return !descendants.some((x: any) => Number(x.amountPaid || 0) > 0)
   }
 
   const getParentLabel = (i: any) => {
@@ -1402,13 +1394,13 @@ export default function ContasAReceberPage() {
                           className={cn("text-rose-600 hover:text-rose-800 font-medium text-xs uppercase tracking-wider disabled:text-slate-300", (((i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0) || estornoBloqueado) && "pointer-events-none")}
                           disabled={(i.status !== 'Quitado' && i.status !== 'Parcial') || Number(i.amountPaid || 0) <= 0 || estornoBloqueado}
                           title={estornoBloqueado
-                            ? 'Estorne a partir da última subparcela'
+                            ? 'Estorne as subparcelas com valor pago antes de desfazer o desdobramento'
                             : estornoComColapso
-                              ? 'Estorna esta parcela e reabsorve as subparcelas'
+                              ? 'Desfaz o desdobramento e reabsorve as subparcelas'
                               : undefined}
                           onClick={() => estornoComColapso ? openCollapseModal(i) : openReverseModal(i)}
                         >
-                          Estornar
+                          {estornoComColapso ? 'Desfazer desdobramento' : 'Estornar'}
                         </button>
                       </td>
                     </motion.tr>
@@ -1597,12 +1589,12 @@ export default function ContasAReceberPage() {
                           className={cn("min-h-[40px] px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-semibold", !canReverse && "pointer-events-none opacity-40")}
                           disabled={!canReverse}
                           title={hasChildren && !canCollapse
-                            ? 'Estorne a partir da última subparcela'
+                            ? 'Estorne as subparcelas com valor pago antes de desfazer o desdobramento'
                             : hasChildren && canCollapse
-                              ? 'Estorna esta parcela e reabsorve as subparcelas'
+                              ? 'Desfaz o desdobramento e reabsorve as subparcelas'
                               : undefined}
                           onClick={() => hasChildren && canCollapse ? openCollapseModal(i) : openReverseModal(i)}
-                        >Estornar</button>
+                        >{hasChildren && canCollapse ? 'Desfazer desdobramento' : 'Estornar'}</button>
                       </div>
                     </motion.div>
                   )
@@ -2063,15 +2055,17 @@ export default function ContasAReceberPage() {
           )}
         </Modal>
 
-        <Modal isOpen={reverseModalOpen} onClose={() => { setReverseModalOpen(false); setCollapseMode(false) }} title="Estornar Parcela">
+        <Modal isOpen={reverseModalOpen} onClose={() => { setReverseModalOpen(false); setCollapseMode(false) }} title={collapseMode ? 'Desfazer Desdobramento' : 'Estornar Parcela'}>
           {activeInstallment && (
             <div className="space-y-4">
               <p>Parcela: {getInstallmentLabel(activeInstallment)} - {selectedContract?.clients?.name}</p>
 
               {collapseMode && (
                 <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                  Esta ação estorna a parcela e <b>reabsorve {collapseCount} subparcela(s)</b>. As linhas
-                  serão marcadas como <b>Reabsorvida</b>, desvinculadas da árvore e ocultas da tela.
+                  Esta ação desfaz o desdobramento: estorna o valor recebido nesta parcela e
+                  <b> reabsorve {collapseCount} subparcela(s)</b>. As linhas serão marcadas como
+                  <b> Reabsorvida</b>, desvinculadas da árvore e ocultas da tela; a parcela volta a
+                  dever o valor original.
                 </div>
               )}
               
@@ -2125,7 +2119,7 @@ export default function ContasAReceberPage() {
                     fetchContracts()
                     fetchDashboardMetrics()
                   }
-              }}>Confirmar Estorno</button>
+              }}>{collapseMode ? 'Confirmar desdobramento' : 'Confirmar Estorno'}</button>
             </div>
           )}
         </Modal>

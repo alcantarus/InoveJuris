@@ -1,0 +1,236 @@
+-- ============================================================================
+-- FORWARD — regra unificada do colapso (v2)
+-- 27/11/2026 — PREPARADO, NÃO EXECUTADO
+--
+-- Substitui a RPC process_installment_estorno_colapso v1 pela v2:
+-- a mãe pode desfazer o desdobramento quando NENHUM descendente ativo tiver
+-- valor pago. Folha Aberta ou Estornado, ambas com Pago = 0, são elegíveis.
+--
+-- Guarda a definição v1 em tabela de backup para rollback.
+-- ============================================================================
+
+begin;
+
+create table if not exists public.backup_func_colapso_regra_a_20261127 (
+  id int primary key,
+  definition text not null,
+  created_at timestamptz not null default now()
+);
+
+insert into public.backup_func_colapso_regra_a_20261127 (id, definition)
+select 1, pg_get_functiondef(
+  'public.process_installment_estorno_colapso(bigint, text, bigint, bigint)'::regprocedure
+)
+on conflict (id) do nothing;
+
+do $guard$
+begin
+  if not exists (select 1 from public.backup_func_colapso_regra_a_20261127 where id = 1) then
+    raise exception 'Abortado: backup da RPC v1 não foi gravado.';
+  end if;
+
+  if not exists (
+    select 1 from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and p.proname = 'process_installment_estorno_colapso'
+  ) then
+    raise exception 'Abortado: RPC v1 não encontrada neste banco.';
+  end if;
+end
+$guard$;
+
+create or replace function public.process_installment_estorno_colapso(
+  p_installment_id bigint,
+  p_reason text,
+  p_account_id bigint,
+  p_user_id bigint
+) returns jsonb
+language plpgsql
+as $function$
+declare
+  v_installment record;
+  v_contract_id bigint;
+  v_contract_value numeric(12,2);
+  v_amount numeric(12,2);
+  v_old_obs text;
+  v_payment record;
+  v_new_received numeric(12,2);
+  v_new_receivable numeric(12,2);
+  v_all_paid boolean;
+  v_some_paid boolean;
+  v_has_estornado boolean;
+  v_new_status text;
+  v_desc_pago numeric(12,2);
+  v_reabsorvidas bigint;
+begin
+  -- colapso v2 20261127 — uma transação: estorna a mãe e reabsorve os descendentes.
+  -- Regra unificada: basta que nenhum descendente tenha valor pago.
+
+  if p_user_id is not null and not exists (select 1 from users where id = p_user_id) then
+    p_user_id := null;
+  end if;
+
+  select * into v_installment
+    from installments
+   where id = p_installment_id
+     for update;
+
+  if not found then
+    raise exception 'Parcela não encontrada';
+  end if;
+
+  v_amount := coalesce(v_installment."amountPaid", 0);
+  if v_amount <= 0 then
+    raise exception 'Esta parcela não possui valor pago para estornar';
+  end if;
+
+  -- Regra unificada: nenhum descendente ativo com valor pago. Folha Aberta ou
+  -- Estornado, ambas com Pago = 0, são elegíveis para reabsorção.
+  with recursive subtree as (
+    select id, parent_installment_id, "amountPaid"
+      from installments
+     where id = p_installment_id
+    union all
+    select c.id, c.parent_installment_id, c."amountPaid"
+      from installments c
+      join subtree s on c.parent_installment_id = s.id
+     where c.status not in ('Reabsorvida', 'Cancelada', 'Cancelado')
+  )
+  select coalesce(sum(coalesce("amountPaid", 0)), 0)
+    into v_desc_pago
+    from subtree
+   where id <> p_installment_id;
+
+  if v_desc_pago <> 0 then
+    raise exception 'Existem pagamentos nas subparcelas. Estorne as folhas antes de desfazer o desdobramento.';
+  end if;
+
+  v_contract_id := v_installment.contract_id;
+  select "contractValue", observations
+    into v_contract_value, v_old_obs
+    from contracts
+   where id = v_contract_id;
+
+  -- Estorno do pagamento da mãe (mesmo padrão da RPC v7).
+  update installments
+     set status = 'Estornado',
+         "amountPaid" = 0,
+         interest = 0,
+         fine = 0,
+         updated_by = p_user_id
+   where id = p_installment_id;
+
+  select * into v_payment
+    from payments
+   where installment_id = p_installment_id
+     and type = 'payment'
+   order by payment_date desc
+   limit 1;
+
+  if found then
+    delete from financial_transactions
+     where id in (
+       select id
+         from financial_transactions
+        where amount = v_payment.amount
+          and date = v_payment.payment_date
+          and account_id = v_payment.account_id
+          and type = 'income'
+          and environment = v_installment.environment
+        order by id desc
+        limit 1
+     );
+  end if;
+
+  insert into payments (
+    installment_id, amount, type, payment_date, account_id,
+    description, environment, created_by
+  ) values (
+    p_installment_id, v_amount, 'reversal', current_date, p_account_id,
+    'Desfazimento de desdobramento: ' || p_reason, v_installment.environment, p_user_id
+  );
+
+  -- Colapso: a linha permanece como Reabsorvida (auditoria preservada).
+  with recursive subtree as (
+    select id, parent_installment_id
+      from installments
+     where id = p_installment_id
+    union all
+    select c.id, c.parent_installment_id
+      from installments c
+      join subtree s on c.parent_installment_id = s.id
+     where c.status not in ('Reabsorvida', 'Cancelada', 'Cancelado')
+  )
+  update installments i
+     set status = 'Reabsorvida',
+         amount = 0,
+         "amountPaid" = 0,
+         interest = 0,
+         fine = 0,
+         parent_installment_id = null,
+         installment_path = null,
+         updated_by = p_user_id
+    from subtree
+   where i.id = subtree.id
+     and i.id <> p_installment_id;
+
+  get diagnostics v_reabsorvidas = row_count;
+
+  -- Recálculo único, ignorando linhas reabsorvidas.
+  select coalesce(sum("amountPaid"), 0)
+    into v_new_received
+    from installments
+   where contract_id = v_contract_id
+     and status <> 'Reabsorvida';
+
+  v_new_receivable := greatest(0, coalesce(v_contract_value, 0) - v_new_received);
+
+  select bool_and(status in ('Quitado', 'Cancelado')) and bool_or(status = 'Quitado'),
+         bool_or(coalesce("amountPaid", 0) > 0),
+         bool_or(status = 'Estornado')
+    into v_all_paid, v_some_paid, v_has_estornado
+    from installments
+   where contract_id = v_contract_id
+     and status <> 'Reabsorvida';
+
+  if v_has_estornado then
+    v_new_status := 'Estornado';
+  elsif v_all_paid then
+    v_new_status := 'Quitado';
+  elsif v_some_paid then
+    v_new_status := 'Parcial';
+  else
+    v_new_status := 'Aberto';
+  end if;
+
+  update contracts
+     set "amountReceived" = v_new_received,
+         "amountReceivable" = v_new_receivable,
+         status = v_new_status,
+         observations = coalesce(v_old_obs, '') || E'\n' || '[DESFAZ-DESDOBRAMENTO]: ' || p_reason,
+         updated_by = p_user_id
+   where id = v_contract_id;
+
+  return jsonb_build_object(
+    'success', true,
+    'parcela_estornada_id', p_installment_id,
+    'subparcelas_reabsorvidas', v_reabsorvidas,
+    'valor_estornado', v_amount,
+    'new_received', v_new_received,
+    'new_receivable', v_new_receivable,
+    'new_status', v_new_status
+  );
+end;
+$function$;
+
+comment on function public.process_installment_estorno_colapso(bigint, text, bigint, bigint) is
+  'v2 20261127 — desfaz desdobramento: exige apenas que nenhum descendente tenha pago.';
+
+select current_database() as database,
+       (select count(*) from pg_proc p
+         where p.pronamespace = 'public'::regnamespace
+           and p.proname = 'process_installment_estorno_colapso'
+           and pg_get_functiondef(p.oid) like '%colapso v2 20261127%') as regra_a_ativa,
+       (select count(*) from public.backup_func_colapso_regra_a_20261127) as backup;
+
+commit;
