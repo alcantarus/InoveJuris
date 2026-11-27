@@ -5,15 +5,16 @@
 > (`docs/CONVENCAO-AMBIENTES-BANCO-UNICO.md`).
 > Nenhum SQL foi executado pelo agente — você rodou tudo no SQL Editor e colou
 > os resultados.
-> **Este documento foi salvo no disco; as alterações documentais desta rodada
-> não foram comitadas.**
+> **Atualizado em 27/11 após o reteste do console. Commit `fab1218` pushed;
+> deploy Vercel `success`.**
 
 ---
 
 ## 1. Estado geral (fechado em 27/11)
 
-- **Teste 1 = OK**: claim ✅, `dados_isolados` ✅, `erro_console` ✅,
-  `permissions` ✅ (catálogo global).
+- **Teste 1 = OK (reteste final)**: claim ✅ em `production` e `test`,
+  `dados_isolados` ✅, `erro_console` ✅ (sem 400), `permissions` ✅
+  (catálogo global).
 - **Teste 2 (configurações/backup/OAuth)** — ainda não iniciado.
 - **Árvore de parcelas** aplicada só para parcelas novas (sem backfill).
 - **KPI `A Receber`** corrigido no front e no banco; 15 contratos ajustados.
@@ -21,9 +22,9 @@
 - **UI**: modais responsivos no iPhone, status de parcela no feminino e
   digitação sem re-render da página (estorno e recebimento isolados).
 
-Último deploy: `dpl_F1xX1jSZ7ZQGUHkn7hhuPJjA7Cdb` — **Ready**, alias
-`https://inove-juris.vercel.app`. `HEAD = f9e95ed`, `main` alinhado com
-`origin/main`.
+Último deploy: commit `fab1218` — Vercel **success** (*Deployment has
+completed*), status publicado no commit. Alias `https://inove-juris.vercel.app`.
+`HEAD = origin/main = fab1218`; árvore limpa.
 
 ---
 
@@ -42,6 +43,7 @@
 | `d322f17` | regra unificada do colapso | `dpl_ECu7JVninbq9qghXjTwBgPC48499` |
 | `bb14550` | performance do modal de estorno | `dpl_dsGuJPCZs7BsgForDn7yDKbt7duk` |
 | `f9e95ed` | performance do modal de recebimento | `dpl_F1xX1jSZ7ZQGUHkn7hhuPJjA7Cdb` |
+| `fab1218` | remove `contractNumber` inexistente + versiona SQLs/handoffs | Vercel `success` |
 
 ---
 
@@ -122,16 +124,38 @@ Arquivos: `FORWARD/VERIFY/ROLLBACK-REGRA-A-ESTORNO-COLAPSO-20261127.sql`.
 
 ---
 
-## 7. Pendências
+## 7. Reteste do console — 400 em `contracts`
 
-1. **Teste 2** — configurações/backup/OAuth (não iniciado).
-2. Rodar os cenários negativos do colapso: folha com `Pago > 0` deve bloquear.
-3. Se quiser, comitar este handoff e o adendo do plano (documentação).
-4. Nenhuma pendência funcional na árvore, no KPI ou nos modais.
+O reteste encontrou `GET .../rest/v1/contracts?select=...contractNumber...`
+com status `400`, porque `contracts` não tem a coluna `contractNumber`
+(o schema usa `processNumber`). O badge `ContractNumberBadge` já fazia fallback
+para `#id`.
+
+Correção aplicada e publicada em `app/contas-a-receber/page.tsx`: `select`
+reduzido a `id, isProBono, isFinanced, installmentsCount`.
+
+Resultado final medido no navegador:
+
+| Ambiente | `environment` | `organizacao_no_token` | `contracts` | `/api/auth/session` |
+|---|---|---|---|---|
+| produção | production | production | 200 | 200 |
+| teste | test | test | 200 | 200 |
+
+Mensagens `[Violation] Forced reflow`, `requestAnimationFrame`, aviso de chart
+e `A listener indicated an asynchronous response...` (mensageria de extensão do
+Chrome) são ruído: não há `chrome.runtime.onMessage`/`sendResponse` no repo.
 
 ---
 
-## 8. Arquivos importantes
+## 8. Pendências
+
+1. **Teste 2** — configurações/backup/OAuth (não iniciado).
+2. Rodar o cenário negativo do colapso: folha com `Pago > 0` deve bloquear.
+3. Nenhuma pendência funcional na árvore, no KPI, nos modais ou no console.
+
+---
+
+## 9. Arquivos importantes
 
 - `docs/PLANO-ARVORE-PARCELAS-20261126.md`
 - `docs/PLANO-ESTORNO-COLAPSO-ARVORE-20261126.md` (+ adendo da regra unificada)
@@ -149,7 +173,7 @@ Arquivos: `FORWARD/VERIFY/ROLLBACK-REGRA-A-ESTORNO-COLAPSO-20261127.sql`.
 
 ---
 
-## 9. Restrições lembradas
+## 10. Restrições lembradas
 
 - Nenhum SQL executado pelo agente; você roda no SQL Editor e cola o resultado.
 - Nenhum `UPDATE`/`DELETE` em dados de negócio sem autorização explícita e medição prévia.
