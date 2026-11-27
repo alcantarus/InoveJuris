@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Modal } from '@/components/Modal'
 import { ArrowRightLeft, TrendingDown, TrendingUp } from 'lucide-react'
 import { formatCurrencyEditable, getTodayBR } from '@/lib/utils'
@@ -54,12 +54,11 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
   const [formData, setFormData] = useState<NewTransactionData>(emptyForm)
   const [displayAmount, setDisplayAmount] = useState('R$ 0,00')
 
-  useEffect(() => {
-    if (!isOpen) {
-      setFormData(emptyForm())
-      setDisplayAmount('R$ 0,00')
-    }
-  }, [isOpen])
+  const handleClose = () => {
+    setFormData(emptyForm())
+    setDisplayAmount('R$ 0,00')
+    onClose()
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,8 +70,8 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Novo Lançamento Financeiro">
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Novo Lançamento Financeiro">
+      <form onSubmit={handleSubmit} className="space-y-5 min-w-0">
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
@@ -109,23 +108,23 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+          <div className="min-w-0">
             <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
             <input
               required
               type="date"
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
+              className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
               value={formData.date}
               onChange={e => setFormData({ ...formData, date: e.target.value })}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium text-slate-700 mb-1">Valor</label>
             <input
               required
               type="text"
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
+              className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
               value={displayAmount}
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, '')
@@ -149,8 +148,8 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+          <div className="min-w-0">
             <label className="block text-sm font-medium text-slate-700 mb-1">
               {formData.type === 'transfer' ? 'Conta de Origem' : 'Conta Bancária'}
             </label>
@@ -168,7 +167,7 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
           </div>
 
           {formData.type === 'transfer' ? (
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-medium text-slate-700 mb-1">Conta de Destino</label>
               <select
                 required
@@ -183,7 +182,7 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
               </select>
             </div>
           ) : (
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
               <select
                 className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -202,7 +201,7 @@ export const NewTransactionModal = React.memo(function NewTransactionModal({
         <div className="pt-4 flex gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
           >
             Cancelar

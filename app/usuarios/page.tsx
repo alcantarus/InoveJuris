@@ -425,8 +425,8 @@ export default function UsuariosPage() {
           title={editingUser ? 'Editar Usuário' : 'Novo Usuário'}
           className="max-w-2xl"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-6 min-w-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Perfil de Acesso (RBAC)</label>
                 <select 
@@ -487,9 +487,9 @@ export default function UsuariosPage() {
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
                 />
               </div>
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Data de Expiração de Acesso</label>
+              <div className="md:col-span-2 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 min-w-0 break-words">Data de Expiração de Acesso</label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -503,7 +503,7 @@ export default function UsuariosPage() {
                 <input 
                   type="date" 
                   disabled={formData.neverExpires}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                  className="w-full min-w-0 px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
                   value={formData.expiration_date || ''}
                   onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
                 />
@@ -516,85 +516,85 @@ export default function UsuariosPage() {
             <div>
               <h4 className="text-sm font-semibold text-slate-900 mb-3 border-b pb-2">Permissões de Acesso</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessDashboard} onChange={e => setFormData({...formData, canAccessDashboard: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Painel (Tela Inicial)</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Painel (Tela Inicial)</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessClients} onChange={e => setFormData({...formData, canAccessClients: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Clientes</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Clientes</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessProcesses} onChange={e => setFormData({...formData, canAccessProcesses: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Processos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Processos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessPrazos} onChange={e => setFormData({...formData, canAccessPrazos: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Prazos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Prazos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessCalendario} onChange={e => setFormData({...formData, canAccessCalendario: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Calendário</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Calendário</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessPublicacoes} onChange={e => setFormData({...formData, canAccessPublicacoes: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Publicações</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Publicações</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessContracts} onChange={e => setFormData({...formData, canAccessContracts: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Contratos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Contratos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessCashFlow} onChange={e => setFormData({...formData, canAccessCashFlow: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Fluxo de Caixa</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Fluxo de Caixa</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessReceivables} onChange={e => setFormData({...formData, canAccessReceivables: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Contas a Receber</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Contas a Receber</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessProducts} onChange={e => setFormData({...formData, canAccessProducts: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Produtos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Produtos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessIndicators} onChange={e => setFormData({...formData, canAccessIndicators: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Indicadores</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Indicadores</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessReports} onChange={e => setFormData({...formData, canAccessReports: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Relatórios</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Relatórios</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessUsers} onChange={e => setFormData({...formData, canAccessUsers: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Usuários</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Usuários</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessSettings} onChange={e => setFormData({...formData, canAccessSettings: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Configurações</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Configurações</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessAudit} onChange={e => setFormData({...formData, canAccessAudit: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Auditoria</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Auditoria</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessLawyers} onChange={e => setFormData({...formData, canAccessLawyers: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Advogados</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Advogados</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessDocuments} onChange={e => setFormData({...formData, canAccessDocuments: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Módulo Documentos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Módulo Documentos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessDocTemplates} onChange={e => setFormData({...formData, canAccessDocTemplates: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Gestão de Modelos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Gestão de Modelos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessDocGeneration} onChange={e => setFormData({...formData, canAccessDocGeneration: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Geração de Documentos</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Geração de Documentos</span>
                 </label>
-                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 min-w-0">
                   <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" checked={formData.canAccessLeads} onChange={e => setFormData({...formData, canAccessLeads: e.target.checked})} />
-                  <span className="text-sm font-medium text-slate-700">Gestão de Leads</span>
+                  <span className="text-sm font-medium text-slate-700 break-words">Gestão de Leads</span>
                 </label>
                 <label className={`flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 border-emerald-200 bg-emerald-50/30 ${getAppEnv() === 'test' ? 'opacity-60 grayscale' : ''}`}>
                   <input 
