@@ -929,7 +929,7 @@ export default function ProcessosPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Fase</label>
                 <input
@@ -985,7 +985,7 @@ export default function ProcessosPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
                 {modalMode === 'previdenciario' ? (
@@ -1033,7 +1033,7 @@ export default function ProcessosPage() {
                 </select>
               </div>
             </div>
-             <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
                 {modalMode === 'previdenciario' ? (

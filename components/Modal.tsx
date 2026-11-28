@@ -14,17 +14,22 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+  const tokens = (className ?? '').split(/\s+/).filter(Boolean)
+
   // Extract z-index from className if present, default to z-50
-  const zIndexClass = className?.match(/z-\[\d+\]|z-\d+/) ? className.match(/z-\[\d+\]|z-\d+/)?.[0] : 'z-50'
+  const zIndexClass = tokens.find(c => /^z-(?:\[\d+\]|\d+)$/.test(c)) ?? 'z-50'
 
   // No mobile o modal deve sempre caber na tela. Larguras máximas vindas do
   // chamador (max-w-2xl etc.) só valem a partir do breakpoint sm.
-  const extraClasses = (className ?? '')
-    .split(/\s+/)
-    .filter(Boolean)
+  const extraClasses = tokens
     .filter(c => !/^z-(?:\[\d+\]|\d+)$/.test(c))
     .map(c => c.startsWith('max-w-') ? `sm:${c}` : c)
     .join(' ')
+
+  // Modais sem largura declarada pelo chamador recebem um limite padrão,
+  // evitando que ocupem a largura inteira do monitor no desktop.
+  const hasExplicitMaxWidth = tokens.some(c => c.startsWith('max-w-'))
+  const defaultMaxWidth = hasExplicitMaxWidth ? '' : 'sm:max-w-3xl'
 
   return (
     <AnimatePresence>
@@ -44,6 +49,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             className={cn(
               "fixed inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 top-[max(0.75rem,env(safe-area-inset-top))] sm:top-1/2 sm:-translate-y-1/2 w-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] sm:w-[calc(100%-2rem)] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[85dvh]",
               zIndexClass,
+              defaultMaxWidth,
               extraClasses
             )}
           >
